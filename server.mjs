@@ -41,7 +41,7 @@ const vite = await createServer({
 app.use(vite.middlewares);
 
 // SPA Fallback
-app.use('*', async (req, res) => {
+app.use('/', async (req, res) => {
   try {
     let template = fs.readFileSync(path.resolve(__dirname, 'index.html'), 'utf-8');
     template = await vite.transformIndexHtml(req.originalUrl, template);
