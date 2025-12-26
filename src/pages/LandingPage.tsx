@@ -38,8 +38,29 @@ const LandingPage = () => {
         .from("agents")
         .select("id, title, description, icon");
 
-      if (error) {
-        toast.error("Não foi possível carregar os assistentes: " + error.message);
+      if (error || !data) {
+        // Fallback: dados mock quando Supabase não está disponível
+        const mockAgents: Agent[] = [
+          {
+            id: "1",
+            title: "Assistente Geral",
+            description: "Um assistente geral para responder suas dúvidas",
+            icon: "Bot"
+          },
+          {
+            id: "2", 
+            title: "Consultor de Negócios",
+            description: "Ajuda com estratégias e consultoria empresarial",
+            icon: "TrendingUp"
+          },
+          {
+            id: "3",
+            title: "Especialista em Tecnologia",
+            description: "Suporte e orientação em questões tecnológicas",
+            icon: "Zap"
+          }
+        ];
+        setAgents(mockAgents);
       } else {
         setAgents(data as Agent[]);
       }

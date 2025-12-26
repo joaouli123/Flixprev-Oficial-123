@@ -7,6 +7,7 @@ export default defineConfig(() => ({
   server: {
     host: "::",
     port: 5000,
+    allowedHosts: "all",
   },
   build: {
     rollupOptions: {

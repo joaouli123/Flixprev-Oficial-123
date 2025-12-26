@@ -81,6 +81,9 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
   useEffect(() => {
     let isMounted = true;
 
+    // Sempre renderizar imediatamente (Supabase desativado)
+    setLoading(false);
+
     // Função auxiliar para verificar se a URL contém parâmetros de autenticação
     const isAuthCallbackUrl = () => {
       const hash = window.location.hash;
