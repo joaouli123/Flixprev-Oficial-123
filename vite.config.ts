@@ -7,7 +7,7 @@ export default defineConfig(() => ({
   server: {
     host: "::",
     port: 5000,
-    allowedHosts: "true", // ✅ necessário para funcionar no Replit
+    allowedHosts: true, // ✅ necessário para funcionar no Replit
   },
   build: {
     rollupOptions: {
@@ -36,10 +36,7 @@ export default defineConfig(() => ({
     },
     chunkSizeWarningLimit: 600,
   },
-  plugins: [
-    dyadComponentTagger(),
-    react(),
-  ],
+  plugins: [dyadComponentTagger(), react()],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
