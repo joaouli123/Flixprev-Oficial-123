@@ -19,25 +19,10 @@ const AppSettingsContext = createContext<AppSettingsContextType | undefined>(und
 
 export const AppSettingsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [settings, setSettings] = useState<AppSettings | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false); // Supabase desativado
 
   const fetchSettings = useCallback(async () => {
-    setLoading(true);
-    const { data, error } = await supabase
-      .from('app_settings')
-      .select('logo_url, favicon_url, facebook_pixel_id, facebook_capi_token')
-      .limit(1)
-      .single();
-
-    if (error && error.code !== 'PGRST116') { // PGRST116 means "no rows found"
-      console.error("Error fetching app settings:", error.message);
-      toast.error("Erro ao carregar configurações do aplicativo: " + error.message);
-      setSettings(null);
-    } else if (data) {
-      setSettings(data as AppSettings);
-    } else {
-      setSettings(null); // No settings found
-    }
+    // Supabase desativado - usando Neon para o banco de dados
     setLoading(false);
   }, []);
 
