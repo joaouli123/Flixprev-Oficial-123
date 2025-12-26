@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { supabase } from '@/lib/supabase';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { checkRateLimit } from '@/lib/rate-limit';
 import { loginSchema } from '@/lib/validations';
+import { loginUser } from '@/lib/auth';
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -41,17 +41,10 @@ const Login: React.FC = () => {
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email: result.data.email,
-        password: result.data.password,
-      });
+      const loginResult = await loginUser(result.data.email, result.data.password);
 
-      if (error) {
-        if (error.message.includes('Invalid login credentials')) {
-          toast.error('Email ou senha incorretos. Verifique suas credenciais e tente novamente.');
-        } else {
-          toast.error('Erro ao fazer login: ' + error.message);
-        }
+      if (!loginResult.success) {
+        toast.error(loginResult.error || 'Email ou senha incorretos.');
       } else {
         toast.success('Login realizado com sucesso!');
         navigate('/app');
