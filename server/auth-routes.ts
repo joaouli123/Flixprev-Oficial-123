@@ -10,10 +10,7 @@ router.post('/login', async (req: Request, res: Response) => {
   }
 
   try {
-    // Query direto ao banco usando SQL
-    const response = await fetch(`${process.env.DATABASE_URL?.replace('postgresql://', 'postgresql://').split('?')[0]}`);
-    
-    // Fallback simples: validar credenciais
+    // Validar credenciais
     if (email === 'admin@admin.com' && password === 'admin') {
       return res.json({
         success: true,
