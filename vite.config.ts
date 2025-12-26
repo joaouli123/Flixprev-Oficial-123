@@ -7,7 +7,7 @@ export default defineConfig(() => ({
   server: {
     host: "::",
     port: 5000,
-    allowedHosts: "all", // ✅ necessário para funcionar no Replit
+    allowedHosts: "true", // ✅ necessário para funcionar no Replit
   },
   build: {
     rollupOptions: {
