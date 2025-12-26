@@ -35,6 +35,34 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
     setLoading(false);
   }, []);
 
+  // Monitorar mudanças no localStorage (para quando o login ocorre)
+  useEffect(() => {
+    const handleStorageChange = () => {
+      const sessionData = getSession();
+      if (sessionData) {
+        setUser(sessionData.user);
+        setSession(sessionData);
+      } else {
+        setUser(null);
+        setSession(null);
+      }
+    };
+
+    // Escutar evento de storage (mudanças em outra aba/janela)
+    window.addEventListener('storage', handleStorageChange);
+
+    // Criar e disparar evento customizado para mudanças na mesma aba
+    const handleCustomStorageChange = (e: Event) => {
+      handleStorageChange();
+    };
+    document.addEventListener('localStorageChanged', handleCustomStorageChange);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      document.removeEventListener('localStorageChanged', handleCustomStorageChange);
+    };
+  }, []);
+
 
   // Redirecionar baseado na autenticação
   useEffect(() => {

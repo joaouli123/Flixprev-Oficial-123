@@ -28,6 +28,8 @@ export async function loginUser(email: string, password: string): Promise<LoginR
     if (data.user) {
       localStorage.setItem('user', JSON.stringify(data.user));
       localStorage.setItem('sessionToken', data.token);
+      // Disparar evento customizado para notificar o SessionContextProvider
+      document.dispatchEvent(new Event('localStorageChanged'));
     }
 
     return { success: true, user: data.user };
