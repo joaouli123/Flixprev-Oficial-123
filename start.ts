@@ -10,7 +10,7 @@ async function startDevServer() {
   // Middleware
   app.use(express.json());
 
-  // API Routes FIRST (antes do Vite)
+  // API Routes - MUST come before Vite middleware
   app.use('/api', authRoutes);
 
   // Criar e integrar Vite
@@ -19,11 +19,23 @@ async function startDevServer() {
     appType: 'spa',
   });
 
-  // Use Vite's connect instance as middleware
-  app.use(vite.middlewares);
+  // Middleware que intercepta e roteia adequadamente
+  app.use((req, res, next) => {
+    // Se não é uma requisição de API, deixe Vite lidar
+    if (!req.path.startsWith('/api')) {
+      return vite.middlewares(req, res, next);
+    }
+    // Para requisições de API que não foram tratadas
+    next();
+  });
 
-  // SPA fallback - servir index.html
+  // SPA fallback - servir index.html para rotas desconhecidas (não-API)
   app.use('*', async (req, res) => {
+    // Rejeitar requisições de API não encontradas
+    if (req.path.startsWith('/api')) {
+      return res.status(404).json({ error: 'Rota não encontrada' });
+    }
+
     try {
       let template = fs.readFileSync(
         path.resolve(__dirname, 'index.html'),
