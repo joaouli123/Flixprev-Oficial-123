@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 // import { Button } from "@/components/ui/button"; // Removido: não é mais usado
 // import { useNavigate } from "react-router-dom"; // Removido: não é mais usado
 import { Youtube } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { neon as supabase } from "@/lib/neon"
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 

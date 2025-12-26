@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Facebook, Save, AlertTriangle } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { neon as supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import { useSession } from "@/components/SessionContextProvider";
 

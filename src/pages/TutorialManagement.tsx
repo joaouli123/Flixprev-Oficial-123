@@ -4,7 +4,7 @@ import { useSession } from "@/components/SessionContextProvider";
 import { Button } from "@/components/ui/button";
 import { Plus, Edit, Trash2, BookOpen } from "lucide-react";
 import { toast } from "sonner";
-import { supabase } from "@/lib/supabase";
+import { neon as supabase } from "@/lib/neon"
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import {
   Table,

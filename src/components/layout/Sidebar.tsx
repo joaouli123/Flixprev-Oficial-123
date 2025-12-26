@@ -5,7 +5,7 @@ import { Category, CustomLink } from "@/types/app";
 import { cn } from "@/lib/utils";
 import { useSession } from "@/components/SessionContextProvider";
 import { useNavigate, useLocation } from "react-router-dom";
-import { supabase } from '@/lib/supabase';
+import { neon as supabase } from '@/lib/neon';
 import { toast } from "sonner";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";

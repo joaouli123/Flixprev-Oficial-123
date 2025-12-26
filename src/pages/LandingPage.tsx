@@ -23,7 +23,7 @@ import {
   Heart,
   type LucideIcon 
 } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { neon as supabase } from "@/lib/neon"
 import { Agent } from "@/types/app";
 import { toast } from "sonner";
 

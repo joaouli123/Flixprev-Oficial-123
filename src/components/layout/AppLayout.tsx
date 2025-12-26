@@ -26,7 +26,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { supabase } from "@/lib/supabase";
+import { neon } from "@/lib/neon";
 import { useSession } from "@/components/SessionContextProvider";
 import { useIsMobile } from "@/hooks/use-mobile";
 
@@ -63,7 +63,7 @@ const AppLayout = () => {
   const fetchCategories = useCallback(async () => {
     if (!userId) return;
     setLoading(true);
-    const { data, error } = await supabase.from("categories").select("*");
+    const { data, error } = await neon.from("categories").select("*");
     if (error) {
       toast.error("Erro ao carregar categorias: " + error.message);
       setCategories([]);
@@ -76,7 +76,7 @@ const AppLayout = () => {
   const fetchAgents = useCallback(async () => {
     if (!userId) return;
     setLoading(true);
-    const { data, error } = await supabase.from("agents").select("*");
+    const { data, error } = await neon.from("agents").select("*");
     if (error) {
       toast.error("Erro ao carregar agentes: " + error.message);
       setAgents([]);
@@ -88,7 +88,7 @@ const AppLayout = () => {
 
   const fetchCustomLinks = useCallback(async () => {
     if (!userId) return;
-    const { data, error } = await supabase
+    const { data, error } = await neon
       .from("custom_links")
       .select("*")
       .order("display_order", { ascending: true });
@@ -114,7 +114,7 @@ const AppLayout = () => {
       toast.error("Você precisa estar logado para criar categorias.");
       return;
     }
-    const { data, error } = await supabase
+    const { data, error } = await neon
       .from("categories")
       .insert({ name, user_id: userId })
       .select();

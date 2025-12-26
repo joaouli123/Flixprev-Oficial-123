@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase';
+import { neon as supabase } from "@/lib/neon"
 import { useSession } from '@/components/SessionContextProvider';
 
 interface SubscriptionData {

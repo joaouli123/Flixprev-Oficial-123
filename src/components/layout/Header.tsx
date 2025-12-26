@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useSession } from "@/components/SessionContextProvider";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/lib/supabase";
+import { neon as supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import {
   DropdownMenu,

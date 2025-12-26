@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useSession } from "@/components/SessionContextProvider";
 import { Users, BarChart, Settings as SettingsIcon } from "lucide-react";
 import { toast } from "sonner";
-import { supabase } from "@/lib/supabase";
+import { neon as supabase } from "@/lib/neon"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import FacebookSettingsCard from "@/components/admin/FacebookSettingsCard"; // Importar novo componente
 

@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { supabase } from '@/lib/supabase';
+import { neon as supabase } from "@/lib/neon"
 import { toast } from 'sonner'; // Importar toast
 
 const EsqueciSenha: React.FC = () => {
