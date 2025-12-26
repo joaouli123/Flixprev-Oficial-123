@@ -7,37 +7,37 @@ export default defineConfig(() => ({
   server: {
     host: "::",
     port: 5000,
-    allowedHosts: "all",
+    allowedHosts: "all", // ✅ necessário para funcionar no Replit
   },
   build: {
     rollupOptions: {
       onwarn(warning, warn) {
         // Suprimir warnings específicos que não afetam o funcionamento
-        if (warning.code === 'MODULE_LEVEL_DIRECTIVE') return;
+        if (warning.code === "MODULE_LEVEL_DIRECTIVE") return;
         warn(warning);
       },
       output: {
         manualChunks: {
           // Separar vendors grandes em chunks próprios
-          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
-          'ui-vendor': [
-            '@radix-ui/react-dialog',
-            '@radix-ui/react-dropdown-menu',
-            '@radix-ui/react-select',
-            '@radix-ui/react-tabs',
-            '@radix-ui/react-tooltip',
+          "react-vendor": ["react", "react-dom", "react-router-dom"],
+          "ui-vendor": [
+            "@radix-ui/react-dialog",
+            "@radix-ui/react-dropdown-menu",
+            "@radix-ui/react-select",
+            "@radix-ui/react-tabs",
+            "@radix-ui/react-tooltip",
           ],
-          'supabase': ['@supabase/supabase-js', '@supabase/auth-ui-react'],
-          'query': ['@tanstack/react-query'],
-          'form': ['react-hook-form', '@hookform/resolvers', 'zod'],
-          'icons': ['lucide-react'],
+          supabase: ["@supabase/supabase-js", "@supabase/auth-ui-react"],
+          query: ["@tanstack/react-query"],
+          form: ["react-hook-form", "@hookform/resolvers", "zod"],
+          icons: ["lucide-react"],
         },
       },
     },
-    chunkSizeWarningLimit: 600, // Aumentar limite para 600kb
+    chunkSizeWarningLimit: 600,
   },
   plugins: [
-    dyadComponentTagger(), 
+    dyadComponentTagger(),
     react(),
   ],
   resolve: {
