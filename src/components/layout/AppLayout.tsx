@@ -36,7 +36,7 @@ const AppLayout = () => {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
 
-  const [categories, setCategories] = useState<Category[]>([]); // Esta é a lista de categorias reais do DB
+  const [categories, setCategories] = useState<Category[]>([]);
   const [agents, setAgents] = useState<Agent[]>([]);
   const [customLinks, setCustomLinks] = useState<CustomLink[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
@@ -66,8 +66,9 @@ const AppLayout = () => {
     const { data, error } = await supabase.from("categories").select("*");
     if (error) {
       toast.error("Erro ao carregar categorias: " + error.message);
+      setCategories([]);
     } else {
-      setCategories(data as Category[]);
+      setCategories((data || []) as Category[]);
     }
     setLoading(false);
   }, [userId]);
@@ -78,8 +79,9 @@ const AppLayout = () => {
     const { data, error } = await supabase.from("agents").select("*");
     if (error) {
       toast.error("Erro ao carregar agentes: " + error.message);
+      setAgents([]);
     } else {
-      setAgents(data as Agent[]);
+      setAgents((data || []) as Agent[]);
     }
     setLoading(false);
   }, [userId]);
@@ -93,8 +95,9 @@ const AppLayout = () => {
 
     if (error) {
       toast.error("Erro ao carregar links personalizados: " + error.message);
+      setCustomLinks([]);
     } else {
-      setCustomLinks(data as CustomLink[]);
+      setCustomLinks((data || []) as CustomLink[]);
     }
   }, [userId]);
 
@@ -118,8 +121,10 @@ const AppLayout = () => {
     if (error) {
       toast.error("Erro ao criar categoria: " + error.message);
     } else {
-      setCategories((prev) => [...prev, data[0] as Category]);
-      toast.success(`Categoria '${name}' criada com sucesso!`);
+      if (data && data.length > 0) {
+        setCategories((prev) => [...prev, data[0] as Category]);
+        toast.success(`Categoria '${name}' criada com sucesso!`);
+      }
     }
   };
 
