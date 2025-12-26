@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FlixPrev I.A</title>
+    
+    <!-- Theme Color -->
+    <meta name="theme-color" content="#3b82f6">
+    
+    <!-- Content Security Policy -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://connect.facebook.net https://*.vercel.live https://vercel.live; style-src 'self' 'unsafe-inline' https://*.vercel.live; img-src 'self' data: https: blob:; font-src 'self' data:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://connect.facebook.net https://*.vercel.live wss://*.vercel.live; frame-src https://*.vercel.live https://vercel.live; object-src 'none'; base-uri 'self'; form-action 'self';">
+    
+    <!-- Fix passive event listeners warning -->
+    <script>
+      // Make touch event listeners passive by default
+      (function() {
+        if (typeof EventTarget !== "undefined") {
+          let func = EventTarget.prototype.addEventListener;
+          EventTarget.prototype.addEventListener = function (type, fn, capture) {
+            this.func = func;
+            if(typeof capture !== "boolean"){
+              capture = capture || {};
+              capture.passive = false;
+            }
+            this.func(type, fn, capture);
+          };
+        }
+      }());
+    </script>
+    
+    <!-- Facebook Pixel Code -->
+    <script>
+      !function(f,b,e,v,n,t,s)
+      {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+      n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+      if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+      n.queue=[];t=b.createElement(e);t.async=!0;
+      t.src=v;s=b.getElementsByTagName(e)[0];
+      s.parentNode.insertBefore(t,s)}(window, document,'script',
+      'https://connect.facebook.net/en_US/fbevents.js');
+      
+      // O Pixel ID será injetado aqui dinamicamente se estiver disponível
+      // Por enquanto, usamos um placeholder ou o AppSettingsProvider
+      // Como o AppSettingsProvider é assíncrono, faremos a inicialização no AppSettingsProvider
+      // Aqui, apenas o script base é carregado.
+      
+      // Exemplo de inicialização (será substituído pelo AppSettingsProvider)
+      // fbq('init', 'YOUR_PIXEL_ID'); 
+      // fbq('track', 'PageView');
+    </script>
+    <!-- End Facebook Pixel Code -->
+  </head>
+
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

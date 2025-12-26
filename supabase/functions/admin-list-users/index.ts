@@ -1,0 +1,134 @@
+// @ts-ignore
+import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+// @ts-ignore
+import { createClient, User as AuthUser } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+import { getCorsHeaders, handleCorsPreFlight } from '../_shared/cors.ts';
+
+interface Profile {
+  id: string;
+  first_name: string | null;
+  last_name: string | null;
+  avatar_url: string | null;
+  role: 'user' | 'admin';
+  updated_at: string | null;
+}
+
+interface Usuario {
+    user_id: string;
+    status_da_assinatura: string | null;
+}
+
+serve(async (req: Request) => {
+  const origin = req.headers.get('origin');
+  const corsHeaders = getCorsHeaders(origin);
+
+  if (req.method === 'OPTIONS') {
+    return handleCorsPreFlight(req);
+  }
+
+  try {
+    const supabaseAdmin = createClient(
+      // @ts-ignore
+      Deno.env.get('SUPABASE_URL') ?? '',
+      // @ts-ignore
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
+    // Verify the JWT to ensure the request is from an authenticated user
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: 'Unauthorized: Missing Authorization header' }), { 
+        status: 401, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      });
+    }
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(token);
+
+    if (userError || !user) {
+      return new Response(JSON.stringify({ error: 'Unauthorized: Invalid or expired token' }), { 
+        status: 401, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      });
+    }
+
+    // SECURITY: Check if the user is an admin
+    const { data: profile, error: profileError } = await supabaseAdmin
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single();
+
+    if (profileError || profile?.role !== 'admin') {
+      return new Response(JSON.stringify({ error: 'Forbidden: User is not an admin' }), {
+        status: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Fetch all users from auth.users
+    const { data: authUsers, error: authUsersError } = await supabaseAdmin.auth.admin.listUsers();
+
+    if (authUsersError) {
+      console.error('Error listing auth users:', authUsersError);
+      return new Response(JSON.stringify({ error: authUsersError.message }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 500,
+      });
+    }
+
+    // Fetch all profiles from public.profiles
+    const { data: profiles, error: profilesError } = await supabaseAdmin
+      .from('profiles')
+      .select('*');
+
+    if (profilesError) {
+      console.error('Error listing profiles:', profilesError);
+      return new Response(JSON.stringify({ error: profilesError.message }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 500,
+      });
+    }
+
+    // Fetch all subscription statuses from public.usuarios
+    const { data: usuarios, error: usuariosError } = await supabaseAdmin
+      .from('usuarios')
+      .select('user_id, status_da_assinatura');
+
+    if (usuariosError) {
+        console.error('Error listing usuarios:', usuariosError);
+        return new Response(JSON.stringify({ error: usuariosError.message }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 500,
+        });
+    }
+
+    // Combine auth users with their profiles and subscription status
+    const usersWithProfiles = authUsers.users.map((authUser: AuthUser) => {
+      const profile = profiles.find((p: Profile) => p.id === authUser.id);
+      const usuario = usuarios.find((u: Usuario) => u.user_id === authUser.id);
+      return {
+        id: authUser.id,
+        email: authUser.email,
+        created_at: authUser.created_at,
+        last_sign_in_at: authUser.last_sign_in_at,
+        first_name: profile?.first_name || null,
+        last_name: profile?.last_name || null,
+        role: profile?.role || 'user',
+        avatar_url: profile?.avatar_url || null,
+        status_da_assinatura: usuario?.status_da_assinatura || null,
+      };
+    });
+
+    return new Response(JSON.stringify(usersWithProfiles), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 200,
+    });
+  } catch (error: unknown) {
+    console.error('Unhandled error:', error);
+    return new Response(JSON.stringify({ error: (error as Error).message }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 500,
+    });
+  }
+});

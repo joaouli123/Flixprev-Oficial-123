@@ -1,0 +1,54 @@
+<svg width="200" height="200" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <!-- Círculo de fundo -->
+  <circle cx="100" cy="60" r="45" fill="none" stroke="#1e3a8a" stroke-width="4"/>
+  
+  <!-- Balança da Justiça -->
+  <g transform="translate(100, 60)">
+    <!-- Haste principal -->
+    <rect x="-1.5" y="-20" width="3" height="25" fill="#1e3a8a"/>
+    <!-- Base da balança -->
+    <rect x="-10" y="3" width="20" height="4" rx="2" fill="#1e3a8a"/>
+    <!-- Braço da balança -->
+    <rect x="-22" y="-3" width="44" height="3" fill="#1e3a8a"/>
+    
+    <!-- Prato esquerdo -->
+    <g transform="translate(-18, 0)">
+      <path d="M-8,0 Q-8,-4 0,-4 Q8,-4 8,0 L6,10 Q0,12 -6,10 Z" fill="#1e3a8a"/>
+      <line x1="-8" y1="0" x2="8" y2="0" stroke="#1e3a8a" stroke-width="1.5"/>
+      <line x1="-6" y1="-10" x2="-6" y2="0" stroke="#1e3a8a" stroke-width="1.5"/>
+      <line x1="6" y1="-10" x2="6" y2="0" stroke="#1e3a8a" stroke-width="1.5"/>
+    </g>
+    
+    <!-- Prato direito -->
+    <g transform="translate(18, 0)">
+      <path d="M-8,0 Q-8,-4 0,-4 Q8,-4 8,0 L6,10 Q0,12 -6,10 Z" fill="#1e3a8a"/>
+      <line x1="-8" y1="0" x2="8" y2="0" stroke="#1e3a8a" stroke-width="1.5"/>
+      <line x1="-6" y1="-10" x2="-6" y2="0" stroke="#1e3a8a" stroke-width="1.5"/>
+      <line x1="6" y1="-10" x2="6" y2="0" stroke="#1e3a8a" stroke-width="1.5"/>
+    </g>
+    
+    <!-- Topo decorativo -->
+    <circle cx="0" cy="-23" r="3" fill="#1e3a8a"/>
+  </g>
+  
+  <!-- Livro aberto -->
+  <g transform="translate(100, 130)">
+    <!-- Páginas laranja -->
+    <path d="M-50,-15 Q-40,-20 -30,-12 Q-20,-16 -10,-8 Q0,-12 10,-4 Q20,-8 30,0 Q40,-4 50,4 L45,25 Q35,20 25,25 Q15,20 5,25 Q-5,20 -15,25 Q-25,20 -35,25 Q-45,20 -55,25 Z" fill="#f97316"/>
+    
+    <path d="M-55,-10 Q-45,-15 -35,-7 Q-25,-11 -15,-3 Q-5,-7 5,1 Q15,-3 25,5 Q35,1 45,9 L40,30 Q30,25 20,30 Q10,25 0,30 Q-10,25 -20,30 Q-30,25 -40,30 Q-50,25 -60,30 Z" fill="#ea580c"/>
+    
+    <!-- Páginas azuis -->
+    <path d="M-45,-5 Q-35,-10 -25,-2 Q-15,-6 -5,2 Q5,-2 15,6 Q25,2 35,10 Q45,6 55,14 L50,35 Q40,30 30,35 Q20,30 10,35 Q0,30 -10,35 Q-20,30 -30,35 Q-40,30 -50,35 Z" fill="#1e3a8a"/>
+    
+    <path d="M-40,0 Q-30,-5 -20,3 Q-10,-1 0,7 Q10,3 20,11 Q30,7 40,15 Q50,11 60,19 L55,40 Q45,35 35,40 Q25,35 15,40 Q5,35 -5,40 Q-15,35 -25,40 Q-35,35 -45,40 Z" fill="#1e40af"/>
+    
+    <!-- Centro do livro -->
+    <ellipse cx="0" cy="20" rx="10" ry="6" fill="#1e3a8a"/>
+  </g>
+  
+  <!-- Texto "DIREITO MASTIGADO" -->
+  <text x="100" y="185" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="#1e3a8a">
+    DIREITO MASTIGADO
+  </text>
+</svg>
