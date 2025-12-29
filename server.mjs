@@ -712,8 +712,17 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
 
     const msgs = [
       { role: "system", content: prompt },
-      ...hist.rows.map(m => ({ role: m.role, content: m.content }))
     ];
+    
+    // Adicionar histórico (limitar a 10 mensagens para não estourar contexto)
+    const history = hist.rows.slice(-10).map(m => ({ role: m.role, content: m.content }));
+    msgs.push(...history);
+
+    console.log('[PROMPT FINAL] ========== ENVIANDO PARA OPENAI ==========');
+    console.log(`[PROMPT FINAL] System Prompt Size: ${prompt.length} chars`);
+    console.log(`[PROMPT FINAL] History Size: ${history.length} messages`);
+    console.log('[PROMPT FINAL] Amostra do Prompt:\n', prompt.substring(0, 500) + '...');
+    console.log('[PROMPT FINAL] ==========================================');
 
     // Stream resposta
     res.setHeader("Content-Type", "text/event-stream");
