@@ -5,12 +5,31 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import pkg from 'pg';
 import OpenAI from 'openai';
+import multer from 'multer';
+import crypto from 'crypto';
 const { Pool } = pkg;
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 
 app.use(express.json());
+
+// Setup multer for file uploads
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadDir = path.join(__dirname, 'public', 'agent-attachments');
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueName = `${crypto.randomUUID()}-${file.originalname}`;
+    cb(null, uniqueName);
+  }
+});
+
+const upload = multer({ storage });
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -93,6 +112,16 @@ app.get("/api/agents/:agentId/documents", async (req, res) => {
     const result = await pool.query('SELECT * FROM agent_documents WHERE agent_id = $1 ORDER BY created_at DESC', [agentId]);
     res.json(result.rows || []);
   } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Upload endpoint for agent attachments
+app.post('/api/agents/upload', upload.single('file'), (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ error: 'Nenhum arquivo foi enviado' });
+  }
+  
+  const filePath = `/agent-attachments/${req.file.filename}`;
+  res.json({ path: filePath, filename: req.file.originalname });
 });
 
 app.post("/api/conversations/:id/messages", async (req, res) => {
