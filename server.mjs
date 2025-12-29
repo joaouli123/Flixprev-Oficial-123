@@ -116,23 +116,38 @@ async function searchSimilarChunks(queryEmbedding, agentId, limit = 5) {
 
 // 5️⃣ Prompt RESTRITIVO HARDCORE
 function buildPrompt(context, question) {
-  return `Você é um assistente que responde EXCLUSIVAMENTE com base no texto abaixo.
+  return `🔒 MODO RESTRITIVO: VOCÊ DEVE SEGUIR ESTAS REGRAS COM RIGOR ABSOLUTO
 
-REGRAS OBRIGATÓRIAS:
-- Use APENAS o conteúdo fornecido abaixo
-- NÃO use conhecimento externo ou geral
-- NÃO invente autores, datas, números ou conceitos
-- NÃO faça suposições sobre o que está escrito
-- Se a pergunta não puder ser respondida com o texto, responda EXATAMENTE:
-  "O documento não aborda esse ponto."
+INSTRUÇÃO PRINCIPAL:
+Responda EXCLUSIVAMENTE com base no texto do documento abaixo.
+NÃO utilize nenhum conhecimento externo, geral ou anterior.
 
-TEXTO DA BASE DE CONHECIMENTO:
-${context || '[Nenhum conteúdo encontrado]'}
+REGRAS OBRIGATÓRIAS (NÃO PODE QUEBRAR):
+1. ❌ NÃO use conhecimento externo ou geral
+2. ❌ NÃO invente ou presuma nada não dito no texto
+3. ❌ NÃO cite autores, datas, números ou conceitos que não apareçam no documento
+4. ❌ NÃO faça interpretações criativas ou generalizações
+5. ✅ USE APENAS as informações literalmente presentes no texto abaixo
 
+RESPOSTA OBRIGATÓRIA PARA PERGUNTAS FORA DO ESCOPO:
+Se a pergunta não puder ser respondida COMPLETAMENTE usando apenas o texto fornecido abaixo, você DEVE responder EXATAMENTE desta forma:
+"O documento não aborda esse ponto."
+
+NÃO OFEREÇA ALTERNATIVAS, EXPLICAÇÕES OU CONTEXTO GERAL.
+
+═══════════════════════════════════════════════════════════════════
+TEXTO DO DOCUMENTO (SUA ÚNICA FONTE DE VERDADE):
+═══════════════════════════════════════════════════════════════════
+${context || '[⚠️ ERRO: Nenhum conteúdo de documento foi fornecido]'}
+
+═══════════════════════════════════════════════════════════════════
 PERGUNTA DO USUÁRIO:
+═══════════════════════════════════════════════════════════════════
 ${question}
 
-Responda com base APENAS no texto acima:`;
+═══════════════════════════════════════════════════════════════════
+RESPONDA AGORA (apenas com base no texto acima):
+═══════════════════════════════════════════════════════════════════`;
 }
 
 // ============================================
@@ -585,7 +600,8 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
     const stream = await openai.chat.completions.create({
       model: "gpt-4o",
       messages: msgs,
-      stream: true
+      stream: true,
+      temperature: 0
     });
 
     let fullResp = "";
