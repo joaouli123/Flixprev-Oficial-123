@@ -81,11 +81,36 @@ const AppLayout = () => {
       toast.error("Erro ao carregar agentes: " + error.message);
       setAgents([]);
     } else {
-      const agents = (data || []).map((agent: any) => ({
-        ...agent,
-        category_ids: typeof agent.category_ids === 'string' ? JSON.parse(agent.category_ids || '[]') : (agent.category_ids || []),
-        attachments: typeof agent.attachments === 'string' ? JSON.parse(agent.attachments || '[]') : (agent.attachments || []),
-      })) as Agent[];
+      const agents = (data || []).map((agent: any) => {
+        let categoryIds: string[] = [];
+        try {
+          if (typeof agent.category_ids === 'string') {
+            const parsed = JSON.parse(agent.category_ids || '[]');
+            categoryIds = parsed.map((id: any) => String(id));
+          } else if (Array.isArray(agent.category_ids)) {
+            categoryIds = agent.category_ids.map((id: any) => String(id));
+          }
+        } catch (e) {
+          categoryIds = [];
+        }
+        
+        let attachments: string[] = [];
+        try {
+          if (typeof agent.attachments === 'string') {
+            attachments = JSON.parse(agent.attachments || '[]');
+          } else if (Array.isArray(agent.attachments)) {
+            attachments = agent.attachments;
+          }
+        } catch (e) {
+          attachments = [];
+        }
+        
+        return {
+          ...agent,
+          category_ids: categoryIds,
+          attachments: attachments,
+        };
+      }) as Agent[];
       setAgents(agents);
     }
     setLoading(false);
@@ -260,9 +285,19 @@ const AppLayout = () => {
       } else {
         if (data && data.length > 0) {
           const newAgent = data[0];
+          let categoryIds: string[] = [];
+          try {
+            if (typeof newAgent.category_ids === 'string') {
+              categoryIds = JSON.parse(newAgent.category_ids || '[]').map((id: any) => String(id));
+            } else if (Array.isArray(newAgent.category_ids)) {
+              categoryIds = newAgent.category_ids.map((id: any) => String(id));
+            }
+          } catch (e) {
+            categoryIds = [];
+          }
           setAgents((prev) => [...prev, {
             ...newAgent,
-            category_ids: typeof newAgent.category_ids === 'string' ? JSON.parse(newAgent.category_ids || '[]') : (newAgent.category_ids || []),
+            category_ids: categoryIds,
             attachments: typeof newAgent.attachments === 'string' ? JSON.parse(newAgent.attachments || '[]') : (newAgent.attachments || []),
           } as Agent]);
           toast.success(`Agente '${newAgentData.title}' adicionado com sucesso!`);
@@ -319,10 +354,20 @@ const AppLayout = () => {
     } else {
       if (data && data.length > 0) {
         const updatedAgent = data[0];
+        let categoryIds: string[] = [];
+        try {
+          if (typeof updatedAgent.category_ids === 'string') {
+            categoryIds = JSON.parse(updatedAgent.category_ids || '[]').map((id: any) => String(id));
+          } else if (Array.isArray(updatedAgent.category_ids)) {
+            categoryIds = updatedAgent.category_ids.map((id: any) => String(id));
+          }
+        } catch (e) {
+          categoryIds = [];
+        }
         setAgents((prev) =>
           prev.map((agent) => agent.id === agentId ? {
             ...updatedAgent,
-            category_ids: typeof updatedAgent.category_ids === 'string' ? JSON.parse(updatedAgent.category_ids || '[]') : (updatedAgent.category_ids || []),
+            category_ids: categoryIds,
             attachments: typeof updatedAgent.attachments === 'string' ? JSON.parse(updatedAgent.attachments || '[]') : (updatedAgent.attachments || []),
           } as Agent : agent)
         );
