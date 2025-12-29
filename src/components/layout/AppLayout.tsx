@@ -290,11 +290,19 @@ const AppLayout = () => {
     }
     const { data, error } = await neon
       .from("agents")
-      .update({ ...updatedAgentData, category_ids: updatedAgentData.category_ids })
+      .update({
+        title: updatedAgentData.title,
+        description: updatedAgentData.description,
+        icon: updatedAgentData.icon,
+        category_ids: updatedAgentData.category_ids,
+        link: updatedAgentData.link || null,
+        instructions: updatedAgentData.instructions || null,
+      })
       .eq("id", agentId)
       .select();
 
     if (error) {
+      console.error("Erro ao editar agente:", error);
       toast.error("Erro ao editar agente: " + error.message);
     } else {
       if (data && data.length > 0) {
