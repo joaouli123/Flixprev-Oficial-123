@@ -56,8 +56,8 @@ async function extractPdfText(filePath) {
   }
 }
 
-// 2️⃣ Chunking (tamanho=800, overlap=150)
-function chunkText(text, size = 800, overlap = 150) {
+// 2️⃣ Chunking (tamanho=800, overlap=300 para melhor contexto)
+function chunkText(text, size = 800, overlap = 300) {
   const chunks = [];
   let start = 0;
   while (start < text.length) {
@@ -92,7 +92,7 @@ async function generateEmbeddings(chunks) {
 }
 
 // 4️⃣ Busca semântica com pgvector
-async function searchSimilarChunks(queryEmbedding, agentId, limit = 5) {
+async function searchSimilarChunks(queryEmbedding, agentId, limit = 8) {
   try {
     // Formatar o embedding como string de vector para pgvector
     // pgvector espera formato como "[0.1, 0.2, ...]"
@@ -110,6 +110,24 @@ async function searchSimilarChunks(queryEmbedding, agentId, limit = 5) {
     return result.rows.map(r => r.content).join('\n\n---\n\n');
   } catch (e) {
     console.error('[SEARCH] Erro:', e.message);
+    return '';
+  }
+}
+
+// 4B️⃣ Busca por palavra-chave (fallback para listas e nomes)
+async function searchKeywordChunks(keyword, agentId, limit = 5) {
+  try {
+    const result = await pool.query(`
+      SELECT content
+      FROM document_chunks
+      WHERE agent_id = $1 AND content ILIKE $2
+      LIMIT $3
+    `, [agentId, '%' + keyword + '%', limit]);
+    
+    console.log(`[KEYWORD_SEARCH] Encontrados ${result.rows.length} chunks com palavra-chave: "${keyword}"`);
+    return result.rows.map(r => r.content).join('\n\n---\n\n');
+  } catch (e) {
+    console.error('[KEYWORD_SEARCH] Erro:', e.message);
     return '';
   }
 }
@@ -542,12 +560,26 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
               input: content
             });
 
-            // Buscar chunks similares
-            const relevantContext = await searchSimilarChunks(
+            // Buscar chunks similares (aumentado de 5 para 8 para melhor cobertura)
+            let relevantContext = await searchSimilarChunks(
               queryEmbedding.data[0].embedding,
               agentId,
-              5
+              8
             );
+
+            // 🔍 FALLBACK: Se não encontrou contexto semântico, tenta busca por palavra-chave
+            if (!relevantContext || relevantContext.length < 100) {
+              // Extrair palavras-chave da pergunta (nomes, palavras principais)
+              const keywords = content.match(/\b[A-Z][a-záéíóúàâêô]+\b/g) || [];
+              if (keywords.length > 0) {
+                console.log('[CHAT] Tentando fallback com palavra-chave:', keywords[0]);
+                const keywordContext = await searchKeywordChunks(keywords[0], agentId, 5);
+                if (keywordContext && keywordContext.length > relevantContext.length) {
+                  relevantContext = keywordContext;
+                  console.log('[CHAT] ✅ Fallback keyword search bem-sucedido');
+                }
+              }
+            }
 
             // 🔍 DEBUGAR CONTEXTO ANTES DE ENVIAR PARA OPENAI
             console.log('[CHAT] ========== CONTEXTO RAG ==========');

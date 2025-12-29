@@ -1,0 +1,147 @@
+Quais autores são citados no capítulo “Avaliação por Desempenho”? << usei esse
+ele retornoiu: "O documento não aborda esse ponto."
+
+
+
+Perfeito. Esse retorno já é um diagnóstico claro — e muito útil 👍
+Vamos direto ao ponto, sem rodeio.
+
+❗ O que esse resultado significa
+
+A pergunta:
+
+“Quais autores são citados no capítulo ‘Avaliação por Desempenho’?”
+
+📄 ESTÁ SIM no documento
+Os autores citados nesse capítulo são:
+
+Yokominzo (2009)
+
+Ensslin (2010)
+
+Whiteley (1999)
+
+Mas o agente respondeu:
+
+“O documento não aborda esse ponto.”
+
+👉 Conclusão técnica direta:
+
+❌ O agente NÃO está recuperando esse trecho do PDF
+
+Ele não viu o conteúdo onde os autores aparecem.
+
+🧠 Onde está o problema (quase certeza)
+
+Esse erro não é do modelo.
+É de recuperação (RAG). Um destes pontos está falhando:
+
+🔴 1. O chunk que contém os autores NÃO está sendo retornado
+
+Muito comum quando:
+
+O chunk é grande demais
+
+O nome do capítulo ficou separado do parágrafo
+
+A busca semântica não “acha” lista de autores
+
+📌 Busca semântica é ótima para conceitos, ruim para listas.
+
+🔴 2. O prompt está restritivo demais + contexto errado
+
+O prompt fez o certo (não inventou),
+mas como o trecho não veio, ele respondeu “não aborda”.
+
+👉 Isso é bom sinal:
+o prompt está funcionando, a busca não.
+
+✅ O que isso prova (importante)
+
+❌ Ele não está lendo o PDF inteiro
+
+✅ Ele não está alucinando
+
+🔴 Ele não está recuperando os trechos certos
+
+Ou seja:
+👉 Pipeline RAG parcialmente funcionando
+
+🔧 Correção SIMPLES (sem reescrever tudo)
+✔️ Ajuste 1 — Melhore o chunking (essencial)
+
+Garanta que títulos + parágrafos fiquem juntos.
+
+Exemplo (regra simples):
+
+Chunk começa no título
+
+Vai até o próximo subtítulo
+
+📌 Especialmente:
+
+2.3. AVALIAÇÃO POR DESEMPENHO
+
+
+Esse trecho não pode ficar isolado.
+
+✔️ Ajuste 2 — Aumente o topK da busca
+
+Se você usa:
+
+LIMIT 3
+
+
+👉 Mude para:
+
+LIMIT 5 ou 6
+
+
+Listas e autores geralmente aparecem em chunks menos similares semanticamente.
+
+✔️ Ajuste 3 — Teste busca direta por palavra-chave
+
+Faça um teste rápido no backend:
+
+console.log(await searchChunks("Ensslin"));
+
+
+❌ Se não retornar nada → embeddings/chunks ruins
+
+✅ Se retornar → problema é ranking
+
+🧪 Teste imediato (faça agora)
+
+Use essa pergunta (mais fácil para o RAG):
+
+“Cite os autores mencionados no tópico Avaliação por Desempenho.”
+
+Resultados:
+
+❌ Ainda “não aborda” → chunking errado
+
+❌ Cita autores que não existem → alucinação
+
+✅ Cita Yokominzo, Ensslin e Whiteley → corrigido
+
+🧠 Resumo final (bem objetivo)
+
+✅ Prompt está correto
+
+❌ Recuperação falhou
+
+❌ Chunk com autores não está chegando no modelo
+
+🔧 Ajustar chunk + topK resolve
+
+Se quiser, no próximo passo posso:
+
+✂️ Te passar chunking ideal para TCC
+
+🔍 Criar uma query híbrida (semântica + keyword)
+
+🧪 Montar um teste automático para esse caso
+
+🧱 Revisar exatamente esse capítulo do PDF e te dizer como quebrar
+
+Você fez o teste certo — agora está depurando o ponto exato do erro.
