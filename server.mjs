@@ -39,6 +39,22 @@ app.post("/api/conversations", async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+app.get("/api/conversations/:id/messages", async (req, res) => {
+  try {
+    const cid = parseInt(req.params.id);
+    const result = await pool.query('SELECT * FROM messages WHERE conversation_id = $1 ORDER BY created_at ASC', [cid]);
+    res.json(result.rows || []);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete("/api/conversations/:id", async (req, res) => {
+  try {
+    const cid = parseInt(req.params.id);
+    await pool.query('DELETE FROM conversations WHERE id = $1', [cid]);
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 app.post("/api/conversations/:id/messages", async (req, res) => {
   try {
     const cid = parseInt(req.params.id);

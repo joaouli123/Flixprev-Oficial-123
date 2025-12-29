@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { TypingIndicator } from "@/components/TypingIndicator";
 import { FormattedMessage } from "@/components/FormattedMessage";
+import { ChatSidebar } from "@/components/ChatSidebar";
 
 interface Message {
   role: "assistant" | "user";
@@ -23,21 +24,16 @@ interface OutletContext {
 }
 
 const ChatPage = () => {
-  const { agentId } = useParams();
+  const { agentId, conversationId: urlConvId } = useParams<{ agentId: string; conversationId?: string }>();
   const navigate = useNavigate();
   const { agents } = useOutletContext<OutletContext>();
   const agent = agents.find((a) => a.id === agentId);
   
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      role: "assistant",
-      content: `Olá! Eu sou o ${agent?.title || "Agente"}. Minha base de conhecimento foi atualizada com seus documentos e instruções. Como posso ser útil agora?`,
-    },
-  ]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
-  const [conversationId, setConversationId] = useState<number | null>(null);
+  const [conversationId, setConversationId] = useState<number | null>(urlConvId ? parseInt(urlConvId) : null);
   const [isSending, setIsSending] = useState(false);
-  const [isCreatingConversation, setIsCreatingConversation] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Use agent shortcuts or default shortcuts
@@ -46,32 +42,46 @@ const ChatPage = () => {
   // Initialize conversation on component mount
   useEffect(() => {
     const initConversation = async () => {
+      setIsLoading(true);
       try {
-        console.log("[CHAT] Creating conversation for agent:", agent?.title);
-        const response = await fetch("/api/conversations", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ title: `Chat with ${agent?.title || "Agent"}` }),
-        });
-        console.log("[CHAT] Response status:", response.status);
-        if (response.ok) {
-          const conv = await response.json();
-          console.log("[CHAT] Conversation created with ID:", conv.id);
-          setConversationId(conv.id);
+        // Se já tem ID na URL, carregar mensagens dessa conversa
+        if (conversationId) {
+          console.log("[CHAT] Loading conversation:", conversationId);
+          const res = await fetch(`/api/conversations/${conversationId}/messages`);
+          if (res.ok) {
+            const msgs = await res.json();
+            const formattedMsgs = msgs.map((m: any) => ({
+              role: m.role as "user" | "assistant",
+              content: m.content,
+            }));
+            setMessages(formattedMsgs);
+          }
         } else {
-          const error = await response.text();
-          console.error("[CHAT] Failed to create conversation:", error);
+          // Criar nova conversa
+          console.log("[CHAT] Creating conversation for agent:", agent?.title);
+          const response = await fetch("/api/conversations", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ title: `Chat with ${agent?.title || "Agent"}` }),
+          });
+          if (response.ok) {
+            const conv = await response.json();
+            console.log("[CHAT] Conversation created with ID:", conv.id);
+            setConversationId(conv.id);
+            setMessages([]);
+          }
         }
       } catch (error) {
-        console.error("[CHAT] Error creating conversation:", error);
+        console.error("[CHAT] Error:", error);
+        setMessages([]);
       } finally {
-        setIsCreatingConversation(false);
+        setIsLoading(false);
       }
     };
     if (agent?.title) {
       initConversation();
     }
-  }, [agent?.title]);
+  }, [agent?.title, conversationId]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -167,7 +177,9 @@ const ChatPage = () => {
   };
 
   return (
-    <div className="flex flex-col w-full h-screen overflow-hidden bg-gray-50/30 dark:bg-slate-900/30">
+    <div className="flex w-full h-screen overflow-hidden bg-gray-50/30 dark:bg-slate-900/30">
+      <ChatSidebar agentId={agentId!} currentConversationId={conversationId} />
+      <div className="flex flex-col flex-1 overflow-hidden">
       {/* Header */}
       <div className="flex-shrink-0 border-b bg-white dark:bg-slate-950 px-3 py-2 sm:px-4 sm:py-3">
         <div className="flex items-center justify-between gap-2 sm:gap-4">
@@ -264,8 +276,8 @@ const ChatPage = () => {
         </ScrollArea>
       </div>
 
-      {/* Input Area */}
-      <div className="flex-shrink-0 bg-white dark:bg-slate-950 border-t dark:border-slate-800 px-3 py-3 sm:px-4 sm:py-4">
+        {/* Input Area */}
+        <div className="flex-shrink-0 bg-white dark:bg-slate-950 border-t dark:border-slate-800 px-3 py-3 sm:px-4 sm:py-4">
         <div className="w-full space-y-2">
           <div className="flex flex-wrap gap-1 sm:gap-2 overflow-x-auto pb-1">
             {shortcuts.map((s) => (
@@ -303,6 +315,7 @@ const ChatPage = () => {
             </Button>
           </div>
         </div>
+      </div>
       </div>
     </div>
   );
