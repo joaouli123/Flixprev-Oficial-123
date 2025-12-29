@@ -137,20 +137,25 @@ export function registerChatRoutes(app: Express): void {
               for (const attachment of agent.attachments) {
                 const text = await extractFileContent(attachment);
                 if (text) {
-                  attachmentsContent += `\n\n--- CONTEÚDO DO ARQUIVO (${attachment}) ---\n${text}\n--- FIM DO ARQUIVO ---`;
+                  attachmentsContent += `\n\n--- INFORMAÇÃO OBRIGATÓRIA DO ARQUIVO (${attachment}) ---\n${text}\n--- FIM DO CONTEÚDO DO ARQUIVO ---`;
                 }
               }
             }
 
-            systemPrompt = `Você é o assistente: ${agent.title}. 
-            
+            systemPrompt = `Você é o assistente: ${agent.title}.
+
 INSTRUÇÕES DO AGENTE:
 ${inst}
 
-CONTEÚDO DOS DOCUMENTOS ANEXADOS (PRIORIDADE):
+BASE DE CONHECIMENTO (CONTEÚDO DOS DOCUMENTOS ANEXADOS):
 ${attachmentsContent || "Nenhum documento anexado."}
 
-IMPORTANTE: Use o conteúdo dos documentos anexados acima como sua principal fonte de conhecimento. Se a informação estiver nos documentos, priorize-a sobre o seu conhecimento geral.`;
+REGRAS CRÍTICAS DE RESPOSTA:
+1. RESPONDA EXCLUSIVAMENTE COM BASE NOS DOCUMENTOS ANEXADOS ACIMA.
+2. SE A INFORMAÇÃO NÃO ESTIVER NOS DOCUMENTOS, DIGA QUE NÃO ENCONTROU NO MATERIAL DISPONÍVEL.
+3. NÃO USE SEU CONHECIMENTO GERAL SOBRE O ASSUNTO.
+4. CITE AUTORES E CONCEITOS ESPECÍFICOS PRESENTES NO TEXTO (Ex: Ensslin, Yokominzo, Whiteley).
+5. IGNORE TENDÊNCIAS GERAIS DE RH SE ELAS CONTRADIZEREM OU NÃO ESTIVEREM NO TEXTO.`;
             
             console.log(`[CHAT] Context loaded for agent: ${agent.title} with attachments content length: ${attachmentsContent.length}`);
           }
