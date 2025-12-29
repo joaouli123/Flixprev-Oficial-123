@@ -547,61 +547,76 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
           const agentData = agent.rows[0];
           prompt = `Você é o assistente: ${agentData.title}. Instruções: ${agentData.instructions || agentData.description || ""}`;
 
-          // 🔍 BUSCA SEMÂNTICA COM RAG
-          try {
-            // Gerar embedding da pergunta
-            const openai = new OpenAI({
-              apiKey: process.env.OPENAI_API_KEY || process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-              baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-            });
+          // 🔍 Verificar se agente tem documentos/chunks associados
+          const hasDocuments = await pool.query(
+            'SELECT COUNT(*) as count FROM document_chunks WHERE agent_id = $1',
+            [agentId]
+          );
+          const hasChunks = parseInt(hasDocuments.rows[0].count) > 0;
+          
+          console.log(`[CHAT] Modo: ${hasChunks ? 'RAG (com documentos)' : 'NORMAL (só prompt)'}`);
 
-            const queryEmbedding = await openai.embeddings.create({
-              model: 'text-embedding-3-large',
-              input: content
-            });
+          // 🔍 BUSCA SEMÂNTICA COM RAG (apenas se houver documentos)
+          if (hasChunks) {
+            try {
+              // Gerar embedding da pergunta
+              const openai = new OpenAI({
+                apiKey: process.env.OPENAI_API_KEY || process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+                baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+              });
 
-            // Buscar chunks similares (aumentado de 5 para 8 para melhor cobertura)
-            let relevantContext = await searchSimilarChunks(
-              queryEmbedding.data[0].embedding,
-              agentId,
-              8
-            );
+              const queryEmbedding = await openai.embeddings.create({
+                model: 'text-embedding-3-large',
+                input: content
+              });
 
-            // 🔍 FALLBACK: Se não encontrou contexto semântico, tenta busca por palavra-chave
-            if (!relevantContext || relevantContext.length < 100) {
-              // Extrair palavras-chave da pergunta (nomes, palavras principais)
-              const keywords = content.match(/\b[A-Z][a-záéíóúàâêô]+\b/g) || [];
-              if (keywords.length > 0) {
-                console.log('[CHAT] Tentando fallback com palavra-chave:', keywords[0]);
-                const keywordContext = await searchKeywordChunks(keywords[0], agentId, 5);
-                if (keywordContext && keywordContext.length > relevantContext.length) {
-                  relevantContext = keywordContext;
-                  console.log('[CHAT] ✅ Fallback keyword search bem-sucedido');
+              // Buscar chunks similares (aumentado de 5 para 8 para melhor cobertura)
+              let relevantContext = await searchSimilarChunks(
+                queryEmbedding.data[0].embedding,
+                agentId,
+                8
+              );
+
+              // 🔍 FALLBACK: Se não encontrou contexto semântico, tenta busca por palavra-chave
+              if (!relevantContext || relevantContext.length < 100) {
+                // Extrair palavras-chave da pergunta (nomes, palavras principais)
+                const keywords = content.match(/\b[A-Z][a-záéíóúàâêô]+\b/g) || [];
+                if (keywords.length > 0) {
+                  console.log('[CHAT] Tentando fallback com palavra-chave:', keywords[0]);
+                  const keywordContext = await searchKeywordChunks(keywords[0], agentId, 5);
+                  if (keywordContext && keywordContext.length > relevantContext.length) {
+                    relevantContext = keywordContext;
+                    console.log('[CHAT] ✅ Fallback keyword search bem-sucedido');
+                  }
                 }
               }
-            }
 
-            // 🔍 DEBUGAR CONTEXTO ANTES DE ENVIAR PARA OPENAI
-            console.log('[CHAT] ========== CONTEXTO RAG ==========');
-            console.log('[CHAT] Contexto encontrado:', !!relevantContext);
-            console.log('[CHAT] Tamanho do contexto:', relevantContext?.length || 0, 'caracteres');
-            if (relevantContext && relevantContext.length > 0) {
-              console.log('[CHAT] Primeiros 500 chars do contexto:');
-              console.log(relevantContext.substring(0, 500));
-              console.log('[CHAT] ...truncado...');
-            }
+              // 🔍 DEBUGAR CONTEXTO ANTES DE ENVIAR PARA OPENAI
+              console.log('[CHAT] ========== CONTEXTO RAG ==========');
+              console.log('[CHAT] Contexto encontrado:', !!relevantContext);
+              console.log('[CHAT] Tamanho do contexto:', relevantContext?.length || 0, 'caracteres');
+              if (relevantContext && relevantContext.length > 0) {
+                console.log('[CHAT] Primeiros 500 chars do contexto:');
+                console.log(relevantContext.substring(0, 500));
+                console.log('[CHAT] ...truncado...');
+              }
 
-            // Construir prompt com contexto (SEMPRE usar buildPrompt para segurança)
-            // Mesmo se não encontrar contexto, o prompt restritivo dirá "não aborda"
-            prompt = buildPrompt(relevantContext || '', content);
-            
-            if (relevantContext) {
-              console.log('[CHAT] ✅ Contexto RAG encontrado e injetado');
-            } else {
-              console.log('[CHAT] ⚠️ Nenhum contexto encontrado - usando prompt restritivo sem documentos');
+              // Construir prompt com contexto (SEMPRE usar buildPrompt para segurança)
+              // Mesmo se não encontrar contexto, o prompt restritivo dirá "não aborda"
+              prompt = buildPrompt(relevantContext || '', content);
+              
+              if (relevantContext) {
+                console.log('[CHAT] ✅ Contexto RAG encontrado e injetado');
+              } else {
+                console.log('[CHAT] ⚠️ Nenhum contexto encontrado - usando prompt restritivo sem documentos');
+              }
+            } catch (e) {
+              console.error('[CHAT] Erro ao buscar contexto:', e.message);
             }
-          } catch (e) {
-            console.error('[CHAT] Erro ao buscar contexto:', e.message);
+          } else {
+            // 📝 Modo normal: sem documentos, usa apenas as instruções do agente
+            console.log('[CHAT] ✅ Usando modo normal (prompt do agente sem documentos)');
+            // O prompt já foi definido na linha 548 com as instruções do agente
           }
         }
       } catch (e) {
