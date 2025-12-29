@@ -82,6 +82,7 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [instructions, setInstructions] = useState("");
   const [icon, setIcon] = useState("Bot");
   const [selectedModel, setSelectedModel] = useState("gpt-4o-mini");
   const [selectedCategory, setSelectedCategory] = useState("");
@@ -98,6 +99,7 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
       console.log("Primeiro elemento:", agentToEdit.category_ids?.[0]);
       setTitle(agentToEdit.title);
       setDescription(agentToEdit.description);
+      setInstructions(agentToEdit.instructions || "");
       setIcon(agentToEdit.icon);
       const categoryId = agentToEdit.category_ids && agentToEdit.category_ids.length > 0 ? String(agentToEdit.category_ids[0]) : "";
       console.log("Categoria selecionada:", categoryId);
@@ -111,6 +113,7 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
     } else if (isOpen && !agentToEdit) {
       setTitle("");
       setDescription("");
+      setInstructions("");
       setIcon("Bot");
       setSelectedModel("gpt-4o-mini");
       setSelectedCategory("");
@@ -148,7 +151,7 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
   };
 
   const handleSave = async () => {
-    if (title.trim() && description.trim() && icon && selectedCategory) {
+    if (title.trim() && description.trim() && instructions.trim() && icon && selectedCategory) {
       // Upload new files first
       let uploadedPaths: string[] = [...savedAttachments];
       
@@ -185,7 +188,7 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
         icon,
         category_ids: categoryArray as string[],
         shortcuts: shortcuts.length > 0 ? shortcuts : undefined,
-        instructions: description.trim(),
+        instructions: instructions.trim() || undefined,
         attachments: uploadedPaths,
       } as any;
 
@@ -202,6 +205,7 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
 
       setTitle("");
       setDescription("");
+      setInstructions("");
       setIcon("Bot");
       setSelectedModel("gpt-4o-mini");
       setSelectedCategory("");
@@ -213,6 +217,8 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
     } else {
       if (!selectedCategory) {
         toast.error("Por favor, selecione uma categoria para o agente.");
+      } else if (!instructions.trim()) {
+        toast.error("Por favor, preencha as Instruções do Sistema.");
       } else {
         toast.error("Por favor, preencha todos os campos obrigatórios.");
       }
@@ -244,12 +250,21 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
             />
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="description">Instruções do Sistema (Prompt / Instruções)</Label>
-            <Textarea
+            <Label htmlFor="description">Descrição</Label>
+            <Input
               id="description"
-              placeholder="Descreva detalhadamente como o agente deve se comportar e qual sua base de conhecimento..."
+              placeholder="Uma breve descrição do agente"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="instructions">Instruções do Sistema (Prompt / Instruções)</Label>
+            <Textarea
+              id="instructions"
+              placeholder="Descreva detalhadamente como o agente deve se comportar e qual sua base de conhecimento..."
+              value={instructions}
+              onChange={(e) => setInstructions(e.target.value)}
               className="min-h-[120px]"
             />
           </div>
