@@ -383,82 +383,69 @@ app.post('/api/agents/upload', upload.single('file'), async (req, res) => {
       return res.status(400).json({ error: 'Nenhum arquivo foi enviado' });
     }
 
-    const { agentId } = req.body;
+    let { agentId } = req.body;
+    
+    // Tratamento crucial: converter string "undefined" ou "null" para null real
+    if (agentId === "undefined" || agentId === "null" || !agentId) {
+      agentId = null;
+    }
+
     const filePath = `/agent-attachments/${req.file.filename}`;
     const originalname = req.file.originalname;
-    const filename = req.file.filename;
     
     console.log('[UPLOAD] Arquivo enviado:', originalname);
-    console.log('[UPLOAD] Caminho:', filePath);
-    console.log('[UPLOAD] AgentId:', agentId);
-    console.log('[UPLOAD] AgentId é undefined?', agentId === undefined);
-    console.log('[UPLOAD] AgentId é null?', agentId === null);
+    console.log('[UPLOAD] AgentId processado:', agentId);
 
-    // Processar RAG IMEDIATAMENTE (síncrono) se agentId foi fornecido
+    // Se temos um agentId real, processamos o RAG
     if (agentId) {
       try {
         const fullPath = path.join(process.cwd(), 'public', filePath);
-        console.log('[UPLOAD] Verificando arquivo:', fullPath);
-        
-        // Aguardar um pouco para garantir que o arquivo foi escrito no disco
-        await new Promise(resolve => setTimeout(resolve, 100));
         
         // 1. Extrair texto
         let text = '';
         if (originalname.toLowerCase().endsWith('.pdf')) {
-          console.log('[UPLOAD] Extraindo PDF...');
           text = await extractPdfText(fullPath);
         } else {
-          console.log('[UPLOAD] Lendo arquivo de texto...');
           text = fs.readFileSync(fullPath, 'utf-8');
         }
 
         console.log(`[UPLOAD] Texto extraído: ${text.length} caracteres`);
         
-        if (!text || text.length === 0) {
-          console.warn('[UPLOAD] ⚠️ Nenhum texto foi extraído do arquivo!');
-        }
-
-        // 2. Criar documento
-        const docResult = await pool.query(
-          'INSERT INTO documents (agent_id, title) VALUES ($1, $2) RETURNING id',
-          [agentId, originalname]
-        );
-        const documentId = docResult.rows[0].id;
-        console.log('[UPLOAD] Documento criado:', documentId);
-
-        // 3. Fazer chunks
-        const chunks = chunkText(text, 800, 150);
-        console.log(`[UPLOAD] ${chunks.length} chunks criados`);
-
-        // 4. Gerar embeddings
-        const embeddings = await generateEmbeddings(chunks);
-        console.log(`[UPLOAD] ${embeddings.length} embeddings gerados`);
-
-        // 5. Salvar chunks no Postgres
-        let savedCount = 0;
-        for (let i = 0; i < chunks.length; i++) {
-          const embeddingString = '[' + embeddings[i].join(',') + ']';
-          await pool.query(
-            `INSERT INTO document_chunks (agent_id, document_id, content, embedding)
-             VALUES ($1, $2, $3, $4::vector)`,
-            [agentId, documentId, chunks[i], embeddingString]
+        if (text && text.length > 0) {
+          // 2. Criar documento
+          const docResult = await pool.query(
+            'INSERT INTO documents (agent_id, title) VALUES ($1, $2) RETURNING id',
+            [agentId, originalname]
           );
-          savedCount++;
-        }
+          const documentId = docResult.rows[0].id;
 
-        console.log(`[UPLOAD] ✅ ${savedCount} chunks salvos no banco de dados!`);
+          // 3. Fazer chunks
+          const chunks = chunkText(text, 800, 150);
+
+          // 4. Gerar embeddings
+          const embeddings = await generateEmbeddings(chunks);
+
+          // 5. Salvar chunks
+          for (let i = 0; i < chunks.length; i++) {
+            const embeddingString = '[' + embeddings[i].join(',') + ']';
+            await pool.query(
+              `INSERT INTO document_chunks (agent_id, document_id, content, embedding)
+               VALUES ($1, $2, $3, $4::vector)`,
+              [agentId, documentId, chunks[i], embeddingString]
+            );
+          }
+          console.log(`[UPLOAD] ✅ RAG processado com sucesso para agente ${agentId}`);
+        }
       } catch (e) {
-        console.error('[UPLOAD] Erro ao processar RAG:', e.message, e.stack);
+        console.error('[UPLOAD] Erro ao processar RAG:', e.message);
       }
     }
 
-    // Responder com o caminho (para salvar no agente)
     res.json({
       success: true,
       path: filePath,
       filename: originalname,
-      agentId: agentId || null
+      agentId: agentId
     });
   } catch (e) {
     console.error('[UPLOAD] Erro:', e.message);
@@ -579,17 +566,19 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
           const agentData = agent.rows[0];
           const agentInstructions = agentData.instructions || agentData.description || "";
 
-          // 🔍 Verificar se agente tem documentos/chunks associados
-          const hasDocuments = await pool.query(
-            'SELECT COUNT(*) as count FROM document_chunks WHERE agent_id = $1',
-            [agentId]
-          );
-          const hasChunks = parseInt(hasDocuments.rows[0].count) > 0;
-          
-          console.log(`[CHAT] Modo: ${hasChunks ? 'RAG (com documentos)' : 'NORMAL (só prompt)'}`);
+        // 🔍 Verificar se agente tem documentos/chunks associados
+        const hasDocuments = await pool.query(
+          'SELECT COUNT(*) as count FROM document_chunks WHERE agent_id = $1',
+          [agentId]
+        );
+        const hasChunks = parseInt(hasDocuments.rows[0].count) > 0;
+        
+        console.log(`[CHAT] AgentId: ${agentId}`);
+        console.log(`[CHAT] Chunks no banco: ${hasDocuments.rows[0].count}`);
+        console.log(`[CHAT] Modo: ${hasChunks ? 'RAG (com documentos)' : 'NORMAL (só prompt)'}`);
 
-          // 🔍 BUSCA SEMÂNTICA COM RAG (apenas se houver documentos)
-          if (hasChunks) {
+        // 🔍 BUSCA SEMÂNTICA COM RAG (apenas se houver documentos)
+        if (hasChunks) {
             try {
               // Gerar embedding da pergunta
               const openai = new OpenAI({

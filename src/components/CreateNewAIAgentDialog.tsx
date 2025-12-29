@@ -103,14 +103,15 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
       setIcon(agentToEdit.icon);
       // Ensure selectedCategory is set correctly from category_ids
       const catId = agentToEdit.category_ids && agentToEdit.category_ids.length > 0 ? String(agentToEdit.category_ids[0]) : "";
-      console.log("Categoria selecionada (isEditing):", catId);
+      console.log("Editando agente - IDs de categoria:", agentToEdit.category_ids, "Selecionado:", catId);
       
       // Force update of selectedCategory
       setSelectedCategory(catId);
       
       // Diagnostic log
-      console.log("Categories state in dialog:", categories);
-      console.log("Matching category:", categories.find(c => String(c.id) === String(catId)));
+      console.log("Categorias disponíveis:", categories.map(c => ({ id: String(c.id), name: c.name })));
+      const matched = categories.find(c => String(c.id) === String(catId));
+      console.log("Categoria correspondente encontrada:", matched);
       setShortcuts(agentToEdit.shortcuts || ["Resumir docs", "Extrair cláusulas", "Analisar risco", "Dúvidas"]);
       const attachments = (agentToEdit as any).attachments || [];
       console.log("Attachments carregados:", attachments);
