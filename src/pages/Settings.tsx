@@ -3,7 +3,7 @@ import { useSession } from "@/components/SessionContextProvider";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { neon as supabase } from "@/lib/neon"
+import { neon } from "@/lib/neon"
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Lock } from "lucide-react";
@@ -51,56 +51,17 @@ const Settings: React.FC = () => {
     }
 
     setIsSavingProfile(true);
-    let newAvatarUrl = profile?.avatar_url || null;
 
-    if (avatarFile) {
-      setIsUploadingAvatar(true);
-      const fileExtension = avatarFile.name.split('.').pop();
-      const filePath = `${session.user.id}/avatar.${fileExtension}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('avatars')
-        .upload(filePath, avatarFile, {
-          cacheControl: '3600',
-          upsert: true,
-        });
-
-      if (uploadError) {
-        toast.error("Erro ao fazer upload do avatar: " + uploadError.message);
-        console.error("Erro ao fazer upload do avatar:", uploadError);
-        setIsUploadingAvatar(false);
-        setIsSavingProfile(false);
-        return;
-      }
-
-      const { data: publicUrlData } = supabase.storage
-        .from('avatars')
-        .getPublicUrl(filePath);
-
-      newAvatarUrl = publicUrlData.publicUrl;
-      setIsUploadingAvatar(false);
-    } else if (avatarPreviewUrl === null && profile?.avatar_url) {
-      const oldFilePath = profile.avatar_url.split('avatars/')[1];
-      if (oldFilePath) {
-        const { error: deleteError } = await supabase.storage
-          .from('avatars')
-          .remove([oldFilePath]);
-        if (deleteError) {
-          console.error("Erro ao remover avatar antigo:", deleteError.message);
-        }
-      }
-      newAvatarUrl = null;
-    }
-
-    const { error: updateError } = await supabase
+    const { error: updateError } = await neon
       .from('profiles')
       .update({
         first_name: firstName.trim() || null,
         last_name: lastName.trim() || null,
-        avatar_url: newAvatarUrl,
+        avatar_url: avatarPreviewUrl,
         updated_at: new Date().toISOString(),
       })
-      .eq('id', session.user.id);
+      .eq('id', session.user.id)
+      .execute();
 
     if (updateError) {
       toast.error("Erro ao salvar perfil: " + updateError.message);
@@ -130,19 +91,27 @@ const Settings: React.FC = () => {
 
     setIsSavingPassword(true);
 
-    const { error } = await supabase.auth.updateUser({
-      password: newPassword,
-    });
+    try {
+      const response = await fetch('/api/change-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: session.user.id,
+          newPassword: newPassword,
+        }),
+      });
 
-    if (error) {
+      const data = await response.json();
+      
+      if (!response.ok) {
+        toast.error("Erro ao trocar a senha: " + (data.error || 'Erro desconhecido'));
+      } else {
+        toast.success("Senha atualizada com sucesso!");
+        setNewPassword("");
+        setConfirmPassword("");
+      }
+    } catch (error: any) {
       toast.error("Erro ao trocar a senha: " + error.message);
-      console.error("Erro ao trocar a senha:", error);
-    } else {
-      toast.success("Senha atualizada com sucesso! Você será desconectado em breve.");
-      setNewPassword("");
-      setConfirmPassword("");
-      // O Supabase pode exigir que o usuário faça login novamente após a troca de senha
-      // O SessionContextProvider deve lidar com o redirecionamento.
     }
     setIsSavingPassword(false);
   };
@@ -200,8 +169,8 @@ const Settings: React.FC = () => {
               </div>
               <p className="text-sm text-muted-foreground">Faça upload de uma imagem para seu avatar.</p>
             </div>
-            <Button onClick={handleSaveProfile} disabled={isSavingProfile || isUploadingAvatar} className="w-full md:w-auto">
-              {isSavingProfile || isUploadingAvatar ? "Salvando..." : "Salvar Alterações do Perfil"}
+            <Button onClick={handleSaveProfile} disabled={isSavingProfile} className="w-full md:w-auto">
+              {isSavingProfile ? "Salvando..." : "Salvar Alterações do Perfil"}
             </Button>
           </CardContent>
         </Card>

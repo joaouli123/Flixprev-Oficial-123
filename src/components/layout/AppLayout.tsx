@@ -142,18 +142,20 @@ const AppLayout = () => {
       toast.error("Você precisa estar logado para editar categorias.");
       return;
     }
-    const { data, error } = await supabase
+    const { data, error } = await neon
       .from("categories")
       .update({ name: newName })
       .eq("id", categoryId)
-      .select(); // Não precisa mais do eq("user_id", userId) se a política RLS for correta
+      .execute();
 
     if (error) {
       toast.error("Erro ao editar categoria: " + error.message);
     } else {
-      setCategories((prev) =>
-        prev.map((cat) => (cat.id === categoryId ? (data[0] as Category) : cat))
-      );
+      if (data && data.length > 0) {
+        setCategories((prev) =>
+          prev.map((cat) => (cat.id === categoryId ? (data[0] as Category) : cat))
+        );
+      }
       toast.success(`Categoria atualizada para '${newName}' com sucesso!`);
     }
   };
@@ -185,10 +187,11 @@ const AppLayout = () => {
       return;
     }
     
-    const { error } = await supabase
+    const { error } = await neon
       .from("categories")
       .delete()
-      .eq("id", categoryToDeleteId);
+      .eq("id", categoryToDeleteId)
+      .execute();
       
     if (error) {
       toast.error("Erro ao remover categoria: " + error.message);
@@ -210,14 +213,16 @@ const AppLayout = () => {
       toast.error("Você precisa estar logado para adicionar agentes.");
       return;
     }
-    const { data, error } = await supabase
+    const { data, error } = await neon
       .from("agents")
       .insert({ ...newAgentData, user_id: userId })
-      .select();
+      .execute();
     if (error) {
       toast.error("Erro ao adicionar agente: " + error.message);
     } else {
-      setAgents((prev) => [...prev, data[0] as Agent]);
+      if (data && data.length > 0) {
+        setAgents((prev) => [...prev, data[0] as Agent]);
+      }
       toast.success(`Agente '${newAgentData.title}' adicionado com sucesso!`);
     }
   };
@@ -244,19 +249,20 @@ const AppLayout = () => {
       toast.error("Você precisa estar logado para editar agentes.");
       return;
     }
-    const { data, error } = await supabase
+    const { data, error } = await neon
       .from("agents")
       .update({ ...updatedAgentData, category_ids: updatedAgentData.category_ids })
       .eq("id", agentId)
-      .eq("user_id", userId)
-      .select();
+      .execute();
 
     if (error) {
       toast.error("Erro ao editar agente: " + error.message);
     } else {
-      setAgents((prev) =>
-        prev.map((agent) => (agent.id === agentId ? (data[0] as Agent) : agent))
-      );
+      if (data && data.length > 0) {
+        setAgents((prev) =>
+          prev.map((agent) => (agent.id === agentId ? (data[0] as Agent) : agent))
+        );
+      }
       toast.success(`Agente '${updatedAgentData.title}' atualizado com sucesso!`);
     }
   };
@@ -268,11 +274,11 @@ const AppLayout = () => {
 
   const handleDeleteAgent = async () => {
     if (agentToDeleteId) {
-      const { error } = await supabase
+      const { error } = await neon
         .from("agents")
         .delete()
         .eq("id", agentToDeleteId)
-        .eq("user_id", userId);
+        .execute();
       if (error) {
         toast.error("Erro ao remover agente: " + error.message);
       } else {
@@ -289,14 +295,16 @@ const AppLayout = () => {
       toast.error("Apenas administradores podem adicionar links personalizados.");
       return;
     }
-    const { data, error } = await supabase
+    const { data, error } = await neon
       .from("custom_links")
       .insert({ title, url, display_order: displayOrder, user_id: null })
-      .select();
+      .execute();
     if (error) {
       toast.error("Erro ao adicionar link: " + error.message);
     } else {
-      setCustomLinks((prev) => [...prev, data[0] as CustomLink]);
+      if (data && data.length > 0) {
+        setCustomLinks((prev) => [...prev, data[0] as CustomLink]);
+      }
       toast.success(`Link '${title}' adicionado com sucesso!`);
     }
   };
@@ -315,17 +323,19 @@ const AppLayout = () => {
       toast.error("Apenas administradores podem editar links personalizados.");
       return;
     }
-    const { data, error } = await supabase
+    const { data, error } = await neon
       .from("custom_links")
       .update({ title, url, display_order: displayOrder })
       .eq("id", linkId)
-      .select();
+      .execute();
     if (error) {
       toast.error("Erro ao editar link: " + error.message);
     } else {
-      setCustomLinks((prev) =>
-        prev.map((link) => (link.id === linkId ? (data[0] as CustomLink) : link))
-      );
+      if (data && data.length > 0) {
+        setCustomLinks((prev) =>
+          prev.map((link) => (link.id === linkId ? (data[0] as CustomLink) : link))
+        );
+      }
       toast.success(`Link '${title}' atualizado com sucesso!`);
     }
   };
@@ -344,11 +354,11 @@ const AppLayout = () => {
       toast.error("Apenas administradores podem remover links personalizados.");
       return;
     }
-    const { error } = await supabase
+    const { error } = await neon
       .from("custom_links")
       .delete()
       .eq("id", customLinkToDeleteId)
-      .select();
+      .execute();
     if (error) {
       toast.error("Erro ao remover link: " + error.message);
     } else {
