@@ -1,0 +1,204 @@
+React + Node.js + PostgreSQL você está numa stack ideal para RAG em produção.
+Vou te passar uma arquitetura correta, tabelas SQL, fluxo de API e exemplo real em Node (sem gambiarra).
+
+🧠 Arquitetura recomendada (React + Node + Postgres)
+React (UI)
+   ↓
+API Node.js (Express / Fastify)
+   ↓
+PostgreSQL + pgvector (embeddings)
+   ↓
+OpenAI (embeddings + resposta)
+
+
+👉 Postgres vira seu Vector DB
+👉 Nada de FAISS local (melhor para Replit simples)
+
+📦 1️⃣ PostgreSQL com pgvector (obrigatório)
+Ative a extensão:
+CREATE EXTENSION IF NOT EXISTS vector;
+
+🧱 2️⃣ Modelagem de tabelas (ESSENCIAL)
+CREATE TABLE documents (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  title TEXT,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE document_chunks (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  document_id UUID REFERENCES documents(id) ON DELETE CASCADE,
+  content TEXT NOT NULL,
+  embedding VECTOR(3072)
+);
+
+
+3072 → dimensão do text-embedding-3-large
+
+📄 3️⃣ Upload + chunk de PDF (Node)
+Dependências:
+npm install pdf-parse openai pg multer tiktoken
+
+Extrair texto do PDF:
+import fs from "fs";
+import pdf from "pdf-parse";
+
+export async function extractPdfText(path) {
+  const buffer = fs.readFileSync(path);
+  const data = await pdf(buffer);
+  return data.text;
+}
+
+Chunking correto:
+export function chunkText(text, size = 800, overlap = 150) {
+  const chunks = [];
+  let start = 0;
+
+  while (start < text.length) {
+    chunks.push(text.slice(start, start + size));
+    start += size - overlap;
+  }
+
+  return chunks;
+}
+
+🧠 4️⃣ Gerar embeddings (OpenAI)
+import OpenAI from "openai";
+const openai = new OpenAI();
+
+export async function embedChunks(chunks) {
+  const embeddings = [];
+
+  for (const chunk of chunks) {
+    const res = await openai.embeddings.create({
+      model: "text-embedding-3-large",
+      input: chunk
+    });
+    embeddings.push(res.data[0].embedding);
+  }
+
+  return embeddings;
+}
+
+💾 5️⃣ Salvar no Postgres
+import { pool } from "./db.js";
+
+export async function saveChunks(documentId, chunks, embeddings) {
+  for (let i = 0; i < chunks.length; i++) {
+    await pool.query(
+      `
+      INSERT INTO document_chunks (document_id, content, embedding)
+      VALUES ($1, $2, $3)
+      `,
+      [documentId, chunks[i], embeddings[i]]
+    );
+  }
+}
+
+🔍 6️⃣ Busca semântica (pgvector)
+SELECT content
+FROM document_chunks
+ORDER BY embedding <-> $1
+LIMIT 5;
+
+Node:
+export async function searchChunks(queryEmbedding) {
+  const res = await pool.query(
+    `
+    SELECT content
+    FROM document_chunks
+    ORDER BY embedding <-> $1
+    LIMIT 5
+    `,
+    [queryEmbedding]
+  );
+
+  return res.rows.map(r => r.content);
+}
+
+🤖 7️⃣ Prompt HARD-RESTRICTED (CRÍTICO)
+export function buildPrompt(context, question) {
+  return `
+Você é um assistente que responde EXCLUSIVAMENTE com base no texto abaixo.
+
+REGRAS OBRIGATÓRIAS:
+- Use apenas o conteúdo fornecido
+- NÃO use conhecimento externo
+- NÃO invente autores, conceitos ou práticas
+- Se a resposta não estiver no texto, responda exatamente:
+  "O documento não aborda esse ponto."
+
+DOCUMENTO:
+${context.join("\n\n---\n\n")}
+
+PERGUNTA:
+${question}
+`;
+}
+
+🧪 8️⃣ Endpoint de pergunta (Node)
+app.post("/ask", async (req, res) => {
+  const { question } = req.body;
+
+  const embeddingRes = await openai.embeddings.create({
+    model: "text-embedding-3-large",
+    input: question
+  });
+
+  const queryEmbedding = embeddingRes.data[0].embedding;
+
+  const chunks = await searchChunks(queryEmbedding);
+
+  const prompt = buildPrompt(chunks, question);
+
+  const completion = await openai.chat.completions.create({
+    model: "gpt-4.1-mini",
+    messages: [{ role: "user", content: prompt }],
+    temperature: 0
+  });
+
+  res.json({ answer: completion.choices[0].message.content });
+});
+
+🧠 9️⃣ React (consumo simples)
+const res = await fetch("/ask", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ question })
+});
+
+const data = await res.json();
+setAnswer(data.answer);
+
+🚨 Como saber se está funcionando (checklist)
+
+✅ Ele responde citando termos do PDF
+✅ Ele diz “o documento não aborda esse ponto” quando necessário
+❌ Nunca fala de coisas fora do texto
+❌ Nunca responde genérico
+
+🎯 Conclusão técnica
+
+👉 Você está com a stack certa
+👉 Postgres + pgvector é produção de verdade
+👉 O que manda é:
+
+Chunk bem feito
+
+Busca semântica
+
+Prompt restritivo
+
+Se quiser, no próximo passo posso:
+
+🧱 Criar um schema multi-tenant
+
+🔐 Adicionar ACL por documento
+
+⚡ Otimizar custo (batch embedding)
+
+📊 Criar logs para detectar alucinação
+
+🧪 Criar testes automatizados pro RAG
+
+Agora você não está mais “tentando usar IA” — você está engenheirando um agente confiável.

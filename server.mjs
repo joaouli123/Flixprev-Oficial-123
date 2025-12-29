@@ -47,12 +47,15 @@ const pool = new Pool({
 // Função para extrair texto de arquivo
 async function extractFileContent(filePath, filename) {
   try {
-    // Apenas ler arquivos de texto direto - PDFs precisam ser convertidos externamente
     if (filename.toLowerCase().endsWith('.pdf')) {
-      return `[Arquivo PDF encontrado: ${filename}. Por favor, extraia o texto do PDF e cole aqui, ou converta para .txt primeiro.]`;
+      console.log('[PDF] Arquivo PDF detectado:', filename);
+      return `[Arquivo PDF: ${filename}]\n\nPara usar PDFs como base de conhecimento, por favor:\n1. Converta o PDF para texto (.txt) usando uma ferramenta de conversão\n2. Ou copie e cole o conteúdo do PDF diretamente como arquivo de texto\n\nEm breve a extração automática de PDFs será suportada.`;
+    } else {
+      // Para arquivos de texto, ler diretamente
+      const content = fs.readFileSync(filePath, 'utf-8');
+      console.log(`[FILE] Arquivo de texto carregado: ${filename} (${content.length} caracteres)`);
+      return content;
     }
-    // Para arquivos de texto, ler diretamente
-    return fs.readFileSync(filePath, 'utf-8');
   } catch (e) {
     console.error('[FILE] Erro ao extrair conteúdo:', e.message);
     return `[Arquivo não pode ser lido: ${filename}]`;
