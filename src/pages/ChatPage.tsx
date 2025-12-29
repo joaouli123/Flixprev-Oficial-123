@@ -68,7 +68,8 @@ const ChatPage = () => {
   const handleSend = async () => {
     if (!input.trim() || !conversationId) return;
 
-    const userMsg: Message = { role: "user", content: input };
+    const messageContent = input;
+    const userMsg: Message = { role: "user", content: messageContent };
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
 
@@ -78,7 +79,7 @@ const ChatPage = () => {
       const response = await fetch(`/api/conversations/${convId}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: input, agentId: agentId }),
+        body: JSON.stringify({ content: messageContent, agentId: agentId }),
       });
 
       if (!response.ok) {
@@ -162,17 +163,17 @@ const ChatPage = () => {
                 </h1>
               </div>
               <div className="hidden sm:flex items-center gap-1 sm:gap-2 mt-1 flex-wrap">
-                <Badge variant="secondary" className="bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border-blue-100 dark:border-blue-800 flex items-center gap-0.5 text-xs">
+                <div className="bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border border-blue-100 dark:border-blue-800 flex items-center gap-0.5 text-xs px-2 py-1 rounded-full">
                   <Zap className="h-2.5 w-2.5" />
                   GPT-4o Mini
-                </Badge>
+                </div>
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <Badge variant="outline" className="bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300 border-green-100 dark:border-green-800 flex items-center gap-0.5 cursor-help text-xs">
+                      <div className="bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300 border border-green-100 dark:border-green-800 flex items-center gap-0.5 cursor-help text-xs px-2 py-1 rounded-full">
                         <Database className="h-2.5 w-2.5" />
                         Knowledge Base
-                      </Badge>
+                      </div>
                     </TooltipTrigger>
                     <TooltipContent>
                       <p>Este agente utiliza seus documentos e instruções como contexto prioritário.</p>
