@@ -14,8 +14,10 @@ const storage = multer.diskStorage({
     cb(null, uploadDir);
   },
   filename: (req, file, cb) => {
-    const uniqueName = `${crypto.randomUUID()}-${file.originalname}`;
-    cb(null, uniqueName);
+    // Manter o nome original, apenas removendo caracteres problemáticos se necessário
+    // mas sem adicionar o prefixo UUID longo
+    const originalName = Buffer.from(file.originalname, 'latin1').toString('utf8');
+    cb(null, originalName);
   }
 });
 
