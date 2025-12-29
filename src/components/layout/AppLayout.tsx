@@ -333,7 +333,12 @@ const AppLayout = () => {
     }
     const { data, error } = await neon
       .from("custom_links")
-      .insert({ title, url, display_order: displayOrder, user_id: null })
+      .insert({ 
+        title, 
+        url, 
+        display_order: displayOrder, 
+        user_id: userId // Vincula ao usuário atual
+      })
       .select();
     if (error) {
       toast.error("Erro ao adicionar link: " + error.message);
