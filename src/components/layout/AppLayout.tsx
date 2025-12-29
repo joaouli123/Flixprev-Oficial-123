@@ -470,8 +470,9 @@ const AppLayout = () => {
   const filteredAgents = useMemo(() => {
     let currentAgents = agents;
     if (selectedCategory !== "all") {
+      // Usar comparação flexível (==) para IDs de categoria que podem ser string ou number
       currentAgents = currentAgents.filter((agent) =>
-        agent.category_ids.includes(selectedCategory)
+        agent.category_ids.some(id => String(id) === String(selectedCategory))
       );
     }
     if (searchTerm.trim()) {

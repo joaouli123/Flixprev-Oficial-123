@@ -101,8 +101,9 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
       setDescription(agentToEdit.description);
       setInstructions(agentToEdit.instructions || "");
       setIcon(agentToEdit.icon);
+      // Ensure selectedCategory is set correctly from category_ids
       const categoryId = agentToEdit.category_ids && agentToEdit.category_ids.length > 0 ? String(agentToEdit.category_ids[0]) : "";
-      console.log("Categoria selecionada:", categoryId);
+      console.log("Categoria selecionada (isEditing):", categoryId);
       setSelectedCategory(categoryId);
       setShortcuts(agentToEdit.shortcuts || ["Resumir docs", "Extrair cláusulas", "Analisar risco", "Dúvidas"]);
       const attachments = (agentToEdit as any).attachments || [];
