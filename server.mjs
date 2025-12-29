@@ -92,12 +92,13 @@ app.post("/api/conversations", async (req, res) => {
   try {
     const { title } = req.body;
     console.log('[CHAT API] Creating conversation with title:', title);
+    console.log('[CHAT API] Database connected:', !!process.env.DATABASE_URL);
     const result = await pool.query('INSERT INTO conversations (title) VALUES ($1) RETURNING *', [title || "New Chat"]);
     const conversation = result.rows[0];
     console.log('[CHAT API] Created conversation:', conversation);
     res.status(201).json(conversation);
   } catch (error) {
-    console.error('[CHAT API] Error creating conversation:', error.message);
+    console.error('[CHAT API] Error creating conversation:', error);
     res.status(500).json({ error: "Failed to create conversation: " + error.message });
   }
 });
