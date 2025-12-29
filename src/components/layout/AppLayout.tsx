@@ -233,11 +233,15 @@ const AppLayout = () => {
     try {
       console.log("Tentando criar agente:", newAgentData.title, "com categorias:", newAgentData.category_ids);
       
+      // Generate a UUID for the agent
+      const agentId = crypto.randomUUID();
+      
       // No schema atual do banco, category_ids pode ser tratado como TEXT ou TEXT[]
       // Vamos garantir que estamos enviando os dados corretamente
       const { data, error } = await neon
         .from("agents")
         .insert({ 
+          id: agentId,
           title: newAgentData.title,
           description: newAgentData.description,
           icon: newAgentData.icon,
