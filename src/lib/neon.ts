@@ -31,14 +31,20 @@ class NeonQuery implements QueryBuilder {
   private limitNum: number | null = null;
   private countExact: boolean = false;
   private maybeOne: boolean = false;
+  private shouldReturnData: boolean = false;
 
   constructor(table: string) {
     this.table = table;
   }
 
   select(columns?: string, options?: any) {
-    this.operation = 'SELECT';
-    this.columns = columns || '*';
+    // Only set operation to SELECT if no operation has been set yet
+    if (this.operation === 'SELECT') {
+      this.columns = columns || '*';
+    } else {
+      // For INSERT/UPDATE/DELETE, .select() means return the data
+      this.shouldReturnData = true;
+    }
     if (options?.count === 'exact') {
       this.countExact = true;
     }
@@ -100,6 +106,7 @@ class NeonQuery implements QueryBuilder {
           limit: this.limitNum,
           countExact: this.countExact,
           maybeOne: this.maybeOne,
+          shouldReturnData: this.shouldReturnData,
         }),
       });
 
