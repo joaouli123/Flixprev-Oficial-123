@@ -230,29 +230,37 @@ const AppLayout = () => {
       return;
     }
 
-    // Se estivermos criando via "Adicionar novo agente (novo)", criamos a categoria se necessário
-    // Por enquanto, vamos apenas garantir que o agente seja criado.
-    // O usuário solicitou que ele seja vinculado a uma nova categoria.
-    // Vamos simplificar: se for o fluxo "novo", podemos abrir o diálogo de categoria antes ou criar uma padrão.
-    // Dado o fluxo, vamos apenas prosseguir com a criação do agente.
+    try {
+      console.log("Tentando criar agente:", newAgentData.title, "com categorias:", newAgentData.category_ids);
+      
+      // No schema atual do banco, category_ids pode ser tratado como TEXT ou TEXT[]
+      // Vamos garantir que estamos enviando os dados corretamente
+      const { data, error } = await neon
+        .from("agents")
+        .insert({ 
+          title: newAgentData.title,
+          description: newAgentData.description,
+          icon: newAgentData.icon,
+          category_ids: newAgentData.category_ids,
+          user_id: userId 
+        })
+        .select();
 
-    const { data, error } = await neon
-      .from("agents")
-      .insert({ ...newAgentData, user_id: userId })
-      .select();
-
-    if (error) {
-      toast.error("Erro ao adicionar agente: " + error.message);
-    } else {
-      if (data && data.length > 0) {
-        setAgents((prev) => [...prev, data[0] as Agent]);
-        
-        // Se houver uma nova categoria criada ou se o usuário quiser vincular a uma, 
-        // poderíamos fazer isso aqui. Por enquanto, apenas navegamos para o chat se for o caso.
-        toast.success(`Agente '${newAgentData.title}' adicionado com sucesso!`);
-        // Opcional: navegar para o chat do novo agente imediatamente
-        // navigate(`/app/chat/${data[0].id}`);
+      if (error) {
+        console.error("Erro do banco de dados ao criar agente:", error);
+        toast.error("Erro ao adicionar agente: " + (error.message || "Erro na query"));
+      } else {
+        if (data && data.length > 0) {
+          setAgents((prev) => [...prev, data[0] as Agent]);
+          toast.success(`Agente '${newAgentData.title}' adicionado com sucesso!`);
+        } else {
+          console.error("Nenhum dado retornado ao criar agente");
+          toast.error("Erro: Nenhum dado retornado do servidor");
+        }
       }
+    } catch (err) {
+      console.error("Erro inesperado ao criar agente:", err);
+      toast.error("Erro inesperado ao criar agente");
     }
   };
 

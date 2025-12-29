@@ -93,6 +93,7 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
 
   const handleSave = () => {
     if (title.trim() && description.trim() && icon && selectedCategory) {
+      console.log("Salvando agente com categoria selecionada:", selectedCategory);
       onSave({
         title: title.trim(),
         description: description.trim(),
@@ -106,6 +107,12 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
       setSelectedCategory(undefined);
       setFiles([]);
       onClose();
+    } else {
+      if (!selectedCategory) {
+        toast.error("Por favor, selecione uma categoria para o agente.");
+      } else {
+        toast.error("Por favor, preencha todos os campos obrigatórios.");
+      }
     }
   };
 
