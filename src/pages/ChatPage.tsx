@@ -35,6 +35,7 @@ const ChatPage = () => {
   const [input, setInput] = useState("");
   const [conversationId, setConversationId] = useState<number | null>(null);
   const [isSending, setIsSending] = useState(false);
+  const [isCreatingConversation, setIsCreatingConversation] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Use agent shortcuts or default shortcuts
@@ -61,6 +62,8 @@ const ChatPage = () => {
         }
       } catch (error) {
         console.error("[CHAT] Error creating conversation:", error);
+      } finally {
+        setIsCreatingConversation(false);
       }
     };
     if (agent?.title) {
@@ -271,7 +274,7 @@ const ChatPage = () => {
             />
             <Button 
               onClick={handleSend} 
-              disabled={!conversationId || isSending || !input.trim()}
+              disabled={isSending || !input.trim()}
               className="rounded-lg px-3 sm:px-4 flex-shrink-0"
               data-testid="button-send-message"
             >
