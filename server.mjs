@@ -70,12 +70,28 @@ async function extractPdfText(filePath) {
 
 // 2️⃣ Chunking (tamanho=800, overlap=300 para melhor contexto)
 function chunkText(text, size = 800, overlap = 300) {
+  if (!text || text.trim().length === 0) {
+    console.warn('[CHUNK] Texto vazio, nenhum chunk criado.');
+    return [];
+  }
+  
   const chunks = [];
   let start = 0;
   while (start < text.length) {
-    chunks.push(text.slice(start, start + size));
+    const chunk = text.slice(start, start + size);
+    if (chunk.trim().length > 0) {
+      chunks.push(chunk);
+    }
     start += size - overlap;
   }
+  
+  console.log('--- TESTE DE CHUNKING ---');
+  console.log(`Total de chunks: ${chunks.length}`);
+  chunks.slice(0, 3).forEach((c, i) => {
+    console.log(`Chunk ${i + 1}: ${c.length} caracteres`);
+  });
+  console.log('-------------------------');
+  
   return chunks;
 }
 
@@ -165,9 +181,9 @@ REGRAS ABSOLUTAS (não negociáveis):
 OBJETIVO:
 Garantir precisão, fidelidade acadêmica e ausência total de alucinação.`;
 
-  const contextBlock = context 
+  const contextBlock = (context && context.trim().length > 0)
     ? `[INÍCIO DO CONTEXTO]\n${context}\n[FIM DO CONTEXTO]`
-    : '[⚠️ ERRO: Nenhum conteúdo de documento foi fornecido]';
+    : '[⚠️ ERRO CRÍTICO: Nenhum conteúdo de documento foi encontrado para esta pergunta. Aplique a REGRA 4 IMEDIATAMENTE.]';
 
   return `${globalPrompt}
 
