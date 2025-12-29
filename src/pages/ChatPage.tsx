@@ -44,30 +44,65 @@ const ChatPage = () => {
     }
   }, [messages]);
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!input.trim()) return;
 
     const userMsg: Message = { role: "user", content: input };
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
 
-    // Resposta simulada especializada baseada no modelo
-    setTimeout(() => {
-      let modelContext = "modelo GPT-4o Mini";
-      if (agent?.description?.toLowerCase().includes("gpt-4o") && !agent?.description?.toLowerCase().includes("mini")) {
-        modelContext = "modelo GPT-4o";
-      } else if (agent?.description?.toLowerCase().includes("claude")) {
-        modelContext = "modelo Claude 3.5 Sonnet";
-      }
+    try {
+      // First, ensure we have a conversation (using a mock or existing ID)
+      // In a real app, you'd manage conversation IDs
+      const convId = 1; // Simplified for now
+      
+      const response = await fetch(`/api/conversations/${convId}/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: input }),
+      });
 
+      if (!response.ok) throw new Error("Falha ao enviar mensagem");
+
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error("Falha ao iniciar stream");
+
+      let assistantMsg: Message = { role: "assistant", content: "" };
+      setMessages((prev) => [...prev, assistantMsg]);
+
+      const decoder = new TextDecoder();
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value);
+        const lines = chunk.split("\n");
+        
+        for (const line of lines) {
+          if (line.startsWith("data: ")) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              if (data.content) {
+                assistantMsg.content += data.content;
+                setMessages((prev) => {
+                  const newMsgs = [...prev];
+                  newMsgs[newMsgs.length - 1] = { ...assistantMsg };
+                  return newMsgs;
+                });
+              }
+            } catch (e) {
+              // Ignore parse errors for incomplete chunks
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Chat error:", error);
       setMessages((prev) => [
         ...prev,
-        {
-          role: "assistant",
-          content: `Com base nas instruções personalizadas e nos documentos anexados para o agente "${agent?.title}", analisei sua solicitação. Esta resposta está sendo gerada utilizando o ${modelContext} com foco na sua base de dados privada. Estou pronto para processar seus arquivos .docx, .pdf ou imagens conforme solicitado.`,
-        },
+        { role: "assistant", content: "Desculpe, ocorreu um erro ao processar sua solicitação." }
       ]);
-    }, 1500);
+    }
   };
 
   return (
