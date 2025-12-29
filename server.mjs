@@ -401,6 +401,97 @@ app.post('/api/agents/upload', upload.single('file'), async (req, res) => {
   }
 });
 
+// 🔄 ENDPOINT PARA REPROCESSAR ATTACHMENTS EXISTENTES
+app.post('/api/admin/reprocess-attachments', async (req, res) => {
+  console.log('[REPROCESS] ========== INICIANDO REPROCESSAMENTO ==========');
+  try {
+    // Buscar todos os agentes com attachments
+    const agentsResult = await pool.query(
+      'SELECT id, attachments FROM "agents" WHERE attachments IS NOT NULL AND array_length(attachments, 1) > 0'
+    );
+    
+    console.log(`[REPROCESS] Encontrados ${agentsResult.rows.length} agentes com attachments`);
+    
+    let totalProcessed = 0;
+    for (const agent of agentsResult.rows) {
+      const agentId = agent.id;
+      const attachments = agent.attachments || [];
+      
+      console.log(`[REPROCESS] Processando agente ${agentId} com ${attachments.length} arquivo(s)`);
+      
+      for (const attachment of attachments) {
+        try {
+          const filePath = attachment.startsWith('/') ? attachment : `/${attachment}`;
+          const fileName = attachment.split('/').pop() || attachment;
+          const fullPath = path.join(process.cwd(), 'public', filePath);
+          
+          console.log(`[REPROCESS] Processando: ${filePath}`);
+          
+          if (!fs.existsSync(fullPath)) {
+            console.warn(`[REPROCESS] Arquivo não encontrado: ${fullPath}`);
+            continue;
+          }
+          
+          // 1. Extrair texto
+          let text = '';
+          if (fileName.toLowerCase().endsWith('.pdf')) {
+            console.log('[REPROCESS] Extraindo PDF...');
+            text = await extractPdfText(fullPath);
+          } else {
+            console.log('[REPROCESS] Lendo arquivo de texto...');
+            text = fs.readFileSync(fullPath, 'utf-8');
+          }
+          
+          console.log(`[REPROCESS] Texto extraído: ${text.length} caracteres`);
+          
+          if (!text || text.length === 0) {
+            console.warn('[REPROCESS] Nenhum texto extraído!');
+            continue;
+          }
+          
+          // 2. Criar documento
+          const docResult = await pool.query(
+            'INSERT INTO documents (agent_id, title) VALUES ($1, $2) RETURNING id',
+            [agentId, fileName]
+          );
+          const documentId = docResult.rows[0].id;
+          console.log('[REPROCESS] Documento criado:', documentId);
+          
+          // 3. Fazer chunks
+          const chunks = chunkText(text, 800, 150);
+          console.log(`[REPROCESS] ${chunks.length} chunks criados`);
+          
+          // 4. Gerar embeddings
+          const embeddings = await generateEmbeddings(chunks);
+          console.log(`[REPROCESS] ${embeddings.length} embeddings gerados`);
+          
+          // 5. Salvar chunks no banco
+          let savedCount = 0;
+          for (let i = 0; i < chunks.length; i++) {
+            const embeddingString = '[' + embeddings[i].join(',') + ']';
+            await pool.query(
+              `INSERT INTO document_chunks (agent_id, document_id, content, embedding)
+               VALUES ($1, $2, $3, $4::vector)`,
+              [agentId, documentId, chunks[i], embeddingString]
+            );
+            savedCount++;
+          }
+          
+          console.log(`[REPROCESS] ✅ ${savedCount} chunks salvos!`);
+          totalProcessed++;
+        } catch (e) {
+          console.error('[REPROCESS] Erro ao processar arquivo:', e.message);
+        }
+      }
+    }
+    
+    res.json({ success: true, processedCount: totalProcessed });
+  } catch (e) {
+    console.error('[REPROCESS] Erro:', e.message, e.stack);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // 💬 CHAT com busca semântica RAG
 app.post("/api/conversations/:id/messages", async (req, res) => {
   try {
