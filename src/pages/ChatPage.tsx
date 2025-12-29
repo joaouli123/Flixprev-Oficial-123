@@ -34,6 +34,7 @@ const ChatPage = () => {
   ]);
   const [input, setInput] = useState("");
   const [conversationId, setConversationId] = useState<number | null>(null);
+  const [isSending, setIsSending] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Use agent shortcuts or default shortcuts
@@ -43,20 +44,28 @@ const ChatPage = () => {
   useEffect(() => {
     const initConversation = async () => {
       try {
+        console.log("[CHAT] Creating conversation for agent:", agent?.title);
         const response = await fetch("/api/conversations", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ title: `Chat with ${agent?.title || "Agent"}` }),
         });
+        console.log("[CHAT] Response status:", response.status);
         if (response.ok) {
           const conv = await response.json();
+          console.log("[CHAT] Conversation created with ID:", conv.id);
           setConversationId(conv.id);
+        } else {
+          const error = await response.text();
+          console.error("[CHAT] Failed to create conversation:", error);
         }
       } catch (error) {
-        console.error("Failed to create conversation:", error);
+        console.error("[CHAT] Error creating conversation:", error);
       }
     };
-    initConversation();
+    if (agent?.title) {
+      initConversation();
+    }
   }, [agent?.title]);
 
   useEffect(() => {
@@ -66,15 +75,20 @@ const ChatPage = () => {
   }, [messages]);
 
   const handleSend = async () => {
-    if (!input.trim() || !conversationId) return;
+    if (!input.trim() || !conversationId) {
+      console.warn("[CHAT] Cannot send: input empty or no conversation ID", { input: input.trim(), conversationId });
+      return;
+    }
 
     const messageContent = input;
     const userMsg: Message = { role: "user", content: messageContent };
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
+    setIsSending(true);
 
     try {
       const convId = conversationId;
+      console.log("[CHAT] Sending message to conversation:", convId);
       
       const response = await fetch(`/api/conversations/${convId}/messages`, {
         method: "POST",
@@ -132,11 +146,13 @@ const ChatPage = () => {
         }
       }
     } catch (error: any) {
-      console.error("Chat error:", error);
+      console.error("[CHAT] Error:", error);
       setMessages((prev) => [
         ...prev,
         { role: "assistant", content: `Erro: ${error.message || "Ocorreu um erro ao processar sua solicitação."}` }
       ]);
+    } finally {
+      setIsSending(false);
     }
   };
 
@@ -255,10 +271,11 @@ const ChatPage = () => {
             />
             <Button 
               onClick={handleSend} 
+              disabled={!conversationId || isSending || !input.trim()}
               className="rounded-lg px-3 sm:px-4 flex-shrink-0"
               data-testid="button-send-message"
             >
-              <Send className="h-4 w-4" />
+              {isSending ? <span className="animate-spin">⚙️</span> : <Send className="h-4 w-4" />}
             </Button>
           </div>
         </div>
