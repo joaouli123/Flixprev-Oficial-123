@@ -32,6 +32,19 @@ const ChatPage = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [conversationId, setConversationId] = useState<number | null>(urlConvId ? parseInt(urlConvId) : null);
+
+  // Update conversationId when URL parameter changes
+  useEffect(() => {
+    if (urlConvId) {
+      const parsedId = parseInt(urlConvId);
+      if (parsedId !== conversationId) {
+        console.log("[CHAT] URL conversationId changed:", parsedId);
+        setConversationId(parsedId);
+      }
+    } else {
+      setConversationId(null);
+    }
+  }, [urlConvId]);
   const [isSending, setIsSending] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
