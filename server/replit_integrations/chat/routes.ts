@@ -126,9 +126,12 @@ export function registerChatRoutes(app: Express): void {
     console.log('[CHAT API] POST /api/conversations/:id/messages');
     try {
       const conversationId = parseInt(req.params.id);
-      const { content, agentId } = req.body;
+      const { content, agentId: bodyAgentId } = req.body;
+      
+      // Tentar pegar agentId de várias formas
+      const agentId = bodyAgentId || req.query.agentId || req.params.agentId;
 
-      console.log(`[CHAT] Message for conv ${conversationId}: ${content}`);
+      console.log(`[CHAT] Message for conv ${conversationId}. agentId: ${agentId}`);
 
       // Fetch agent context
       let systemPrompt = "Você é um assistente prestativo especializado em advocacia previdenciária.";
@@ -169,10 +172,14 @@ DIRETRIZES DE RESPOSTA (RAG):
 4. Se a informação não estiver nos documentos, você pode usar seu conhecimento geral, mas deve priorizar os fatos dos arquivos.`;
             
             console.log(`[CHAT] Context loaded for agent: ${agent.title} with attachments content length: ${attachmentsContent.length}`);
+          } else {
+            console.warn(`[CHAT] Agent with ID ${agentId} not found in database.`);
           }
         } catch (dbError: any) {
           console.error("[CHAT DB ERROR]", dbError.message);
         }
+      } else {
+        console.warn("[CHAT] No agentId provided in the request.");
       }
 
       // Save user message

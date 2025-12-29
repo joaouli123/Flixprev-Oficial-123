@@ -121,12 +121,15 @@ const ChatPage = () => {
 
     try {
       const convId = conversationId;
-      console.log("[CHAT] Sending message to conversation:", convId);
+      console.log("[CHAT] Sending message to conversation:", convId, "agentId:", agentId);
       
       const response = await fetch(`/api/conversations/${convId}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: messageContent, agentId: agentId }),
+        body: JSON.stringify({ 
+          content: messageContent, 
+          agentId: agentId 
+        }),
       });
 
       if (!response.ok) {
