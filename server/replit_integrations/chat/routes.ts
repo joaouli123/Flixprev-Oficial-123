@@ -84,31 +84,37 @@ export function registerChatRoutes(app: Express): void {
       res.flushHeaders(); // Ensure headers are sent immediately
 
       // Stream response from OpenAI
-      const stream = await openai.chat.completions.create({
-        model: "gpt-4o", // Using gpt-4o as a fallback to ensure stability
-        messages: chatMessages,
-        stream: true,
-      });
+      console.log(`[STREAMING] Initiating OpenAI completion for conv ${conversationId}`);
+      try {
+        const stream = await openai.chat.completions.create({
+          model: "gpt-4o", 
+          messages: chatMessages,
+          stream: true,
+        });
 
-      console.log(`Starting stream for conversation ${conversationId}`);
+        console.log(`[STREAMING] Stream started for conversation ${conversationId}`);
 
-      let fullResponse = "";
+        let fullResponse = "";
 
-      for await (const chunk of stream) {
-        const delta = chunk.choices[0]?.delta?.content || "";
-        if (delta) {
-          fullResponse += delta;
-          res.write(`data: ${JSON.stringify({ content: delta })}\n\n`);
+        for await (const chunk of stream) {
+          const delta = chunk.choices[0]?.delta?.content || "";
+          if (delta) {
+            fullResponse += delta;
+            res.write(`data: ${JSON.stringify({ content: delta })}\n\n`);
+          }
         }
+
+        console.log(`[STREAMING] Stream finished for conversation ${conversationId}`);
+
+        // Save assistant message
+        await chatStorage.createMessage(conversationId, "assistant", fullResponse);
+
+        res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+        res.end();
+      } catch (streamError: any) {
+        console.error("[STREAMING ERROR]", streamError);
+        throw streamError;
       }
-
-      console.log(`Stream finished for conversation ${conversationId}`);
-
-      // Save assistant message
-      await chatStorage.createMessage(conversationId, "assistant", fullResponse);
-
-      res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
-      res.end();
     } catch (error: any) {
       console.error("Error sending message:", error);
       // Check if headers already sent (SSE streaming started)

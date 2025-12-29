@@ -40,8 +40,13 @@ export const chatStorage: IChatStorage = {
   },
 
   async createMessage(conversationId: number, role: string, content: string) {
-    const result = await pool.query('INSERT INTO messages (conversation_id, role, content) VALUES ($1, $2, $3) RETURNING *', [conversationId, role, content]);
-    return result.rows[0];
+    try {
+      const result = await pool.query('INSERT INTO messages (conversation_id, role, content) VALUES ($1, $2, $3) RETURNING *', [conversationId, role, content]);
+      return result.rows[0];
+    } catch (e: any) {
+      console.error(`[DB ERROR] Failed to create message for conv ${conversationId}:`, e.message);
+      throw e;
+    }
   },
 };
 
