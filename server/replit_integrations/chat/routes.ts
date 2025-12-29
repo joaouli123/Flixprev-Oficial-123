@@ -1,11 +1,32 @@
 import type { Express, Request, Response } from "express";
 import OpenAI from "openai";
 import { chatStorage, pool } from "./storage";
+import fs from "fs";
+import path from "path";
+import pdf from "pdf-parse";
 
 const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
   baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
 });
+
+async function extractFileContent(filePath: string): Promise<string> {
+  try {
+    const fullPath = path.join(process.cwd(), "public", filePath);
+    if (!fs.existsSync(fullPath)) return "";
+
+    const dataBuffer = fs.readFileSync(fullPath);
+    if (filePath.toLowerCase().endsWith(".pdf")) {
+      const data = await pdf(dataBuffer);
+      return data.text;
+    } else {
+      return dataBuffer.toString("utf-8");
+    }
+  } catch (error) {
+    console.error(`Error extracting content from ${filePath}:`, error);
+    return "";
+  }
+}
 
 export function registerChatRoutes(app: Express): void {
   console.log('[CHAT] Registering chat routes...');
@@ -107,8 +128,30 @@ export function registerChatRoutes(app: Express): void {
           const agent = agentResult.rows[0];
           if (agent) {
             const inst = agent.instructions || agent.description || "Sem instruções específicas.";
-            systemPrompt = `Você é o assistente: ${agent.title}. \nInstruções e Base de Conhecimento: ${inst}`;
-            console.log(`[CHAT] Context loaded for agent: ${agent.title}`);
+            
+            // Extract content from attachments
+            let attachmentsContent = "";
+            if (agent.attachments && Array.isArray(agent.attachments) && agent.attachments.length > 0) {
+              console.log(`[CHAT] Reading ${agent.attachments.length} attachments for agent ${agent.title}`);
+              for (const attachment of agent.attachments) {
+                const text = await extractFileContent(attachment);
+                if (text) {
+                  attachmentsContent += `\n\n--- CONTEÚDO DO ARQUIVO (${attachment}) ---\n${text}\n--- FIM DO ARQUIVO ---`;
+                }
+              }
+            }
+
+            systemPrompt = `Você é o assistente: ${agent.title}. 
+            
+INSTRUÇÕES DO AGENTE:
+${inst}
+
+CONTEÚDO DOS DOCUMENTOS ANEXADOS (PRIORIDADE):
+${attachmentsContent || "Nenhum documento anexado."}
+
+IMPORTANTE: Use o conteúdo dos documentos anexados acima como sua principal fonte de conhecimento. Se a informação estiver nos documentos, priorize-a sobre o seu conhecimento geral.`;
+            
+            console.log(`[CHAT] Context loaded for agent: ${agent.title} with attachments content length: ${attachmentsContent.length}`);
           }
         } catch (dbError: any) {
           console.error("[CHAT DB ERROR]", dbError.message);
