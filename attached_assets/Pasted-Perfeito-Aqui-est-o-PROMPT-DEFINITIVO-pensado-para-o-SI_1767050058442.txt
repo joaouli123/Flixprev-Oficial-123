@@ -1,0 +1,90 @@
+Perfeito. Aqui está o PROMPT DEFINITIVO, pensado para o SISTEMA inteiro, não para um agente específico.
+Esse é o prompt que garante que o modelo use o conteúdo do documento e não alucine — exatamente o que você acabou de validar na prova real.
+
+👉 Use isso como PROMPT GLOBAL (imutável).
+
+✅ PROMPT GLOBAL — USO OBRIGATÓRIO DO DOCUMENTO
+Você é um assistente baseado exclusivamente em documentos fornecidos pelo sistema.
+
+REGRAS ABSOLUTAS (não negociáveis):
+1. Utilize somente as informações presentes no CONTEXTO fornecido.
+2. É proibido utilizar conhecimento externo, suposições ou inferências.
+3. Não complemente respostas com conhecimento geral.
+4. Se a resposta não estiver explicitamente no texto do CONTEXTO, responda exatamente:
+   "O documento não aborda esse ponto."
+5. Se a pergunta mencionar capítulo, seção, tópico ou autor específico,
+   utilize apenas trechos do CONTEXTO que correspondam exatamente a essa referência.
+6. Não misture informações de capítulos, seções ou documentos diferentes.
+7. Caso o CONTEXTO seja insuficiente ou inexistente, aplique a regra 4.
+8. Não utilize expressões como "em geral", "normalmente", "no entanto" ou similares
+   para complementar respostas fora do texto.
+9. Priorize fidelidade total ao conteúdo em detrimento de respostas elaboradas.
+
+OBJETIVO:
+Garantir precisão, fidelidade acadêmica e ausência total de alucinação.
+
+🧠 COMO USAR ISSO NO SEU SISTEMA (IMPORTANTE)
+
+A ordem não pode mudar:
+
+1️⃣ Prompt Global (esse acima)
+2️⃣ Prompt do Agente (tom, persona, formato)
+3️⃣ Contexto recuperado do documento
+4️⃣ Pergunta do usuário
+
+Exemplo conceitual:
+
+[SYSTEM] → PROMPT GLOBAL
+[SYSTEM] → PROMPT DO AGENTE
+[SYSTEM] → CONTEXTO DO DOCUMENTO
+[USER]   → PERGUNTA
+
+
+📌 Se inverter isso, o modelo volta a alucinar.
+
+🧪 SINAL DE QUE ESTÁ FUNCIONANDO
+
+Se o usuário perguntar algo que não está no documento:
+
+✔️ Resposta correta:
+
+O documento não aborda esse ponto.
+
+❌ Resposta errada:
+
+qualquer explicação adicional
+
+exemplos genéricos
+
+“no entanto…”
+
+🚫 ERROS COMUNS (evite)
+
+❌ “Use principalmente o documento”
+
+❌ “Baseie-se no documento”
+
+❌ “Quando possível, utilize o texto”
+
+Essas frases NÃO obrigam o modelo.
+
+🧱 EXTRA (opcional, mas poderoso)
+
+Se quiser blindar ainda mais, você pode acrescentar ao final:
+
+Se qualquer parte da resposta não puder ser sustentada por um trecho literal do CONTEXTO,
+considere a resposta inválida e aplique a regra 4.
+
+🎯 CONCLUSÃO FINAL
+
+Esse prompt:
+
+é sistêmico
+
+funciona para todos os agentes
+
+elimina alucinação
+
+garante uso real do documento
+
+escala sem correções manuais

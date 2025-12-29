@@ -132,26 +132,37 @@ async function searchKeywordChunks(keyword, agentId, limit = 5) {
   }
 }
 
-// 5️⃣ Prompt GLOBAL IMUTÁVEL e CONTRATO DE CONTEXTO
-function buildPrompt(context, question) {
-  const globalSystemPrompt = `🔒 VOCÊ É UM SISTEMA BASEADO EM DOCUMENTOS (MODO RESTRITIVO HARDCORE)
+// 5️⃣ Prompt GLOBAL DEFINITIVO e CONTRATO DE CONTEXTO
+function buildPrompt(context, agentInstructions, question) {
+  const globalPrompt = `✅ PROMPT GLOBAL — USO OBRIGATÓRIO DO DOCUMENTO
+Você é um assistente baseado exclusivamente em documentos fornecidos pelo sistema.
 
-REGRAS ABSOLUTAS E IMUTÁVEIS:
-1. USE EXCLUSIVAMENTE o texto fornecido no CONTEXTO abaixo.
-2. É PROIBIDO utilizar qualquer conhecimento externo, geral, anterior ou senso comum.
-3. É PROIBIDO misturar informações de documentos ou capítulos diferentes se não houver uma relação explícita no texto.
-4. Se a resposta não estiver explicitamente e literalmente no texto, responda EXATAMENTE: "O documento não aborda esse ponto."
-5. Se a pergunta mencionar capítulo, seção ou tópico específico, utilize APENAS trechos que contenham essa referência.
-6. Se não houver trechos suficientes para uma resposta completa, aplique a regra 4.
-7. NUNCA complemente respostas com conhecimento geral (Ex: "No entanto...", "Em geral...", "Normalmente...").
-8. REGRA DE PARADA: Se você responder que o documento não aborda o ponto, PARE a resposta imediatamente.`;
+REGRAS ABSOLUTAS (não negociáveis):
+1. Utilize somente as informações presentes no CONTEXTO fornecido.
+2. É proibido utilizar conhecimento externo, suposições ou inferências.
+3. Não complemente respostas com conhecimento geral.
+4. Se a resposta não estiver explicitamente no texto do CONTEXTO, responda exatamente:
+   "O documento não aborda esse ponto."
+5. Se a pergunta mencionar capítulo, seção, tópico ou autor específico, utilize apenas trechos do CONTEXTO que correspondam exatamente a essa referência.
+6. Não misture informações de capítulos, seções ou documentos diferentes.
+7. Caso o CONTEXTO seja insuficiente ou inexistente, aplique a regra 4.
+8. Não utilize expressões como "em geral", "normalmente", "no entanto" ou similares para complementar respostas fora do texto.
+9. Priorize fidelidade total ao conteúdo em detrimento de respostas elaboradas.
+10. Se qualquer parte da resposta não puder ser sustentada por um trecho literal do CONTEXTO, considere a resposta inválida e aplique a regra 4.
 
-  // Padronização do Bloco de Contexto (Contrato de Contexto)
+OBJETIVO:
+Garantir precisão, fidelidade acadêmica e ausência total de alucinação.`;
+
   const contextBlock = context 
     ? `[INÍCIO DO CONTEXTO]\n${context}\n[FIM DO CONTEXTO]`
     : '[⚠️ ERRO: Nenhum conteúdo de documento foi fornecido]';
 
-  return `${globalSystemPrompt}
+  return `${globalPrompt}
+
+═══════════════════════════════════════════════════════════════════
+INSTRUÇÕES ESPECÍFICAS DO AGENTE (TOM E PERSONA):
+═══════════════════════════════════════════════════════════════════
+${agentInstructions || "Atue como um assistente técnico especializado nos documentos fornecidos."}
 
 ═══════════════════════════════════════════════════════════════════
 CONTEXTO PADRONIZADO (SUA ÚNICA FONTE DE VERDADE):
@@ -565,18 +576,7 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
         const agent = await pool.query('SELECT * FROM "agents" WHERE "id" = $1', [agentId]);
         if (agent.rows[0]) {
           const agentData = agent.rows[0];
-          const systemInstructions = `
-            DIRETRIZES GLOBAIS DE PRECISÃO:
-            1. Você é um assistente acadêmico e técnico rigoroso.
-            2. Sua ÚNICA fonte de informação são os documentos anexados.
-            3. Se uma informação não estiver EXPLICITAMENTE no texto, você deve dizer que não sabe ou que o documento não aborda.
-            4. É terminantemente proibido usar "conhecimento geral" para complementar lacunas dos documentos.
-            5. Se o usuário perguntar sobre um capítulo específico, limite-se estritamente aos dados contidos naquele capítulo.
-            
-            INSTRUÇÕES ESPECÍFICAS DO AGENTE:
-            ${agentData.instructions || agentData.description || "Atue como um assistente técnico especializado nos documentos fornecidos."}
-          `;
-          prompt = `Você é o assistente: ${agentData.title}. ${systemInstructions}`;
+          const agentInstructions = agentData.instructions || agentData.description || "";
 
           // 🔍 Verificar se agente tem documentos/chunks associados
           const hasDocuments = await pool.query(
@@ -642,9 +642,8 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
                 console.log('[CHAT] ...truncado...');
               }
 
-              // Construir prompt com contexto (SEMPRE usar buildPrompt para segurança)
-              // Mesmo se não encontrar contexto, o prompt restritivo dirá "não aborda"
-              prompt = buildPrompt(relevantContext || '', content);
+              // Construir prompt DEFINITIVO com ordem estrita: Global -> Agent -> Context -> User
+              prompt = buildPrompt(relevantContext || '', agentInstructions, content);
               
               if (relevantContext) {
                 console.log('[CHAT] ✅ Contexto RAG encontrado e injetado');
@@ -655,9 +654,9 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
               console.error('[CHAT] Erro ao buscar contexto:', e.message);
             }
           } else {
-            // 📝 Modo normal: sem documentos, usa apenas as instruções do agente
+            // 📝 Modo normal: sem documentos, usa as instruções do agente dentro do prompt global
             console.log('[CHAT] ✅ Usando modo normal (prompt do agente sem documentos)');
-            // O prompt já foi definido na linha 548 com as instruções do agente
+            prompt = buildPrompt('', agentInstructions, content);
           }
         }
       } catch (e) {
