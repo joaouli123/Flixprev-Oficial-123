@@ -8,8 +8,11 @@ const openai = new OpenAI({
 });
 
 export function registerChatRoutes(app: Express): void {
+  console.log('[CHAT] Registering chat routes...');
+  
   // Get all conversations
   app.get("/api/conversations", async (req: Request, res: Response) => {
+    console.log('[CHAT API] GET /api/conversations');
     try {
       const conversations = await chatStorage.getAllConversations();
       res.json(conversations);
@@ -39,11 +42,13 @@ export function registerChatRoutes(app: Express): void {
   app.post("/api/conversations", async (req: Request, res: Response) => {
     try {
       const { title } = req.body;
+      console.log('[CHAT API] Creating conversation with title:', title);
       const conversation = await chatStorage.createConversation(title || "New Chat");
+      console.log('[CHAT API] Created conversation:', conversation);
       res.status(201).json(conversation);
-    } catch (error) {
-      console.error("Error creating conversation:", error);
-      res.status(500).json({ error: "Failed to create conversation" });
+    } catch (error: any) {
+      console.error('[CHAT API] Error creating conversation:', error.message);
+      res.status(500).json({ error: "Failed to create conversation: " + error.message });
     }
   });
 
@@ -61,6 +66,7 @@ export function registerChatRoutes(app: Express): void {
 
   // Send message and get AI response (streaming)
   app.post("/api/conversations/:id/messages", async (req: Request, res: Response) => {
+    console.log('[CHAT API] POST /api/conversations/:id/messages');
     try {
       const conversationId = parseInt(req.params.id);
       const { content, agentId } = req.body;
