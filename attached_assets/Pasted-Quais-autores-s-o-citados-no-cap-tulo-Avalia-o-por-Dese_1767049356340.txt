@@ -1,0 +1,183 @@
+Quais autores são citados no capítulo “Avaliação por Desempenho”?
+No capítulo "Avaliação por Desempenho", os autores citados são:
+
+1.
+Yokominzo (2009)
+2.
+Ensslin (2010)
+3.
+Whiteley (1999)
+4.
+Pacheco et al (2005)
+5.
+Aquino (1980)
+6.
+Julião e Vandi (2008)
+Segundo Ensslin (2010), como a avaliação de desempenho é definida neste trabalho?
+Segundo Ensslin (2010), a avaliação de desempenho é definida como o processo para construir conhecimento no divisor, a respeito do contexto específico que se propõe avaliar, a partir da percepção do próprio divisor por meio de atividades que identificam, organizam, mensuram ordinalmente e cardinalmente, e sua agregação e os meios para observar o impacto das ações e seu gerenciamento.
+
+Como a avaliação de desempenho impacta bônus, promoções e aumento salarial?
+O texto fornecido não aborda especificamente como a avaliação de desempenho impacta bônus, promoções e aumento salarial. No entanto, em um contexto geral, a avaliação de desempenho é frequentemente utilizada pelas organizações como uma ferramenta para tomar decisões relacionadas a recompensas financeiras e progressão na carreira.
+
+Em muitas empresas, os resultados das avaliações de desempenho podem influenciar:
+
+1.
+Bônus: Funcionários que recebem avaliações positivas podem ser elegíveis para bônus de desempenho, que são recompensas financeiras adicionais baseadas no cumprimento ou superação de metas estabelecidas.
+2.
+Promoções: Avaliações de desempenho ajudam a identificar funcionários que estão prontos para assumir responsabilidades maiores ou cargos de maior nível dentro da organização. Aqueles que demonstram habilidades excepcionais e atingem consistentemente suas metas podem ser considerados para promoções.
+3.
+Aumento Salarial: As avaliações de desempenho podem servir como base para ajustes salariais. Funcionários que apresentam um bom desempenho podem receber aumentos salariais como reconhecimento por suas contribuições para a organização.
+Essas práticas incentivam os funcionários a se esforçarem para alcançar um desempenho superior, alinhando seus objetivos pessoais com os objetivos organizacionais.
+
+Excelente, agora deu para auditar com precisão 👍
+Vou analisar resposta por resposta e depois te dizer exatamente o que está funcionando e o que ainda está errado no seu agente.
+
+🔍 AUDITORIA TÉCNICA DA RESPOSTA DO AGENTE
+1️⃣ Pergunta: Autores citados no capítulo “Avaliação por Desempenho”
+Resposta do agente:
+
+Yokominzo (2009)
+Ensslin (2010)
+Whiteley (1999)
+Pacheco et al (2005)
+Aquino (1980)
+Julião e Vandi (2008)
+
+❌ Problema grave aqui
+
+No capítulo específico “Avaliação por Desempenho”, os autores corretos são:
+
+✅ Yokominzo (2009)
+✅ Ensslin (2010)
+✅ Whiteley (1999)
+
+🚫 Pacheco, Aquino, Julião e Vandi
+➡️ NÃO pertencem a esse capítulo
+Eles aparecem em outros capítulos do trabalho, ligados a treinamento, gestão de pessoas, etc.
+
+📌 Diagnóstico
+
+👉 O agente misturou chunks de capítulos diferentes
+👉 Isso é um erro clássico de RAG sem filtro por seção
+
+Status: ❌ INCORRETO
+Causa: busca semântica ampla demais
+
+2️⃣ Pergunta: Definição segundo Ensslin (2010)
+Resposta do agente:
+
+A definição apresentada está:
+
+Correta
+
+Bem formulada
+
+Fiel ao texto
+
+Linguagem acadêmica adequada
+
+📌 Mesmo com pequenas variações de redação, o conceito está correto.
+
+Status: ✅ CORRETO
+👉 Aqui ele realmente usou o PDF
+
+3️⃣ Pergunta: Impacto em bônus, promoções e aumento salarial
+Resposta do agente:
+
+Ele começa certo:
+
+“O texto fornecido não aborda especificamente...”
+
+❌ Mas depois quebra a regra e continua com:
+
+“No entanto, em um contexto geral...”
+
+Isso é alucinação controlada, mas ainda assim:
+
+🚫 violação direta do prompt ideal
+Ele usou conhecimento externo, mesmo avisando que não estava no texto.
+
+Resposta correta deveria ser APENAS:
+
+“O documento não aborda esse ponto.”
+
+Status: ⚠️ PARCIALMENTE ERRADO
+Causa: prompt permissivo demais
+
+🧠 DIAGNÓSTICO FINAL DO SEU AGENTE
+Item	Status
+Leitura do PDF	✅ SIM
+Busca semântica	✅ SIM
+Fidelidade por capítulo	❌ NÃO
+Controle de alucinação	❌ NÃO
+Prompt restritivo	⚠️ FRACO
+
+👉 Seu agente JÁ lê o documento, isso é importante.
+O problema agora é controle e precisão, não leitura.
+
+🔧 CORREÇÕES ESSENCIAIS (SEM REFAZER TUDO)
+✔️ Correção 1 — Filtrar por capítulo (muito importante)
+
+Quando a pergunta mencionar:
+
+“no capítulo Avaliação por Desempenho”
+
+Você deve:
+
+Priorizar chunks que contenham:
+
+Avaliação por Desempenho
+2.3
+
+
+📌 Mesmo um filtro simples por texto já resolve.
+
+✔️ Correção 2 — Prompt MAIS rígido (copie e cole)
+
+Use algo assim:
+
+Use exclusivamente as informações do texto fornecido.
+Não utilize conhecimento externo.
+
+Se o texto disser que não aborda o assunto,
+interrompa a resposta imediatamente.
+
+É proibido complementar com conhecimento geral.
+
+
+Isso impediria a resposta sobre bônus.
+
+✔️ Correção 3 — Regra de parada (anti-“no entanto”)
+
+No código ou prompt:
+
+“Se responder ‘não aborda’, NÃO continue.”
+
+Isso elimina 100% desse erro.
+
+🧪 Resultado esperado após ajustes
+Autores:
+
+✔️ Só Yokominzo, Ensslin, Whiteley
+
+Bônus:
+
+✔️ Apenas “não aborda”
+
+Definições:
+
+✔️ Mantém qualidade atual
+
+🎯 Conclusão honesta
+
+Você já passou da fase iniciante.
+
+Agora você está ajustando:
+
+Precisão semântica
+
+Fidelidade acadêmica
+
+Controle de escopo
+
+👉 Isso é nível produto, não tutorial.

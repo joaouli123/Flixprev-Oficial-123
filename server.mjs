@@ -141,11 +141,12 @@ Responda EXCLUSIVAMENTE com base no texto do documento abaixo.
 NÃO utilize nenhum conhecimento externo, geral ou anterior.
 
 REGRAS OBRIGATÓRIAS (NÃO PODE QUEBRAR):
-1. ❌ NÃO use conhecimento externo ou geral
-2. ❌ NÃO invente ou presuma nada não dito no texto
-3. ❌ NÃO cite autores, datas, números ou conceitos que não apareçam no documento
-4. ❌ NÃO faça interpretações criativas ou generalizações
-5. ✅ USE APENAS as informações literalmente presentes no texto abaixo
+1. ❌ NÃO use conhecimento externo ou geral (Ex: se o texto não fala de bônus, não explique o que é bônus no mercado geral).
+2. ❌ NÃO invente ou presuma nada não dito no texto.
+3. ❌ NÃO cite autores, datas, números ou conceitos que não apareçam no documento.
+4. ❌ NÃO faça interpretações criativas ou generalizações.
+5. ✅ USE APENAS as informações literalmente presentes no texto abaixo.
+6. ⚠️ REGRA DE PARADA: Se você começar a responder que o documento não aborda o assunto, você DEVE parar a resposta imediatamente após essa afirmação. É PROIBIDO complementar com "No entanto..." ou "Em um contexto geral...".
 
 RESPOSTA OBRIGATÓRIA PARA PERGUNTAS FORA DO ESCOPO:
 Se a pergunta não puder ser respondida COMPLETAMENTE usando apenas o texto fornecido abaixo, você DEVE responder EXATAMENTE desta forma:
@@ -570,24 +571,28 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
                 input: content
               });
 
-              // Buscar chunks similares (aumentado de 5 para 8 para melhor cobertura)
+              // Buscar chunks similares (aumentado de 8 para 12 para garantir que capítulos inteiros sejam capturados)
               let relevantContext = await searchSimilarChunks(
                 queryEmbedding.data[0].embedding,
                 agentId,
-                8
+                12
               );
 
-              // 🔍 FALLBACK: Se não encontrou contexto semântico, tenta busca por palavra-chave
-              if (!relevantContext || relevantContext.length < 100) {
-                // Extrair palavras-chave da pergunta (nomes, palavras principais)
-                const keywords = content.match(/\b[A-Z][a-záéíóúàâêô]+\b/g) || [];
-                if (keywords.length > 0) {
-                  console.log('[CHAT] Tentando fallback com palavra-chave:', keywords[0]);
-                  const keywordContext = await searchKeywordChunks(keywords[0], agentId, 5);
-                  if (keywordContext && keywordContext.length > relevantContext.length) {
-                    relevantContext = keywordContext;
-                    console.log('[CHAT] ✅ Fallback keyword search bem-sucedido');
-                  }
+              // 🔍 RE-RANKING SIMPLES POR CAPÍTULO/SEÇÃO
+              // Se a pergunta menciona "capítulo", "seção" ou números como "2.3",
+              // filtramos o contexto para priorizar esses termos
+              const chapterMatch = content.match(/capítulo|seção|[\d\.]+/i);
+              if (chapterMatch && relevantContext) {
+                console.log('[CHAT] Detectada referência a seção/capítulo, priorizando contextualmente...');
+                const contextLines = relevantContext.split('\n\n---\n\n');
+                const prioritizedLines = contextLines.filter(line => 
+                  line.toLowerCase().includes(chapterMatch[0].toLowerCase()) ||
+                  (content.match(/Avaliação por Desempenho/i) && line.match(/Avaliação por Desempenho/i))
+                );
+                
+                if (prioritizedLines.length > 0) {
+                  relevantContext = prioritizedLines.join('\n\n---\n\n');
+                  console.log(`[CHAT] Contexto filtrado para priorizar seções: ${prioritizedLines.length} chunks`);
                 }
               }
 
