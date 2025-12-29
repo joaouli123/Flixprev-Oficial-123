@@ -62,10 +62,30 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
     await pool.query('INSERT INTO messages (conversation_id, role, content) VALUES ($1, $2, $3)', [cid, "user", content]);
     
     let prompt = "Você é um assistente prestativo.";
+    let knowledgeBase = "";
+    
     if (agentId) {
       try {
         const r = await pool.query('SELECT * FROM "agents" WHERE "id" = $1', [agentId]);
-        if (r.rows[0]) prompt = `Você é o assistente: ${r.rows[0].title}. Instruções: ${r.rows[0].instructions || r.rows[0].description || ""}`;
+        if (r.rows[0]) {
+          const agent = r.rows[0];
+          prompt = `Você é o assistente: ${agent.title}. Instruções: ${agent.instructions || agent.description || ""}`;
+          
+          // Buscar documentos anexados ao agente
+          try {
+            const docs = await pool.query('SELECT content, title FROM "agent_documents" WHERE agent_id = $1', [agentId]);
+            if (docs.rows && docs.rows.length > 0) {
+              knowledgeBase = "\n\n=== BASE DE CONHECIMENTO ===\n";
+              docs.rows.forEach((doc, idx) => {
+                knowledgeBase += `\n--- Documento ${idx + 1}: ${doc.title} ---\n${doc.content}\n`;
+              });
+              knowledgeBase += "\n=== FIM DA BASE DE CONHECIMENTO ===\n";
+              prompt += knowledgeBase + "\nUse prioritariamente os documentos acima como base para suas respostas.";
+            }
+          } catch (e) {
+            console.log('[CHAT] Aviso: erro ao buscar documentos do agente:', e.message);
+          }
+        }
       } catch (e) {}
     }
     
