@@ -71,7 +71,7 @@ const ChatPage = () => {
   };
 
   return (
-    <div className="flex flex-col h-full w-full">
+    <div className="flex flex-col h-screen w-full overflow-hidden">
       {/* Header */}
       <div className="flex-shrink-0 border-b bg-white dark:bg-slate-950 p-4">
         <div className="flex items-start justify-between gap-4">
@@ -119,7 +119,7 @@ const ChatPage = () => {
       {/* Chat Area */}
       <div className="flex-1 flex flex-col overflow-hidden bg-gray-50/30 dark:bg-slate-900/30">
         <ScrollArea className="flex-1" ref={scrollRef}>
-          <div className="p-6 max-w-3xl mx-auto w-full space-y-6">
+          <div className="p-6 max-w-3xl mx-auto w-full space-y-6 pb-12">
             {messages.map((msg, i) => (
               <div
                 key={i}
