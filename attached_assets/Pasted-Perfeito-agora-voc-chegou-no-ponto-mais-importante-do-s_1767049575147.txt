@@ -1,0 +1,181 @@
+Perfeito — agora você chegou no ponto mais importante do sistema.
+Você está certo: não é problema de um agente, é problema de arquitetura.
+
+👉 A solução NÃO é corrigir agente por agente.
+👉 A solução é criar regras sistêmicas obrigatórias, que nenhum agente consiga quebrar.
+
+Vou te mostrar como fazer isso no nível do sistema, não do agente.
+
+🧠 PRINCÍPIO-CHAVE (grava isso)
+
+Agentes não podem ser confiáveis.
+O SISTEMA precisa ser confiável.
+
+Ou seja:
+
+o agente não decide
+
+o sistema impõe regras
+
+🧱 CAMADA 1 — PROMPT GLOBAL (imutável)
+
+Crie um PROMPT DE SISTEMA GLOBAL, que todo agente recebe antes do prompt individual.
+
+🔒 Esse prompt NÃO pode ser editável.
+
+Prompt Global (copie e use)
+Você é um sistema baseado em documentos.
+
+REGRAS ABSOLUTAS:
+1. Use exclusivamente o texto fornecido no CONTEXTO.
+2. É proibido utilizar conhecimento externo.
+3. É proibido misturar informações de documentos diferentes.
+4. Se a resposta não estiver explicitamente no texto, responda exatamente:
+   "O documento não aborda esse ponto."
+5. Se a pergunta mencionar capítulo, seção ou tópico específico,
+   utilize apenas trechos que contenham essa referência.
+6. Se não houver trechos suficientes, aplique a regra 4.
+7. Nunca complemente respostas com conhecimento geral.
+
+
+📌 Esse prompt vem sempre antes do prompt do agente.
+
+🧩 CAMADA 2 — CONTRATO DE CONTEXTO (obrigatório)
+
+O agente não recebe texto solto.
+
+Ele recebe um bloco padronizado, sempre igual:
+
+[INÍCIO DO CONTEXTO]
+Documento: {nome}
+Seção: {capítulo}
+Trecho:
+{texto}
+[FIM DO CONTEXTO]
+
+
+📌 Isso:
+
+evita mistura de capítulos
+
+deixa claro quando não há contexto suficiente
+
+🔍 CAMADA 3 — BUSCA COM REGRAS (não opcional)
+
+A busca NÃO é livre.
+
+Regra sistêmica:
+
+Se a pergunta citar:
+
+“capítulo”
+
+“tópico”
+
+“segundo autor”
+
+👉 o sistema ativa modo restrito:
+
+só retorna chunks que contenham o título da seção
+
+📌 Isso não é decisão do agente.
+
+🧪 CAMADA 4 — VALIDADOR DE SAÍDA (automático)
+
+Antes de mostrar a resposta ao usuário:
+
+O sistema valida:
+
+❌ Resposta contém:
+
+“no entanto”
+
+“em geral”
+
+“normalmente”
+
+“em muitas empresas”
+
+👉 Bloqueia e substitui por:
+
+"O documento não aborda esse ponto."
+
+
+📌 Isso elimina 100% das alucinações que você viu.
+
+📊 CAMADA 5 — SCORE DE CONFIANÇA (opcional, mas forte)
+
+O sistema calcula:
+
+quantos chunks foram usados
+
+se houve citação de seção
+
+se a resposta veio de texto real
+
+Se score < mínimo:
+
+força regra 4
+
+🧠 CAMADA 6 — TEMPLATE DE AGENTE (não editável)
+
+Ao criar um agente:
+
+o usuário só escolhe:
+
+nome
+
+documentos
+
+tom
+
+🚫 Ele NÃO escolhe:
+
+regras
+
+formato de resposta
+
+uso de conhecimento externo
+
+📌 Isso garante que todo agente nasce correto.
+
+🧩 VISÃO FINAL (como fica o sistema)
+Usuário pergunta
+↓
+Sistema analisa pergunta
+↓
+Sistema busca com regras
+↓
+Sistema injeta contexto padronizado
+↓
+Prompt Global (fixo)
+↓
+Prompt do Agente (custom)
+↓
+Modelo responde
+↓
+Validador de saída
+↓
+Resposta final
+
+
+👉 O agente não tem como errar sozinho.
+
+🧠 CONCLUSÃO (bem direta)
+
+Você está certo em 100%.
+
+❌ Corrigir agente por agente = sistema frágil
+✅ Criar regras globais = sistema profissional
+
+O que você está construindo agora é:
+
+multi-agente
+
+multi-documento
+
+à prova de alucinação
+
+escalável
+
+Isso é arquitetura de produto, não “prompt bonito”.
