@@ -206,6 +206,10 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
       if (isEditing && agentToEdit && onEditSave) {
         console.log("Editando agente:", agentToEdit.id, "com category_ids:", agentData.category_ids);
         onEditSave(agentToEdit.id, agentData);
+        // Após salvar as alterações, reprocessar attachments se houver para garantir RAG
+        if (uploadedPaths.length > 0) {
+          fetch('/api/admin/reprocess-attachments', { method: 'POST' }).catch(console.error);
+        }
       } else {
         console.log("Criando agente com categoria:", selectedCategory);
         onSave(agentData);
