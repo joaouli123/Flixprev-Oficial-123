@@ -119,23 +119,26 @@ const AppLayout = () => {
     }
     
     try {
-      // Usando o pool diretamente via API proxy
+      console.log("Tentando criar categoria:", name, "para o usuário:", userId);
       const { data, error } = await neon
         .from("categories")
         .insert({ name, user_id: userId })
         .select();
 
       if (error) {
-        console.error("Database error creating category:", error);
-        toast.error("Erro ao criar categoria: " + error.message);
+        console.error("Erro do banco de dados ao criar categoria:", error);
+        toast.error("Erro ao criar categoria: " + (error.message || "Erro na query"));
       } else {
         if (data && data.length > 0) {
           setCategories((prev) => [...prev, data[0] as Category]);
           toast.success(`Categoria '${name}' criada com sucesso!`);
+        } else {
+          console.error("Nenhum dado retornado ao criar categoria");
+          toast.error("Erro: Nenhum dado retornado do servidor");
         }
       }
     } catch (err) {
-      console.error("Catch error creating category:", err);
+      console.error("Erro inesperado ao criar categoria:", err);
       toast.error("Erro inesperado ao criar categoria");
     }
   };
