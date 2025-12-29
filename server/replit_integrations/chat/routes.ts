@@ -14,17 +14,26 @@ const openai = new OpenAI({
 async function extractFileContent(filePath: string): Promise<string> {
   try {
     const fullPath = path.join(process.cwd(), "public", filePath);
-    if (!fs.existsSync(fullPath)) return "";
+    console.log(`[CHAT] Attempting to read file: ${fullPath}`);
+    if (!fs.existsSync(fullPath)) {
+      console.warn(`[CHAT] File not found: ${fullPath}`);
+      return "";
+    }
 
     const dataBuffer = fs.readFileSync(fullPath);
     if (filePath.toLowerCase().endsWith(".pdf")) {
-      const data = await pdf(dataBuffer);
-      return (data as any).text || "";
+      console.log(`[CHAT] Parsing PDF: ${filePath}`);
+      const data = await (pdf as any)(dataBuffer);
+      const text = data.text || "";
+      console.log(`[CHAT] PDF parsed. Text length: ${text.length}`);
+      return text;
     } else {
-      return dataBuffer.toString("utf-8");
+      const text = dataBuffer.toString("utf-8");
+      console.log(`[CHAT] Text file read. Length: ${text.length}`);
+      return text;
     }
   } catch (error) {
-    console.error(`Error extracting content from ${filePath}:`, error);
+    console.error(`[CHAT] Error extracting content from ${filePath}:`, error);
     return "";
   }
 }
