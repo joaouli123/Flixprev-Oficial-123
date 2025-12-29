@@ -44,6 +44,44 @@ const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
 });
 
+// Função para extrair texto de arquivo
+async function extractFileContent(filePath, filename) {
+  try {
+    // Apenas ler arquivos de texto direto - PDFs precisam ser convertidos externamente
+    if (filename.toLowerCase().endsWith('.pdf')) {
+      return `[Arquivo PDF encontrado: ${filename}. Por favor, extraia o texto do PDF e cole aqui, ou converta para .txt primeiro.]`;
+    }
+    // Para arquivos de texto, ler diretamente
+    return fs.readFileSync(filePath, 'utf-8');
+  } catch (e) {
+    console.error('[FILE] Erro ao extrair conteúdo:', e.message);
+    return `[Arquivo não pode ser lido: ${filename}]`;
+  }
+}
+
+// Função para busca semântica simples (por palavras-chave relevantes)
+function findRelevantDocuments(userQuery, documents, maxDocs = 3) {
+  if (!documents || documents.length === 0) return [];
+  
+  const queryWords = userQuery.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+  
+  const scored = documents.map(doc => {
+    const docText = (doc.content || '').toLowerCase();
+    const docTitle = (doc.title || '').toLowerCase();
+    
+    let score = 0;
+    queryWords.forEach(word => {
+      const titleMatches = (docTitle.match(new RegExp(word, 'g')) || []).length;
+      const contentMatches = (docText.match(new RegExp(word, 'g')) || []).length;
+      score += (titleMatches * 3) + contentMatches;
+    });
+    
+    return { ...doc, score };
+  }).filter(d => d.score > 0);
+  
+  return scored.sort((a, b) => b.score - a.score).slice(0, maxDocs);
+}
+
 // Initialize chat tables
 async function initializeChatTables() {
   try {
@@ -123,14 +161,41 @@ app.get("/api/agents/:agentId/documents", async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// Upload endpoint for agent attachments
-app.post('/api/agents/upload', upload.single('file'), (req, res) => {
-  if (!req.file) {
-    return res.status(400).json({ error: 'Nenhum arquivo foi enviado' });
+// Upload endpoint for agent attachments com extração de conteúdo
+app.post('/api/agents/upload', upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'Nenhum arquivo foi enviado' });
+    }
+    
+    const { agentId } = req.body;
+    if (!agentId) {
+      return res.status(400).json({ error: 'agentId é obrigatório' });
+    }
+    
+    const filePath = path.join(process.cwd(), 'public', 'agent-attachments', req.file.filename);
+    console.log('[UPLOAD] Extraindo conteúdo do arquivo:', req.file.originalname);
+    const content = await extractFileContent(filePath, req.file.originalname);
+    
+    // Salvar no banco de dados
+    const docResult = await pool.query(
+      'INSERT INTO agent_documents (agent_id, title, content) VALUES ($1, $2, $3) RETURNING *',
+      [agentId, req.file.originalname, content]
+    );
+    
+    console.log(`[UPLOAD] Arquivo "${req.file.originalname}" salvo com sucesso (${content.length} caracteres)`);
+    
+    const filePath2 = `/agent-attachments/${req.file.filename}`;
+    res.json({ 
+      path: filePath2, 
+      filename: req.file.originalname,
+      documentId: docResult.rows[0].id,
+      contentLength: content.length
+    });
+  } catch (e) {
+    console.error('[UPLOAD] Erro:', e.message);
+    res.status(500).json({ error: e.message });
   }
-  
-  const filePath = `/agent-attachments/${req.file.filename}`;
-  res.json({ path: filePath, filename: req.file.originalname });
 });
 
 app.post("/api/conversations/:id/messages", async (req, res) => {
@@ -149,16 +214,29 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
           const agent = r.rows[0];
           prompt = `Você é o assistente: ${agent.title}. Instruções: ${agent.instructions || agent.description || ""}`;
           
-          // Buscar documentos anexados ao agente
+          // Buscar documentos anexados ao agente com busca semântica
           try {
-            const docs = await pool.query('SELECT content, title FROM "agent_documents" WHERE agent_id = $1', [agentId]);
+            const docs = await pool.query('SELECT id, content, title FROM "agent_documents" WHERE agent_id = $1 ORDER BY created_at DESC', [agentId]);
             if (docs.rows && docs.rows.length > 0) {
-              knowledgeBase = "\n\n=== BASE DE CONHECIMENTO ===\n";
-              docs.rows.forEach((doc, idx) => {
-                knowledgeBase += `\n--- Documento ${idx + 1}: ${doc.title} ---\n${doc.content}\n`;
-              });
-              knowledgeBase += "\n=== FIM DA BASE DE CONHECIMENTO ===\n";
-              prompt += knowledgeBase + "\nUse prioritariamente os documentos acima como base para suas respostas.";
+              // Usar busca semântica para encontrar documentos relevantes
+              const relevantDocs = findRelevantDocuments(content, docs.rows, 3);
+              
+              if (relevantDocs.length > 0) {
+                knowledgeBase = "\n\n=== BASE DE CONHECIMENTO (DOCUMENTOS RELEVANTES) ===\n";
+                relevantDocs.forEach((doc, idx) => {
+                  // Limitar tamanho do conteúdo para evitar token limit
+                  const maxLength = 2000;
+                  const truncatedContent = doc.content.length > maxLength 
+                    ? doc.content.substring(0, maxLength) + '...[truncado]'
+                    : doc.content;
+                  knowledgeBase += `\n--- Documento: ${doc.title} ---\n${truncatedContent}\n`;
+                });
+                knowledgeBase += "\n=== FIM DA BASE DE CONHECIMENTO ===\n";
+                prompt += knowledgeBase + "\n⚠️ INSTRUÇÕES CRÍTICAS: Responda SOMENTE com base nos trechos de documentos acima. Se os documentos não contiverem a resposta, diga que não encontrou a informação na base de conhecimento.";
+                console.log(`[CHAT] Usando ${relevantDocs.length} documentos relevantes para a pergunta`);
+              } else {
+                console.log('[CHAT] Nenhum documento relevante encontrado para a pergunta');
+              }
             }
           } catch (e) {
             console.log('[CHAT] Aviso: erro ao buscar documentos do agente:', e.message);
