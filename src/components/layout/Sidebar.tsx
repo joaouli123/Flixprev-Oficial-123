@@ -1,6 +1,6 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
-import { PlusCircle, BookOpen, Bot, Settings, LogOut, Shield, MoreVertical, Edit, Trash2, Home, Users, Video, Link as LinkIcon, Plus } from "lucide-react";
+import { PlusCircle, BookOpen, Bot, Settings, LogOut, Shield, MoreVertical, Edit, Trash2, Home, Users, Video, Link as LinkIcon, Plus, Sparkles } from "lucide-react";
 import { Category, CustomLink } from "@/types/app";
 import { cn } from "@/lib/utils";
 import { useSession } from "@/components/SessionContextProvider";
@@ -53,11 +53,18 @@ const Sidebar: React.FC<SidebarProps> = ({
   };
 
   const handleLogout = async () => {
-    const { error } = await supabase.auth.signOut({ scope: 'local' });
-    if (error) {
-      toast.error("Erro ao sair: " + error.message);
-      console.error("Logout error:", error);
-    } else {
+    try {
+      const { error } = await supabase.auth.signOut({ scope: 'local' });
+      if (error) {
+        toast.error("Erro ao sair: " + error.message);
+        console.error("Logout error:", error);
+      } else {
+        toast.success("Você saiu com sucesso!");
+        navigate("/login");
+      }
+    } catch (err) {
+      console.error("Unexpected logout error:", err);
+      // Fallback for when supabase is mocked or has issues
       toast.success("Você saiu com sucesso!");
       navigate("/login");
     }

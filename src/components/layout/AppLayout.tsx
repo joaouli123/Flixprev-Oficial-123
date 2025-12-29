@@ -117,17 +117,25 @@ const AppLayout = () => {
       toast.error("Você precisa estar logado para criar categorias.");
       return;
     }
-    const { data, error } = await neon
-      .from("categories")
-      .insert({ name, user_id: userId })
-      .select();
-    if (error) {
-      toast.error("Erro ao criar categoria: " + error.message);
-    } else {
-      if (data && data.length > 0) {
-        setCategories((prev) => [...prev, data[0] as Category]);
-        toast.success(`Categoria '${name}' criada com sucesso!`);
+    
+    try {
+      const { data, error } = await neon
+        .from("categories")
+        .insert({ name, user_id: userId })
+        .select();
+
+      if (error) {
+        console.error("Database error creating category:", error);
+        toast.error("Erro ao criar categoria: " + error.message);
+      } else {
+        if (data && data.length > 0) {
+          setCategories((prev) => [...prev, data[0] as Category]);
+          toast.success(`Categoria '${name}' criada com sucesso!`);
+        }
       }
+    } catch (err) {
+      console.error("Catch error creating category:", err);
+      toast.error("Erro inesperado ao criar categoria");
     }
   };
 
