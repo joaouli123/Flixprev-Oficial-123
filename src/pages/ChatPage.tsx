@@ -71,7 +71,7 @@ const ChatPage = () => {
   };
 
   return (
-    <div className="flex flex-col w-full h-screen max-h-screen overflow-hidden bg-gray-50/30 dark:bg-slate-900/30">
+    <div className="flex flex-col w-full h-full overflow-hidden bg-gray-50/30 dark:bg-slate-900/30">
       {/* Header */}
       <div className="flex-shrink-0 border-b bg-white dark:bg-slate-950 p-2 sm:p-3">
         <div className="flex items-start justify-between gap-2 sm:gap-4">
@@ -155,7 +155,7 @@ const ChatPage = () => {
       </div>
 
       {/* Input Area */}
-      <div className="flex-shrink-0 bg-white dark:bg-slate-950 border-t dark:border-slate-800 p-2 sm:p-3">
+      <div className="flex-shrink-0 bg-white dark:bg-slate-950 border-t dark:border-slate-800 p-2 sm:p-3 pb-safe">
         <div className="w-full space-y-2">
           <div className="flex flex-wrap gap-1.5 sm:gap-2 overflow-x-auto pb-1">
             {shortcuts.map((s) => (
