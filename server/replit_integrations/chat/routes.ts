@@ -22,10 +22,13 @@ async function extractFileContent(filePath: string): Promise<string> {
 
     const dataBuffer = fs.readFileSync(fullPath);
     if (filePath.toLowerCase().endsWith(".pdf")) {
-      console.log(`[CHAT] Parsing PDF: ${filePath}`);
+      console.log(`[CHAT] Parsing PDF: ${filePath} using pdf-parse`);
       const data = await (pdf as any)(dataBuffer);
       const text = data.text || "";
-      console.log(`[CHAT] PDF parsed. Text length: ${text.length}`);
+      console.log(`[CHAT] PDF parsed successfully. Text length: ${text.length}`);
+      if (text.length < 50) {
+        console.warn(`[CHAT] WARNING: Extracted text is very short (${text.length} chars). PDF might be scanned/image-only.`);
+      }
       return text;
     } else {
       const text = dataBuffer.toString("utf-8");
@@ -149,26 +152,49 @@ export function registerChatRoutes(app: Express): void {
               for (const attachment of agent.attachments) {
                 // Remove leading slash if present
                 const normalizedPath = attachment.startsWith('/') ? attachment.substring(1) : attachment;
-                // Decodificar o caminho do arquivo para tratar caracteres especiais (como espaços e acentos)
-                const decodedPath = decodeURIComponent(normalizedPath);
                 
-                console.log(`[CHAT] Processing attachment: ${attachment} -> decoded: ${decodedPath}`);
+                // TENTATIVA 1: Usar o caminho original do banco de dados (que pode estar com encoding incorreto)
+                console.log(`[CHAT] Attempt 1: ${normalizedPath}`);
+                let text = await extractFileContent(normalizedPath);
                 
-                const text = await extractFileContent(decodedPath);
-                if (text) {
-                  console.log(`[CHAT] Content extracted from ${decodedPath}, length: ${text.length}`);
-                  attachmentsContent += `\n\n--- INFORMAÇÃO OBRIGATÓRIA DO ARQUIVO (${attachment}) ---\n${text}\n--- FIM DO CONTEÚDO DO ARQUIVO ---`;
-                } else {
-                  console.warn(`[CHAT] No content extracted from ${decodedPath}`);
-                  // Tentar sem decodificar se falhou
+                // TENTATIVA 2: Se falhar, tentar decodificar (para casos de espaços/acentos normais)
+                if (!text) {
+                  const decodedPath = decodeURIComponent(normalizedPath);
                   if (decodedPath !== normalizedPath) {
-                    console.log(`[CHAT] Retrying with normalized path: ${normalizedPath}`);
-                    const textRetry = await extractFileContent(normalizedPath);
-                    if (textRetry) {
-                      console.log(`[CHAT] Content extracted from ${normalizedPath} on retry, length: ${textRetry.length}`);
-                      attachmentsContent += `\n\n--- INFORMAÇÃO OBRIGATÓRIA DO ARQUIVO (${attachment}) ---\n${textRetry}\n--- FIM DO CONTEÚDO DO ARQUIVO ---`;
-                    }
+                    console.log(`[CHAT] Attempt 2 (decoded): ${decodedPath}`);
+                    text = await extractFileContent(decodedPath);
                   }
+                }
+                
+                // TENTATIVA 3: Se ainda falhar, tentar normalizar caracteres que costumam dar problema em nomes de arquivo via upload
+                if (!text) {
+                  // O log mostra "Ana LÃdia", o que sugere um problema de UTF-8 -> ISO-8859-1
+                  // Vamos tentar substituir padrões comuns de encoding corrompido
+                  const fixedPath = normalizedPath
+                    .replace(/Ã­/g, 'í')
+                    .replace(/Ã¡/g, 'á')
+                    .replace(/Ã©/g, 'é')
+                    .replace(/Ã³/g, 'ó')
+                    .replace(/Ãº/g, 'ú')
+                    .replace(/Ã±/g, 'ñ')
+                    .replace(/Ã /g, 'à')
+                    .replace(/Ã£/g, 'ã')
+                    .replace(/Ãµ/g, 'õ')
+                    .replace(/Ã¢/g, 'â')
+                    .replace(/Ãª/g, 'ê')
+                    .replace(/Ã´/g, 'ô');
+                  
+                  if (fixedPath !== normalizedPath) {
+                    console.log(`[CHAT] Attempt 3 (fixed encoding): ${fixedPath}`);
+                    text = await extractFileContent(fixedPath);
+                  }
+                }
+
+                if (text) {
+                  console.log(`[CHAT] Content extracted successfully, length: ${text.length}`);
+                  attachmentsContent += `\n\n--- CONTEÚDO DO ARQUIVO (${attachment}) ---\n${text}\n--- FIM DO CONTEÚDO ---`;
+                } else {
+                  console.warn(`[CHAT] Failed to read attachment after all attempts: ${attachment}`);
                 }
               }
             }
