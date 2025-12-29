@@ -132,32 +132,31 @@ async function searchKeywordChunks(keyword, agentId, limit = 5) {
   }
 }
 
-// 5️⃣ Prompt RESTRITIVO HARDCORE
+// 5️⃣ Prompt GLOBAL IMUTÁVEL e CONTRATO DE CONTEXTO
 function buildPrompt(context, question) {
-  return `🔒 MODO RESTRITIVO: VOCÊ DEVE SEGUIR ESTAS REGRAS COM RIGOR ABSOLUTO
+  const globalSystemPrompt = `🔒 VOCÊ É UM SISTEMA BASEADO EM DOCUMENTOS (MODO RESTRITIVO HARDCORE)
 
-INSTRUÇÃO PRINCIPAL:
-Responda EXCLUSIVAMENTE com base no texto do documento abaixo.
-NÃO utilize nenhum conhecimento externo, geral ou anterior.
+REGRAS ABSOLUTAS E IMUTÁVEIS:
+1. USE EXCLUSIVAMENTE o texto fornecido no CONTEXTO abaixo.
+2. É PROIBIDO utilizar qualquer conhecimento externo, geral, anterior ou senso comum.
+3. É PROIBIDO misturar informações de documentos ou capítulos diferentes se não houver uma relação explícita no texto.
+4. Se a resposta não estiver explicitamente e literalmente no texto, responda EXATAMENTE: "O documento não aborda esse ponto."
+5. Se a pergunta mencionar capítulo, seção ou tópico específico, utilize APENAS trechos que contenham essa referência.
+6. Se não houver trechos suficientes para uma resposta completa, aplique a regra 4.
+7. NUNCA complemente respostas com conhecimento geral (Ex: "No entanto...", "Em geral...", "Normalmente...").
+8. REGRA DE PARADA: Se você responder que o documento não aborda o ponto, PARE a resposta imediatamente.`;
 
-REGRAS OBRIGATÓRIAS (NÃO PODE QUEBRAR):
-1. ❌ NÃO use conhecimento externo ou geral (Ex: se o texto não fala de bônus, não explique o que é bônus no mercado geral).
-2. ❌ NÃO invente ou presuma nada não dito no texto.
-3. ❌ NÃO cite autores, datas, números ou conceitos que não apareçam no documento.
-4. ❌ NÃO faça interpretações criativas ou generalizações.
-5. ✅ USE APENAS as informações literalmente presentes no texto abaixo.
-6. ⚠️ REGRA DE PARADA: Se você começar a responder que o documento não aborda o assunto, você DEVE parar a resposta imediatamente após essa afirmação. É PROIBIDO complementar com "No entanto..." ou "Em um contexto geral...".
+  // Padronização do Bloco de Contexto (Contrato de Contexto)
+  const contextBlock = context 
+    ? `[INÍCIO DO CONTEXTO]\n${context}\n[FIM DO CONTEXTO]`
+    : '[⚠️ ERRO: Nenhum conteúdo de documento foi fornecido]';
 
-RESPOSTA OBRIGATÓRIA PARA PERGUNTAS FORA DO ESCOPO:
-Se a pergunta não puder ser respondida COMPLETAMENTE usando apenas o texto fornecido abaixo, você DEVE responder EXATAMENTE desta forma:
-"O documento não aborda esse ponto."
-
-NÃO OFEREÇA ALTERNATIVAS, EXPLICAÇÕES OU CONTEXTO GERAL.
+  return `${globalSystemPrompt}
 
 ═══════════════════════════════════════════════════════════════════
-TEXTO DO DOCUMENTO (SUA ÚNICA FONTE DE VERDADE):
+CONTEXTO PADRONIZADO (SUA ÚNICA FONTE DE VERDADE):
 ═══════════════════════════════════════════════════════════════════
-${context || '[⚠️ ERRO: Nenhum conteúdo de documento foi fornecido]'}
+${contextBlock}
 
 ═══════════════════════════════════════════════════════════════════
 PERGUNTA DO USUÁRIO:
@@ -165,8 +164,28 @@ PERGUNTA DO USUÁRIO:
 ${question}
 
 ═══════════════════════════════════════════════════════════════════
-RESPONDA AGORA (apenas com base no texto acima):
+RESPONDA AGORA (apenas com base no contexto acima):
 ═══════════════════════════════════════════════════════════════════`;
+}
+
+// 6️⃣ VALIDADOR DE SAÍDA (Anti-Alucinação)
+function validateOutput(text) {
+  const forbiddenPatterns = [
+    /no entanto/i,
+    /em geral/i,
+    /normalmente/i,
+    /em muitas empresas/i,
+    /contexto geral/i,
+    /conhecimento geral/i
+  ];
+
+  for (const pattern of forbiddenPatterns) {
+    if (pattern.test(text)) {
+      console.log(`[VALIDATOR] Bloqueando resposta devido a padrão proibido: ${pattern}`);
+      return "O documento não aborda esse ponto.";
+    }
+  }
+  return text;
 }
 
 // ============================================
