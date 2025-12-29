@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useSession } from "@/components/SessionContextProvider";
 import { useNavigate } from "react-router-dom";
-import { neon as supabase } from "@/lib/supabase";
+import { logout } from "@/lib/auth";
 import { toast } from "sonner";
 import {
   DropdownMenu,
@@ -39,13 +39,9 @@ const Header: React.FC<HeaderProps> = ({
   const navigate = useNavigate();
 
   const handleLogout = async () => {
-    const { error } = await supabase.auth.signOut({ scope: 'local' });
-    if (error) {
-      toast.error("Erro ao sair: " + error.message);
-    } else {
-      toast.success("Você saiu com sucesso!");
-      navigate("/login");
-    }
+    logout();
+    toast.success("Você saiu com sucesso!");
+    navigate("/login");
   };
 
   const handleProfile = () => {

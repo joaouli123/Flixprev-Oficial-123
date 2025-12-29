@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Facebook, Save, AlertTriangle } from "lucide-react";
-import { neon as supabase } from "@/lib/supabase";
+import { neon } from "@/lib/neon";
 import { toast } from "sonner";
 import { useSession } from "@/components/SessionContextProvider";
 
@@ -41,13 +41,13 @@ const FacebookSettingsCard: React.FC<FacebookSettingsCardProps> = ({ initialSett
     
     try {
       // 1. Buscar o ID da linha de configurações (deve ser apenas uma)
-      const { data: existingSettings, error: fetchError } = await supabase
+      const { data: existingSettings, error: fetchError } = await neon
         .from('app_settings')
         .select('id')
         .limit(1)
         .maybeSingle();
 
-      if (fetchError && fetchError.code !== 'PGRST116') { // PGRST116 = No rows found
+      if (fetchError) {
         throw new Error(fetchError.message);
       }
 
@@ -57,25 +57,25 @@ const FacebookSettingsCard: React.FC<FacebookSettingsCardProps> = ({ initialSett
         updated_at: new Date().toISOString(),
       };
 
-      let updateError;
+      let result;
 
-      if (existingSettings) {
+      if (existingSettings && existingSettings.length > 0) {
         // 2. Atualizar
-        const { error } = await supabase
+        result = await neon
           .from('app_settings')
           .update(updateData)
-          .eq('id', existingSettings.id);
-        updateError = error;
+          .eq('id', existingSettings[0].id)
+          .execute();
       } else {
         // 3. Inserir se não existir
-        const { error } = await supabase
+        result = await neon
           .from('app_settings')
-          .insert(updateData);
-        updateError = error;
+          .insert(updateData)
+          .execute();
       }
 
-      if (updateError) {
-        throw new Error(updateError.message);
+      if (result.error) {
+        throw new Error(result.error.message);
       }
 
       toast.success("Configurações do Facebook salvas com sucesso!");
