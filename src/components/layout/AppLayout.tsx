@@ -63,7 +63,7 @@ const AppLayout = () => {
   const fetchCategories = useCallback(async () => {
     if (!userId) return;
     setLoading(true);
-    const { data, error } = await neon.from("categories").select("*");
+    const { data, error } = await neon.from("categories").select().eq("user_id", userId);
     if (error) {
       toast.error("Erro ao carregar categorias: " + error.message);
       setCategories([]);
@@ -76,7 +76,7 @@ const AppLayout = () => {
   const fetchAgents = useCallback(async () => {
     if (!userId) return;
     setLoading(true);
-    const { data, error } = await neon.from("agents").select("*");
+    const { data, error } = await neon.from("agents").select().eq("user_id", userId);
     if (error) {
       toast.error("Erro ao carregar agentes: " + error.message);
       setAgents([]);
@@ -90,7 +90,8 @@ const AppLayout = () => {
     if (!userId) return;
     const { data, error } = await neon
       .from("custom_links")
-      .select("*")
+      .select()
+      .eq("user_id", userId)
       .order("display_order", { ascending: true });
 
     if (error) {
@@ -116,8 +117,7 @@ const AppLayout = () => {
     }
     const { data, error } = await neon
       .from("categories")
-      .insert({ name, user_id: userId })
-      .select();
+      .insert({ name, user_id: userId });
     if (error) {
       toast.error("Erro ao criar categoria: " + error.message);
     } else {

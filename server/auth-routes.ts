@@ -35,4 +35,20 @@ router.post('/login', (req: Request, res: Response) => {
   }
 });
 
+router.post('/change-password', (req: Request, res: Response) => {
+  try {
+    const { userId, newPassword } = req.body;
+
+    if (!userId || !newPassword) {
+      return res.status(400).json({ error: 'userId e newPassword são obrigatórios' });
+    }
+
+    // Mock: apenas confirmar que a senha foi alterada
+    return res.status(200).json({ success: true, message: 'Senha alterada com sucesso' });
+  } catch (error: any) {
+    console.error('Change password error:', error);
+    return res.status(500).json({ error: 'Erro ao trocar a senha' });
+  }
+});
+
 export default router;

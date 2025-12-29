@@ -4,6 +4,7 @@ import { Profile } from '@/types/app';
 import { SubscriptionExpiredDialog } from './SubscriptionExpiredDialog';
 import { logger } from '@/utils/logger';
 import { getSession, logout } from '@/lib/auth';
+import { neon } from '@/lib/neon';
 
 interface SessionContextType {
   session: any | null;
@@ -27,12 +28,27 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
 
   // Carregar sessão ao montar
   useEffect(() => {
-    const sessionData = getSession();
-    if (sessionData) {
-      setUser(sessionData.user);
-      setSession(sessionData);
-    }
-    setLoading(false);
+    const loadSessionAndProfile = async () => {
+      const sessionData = getSession();
+      if (sessionData) {
+        setUser(sessionData.user);
+        setSession(sessionData);
+        
+        // Carregar perfil do banco de dados
+        const { data, error } = await neon
+          .from('profiles')
+          .select()
+          .eq('id', sessionData.user.id)
+          .maybeSingle();
+        
+        if (data) {
+          setProfile(data as Profile);
+        }
+      }
+      setLoading(false);
+    };
+    
+    loadSessionAndProfile();
   }, []);
 
   // Monitorar mudanças no localStorage (para quando o login ocorre)
