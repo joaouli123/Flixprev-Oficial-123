@@ -609,28 +609,26 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
               );
 
               // 🔍 RE-RANKING SIMPLES POR CAPÍTULO/SEÇÃO
-              // Se a pergunta menciona "capítulo", "seção" ou números como "2.3",
-              // filtramos o contexto para priorizar esses termos
-              const chapterMatch = content.match(/capítulo|seção|[\d\.]+/i);
+              // Se a pergunta menciona "capítulo", "seção", "tópico" ou números
+              const strictTermsMatch = content.match(/capítulo|seção|tópico|[\d\.]+|segundo autor/i);
               const chapterTitleMatch = content.match(/Avaliação por Desempenho/i);
               
-              if ((chapterMatch || chapterTitleMatch) && relevantContext) {
-                console.log('[CHAT] Detectada referência a seção/capítulo, priorizando contextualmente...');
+              if ((strictTermsMatch || chapterTitleMatch) && relevantContext) {
+                console.log('[CHAT] MODO RESTRITO ATIVADO: Detectada referência a seção/capítulo/autor');
                 const contextLines = relevantContext.split('\n\n---\n\n');
                 
-                // Priorizar fragmentos que contenham o capítulo específico mencionado
                 const prioritizedLines = contextLines.filter(line => {
-                  const hasChapterNum = chapterMatch && line.toLowerCase().includes(chapterMatch[0].toLowerCase());
-                  const hasChapterTitle = chapterTitleMatch && line.toLowerCase().includes(chapterTitleMatch[0].toLowerCase());
-                  return hasChapterNum || hasChapterTitle;
+                  const hasTerm = strictTermsMatch && line.toLowerCase().includes(strictTermsMatch[0].toLowerCase());
+                  const hasTitle = chapterTitleMatch && line.toLowerCase().includes(chapterTitleMatch[0].toLowerCase());
+                  return hasTerm || hasTitle;
                 });
                 
                 if (prioritizedLines.length > 0) {
-                  // Se encontramos fragmentos específicos, usamos apenas eles para máxima precisão
                   relevantContext = prioritizedLines.join('\n\n---\n\n');
-                  console.log(`[CHAT] Contexto filtrado para priorizar seções: ${prioritizedLines.length} chunks`);
+                  console.log(`[CHAT] Busca filtrada com sucesso: ${prioritizedLines.length} chunks relevantes encontrados.`);
                 } else {
-                  console.log('[CHAT] Nenhum fragmento específico da seção encontrado no contexto recuperado.');
+                  console.log('[CHAT] MODO RESTRITO: Nenhum fragmento específico encontrado. O prompt global forçará a resposta de "não aborda".');
+                  relevantContext = ""; // Forçar contexto vazio para acionar regra 4
                 }
               }
 
@@ -705,10 +703,13 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
       }
     }
 
-    // Salvar resposta do assistente
+    // Aplicar Validação de Saída (Anti-Alucinação)
+    const validatedResp = validateOutput(fullResp);
+    
+    // Salvar resposta do assistente (validada)
     await pool.query(
       'INSERT INTO messages (conversation_id, role, content) VALUES ($1, $2, $3)',
-      [cid, "assistant", fullResp]
+      [cid, "assistant", validatedResp]
     );
 
     res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
