@@ -117,7 +117,8 @@ const AppLayout = () => {
     }
     const { data, error } = await neon
       .from("categories")
-      .insert({ name, user_id: userId });
+      .insert({ name, user_id: userId })
+      .select();
     if (error) {
       toast.error("Erro ao criar categoria: " + error.message);
     } else {
@@ -146,7 +147,7 @@ const AppLayout = () => {
       .from("categories")
       .update({ name: newName })
       .eq("id", categoryId)
-      .execute();
+      .select();
 
     if (error) {
       toast.error("Erro ao editar categoria: " + error.message);
@@ -190,8 +191,7 @@ const AppLayout = () => {
     const { error } = await neon
       .from("categories")
       .delete()
-      .eq("id", categoryToDeleteId)
-      .execute();
+      .eq("id", categoryToDeleteId);
       
     if (error) {
       toast.error("Erro ao remover categoria: " + error.message);
@@ -216,7 +216,7 @@ const AppLayout = () => {
     const { data, error } = await neon
       .from("agents")
       .insert({ ...newAgentData, user_id: userId })
-      .execute();
+      .select();
     if (error) {
       toast.error("Erro ao adicionar agente: " + error.message);
     } else {
@@ -253,7 +253,7 @@ const AppLayout = () => {
       .from("agents")
       .update({ ...updatedAgentData, category_ids: updatedAgentData.category_ids })
       .eq("id", agentId)
-      .execute();
+      .select();
 
     if (error) {
       toast.error("Erro ao editar agente: " + error.message);
@@ -277,8 +277,7 @@ const AppLayout = () => {
       const { error } = await neon
         .from("agents")
         .delete()
-        .eq("id", agentToDeleteId)
-        .execute();
+        .eq("id", agentToDeleteId);
       if (error) {
         toast.error("Erro ao remover agente: " + error.message);
       } else {
@@ -298,7 +297,7 @@ const AppLayout = () => {
     const { data, error } = await neon
       .from("custom_links")
       .insert({ title, url, display_order: displayOrder, user_id: null })
-      .execute();
+      .select();
     if (error) {
       toast.error("Erro ao adicionar link: " + error.message);
     } else {
@@ -327,7 +326,7 @@ const AppLayout = () => {
       .from("custom_links")
       .update({ title, url, display_order: displayOrder })
       .eq("id", linkId)
-      .execute();
+      .select();
     if (error) {
       toast.error("Erro ao editar link: " + error.message);
     } else {
@@ -357,8 +356,7 @@ const AppLayout = () => {
     const { error } = await neon
       .from("custom_links")
       .delete()
-      .eq("id", customLinkToDeleteId)
-      .execute();
+      .eq("id", customLinkToDeleteId);
     if (error) {
       toast.error("Erro ao remover link: " + error.message);
     } else {
