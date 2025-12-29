@@ -85,7 +85,12 @@ Base de conhecimento: ${agent.description || "Sem descrição adicional."}`;
       }
 
       // Save user message
-      await chatStorage.createMessage(conversationId, "user", content);
+      try {
+        await chatStorage.createMessage(conversationId, "user", content);
+      } catch (e: any) {
+        console.error(`[DB ERROR] User message insertion failed:`, e.message);
+        return res.status(500).json({ error: "Erro ao salvar mensagem no banco de dados." });
+      }
 
       // Get conversation history for context
       const messages = await chatStorage.getMessagesByConversation(conversationId);

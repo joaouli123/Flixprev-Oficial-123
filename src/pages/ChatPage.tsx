@@ -52,19 +52,18 @@ const ChatPage = () => {
     setInput("");
 
     try {
-      // In a real app, we would manage the conversation ID properly.
-      // For now, ensure we use ID 1 which we created in the database.
+      // Use existing ID 1 for testing
       const convId = 1;
       
       const response = await fetch(`/api/conversations/${convId}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: input, agentId }),
+        body: JSON.stringify({ content: input, agentId: agent?.id }),
       });
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || "Falha ao enviar mensagem");
+        throw new Error(errorData.error || `Servidor retornou erro ${response.status}`);
       }
 
       const reader = response.body?.getReader();
