@@ -71,11 +71,14 @@ const ChatPage = () => {
           }
         } else {
           // Criar nova conversa
-          console.log("[CHAT] Creating conversation for agent:", agent?.title);
+          console.log("[CHAT] Creating conversation for agent:", agent?.title, "ID:", agentId);
           const response = await fetch("/api/conversations", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ title: `Chat with ${agent?.title || "Agent"}` }),
+            body: JSON.stringify({ 
+              title: `Chat with ${agent?.title || "Agent"}`,
+              agentId: agentId
+            }),
           });
           if (response.ok) {
             const conv = await response.json();

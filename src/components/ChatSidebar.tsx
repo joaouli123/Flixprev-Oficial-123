@@ -32,7 +32,7 @@ export const ChatSidebar = ({ agentId, currentConversationId }: ChatSidebarProps
 
   const loadConversations = async () => {
     try {
-      const res = await fetch("/api/conversations");
+      const res = await fetch(`/api/conversations?agentId=${agentId}`);
       const data = await res.json();
       setConversations(data || []);
     } catch (error) {
@@ -46,7 +46,7 @@ export const ChatSidebar = ({ agentId, currentConversationId }: ChatSidebarProps
     loadConversations();
     const interval = setInterval(loadConversations, 5000);
     return () => clearInterval(interval);
-  }, []);
+  }, [agentId]);
 
   const handleNewChat = () => {
     navigate(`/app/chat/${agentId}`);

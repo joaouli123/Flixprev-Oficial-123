@@ -338,6 +338,17 @@ const AppLayout = () => {
 
   const handleDeleteAgent = async () => {
     if (agentToDeleteId) {
+      try {
+        // Deletar conversas associadas ao agente (cascade)
+        await fetch(`/api/delete-agent-conversations`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ agentId: agentToDeleteId })
+        });
+      } catch (e) {
+        console.warn("Erro ao deletar conversas do agente:", e);
+      }
+      
       const { error } = await neon
         .from("agents")
         .delete()

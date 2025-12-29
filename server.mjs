@@ -148,11 +148,19 @@ async function initializeRagTables() {
     await pool.query(`
       CREATE TABLE IF NOT EXISTS conversations (
         id SERIAL PRIMARY KEY,
+        agent_id UUID,
         title VARCHAR(255) NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+    
+    // Adicionar coluna agent_id se não existir (para migração)
+    try {
+      await pool.query(`ALTER TABLE conversations ADD COLUMN agent_id UUID`);
+    } catch (e) {
+      // Coluna já existe, ignorar erro
+    }
     
     await pool.query(`
       CREATE TABLE IF NOT EXISTS messages (
@@ -209,10 +217,20 @@ initializeRagTables();
 // 🔌 ENDPOINTS
 // ============================================
 
-// GET conversas
+// GET conversas (com suporte a agentId)
 app.get("/api/conversations", async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM conversations ORDER BY created_at DESC');
+    const { agentId } = req.query;
+    let query = 'SELECT * FROM conversations';
+    const params = [];
+    
+    if (agentId) {
+      query += ' WHERE agent_id = $1';
+      params.push(agentId);
+    }
+    
+    query += ' ORDER BY created_at DESC';
+    const result = await pool.query(query, params);
     res.json(result.rows || []);
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -222,7 +240,11 @@ app.get("/api/conversations", async (req, res) => {
 // POST nova conversa
 app.post("/api/conversations", async (req, res) => {
   try {
-    const result = await pool.query('INSERT INTO conversations (title) VALUES ($1) RETURNING *', [req.body.title || "New Chat"]);
+    const { title, agentId } = req.body;
+    const result = await pool.query(
+      'INSERT INTO conversations (agent_id, title) VALUES ($1, $2) RETURNING *', 
+      [agentId || null, title || "New Chat"]
+    );
     res.status(201).json(result.rows[0]);
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -246,6 +268,21 @@ app.delete("/api/conversations/:id", async (req, res) => {
     const cid = parseInt(req.params.id);
     await pool.query('DELETE FROM conversations WHERE id = $1', [cid]);
     res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// DELETE todas as conversas de um agente (cascade)
+app.post("/api/delete-agent-conversations", async (req, res) => {
+  try {
+    const { agentId } = req.body;
+    if (!agentId) {
+      return res.status(400).json({ error: 'agentId é obrigatório' });
+    }
+    const result = await pool.query('DELETE FROM conversations WHERE agent_id = $1', [agentId]);
+    console.log(`[AGENT] Deletadas ${result.rowCount} conversas do agente ${agentId}`);
+    res.json({ success: true, deletedCount: result.rowCount });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
