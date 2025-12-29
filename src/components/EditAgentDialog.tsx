@@ -99,6 +99,7 @@ const EditAgentDialog: React.FC<EditAgentDialogProps> = ({
           try {
             const formData = new FormData();
             formData.append("file", file);
+            formData.append("agentId", agentToEdit.id);
             
             const response = await fetch("/api/agents/upload", {
               method: "POST",
@@ -107,7 +108,15 @@ const EditAgentDialog: React.FC<EditAgentDialogProps> = ({
             
             if (response.ok) {
               const data = await response.json();
-              uploadedPaths.push(data.path);
+              console.log("[EDIT] Upload response:", data);
+              if (data.path) {
+                uploadedPaths.push(data.path);
+                toast.success(`${file.name} anexado com sucesso!`);
+              }
+            } else {
+              const error = await response.text();
+              console.error("[EDIT] Upload failed:", error);
+              toast.error(`Erro ao fazer upload de ${file.name}`);
             }
           } catch (err) {
             console.error("Erro ao fazer upload do arquivo:", err);
@@ -116,6 +125,7 @@ const EditAgentDialog: React.FC<EditAgentDialogProps> = ({
         }
       }
 
+      console.log("[EDIT] Salvando agente com attachments:", uploadedPaths);
       onSave(agentToEdit.id, {
         title: title.trim(),
         description: description.trim(),

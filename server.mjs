@@ -317,58 +317,67 @@ app.post('/api/agents/upload', upload.single('file'), async (req, res) => {
     }
 
     const { agentId } = req.body;
-    if (!agentId) {
-      return res.status(400).json({ error: 'agentId é obrigatório' });
-    }
+    const filePath = `/agent-attachments/${req.file.filename}`;
+    
+    console.log('[UPLOAD] Arquivo enviado:', req.file.originalname);
+    console.log('[UPLOAD] Caminho:', filePath);
+    console.log('[UPLOAD] AgentId:', agentId);
 
-    const filePath = path.join(process.cwd(), 'public', 'agent-attachments', req.file.filename);
-    console.log('[UPLOAD] Iniciando processamento RAG para:', req.file.originalname);
-
-    // 1. Extrair texto
-    let text = '';
-    if (req.file.originalname.toLowerCase().endsWith('.pdf')) {
-      console.log('[UPLOAD] Extraindo PDF...');
-      text = await extractPdfText(filePath);
-    } else {
-      text = fs.readFileSync(filePath, 'utf-8');
-    }
-
-    console.log(`[UPLOAD] Texto extraído: ${text.length} caracteres`);
-
-    // 2. Criar documento
-    const docResult = await pool.query(
-      'INSERT INTO documents (agent_id, title) VALUES ($1, $2) RETURNING id',
-      [agentId, req.file.originalname]
-    );
-    const documentId = docResult.rows[0].id;
-
-    // 3. Fazer chunks
-    const chunks = chunkText(text, 800, 150);
-    console.log(`[UPLOAD] ${chunks.length} chunks criados`);
-
-    // 4. Gerar embeddings
-    const embeddings = await generateEmbeddings(chunks);
-    console.log(`[UPLOAD] ${embeddings.length} embeddings gerados`);
-
-    // 5. Salvar chunks no Postgres
-    for (let i = 0; i < chunks.length; i++) {
-      const embeddingString = '[' + embeddings[i].join(',') + ']';
-      await pool.query(
-        `INSERT INTO document_chunks (agent_id, document_id, content, embedding)
-         VALUES ($1, $2, $3, $4::vector)`,
-        [agentId, documentId, chunks[i], embeddingString]
-      );
-    }
-
-    console.log(`[UPLOAD] ✅ Documento "${req.file.originalname}" indexado com sucesso!`);
-
+    // Responder imediatamente com o caminho (para salvar no agente)
     res.json({
       success: true,
-      documentId,
-      filename: req.file.originalname,
-      chunksCount: chunks.length,
-      embeddingsCount: embeddings.length
+      path: filePath,
+      filename: req.file.originalname
     });
+
+    // Processar RAG em background se agentId foi fornecido
+    if (agentId) {
+      (async () => {
+        try {
+          const fullPath = path.join(process.cwd(), 'public', filePath);
+          
+          // 1. Extrair texto
+          let text = '';
+          if (req.file.originalname.toLowerCase().endsWith('.pdf')) {
+            console.log('[UPLOAD-BG] Extraindo PDF...');
+            text = await extractPdfText(fullPath);
+          } else {
+            text = fs.readFileSync(fullPath, 'utf-8');
+          }
+
+          console.log(`[UPLOAD-BG] Texto extraído: ${text.length} caracteres`);
+
+          // 2. Criar documento
+          const docResult = await pool.query(
+            'INSERT INTO documents (agent_id, title) VALUES ($1, $2) RETURNING id',
+            [agentId, req.file.originalname]
+          );
+          const documentId = docResult.rows[0].id;
+
+          // 3. Fazer chunks
+          const chunks = chunkText(text, 800, 150);
+          console.log(`[UPLOAD-BG] ${chunks.length} chunks criados`);
+
+          // 4. Gerar embeddings
+          const embeddings = await generateEmbeddings(chunks);
+          console.log(`[UPLOAD-BG] ${embeddings.length} embeddings gerados`);
+
+          // 5. Salvar chunks no Postgres
+          for (let i = 0; i < chunks.length; i++) {
+            const embeddingString = '[' + embeddings[i].join(',') + ']';
+            await pool.query(
+              `INSERT INTO document_chunks (agent_id, document_id, content, embedding)
+               VALUES ($1, $2, $3, $4::vector)`,
+              [agentId, documentId, chunks[i], embeddingString]
+            );
+          }
+
+          console.log(`[UPLOAD-BG] ✅ Documento "${req.file.originalname}" indexado com sucesso!`);
+        } catch (e) {
+          console.error('[UPLOAD-BG] Erro ao processar RAG:', e.message);
+        }
+      })();
+    }
   } catch (e) {
     console.error('[UPLOAD] Erro:', e.message);
     res.status(500).json({ error: e.message });
