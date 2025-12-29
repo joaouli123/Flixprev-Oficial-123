@@ -40,7 +40,9 @@ interface CreateNewAIAgentDialogProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (agent: Omit<Agent, "id" | "userId" | "created_at">) => void;
+  onEditSave?: (agentId: string, agent: Omit<Agent, "id" | "userId" | "created_at">) => void;
   categories: Category[];
+  agentToEdit?: Agent | null;
 }
 
 const iconOptions = [
@@ -72,8 +74,12 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
   isOpen,
   onClose,
   onSave,
+  onEditSave,
   categories,
+  agentToEdit,
 }) => {
+  const isEditing = !!agentToEdit;
+
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [icon, setIcon] = useState("Bot");
@@ -82,6 +88,27 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
   const [files, setFiles] = useState<File[]>([]);
   const [shortcuts, setShortcuts] = useState<string[]>(["Resumir docs", "Extrair cláusulas", "Analisar risco", "Dúvidas"]);
   const [shortcutInput, setShortcutInput] = useState("");
+
+  // Preencher os campos quando estiver editando
+  React.useEffect(() => {
+    if (agentToEdit && isOpen) {
+      setTitle(agentToEdit.title);
+      setDescription(agentToEdit.description);
+      setIcon(agentToEdit.icon);
+      setSelectedCategory(agentToEdit.category_ids?.[0] || undefined);
+      setShortcuts(agentToEdit.shortcuts || ["Resumir docs", "Extrair cláusulas", "Analisar risco", "Dúvidas"]);
+      setShortcutInput("");
+    } else if (isOpen && !agentToEdit) {
+      setTitle("");
+      setDescription("");
+      setIcon("Bot");
+      setSelectedModel("gpt-4o-mini");
+      setSelectedCategory(undefined);
+      setFiles([]);
+      setShortcuts(["Resumir docs", "Extrair cláusulas", "Analisar risco", "Dúvidas"]);
+      setShortcutInput("");
+    }
+  }, [agentToEdit, isOpen]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -107,14 +134,22 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
 
   const handleSave = () => {
     if (title.trim() && description.trim() && icon && selectedCategory) {
-      console.log("Salvando agente com categoria selecionada:", selectedCategory);
-      onSave({
+      const agentData = {
         title: title.trim(),
         description: description.trim(),
         icon,
         category_ids: [selectedCategory],
         shortcuts: shortcuts.length > 0 ? shortcuts : undefined,
-      });
+      };
+
+      if (isEditing && agentToEdit && onEditSave) {
+        console.log("Editando agente:", agentToEdit.id);
+        onEditSave(agentToEdit.id, agentData);
+      } else {
+        console.log("Salvando agente com categoria selecionada:", selectedCategory);
+        onSave(agentData);
+      }
+
       setTitle("");
       setDescription("");
       setIcon("Bot");
@@ -139,10 +174,12 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Bot className="h-5 w-5 text-blue-600" />
-            Configurar Novo Agente IA
+            {isEditing ? "Editar Agente IA" : "Configurar Novo Agente IA"}
           </DialogTitle>
           <DialogDescription>
-            Defina a personalidade e anexe documentos para o seu assistente.
+            {isEditing 
+              ? "Altere a personalidade e configurações do seu assistente."
+              : "Defina a personalidade e anexe documentos para o seu assistente."}
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
@@ -301,7 +338,7 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
             Cancelar
           </Button>
           <Button onClick={handleSave} className="bg-blue-600 hover:bg-blue-700 shadow-md shadow-blue-500/20">
-            Criar Agente
+            {isEditing ? "Salvar Alterações" : "Criar Agente"}
           </Button>
         </DialogFooter>
       </DialogContent>

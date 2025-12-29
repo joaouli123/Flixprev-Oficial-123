@@ -7,7 +7,6 @@ import CreateCategoryDialog from "@/components/CreateCategoryDialog";
 import EditCategoryDialog from "@/components/EditCategoryDialog"; // Reintroduzido
 import CreateAgentDialog from "@/components/CreateAgentDialog";
 import CreateNewAIAgentDialog from "@/components/CreateNewAIAgentDialog";
-import EditAgentDialog from "@/components/EditAgentDialog";
 import CreateCustomLinkDialog from "@/components/CreateCustomLinkDialog"; // Importar novo diálogo
 import EditCustomLinkDialog from "@/components/EditCustomLinkDialog"; // Importar novo diálogo
 import { Category, Agent, CustomLink } from "@/types/app"; // Adicionar CustomLink
@@ -48,7 +47,6 @@ const AppLayout = () => {
   const [categoryToDeleteId, setCategoryToDeleteId] = useState<string | null>(null); // Reintroduzido
   const [isCreateAgentDialogOpen, setIsCreateAgentDialogOpen] = useState(false);
   const [isCreateNewAIAgentDialogOpen, setIsCreateNewAIAgentDialogOpen] = useState(false);
-  const [isEditAgentDialogOpen, setIsEditAgentDialogOpen] = useState(false);
   const [agentToEdit, setAgentToEdit] = useState<Agent | null>(null);
   const [isDeleteAgentDialogOpen, setIsDeleteAgentDialogOpen] = useState(false);
   const [agentToDeleteId, setAgentToDeleteId] = useState<string | null>(null);
@@ -279,7 +277,7 @@ const AppLayout = () => {
 
   const handleOpenEditAgentDialog = (agent: Agent) => {
     setAgentToEdit(agent);
-    setIsEditAgentDialogOpen(true);
+    setIsCreateNewAIAgentDialogOpen(true);
   };
 
   const handleEditAgent = async (
@@ -573,20 +571,14 @@ const AppLayout = () => {
 
       <CreateNewAIAgentDialog
         isOpen={isCreateNewAIAgentDialogOpen}
-        onClose={() => setIsCreateNewAIAgentDialogOpen(false)}
-        onSave={handleAddAgent}
-        categories={categories}
-      />
-
-      <EditAgentDialog
-        isOpen={isEditAgentDialogOpen}
         onClose={() => {
-          setIsEditAgentDialogOpen(false);
+          setIsCreateNewAIAgentDialogOpen(false);
           setAgentToEdit(null);
         }}
-        onSave={handleEditAgent}
-        agentToEdit={agentToEdit}
+        onSave={handleAddAgent}
+        onEditSave={handleEditAgent}
         categories={categories}
+        agentToEdit={agentToEdit}
       />
 
       <CreateCustomLinkDialog
