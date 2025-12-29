@@ -54,7 +54,7 @@ const EditAgentDialog: React.FC<EditAgentDialogProps> = ({
       setInstructions(agentToEdit.instructions || "");
       setIcon(agentToEdit.icon);
       setLink(agentToEdit.link || "");
-      setSelectedCategory(agentToEdit.category_ids[0] || undefined);
+      setSelectedCategory(agentToEdit.category_ids?.[0]?.toString() || undefined);
       setSavedAttachments((agentToEdit as any).attachments || []);
       setFiles([]);
     } else {
