@@ -559,12 +559,14 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
               console.log('[CHAT] ...truncado...');
             }
 
-            // Construir prompt com contexto
+            // Construir prompt com contexto (SEMPRE usar buildPrompt para segurança)
+            // Mesmo se não encontrar contexto, o prompt restritivo dirá "não aborda"
+            prompt = buildPrompt(relevantContext || '', content);
+            
             if (relevantContext) {
-              prompt = buildPrompt(relevantContext, content);
-              console.log('[CHAT] ✅ Usando contexto RAG para resposta');
+              console.log('[CHAT] ✅ Contexto RAG encontrado e injetado');
             } else {
-              console.log('[CHAT] ⚠️ Nenhum contexto encontrado');
+              console.log('[CHAT] ⚠️ Nenhum contexto encontrado - usando prompt restritivo sem documentos');
             }
           } catch (e) {
             console.error('[CHAT] Erro ao buscar contexto:', e.message);
