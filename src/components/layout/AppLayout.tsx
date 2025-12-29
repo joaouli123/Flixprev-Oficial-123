@@ -81,7 +81,12 @@ const AppLayout = () => {
       toast.error("Erro ao carregar agentes: " + error.message);
       setAgents([]);
     } else {
-      setAgents((data || []) as Agent[]);
+      const agents = (data || []).map((agent: any) => ({
+        ...agent,
+        category_ids: typeof agent.category_ids === 'string' ? JSON.parse(agent.category_ids || '[]') : (agent.category_ids || []),
+        attachments: typeof agent.attachments === 'string' ? JSON.parse(agent.attachments || '[]') : (agent.attachments || []),
+      })) as Agent[];
+      setAgents(agents);
     }
     setLoading(false);
   }, [userId]);
@@ -234,8 +239,7 @@ const AppLayout = () => {
       // Generate a UUID for the agent
       const agentId = crypto.randomUUID();
       
-      // No schema atual do banco, category_ids pode ser tratado como TEXT ou TEXT[]
-      // Vamos garantir que estamos enviando os dados corretamente
+      // Salvar como JSON strings para compatibilidade com banco
       const { data, error } = await neon
         .from("agents")
         .insert({ 
@@ -243,10 +247,10 @@ const AppLayout = () => {
           title: newAgentData.title,
           description: newAgentData.description,
           icon: newAgentData.icon,
-          category_ids: newAgentData.category_ids || [],
+          category_ids: JSON.stringify(newAgentData.category_ids || []),
           user_id: userId,
           instructions: (newAgentData as any).instructions || null,
-          attachments: (newAgentData as any).attachments || [],
+          attachments: JSON.stringify((newAgentData as any).attachments || []),
         })
         .select();
 
@@ -255,7 +259,12 @@ const AppLayout = () => {
         toast.error("Erro ao adicionar agente: " + (error.message || "Erro na query"));
       } else {
         if (data && data.length > 0) {
-          setAgents((prev) => [...prev, data[0] as Agent]);
+          const newAgent = data[0];
+          setAgents((prev) => [...prev, {
+            ...newAgent,
+            category_ids: typeof newAgent.category_ids === 'string' ? JSON.parse(newAgent.category_ids || '[]') : (newAgent.category_ids || []),
+            attachments: typeof newAgent.attachments === 'string' ? JSON.parse(newAgent.attachments || '[]') : (newAgent.attachments || []),
+          } as Agent]);
           toast.success(`Agente '${newAgentData.title}' adicionado com sucesso!`);
         } else {
           console.error("Nenhum dado retornado ao criar agente");
@@ -296,10 +305,10 @@ const AppLayout = () => {
         title: updatedAgentData.title,
         description: updatedAgentData.description,
         icon: updatedAgentData.icon,
-        category_ids: updatedAgentData.category_ids || [],
+        category_ids: JSON.stringify(updatedAgentData.category_ids || []),
         link: updatedAgentData.link || null,
         instructions: updatedAgentData.instructions || null,
-        attachments: updatedAgentData.attachments || [],
+        attachments: JSON.stringify(updatedAgentData.attachments || []),
       })
       .eq("id", agentId)
       .select();
@@ -309,8 +318,13 @@ const AppLayout = () => {
       toast.error("Erro ao editar agente: " + error.message);
     } else {
       if (data && data.length > 0) {
+        const updatedAgent = data[0];
         setAgents((prev) =>
-          prev.map((agent) => (agent.id === agentId ? (data[0] as Agent) : agent))
+          prev.map((agent) => agent.id === agentId ? {
+            ...updatedAgent,
+            category_ids: typeof updatedAgent.category_ids === 'string' ? JSON.parse(updatedAgent.category_ids || '[]') : (updatedAgent.category_ids || []),
+            attachments: typeof updatedAgent.attachments === 'string' ? JSON.parse(updatedAgent.attachments || '[]') : (updatedAgent.attachments || []),
+          } as Agent : agent)
         );
         toast.success(`Agente '${updatedAgentData.title}' atualizado com sucesso!`);
       }
