@@ -54,7 +54,15 @@ const EditAgentDialog: React.FC<EditAgentDialogProps> = ({
       setInstructions(agentToEdit.instructions || "");
       setIcon(agentToEdit.icon);
       setLink(agentToEdit.link || "");
-      setSelectedCategory(agentToEdit.category_ids?.[0]?.toString() || undefined);
+      
+      // Ensure selectedCategory is set correctly from category_ids
+      const categoryId = agentToEdit.category_ids?.[0];
+      if (categoryId) {
+        setSelectedCategory(String(categoryId));
+      } else {
+        setSelectedCategory(undefined);
+      }
+      
       setSavedAttachments((agentToEdit as any).attachments || []);
       setFiles([]);
     } else {
@@ -254,21 +262,26 @@ const EditAgentDialog: React.FC<EditAgentDialogProps> = ({
                 </SelectContent>
               </Select>
             </div>
-            <div className="grid gap-2">
-              <Label htmlFor="category">Categoria</Label>
-              <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.map((cat) => (
-                    <SelectItem key={cat.id} value={cat.id}>
-                      {cat.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          <div className="grid gap-2">
+            <Label htmlFor="category">Categoria</Label>
+            <Select 
+              value={selectedCategory} 
+              onValueChange={setSelectedCategory}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione uma categoria">
+                  {categories.find(c => c.id === selectedCategory)?.name || "Selecione uma categoria"}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {categories.map((cat) => (
+                  <SelectItem key={cat.id} value={cat.id}>
+                    {cat.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           </div>
 
           <div className="grid gap-2">
