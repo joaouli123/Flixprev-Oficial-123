@@ -417,9 +417,7 @@ app.delete("/api/agents/:agentId/documents/:docId", async (req, res) => {
 
 // 🚀 UPLOAD com RAG (chunking + embeddings)
 app.post('/api/agents/upload', upload.single('file'), async (req, res) => {
-  console.log('[UPLOAD] ========== UPLOAD ENDPOINT CHAMADO ==========');
-  console.log('[UPLOAD] Body:', req.body);
-  console.log('[UPLOAD] File info:', req.file ? {filename: req.file.filename, originalname: req.file.originalname} : 'NO FILE');
+  console.log('[UPLOAD] ========== INICIANDO UPLOAD ==========');
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'Nenhum arquivo foi enviado' });
@@ -427,67 +425,65 @@ app.post('/api/agents/upload', upload.single('file'), async (req, res) => {
 
     let { agentId } = req.body;
     
-    // Tratamento crucial: converter string "undefined" ou "null" para null real
+    // Normalizar agentId
     if (agentId === "undefined" || agentId === "null" || !agentId) {
       agentId = null;
     }
 
     const filePath = `/agent-attachments/${req.file.filename}`;
     const originalname = req.file.originalname;
+    const fullPath = path.join(process.cwd(), 'public', filePath);
     
-    console.log('[UPLOAD] Arquivo enviado:', originalname);
-    console.log('[UPLOAD] AgentId processado:', agentId);
+    console.log(`[UPLOAD] Arquivo: ${originalname}`);
+    console.log(`[UPLOAD] AgentId: ${agentId}`);
 
-    // Processar RAG IMEDIATAMENTE (síncrono) se agentId foi fornecido
-    // Ajuste: Tentar obter agentId do body se não estiver processado corretamente
-    let targetAgentId = agentId;
-    if (!targetAgentId && req.body.agentId && req.body.agentId !== "undefined") {
-      targetAgentId = req.body.agentId;
+    // PARTE 1: Extração de Texto com Log Obrigatório
+    let text = '';
+    if (originalname.toLowerCase().endsWith('.pdf')) {
+      text = await extractPdfText(fullPath);
+    } else {
+      text = fs.readFileSync(fullPath, 'utf-8');
     }
 
-    console.log('[UPLOAD] AgentId final para RAG:', targetAgentId);
+    console.log('--- TESTE DE EXTRAÇÃO (PARTE 1) ---');
+    console.log(`Documento: ${originalname}`);
+    console.log(`Caracteres extraídos: ${text.length}`);
+    if (text.length > 500) {
+      console.log(`Primeiras 200 letras:\n"${text.substring(0, 200).replace(/\n/g, ' ')}..."`);
+      console.log('✔️ PARTE 1: SUCESSO');
+    } else {
+      console.warn('❌ PARTE 1: FALHA (Texto insuficiente ou vazio)');
+    }
+    console.log('-----------------------------------');
 
-    if (targetAgentId) {
+    // Se temos um agentId, processamos o restante do RAG
+    if (agentId && text.length > 500) {
       try {
-        const fullPath = path.join(process.cwd(), 'public', filePath);
-        
-        // 1. Extrair texto
-        let text = '';
-        if (originalname.toLowerCase().endsWith('.pdf')) {
-          text = await extractPdfText(fullPath);
-        } else {
-          text = fs.readFileSync(fullPath, 'utf-8');
-        }
+        // 2. Criar documento
+        const docResult = await pool.query(
+          'INSERT INTO documents (agent_id, title) VALUES ($1, $2) RETURNING id',
+          [agentId, originalname]
+        );
+        const documentId = docResult.rows[0].id;
 
-        console.log(`[UPLOAD] Texto extraído: ${text.length} caracteres para agente ${targetAgentId}`);
-        
-        if (text && text.length > 0) {
-          // 2. Criar documento
-          const docResult = await pool.query(
-            'INSERT INTO documents (agent_id, title) VALUES ($1, $2) RETURNING id',
-            [targetAgentId, originalname]
+        // 3. Fazer chunks
+        const chunks = chunkText(text, 800, 150);
+
+        // 4. Gerar embeddings
+        const embeddings = await generateEmbeddings(chunks);
+
+        // 5. Salvar chunks
+        for (let i = 0; i < chunks.length; i++) {
+          const embeddingString = '[' + embeddings[i].join(',') + ']';
+          await pool.query(
+            `INSERT INTO document_chunks (agent_id, document_id, content, embedding)
+             VALUES ($1, $2, $3, $4::vector)`,
+            [agentId, documentId, chunks[i], embeddingString]
           );
-          const documentId = docResult.rows[0].id;
-
-          // 3. Fazer chunks
-          const chunks = chunkText(text, 800, 150);
-
-          // 4. Gerar embeddings
-          const embeddings = await generateEmbeddings(chunks);
-
-          // 5. Salvar chunks
-          for (let i = 0; i < chunks.length; i++) {
-            const embeddingString = '[' + embeddings[i].join(',') + ']';
-            await pool.query(
-              `INSERT INTO document_chunks (agent_id, document_id, content, embedding)
-               VALUES ($1, $2, $3, $4::vector)`,
-              [targetAgentId, documentId, chunks[i], embeddingString]
-            );
-          }
-          console.log(`[UPLOAD] ✅ RAG processado com sucesso para agente ${targetAgentId}`);
         }
+        console.log(`[UPLOAD] ✅ RAG processado para agente ${agentId}`);
       } catch (e) {
-        console.error('[UPLOAD] Erro ao processar RAG:', e.message);
+        console.error('[UPLOAD] Erro no pipeline RAG:', e.message);
       }
     }
 
@@ -495,10 +491,11 @@ app.post('/api/agents/upload', upload.single('file'), async (req, res) => {
       success: true,
       path: filePath,
       filename: originalname,
-      agentId: agentId
+      agentId: agentId,
+      extractedLength: text.length
     });
   } catch (e) {
-    console.error('[UPLOAD] Erro:', e.message);
+    console.error('[UPLOAD] Erro fatal:', e.message);
     res.status(500).json({ error: e.message });
   }
 });
