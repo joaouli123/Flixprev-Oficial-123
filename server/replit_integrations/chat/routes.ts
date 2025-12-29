@@ -137,7 +137,10 @@ export function registerChatRoutes(app: Express): void {
               for (const attachment of agent.attachments) {
                 const text = await extractFileContent(attachment);
                 if (text) {
+                  console.log(`[CHAT] Content extracted from ${attachment}, length: ${text.length}`);
                   attachmentsContent += `\n\n--- INFORMAÇÃO OBRIGATÓRIA DO ARQUIVO (${attachment}) ---\n${text}\n--- FIM DO CONTEÚDO DO ARQUIVO ---`;
+                } else {
+                  console.warn(`[CHAT] No content extracted from ${attachment}`);
                 }
               }
             }
@@ -147,15 +150,14 @@ export function registerChatRoutes(app: Express): void {
 INSTRUÇÕES DO AGENTE:
 ${inst}
 
-BASE DE CONHECIMENTO (CONTEÚDO DOS DOCUMENTOS ANEXADOS):
-${attachmentsContent || "Nenhum documento anexado."}
+BASE DE CONHECIMENTO OBRIGATÓRIA (CONTEÚDO DOS DOCUMENTOS ANEXADOS):
+${attachmentsContent || "AVISO: Nenhum documento anexado foi encontrado ou lido com sucesso."}
 
-REGRAS CRÍTICAS DE RESPOSTA:
-1. RESPONDA EXCLUSIVAMENTE COM BASE NOS DOCUMENTOS ANEXADOS ACIMA.
-2. SE A INFORMAÇÃO NÃO ESTIVER NOS DOCUMENTOS, DIGA QUE NÃO ENCONTROU NO MATERIAL DISPONÍVEL.
-3. NÃO USE SEU CONHECIMENTO GERAL SOBRE O ASSUNTO.
-4. CITE AUTORES E CONCEITOS ESPECÍFICOS PRESENTES NO TEXTO (Ex: Ensslin, Yokominzo, Whiteley).
-5. IGNORE TENDÊNCIAS GERAIS DE RH SE ELAS CONTRADIZEREM OU NÃO ESTIVEREM NO TEXTO.`;
+DIRETRIZES DE RESPOSTA (RAG):
+1. Use PRIORITARIAMENTE o conteúdo da BASE DE CONHECIMENTO acima.
+2. Se a pergunta do usuário for respondida pelos documentos, use as informações deles.
+3. Cite autores e conceitos específicos presentes nos textos (ex: Ensslin, Yokominzo, Whiteley).
+4. Se a informação não estiver nos documentos, você pode usar seu conhecimento geral, mas deve priorizar os fatos dos arquivos.`;
             
             console.log(`[CHAT] Context loaded for agent: ${agent.title} with attachments content length: ${attachmentsContent.length}`);
           }
