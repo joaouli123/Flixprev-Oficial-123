@@ -1,6 +1,11 @@
 import { Router, Request, Response } from 'express';
+import { Pool } from 'pg';
 
 const router = Router();
+
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+});
 
 // Debug endpoint
 router.get('/health', (req: Request, res: Response) => {
@@ -17,12 +22,27 @@ router.post('/login', (req: Request, res: Response) => {
 
     // Validar credenciais
     if (email === 'admin@admin.com' && password === 'admin') {
+      const userId = '07d16581-fca5-4709-b0d3-e09859dbb286';
+      const userEmail = 'admin@admin.com';
+      const userRole = 'admin';
+      
+      // Tentar criar ou atualizar perfil no banco
+      try {
+        await pool.query(`
+          INSERT INTO profiles (id, role) 
+          VALUES ($1, $2)
+          ON CONFLICT (id) DO UPDATE SET role = $2
+        `, [userId, userRole]);
+      } catch (err) {
+        console.error('Erro ao criar perfil:', err);
+      }
+      
       return res.status(200).json({
         success: true,
         user: {
-          id: '07d16581-fca5-4709-b0d3-e09859dbb286',
-          email: 'admin@admin.com',
-          role: 'admin',
+          id: userId,
+          email: userEmail,
+          role: userRole,
         },
         token: `token_admin_${Date.now()}`,
       });

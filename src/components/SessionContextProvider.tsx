@@ -35,14 +35,36 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
         setSession(sessionData);
         
         // Carregar perfil do banco de dados
-        const { data, error } = await neon
-          .from('profiles')
-          .select()
-          .eq('id', sessionData.user.id)
-          .maybeSingle();
-        
-        if (data) {
-          setProfile(data as Profile);
+        try {
+          const { data, error } = await neon
+            .from('profiles')
+            .select()
+            .eq('id', sessionData.user.id)
+            .maybeSingle();
+          
+          if (data) {
+            setProfile(data as Profile);
+          } else {
+            // Se não existe perfil, criar um vazio
+            setProfile({
+              id: sessionData.user.id,
+              first_name: null,
+              last_name: null,
+              avatar_url: null,
+              role: sessionData.user.role || 'user',
+              updated_at: new Date().toISOString(),
+            } as Profile);
+          }
+        } catch (err) {
+          // Se houver erro, continue com perfil vazio
+          setProfile({
+            id: sessionData.user.id,
+            first_name: null,
+            last_name: null,
+            avatar_url: null,
+            role: sessionData.user.role || 'user',
+            updated_at: new Date().toISOString(),
+          } as Profile);
         }
       }
       setLoading(false);
