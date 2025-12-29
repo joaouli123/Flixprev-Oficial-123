@@ -24,8 +24,17 @@ const storage = multer.diskStorage({
     cb(null, uploadDir);
   },
   filename: (req, file, cb) => {
-    const uniqueName = `${crypto.randomUUID()}-${file.originalname}`;
-    cb(null, uniqueName);
+    // Manter o nome original, garantindo que o encoding esteja correto
+    // e removendo apenas caracteres que possam quebrar o sistema de arquivos
+    try {
+      const originalName = Buffer.from(file.originalname, 'latin1').toString('utf8');
+      const safeName = originalName.replace(/[<>:"|?*]/g, '_');
+      console.log(`[UPLOAD] Salvando arquivo como: ${safeName}`);
+      cb(null, safeName);
+    } catch (e) {
+      console.error('[UPLOAD] Erro ao processar nome do arquivo:', e);
+      cb(null, file.originalname);
+    }
   }
 });
 
