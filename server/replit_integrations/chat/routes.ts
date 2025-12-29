@@ -52,6 +52,32 @@ export function registerChatRoutes(app: Express): void {
     }
   });
 
+  // Update conversation title
+  app.patch("/api/conversations/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { title } = req.body;
+      
+      if (!title || title.trim() === "") {
+        return res.status(400).json({ error: "Title cannot be empty" });
+      }
+      
+      const result = await pool.query(
+        'UPDATE conversations SET title = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING *',
+        [title, id]
+      );
+      
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: "Conversation not found" });
+      }
+      
+      res.json(result.rows[0]);
+    } catch (error: any) {
+      console.error("Error updating conversation:", error);
+      res.status(500).json({ error: "Failed to update conversation" });
+    }
+  });
+
   // Delete conversation
   app.delete("/api/conversations/:id", async (req: Request, res: Response) => {
     try {
