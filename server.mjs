@@ -103,16 +103,20 @@ async function generateEmbeddings(chunks) {
   });
 
   const embeddings = [];
-  for (const chunk of chunks) {
+  console.log(`[EMB] Gerando embeddings para ${chunks.length} chunks...`);
+  
+  for (let i = 0; i < chunks.length; i++) {
     try {
       const res = await openai.embeddings.create({
         model: 'text-embedding-3-large',
-        input: chunk
+        input: chunks[i]
       });
       embeddings.push(res.data[0].embedding);
-      console.log('[EMB] Embedding gerado para chunk');
+      if ((i + 1) % 5 === 0 || i === chunks.length - 1) {
+        console.log(`[EMB] Progresso: ${i + 1}/${chunks.length}`);
+      }
     } catch (e) {
-      console.error('[EMB] Erro:', e.message);
+      console.error(`[EMB] Erro no chunk ${i}:`, e.message);
       embeddings.push(Array(3072).fill(0));
     }
   }
@@ -120,10 +124,8 @@ async function generateEmbeddings(chunks) {
 }
 
 // 4️⃣ Busca semântica com pgvector
-async function searchSimilarChunks(queryEmbedding, agentId, limit = 8) {
+async function searchSimilarChunks(queryEmbedding, agentId, limit = 12) {
   try {
-    // Formatar o embedding como string de vector para pgvector
-    // pgvector espera formato como "[0.1, 0.2, ...]"
     const embeddingString = '[' + queryEmbedding.join(',') + ']';
     
     const result = await pool.query(`
@@ -134,7 +136,19 @@ async function searchSimilarChunks(queryEmbedding, agentId, limit = 8) {
       LIMIT $3
     `, [agentId, embeddingString, limit]);
     
-    console.log(`[SEARCH] Encontrados ${result.rows.length} chunks similares`);
+    console.log('--- TESTE DE RECUPERAÇÃO (RAG) ---');
+    console.log(`Agente: ${agentId}`);
+    console.log(`Chunks encontrados: ${result.rows.length}`);
+    
+    if (result.rows.length > 0) {
+      result.rows.forEach((r, i) => {
+        console.log(`Chunk ${i + 1} (${r.title || 'Sem título'}): ${r.content.substring(0, 50).replace(/\n/g, ' ')}...`);
+      });
+    } else {
+      console.warn('⚠️ AVISO: NENHUM CHUNK ENCONTRADO PARA ESTA PERGUNTA!');
+    }
+    console.log('----------------------------------');
+    
     return result.rows.map(r => r.content).join('\n\n---\n\n');
   } catch (e) {
     console.error('[SEARCH] Erro:', e.message);
