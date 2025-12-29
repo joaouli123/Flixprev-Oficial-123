@@ -10,6 +10,8 @@ import { cn } from "@/lib/utils";
 import { Agent } from "@/types/app";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { TypingIndicator } from "@/components/TypingIndicator";
+import { FormattedMessage } from "@/components/FormattedMessage";
 
 interface Message {
   role: "assistant" | "user";
@@ -234,7 +236,11 @@ const ChatPage = () => {
                       ? "bg-white dark:bg-slate-800 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-slate-700 rounded-tl-none" 
                       : "bg-blue-600 dark:bg-blue-700 text-white rounded-tr-none"
                   )}>
-                    {msg.content}
+                    {msg.role === "assistant" ? (
+                      <FormattedMessage content={msg.content} />
+                    ) : (
+                      msg.content
+                    )}
                   </div>
                   {msg.role === "user" && (
                     <div className="flex-shrink-0 h-6 w-6 sm:h-8 sm:w-8 rounded-full flex items-center justify-center bg-gray-200 dark:bg-slate-700 text-gray-600 dark:text-gray-300">
@@ -243,6 +249,16 @@ const ChatPage = () => {
                   )}
                 </div>
               ))}
+              {isSending && (
+                <div className="flex gap-2 sm:gap-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                  <div className="flex-shrink-0 h-6 w-6 sm:h-8 sm:w-8 rounded-full flex items-center justify-center bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300">
+                    <Bot className="h-3 w-3 sm:h-4 sm:w-4" />
+                  </div>
+                  <div className="px-3 py-2 sm:px-4 sm:py-3 rounded-2xl text-xs sm:text-sm leading-relaxed bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-tl-none">
+                    <TypingIndicator />
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </ScrollArea>
