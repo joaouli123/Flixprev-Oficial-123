@@ -28,7 +28,10 @@ import {
   Fingerprint,
   Activity,
   Box,
-  Code
+  Code,
+  Upload,
+  X,
+  File
 } from "lucide-react";
 import { Agent, Category } from "@/types/app";
 
@@ -75,6 +78,18 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
   const [icon, setIcon] = useState("Bot");
   const [selectedModel, setSelectedModel] = useState("gpt-4o-mini");
   const [selectedCategory, setSelectedCategory] = useState<string | undefined>(undefined);
+  const [files, setFiles] = useState<File[]>([]);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      const newFiles = Array.from(e.target.files);
+      setFiles((prev) => [...prev, ...newFiles]);
+    }
+  };
+
+  const removeFile = (index: number) => {
+    setFiles((prev) => prev.filter((_, i) => i !== index));
+  };
 
   const handleSave = () => {
     if (title.trim() && description.trim() && icon && selectedCategory) {
@@ -83,28 +98,27 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
         description: description.trim(),
         icon,
         category_ids: [selectedCategory],
-        // Armazenamos o modelo nos metadados ou descrição por enquanto já que o schema é fixo
-        // Em um sistema real, teríamos uma coluna 'model'
       });
       setTitle("");
       setDescription("");
       setIcon("Bot");
       setSelectedModel("gpt-4o-mini");
       setSelectedCategory(undefined);
+      setFiles([]);
       onClose();
     }
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[450px]">
+      <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Bot className="h-5 w-5 text-blue-600" />
             Configurar Novo Agente IA
           </DialogTitle>
           <DialogDescription>
-            Defina a personalidade e as ferramentas do seu novo assistente.
+            Defina a personalidade e anexe documentos para o seu assistente.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
@@ -118,15 +132,48 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
             />
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="description">Instruções do Sistema (Prompt)</Label>
+            <Label htmlFor="description">Instruções do Sistema (Prompt / Instruções)</Label>
             <Textarea
               id="description"
-              placeholder="Descreva como o agente deve se comportar..."
+              placeholder="Descreva detalhadamente como o agente deve se comportar e qual sua base de conhecimento..."
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="min-h-[100px]"
+              className="min-h-[120px]"
             />
           </div>
+          
+          <div className="grid gap-2">
+            <Label>Arquivos Complementares (PDF, DOCX, Imagens)</Label>
+            <div className="border-2 border-dashed rounded-lg p-4 bg-gray-50/50 hover:bg-gray-100/50 transition-colors cursor-pointer relative">
+              <input
+                type="file"
+                multiple
+                className="absolute inset-0 opacity-0 cursor-pointer"
+                onChange={handleFileChange}
+                accept=".pdf,.docx,.doc,.txt,.jpg,.jpeg,.png"
+              />
+              <div className="flex flex-col items-center justify-center gap-2 text-gray-500">
+                <Upload className="h-6 w-6" />
+                <span className="text-sm font-medium">Clique ou arraste para anexar</span>
+                <span className="text-[10px]">Suporta PDF, Word, Imagens</span>
+              </div>
+            </div>
+            
+            {files.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-2">
+                {files.map((file, index) => (
+                  <div key={index} className="flex items-center gap-2 bg-white border rounded-full px-3 py-1 text-xs text-gray-600 group hover:border-blue-300">
+                    <File className="h-3 w-3 text-blue-500" />
+                    <span className="truncate max-w-[120px]">{file.name}</span>
+                    <button onClick={() => removeFile(index)} className="hover:text-red-500">
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">
               <Label>Modelo de IA</Label>
@@ -138,8 +185,8 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
                   {modelOptions.map((model) => (
                     <SelectItem key={model.id} value={model.id}>
                       <div className="flex flex-col">
-                        <span className="font-medium">{model.name}</span>
-                        <span className="text-[10px] text-muted-foreground">{model.description}</span>
+                        <span className="font-medium text-xs">{model.name}</span>
+                        <span className="text-[9px] text-muted-foreground">{model.description}</span>
                       </div>
                     </SelectItem>
                   ))}
@@ -164,7 +211,7 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
           </div>
           <div className="grid gap-2">
             <Label>Ícone de Identificação</Label>
-            <div className="grid grid-cols-8 gap-2 border rounded-md p-2 max-h-[120px] overflow-y-auto bg-gray-50/50">
+            <div className="grid grid-cols-8 gap-2 border rounded-md p-2 max-h-[100px] overflow-y-auto bg-gray-50/50">
               {iconOptions.map((option) => {
                 const IconComp = option.icon;
                 return (
