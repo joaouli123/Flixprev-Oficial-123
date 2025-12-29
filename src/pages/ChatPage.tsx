@@ -33,10 +33,31 @@ const ChatPage = () => {
     },
   ]);
   const [input, setInput] = useState("");
+  const [conversationId, setConversationId] = useState<number | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Use agent shortcuts or default shortcuts
   const shortcuts = agent?.shortcuts || ["Resumir docs", "Extrair cláusulas", "Analisar risco", "Dúvidas"];
+
+  // Initialize conversation on component mount
+  useEffect(() => {
+    const initConversation = async () => {
+      try {
+        const response = await fetch("/api/conversations", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title: `Chat with ${agent?.title || "Agent"}` }),
+        });
+        if (response.ok) {
+          const conv = await response.json();
+          setConversationId(conv.id);
+        }
+      } catch (error) {
+        console.error("Failed to create conversation:", error);
+      }
+    };
+    initConversation();
+  }, [agent?.title]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -45,15 +66,14 @@ const ChatPage = () => {
   }, [messages]);
 
   const handleSend = async () => {
-    if (!input.trim()) return;
+    if (!input.trim() || !conversationId) return;
 
     const userMsg: Message = { role: "user", content: input };
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
 
     try {
-      // Use existing ID 1 for testing
-      const convId = 1;
+      const convId = conversationId;
       
       const response = await fetch(`/api/conversations/${convId}/messages`, {
         method: "POST",

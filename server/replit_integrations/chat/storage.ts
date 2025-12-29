@@ -11,7 +11,39 @@ export interface IChatStorage {
   deleteConversation(id: number): Promise<void>;
   getMessagesByConversation(conversationId: number): Promise<any[]>;
   createMessage(conversationId: number, role: string, content: string): Promise<any>;
+  initializeTables(): Promise<void>;
 }
+
+// Initialize database tables if they don't exist
+async function initializeTables() {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS conversations (
+        id SERIAL PRIMARY KEY,
+        title VARCHAR(255) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+    
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS messages (
+        id SERIAL PRIMARY KEY,
+        conversation_id INTEGER NOT NULL REFERENCES conversations(id),
+        role VARCHAR(50) NOT NULL,
+        content TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+    
+    console.log('[CHAT] Database tables initialized successfully');
+  } catch (error: any) {
+    console.error('[CHAT] Error initializing tables:', error.message);
+  }
+}
+
+// Initialize tables when module loads
+initializeTables();
 
 export const chatStorage: IChatStorage = {
   async getConversation(id: number) {
