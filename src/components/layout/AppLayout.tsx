@@ -243,8 +243,10 @@ const AppLayout = () => {
           title: newAgentData.title,
           description: newAgentData.description,
           icon: newAgentData.icon,
-          category_ids: newAgentData.category_ids,
-          user_id: userId 
+          category_ids: newAgentData.category_ids || [],
+          user_id: userId,
+          instructions: (newAgentData as any).instructions || null,
+          attachments: (newAgentData as any).attachments || [],
         })
         .select();
 
@@ -294,9 +296,10 @@ const AppLayout = () => {
         title: updatedAgentData.title,
         description: updatedAgentData.description,
         icon: updatedAgentData.icon,
-        category_ids: updatedAgentData.category_ids,
+        category_ids: updatedAgentData.category_ids || [],
         link: updatedAgentData.link || null,
         instructions: updatedAgentData.instructions || null,
+        attachments: updatedAgentData.attachments || [],
       })
       .eq("id", agentId)
       .select();
@@ -309,8 +312,8 @@ const AppLayout = () => {
         setAgents((prev) =>
           prev.map((agent) => (agent.id === agentId ? (data[0] as Agent) : agent))
         );
+        toast.success(`Agente '${updatedAgentData.title}' atualizado com sucesso!`);
       }
-      toast.success(`Agente '${updatedAgentData.title}' atualizado com sucesso!`);
     }
   };
 

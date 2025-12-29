@@ -86,6 +86,7 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
   const [selectedModel, setSelectedModel] = useState("gpt-4o-mini");
   const [selectedCategory, setSelectedCategory] = useState<string | undefined>(undefined);
   const [files, setFiles] = useState<File[]>([]);
+  const [savedAttachments, setSavedAttachments] = useState<string[]>([]);
   const [shortcuts, setShortcuts] = useState<string[]>(["Resumir docs", "Extrair cláusulas", "Analisar risco", "Dúvidas"]);
   const [shortcutInput, setShortcutInput] = useState("");
 
@@ -97,6 +98,8 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
       setIcon(agentToEdit.icon);
       setSelectedCategory(agentToEdit.category_ids?.[0] || undefined);
       setShortcuts(agentToEdit.shortcuts || ["Resumir docs", "Extrair cláusulas", "Analisar risco", "Dúvidas"]);
+      setSavedAttachments((agentToEdit as any).attachments || []);
+      setFiles([]);
       setShortcutInput("");
     } else if (isOpen && !agentToEdit) {
       setTitle("");
@@ -105,6 +108,7 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
       setSelectedModel("gpt-4o-mini");
       setSelectedCategory(undefined);
       setFiles([]);
+      setSavedAttachments([]);
       setShortcuts(["Resumir docs", "Extrair cláusulas", "Analisar risco", "Dúvidas"]);
       setShortcutInput("");
     }
@@ -121,6 +125,10 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
     setFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
+  const removeSavedAttachment = (path: string) => {
+    setSavedAttachments((prev) => prev.filter((p) => p !== path));
+  };
+
   const addShortcut = () => {
     if (shortcutInput.trim() && shortcuts.length < 6) {
       setShortcuts((prev) => [...prev, shortcutInput.trim()]);
@@ -134,54 +142,47 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
 
   const handleSave = async () => {
     if (title.trim() && description.trim() && icon && selectedCategory) {
+      // Upload new files first
+      let uploadedPaths: string[] = [...savedAttachments];
+      
+      if (files.length > 0) {
+        for (const file of files) {
+          try {
+            const formData = new FormData();
+            formData.append("file", file);
+            
+            const response = await fetch("/api/agents/upload", {
+              method: "POST",
+              body: formData,
+            });
+            
+            if (response.ok) {
+              const data = await response.json();
+              uploadedPaths.push(data.path);
+            }
+          } catch (err) {
+            console.error("Erro ao fazer upload do arquivo:", err);
+            toast.error(`Erro ao fazer upload de ${file.name}`);
+          }
+        }
+      }
+
       const agentData = {
         title: title.trim(),
         description: description.trim(),
         icon,
         category_ids: [selectedCategory],
         shortcuts: shortcuts.length > 0 ? shortcuts : undefined,
-      };
-
-      let newAgentId: string | null = null;
+        instructions: description.trim(),
+        attachments: uploadedPaths,
+      } as any;
 
       if (isEditing && agentToEdit && onEditSave) {
         console.log("Editando agente:", agentToEdit.id);
         onEditSave(agentToEdit.id, agentData);
-        newAgentId = agentToEdit.id;
       } else {
         console.log("Salvando agente com categoria selecionada:", selectedCategory);
         onSave(agentData);
-        // Para novo agente, vamos usar um ID temporário (será retornado pelo callback)
-        newAgentId = agentData.title; // Placeholder, será atualizado
-      }
-
-      // Upload documents if any
-      if (files.length > 0 && newAgentId) {
-        setTimeout(async () => {
-          // Find the actual agent ID from the latest agents
-          const agents = Array.from(document.querySelectorAll('[data-testid*="agent-card"]'));
-          if (agents.length > 0) {
-            // Get the most recently created agent
-            const lastAgent = agents[agents.length - 1];
-            const agentId = lastAgent?.getAttribute('data-agent-id');
-            
-            if (agentId) {
-              for (const file of files) {
-                try {
-                  const content = await file.text();
-                  await fetch(`/api/agents/${agentId}/documents`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ title: file.name, content })
-                  });
-                } catch (err) {
-                  console.error("Erro ao fazer upload do documento:", err);
-                }
-              }
-              toast.success("Documentos enviados com sucesso!");
-            }
-          }
-        }, 500);
       }
 
       setTitle("");
@@ -190,6 +191,7 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
       setSelectedModel("gpt-4o-mini");
       setSelectedCategory(undefined);
       setFiles([]);
+      setSavedAttachments([]);
       setShortcuts(["Resumir docs", "Extrair cláusulas", "Analisar risco", "Dúvidas"]);
       setShortcutInput("");
       onClose();
@@ -254,8 +256,21 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
               </div>
             </div>
             
-            {files.length > 0 && (
+            {(savedAttachments.length > 0 || files.length > 0) && (
               <div className="flex flex-wrap gap-2 mt-2">
+                {savedAttachments.map((path) => (
+                  <div key={path} className="flex items-center gap-1 bg-blue-100 dark:bg-blue-900 text-blue-900 dark:text-blue-100 px-3 py-1 rounded-full text-xs">
+                    <FileText className="h-3 w-3" />
+                    <span className="truncate max-w-[150px]">{path.split("/").pop()}</span>
+                    <button
+                      onClick={() => removeSavedAttachment(path)}
+                      className="ml-1 hover:text-red-600"
+                      type="button"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
                 {files.map((file, index) => (
                   <div key={index} className="flex items-center gap-2 bg-white border rounded-full px-3 py-1 text-xs text-gray-600 group hover:border-blue-300">
                     <File className="h-3 w-3 text-blue-500" />

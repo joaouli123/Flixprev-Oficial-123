@@ -13,6 +13,8 @@ export type Agent = {
   description: string;
   link?: string; // Novo: link para onde o agente redireciona
   shortcuts?: string[]; // Novo: atalhos personalizados para o agente
+  instructions?: string; // Instruções do sistema
+  attachments?: string[]; // Caminhos dos arquivos anexados
   userId: string;
   created_at: string;
 };
