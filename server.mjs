@@ -534,6 +534,16 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
               5
             );
 
+            // 🔍 DEBUGAR CONTEXTO ANTES DE ENVIAR PARA OPENAI
+            console.log('[CHAT] ========== CONTEXTO RAG ==========');
+            console.log('[CHAT] Contexto encontrado:', !!relevantContext);
+            console.log('[CHAT] Tamanho do contexto:', relevantContext?.length || 0, 'caracteres');
+            if (relevantContext && relevantContext.length > 0) {
+              console.log('[CHAT] Primeiros 500 chars do contexto:');
+              console.log(relevantContext.substring(0, 500));
+              console.log('[CHAT] ...truncado...');
+            }
+
             // Construir prompt com contexto
             if (relevantContext) {
               prompt = buildPrompt(relevantContext, content);
