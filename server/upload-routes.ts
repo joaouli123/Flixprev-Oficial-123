@@ -14,10 +14,18 @@ const storage = multer.diskStorage({
     cb(null, uploadDir);
   },
   filename: (req, file, cb) => {
-    // Manter o nome original, apenas removendo caracteres problemáticos se necessário
-    // mas sem adicionar o prefixo UUID longo
-    const originalName = Buffer.from(file.originalname, 'latin1').toString('utf8');
-    cb(null, originalName);
+    // Manter o nome original, garantindo que o encoding esteja correto
+    // e limpando apenas o que for estritamente necessário para o sistema de arquivos
+    try {
+      const originalName = Buffer.from(file.originalname, 'latin1').toString('utf8');
+      // Remover caracteres que podem quebrar o sistema de arquivos ou URLs
+      const safeName = originalName.replace(/[<>:"|?*]/g, '_');
+      console.log(`[UPLOAD] Saving file as: ${safeName}`);
+      cb(null, safeName);
+    } catch (e) {
+      console.error('[UPLOAD] Error processing filename:', e);
+      cb(null, file.originalname);
+    }
   }
 });
 
