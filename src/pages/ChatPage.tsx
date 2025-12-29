@@ -125,7 +125,7 @@ const ChatPage = () => {
       if (!reader) throw new Error("Falha ao iniciar stream");
 
       // Initialize assistant message
-      setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
+      // setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
 
       const decoder = new TextDecoder();
       let assistantContent = "";
@@ -147,14 +147,6 @@ const ChatPage = () => {
               const data = JSON.parse(jsonStr);
               if (data.content) {
                 assistantContent += data.content;
-                setMessages((prev) => {
-                  const newMsgs = [...prev];
-                  newMsgs[newMsgs.length - 1] = { 
-                    role: "assistant", 
-                    content: assistantContent 
-                  };
-                  return newMsgs;
-                });
               }
               if (data.done) break;
               if (data.error) throw new Error(data.error);
@@ -165,6 +157,9 @@ const ChatPage = () => {
           }
         }
       }
+
+      // Add full message at the end instead of streaming
+      setMessages((prev) => [...prev, { role: "assistant", content: assistantContent }]);
     } catch (error: any) {
       console.error("[CHAT] Error:", error);
       setMessages((prev) => [
