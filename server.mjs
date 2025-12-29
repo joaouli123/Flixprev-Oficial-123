@@ -16,6 +16,72 @@ const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
 });
 
+// Initialize chat tables
+async function initializeChatTables() {
+  try {
+    await pool.query(`CREATE TABLE IF NOT EXISTS conversations (id SERIAL PRIMARY KEY, title VARCHAR(255) NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);`);
+    await pool.query(`CREATE TABLE IF NOT EXISTS messages (id SERIAL PRIMARY KEY, conversation_id INTEGER NOT NULL REFERENCES conversations(id) ON DELETE CASCADE, role VARCHAR(50) NOT NULL, content TEXT NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);`);
+    console.log('[CHAT] Database tables initialized');
+  } catch (e) { console.error('[CHAT] Init error:', e.message); }
+}
+initializeChatTables();
+
+// Chat API Routes
+app.get("/api/conversations", async (req, res) => {
+  try { const result = await pool.query('SELECT * FROM conversations ORDER BY created_at DESC'); res.json(result.rows || []); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post("/api/conversations", async (req, res) => {
+  try {
+    const result = await pool.query('INSERT INTO conversations (title) VALUES ($1) RETURNING *', [req.body.title || "New Chat"]);
+    res.status(201).json(result.rows[0]);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post("/api/conversations/:id/messages", async (req, res) => {
+  try {
+    const cid = parseInt(req.params.id);
+    const { content, agentId } = req.body;
+    await pool.query('INSERT INTO messages (conversation_id, role, content) VALUES ($1, $2, $3)', [cid, "user", content]);
+    
+    let prompt = "Você é um assistente prestativo.";
+    if (agentId) {
+      try {
+        const r = await pool.query('SELECT * FROM "agents" WHERE "id" = $1', [agentId]);
+        if (r.rows[0]) prompt = `Você é o assistente: ${r.rows[0].title}. Instruções: ${r.rows[0].instructions || r.rows[0].description || ""}`;
+      } catch (e) {}
+    }
+    
+    const hist = await pool.query('SELECT * FROM messages WHERE conversation_id = $1 ORDER BY created_at ASC', [cid]);
+    const msgs = [{ role: "system", content: prompt }, ...hist.rows.map(m => ({ role: m.role, content: m.content }))];
+    
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+    if (res.flushHeaders) res.flushHeaders();
+
+    const openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY || process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+      baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+    });
+
+    const stream = await openai.chat.completions.create({ model: "gpt-4o", messages: msgs, stream: true });
+    let fullResp = "";
+    for await (const chunk of stream) {
+      const delta = chunk.choices[0]?.delta?.content || "";
+      if (delta) { fullResp += delta; res.write(`data: ${JSON.stringify({ content: delta })}\n\n`); }
+    }
+    await pool.query('INSERT INTO messages (conversation_id, role, content) VALUES ($1, $2, $3)', [cid, "assistant", fullResp]);
+    res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+    res.end();
+  } catch (e) {
+    console.error("[CHAT ERROR]", e);
+    if (!res.headersSent) res.status(500).json({ error: e.message });
+    else res.write(`data: ${JSON.stringify({ error: e.message })}\n\n`), res.end();
+  }
+});
+
 // API Route - LOGIN
 app.post('/api/login', (req, res) => {
   const { email, password } = req.body;
@@ -37,180 +103,6 @@ app.post('/api/login', (req, res) => {
   }
 
   return res.status(401).json({ error: 'Email ou senha incorretos' });
-});
-
-// In-memory chat storage
-const inMemoryConversations = new Map();
-const inMemoryMessages = new Map();
-let conversationIdCounter = 1;
-let messageIdCounter = 1;
-
-// Initialize chat tables
-async function initializeChatTables() {
-  try {
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS conversations (
-        id SERIAL PRIMARY KEY,
-        title VARCHAR(255) NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
-    
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS messages (
-        id SERIAL PRIMARY KEY,
-        conversation_id INTEGER NOT NULL REFERENCES conversations(id),
-        role VARCHAR(50) NOT NULL,
-        content TEXT NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
-    
-    console.log('[CHAT] Database tables initialized successfully');
-  } catch (error) {
-    console.error('[CHAT] Error initializing tables:', error.message);
-  }
-}
-
-// Initialize chat tables on startup
-initializeChatTables();
-
-// Chat API Routes
-app.get("/api/conversations", async (req, res) => {
-  console.log('[CHAT API] GET /api/conversations');
-  try {
-    const result = await pool.query('SELECT * FROM conversations ORDER BY created_at DESC');
-    res.json(result.rows || []);
-  } catch (error) {
-    console.error("Error fetching conversations:", error);
-    res.status(500).json({ error: "Failed to fetch conversations" });
-  }
-});
-
-app.post("/api/conversations", async (req, res) => {
-  try {
-    const { title } = req.body;
-    console.log('[CHAT API] Creating conversation with title:', title);
-    console.log('[CHAT API] Database connected:', !!process.env.DATABASE_URL);
-    const result = await pool.query('INSERT INTO conversations (title) VALUES ($1) RETURNING *', [title || "New Chat"]);
-    const conversation = result.rows[0];
-    console.log('[CHAT API] Created conversation:', conversation);
-    res.status(201).json(conversation);
-  } catch (error) {
-    console.error('[CHAT API] Error creating conversation:', error);
-    res.status(500).json({ error: "Failed to create conversation: " + error.message });
-  }
-});
-
-app.get("/api/conversations/:id", async (req, res) => {
-  try {
-    const id = parseInt(req.params.id);
-    const convResult = await pool.query('SELECT * FROM conversations WHERE id = $1', [id]);
-    if (!convResult.rows[0]) {
-      return res.status(404).json({ error: "Conversation not found" });
-    }
-    const msgResult = await pool.query('SELECT * FROM messages WHERE conversation_id = $1', [id]);
-    res.json({ ...convResult.rows[0], messages: msgResult.rows });
-  } catch (error) {
-    console.error("Error fetching conversation:", error);
-    res.status(500).json({ error: "Failed to fetch conversation" });
-  }
-});
-
-app.post("/api/conversations/:id/messages", async (req, res) => {
-  console.log('[CHAT API] POST /api/conversations/:id/messages');
-  try {
-    const conversationId = parseInt(req.params.id);
-    const { content, agentId } = req.body;
-
-    console.log(`[CHAT] Message for conv ${conversationId}: ${content}`);
-
-    // Fetch agent context
-    let systemPrompt = "Você é um assistente prestativo especializado em advocacia previdenciária.";
-    if (agentId) {
-      try {
-        const agentResult = await pool.query('SELECT * FROM "agents" WHERE "id" = $1', [agentId]);
-        const agent = agentResult.rows[0];
-        if (agent) {
-          const inst = agent.instructions || agent.description || "Sem instruções específicas.";
-          systemPrompt = `Você é o assistente: ${agent.title}. \nInstruções e Base de Conhecimento: ${inst}`;
-          console.log(`[CHAT] Context loaded for agent: ${agent.title}`);
-        }
-      } catch (dbError) {
-        console.error("[CHAT DB ERROR]", dbError.message);
-      }
-    }
-
-    // Save user message
-    await pool.query('INSERT INTO messages (conversation_id, role, content) VALUES ($1, $2, $3)', [conversationId, "user", content]);
-
-    // Get history
-    const historyResult = await pool.query('SELECT * FROM messages WHERE conversation_id = $1 ORDER BY created_at ASC', [conversationId]);
-    const chatMessages = [
-      { role: "system", content: systemPrompt },
-      ...historyResult.rows.map((m) => ({
-        role: m.role,
-        content: m.content,
-      }))
-    ];
-
-    // Set up SSE
-    res.setHeader("Content-Type", "text/event-stream");
-    res.setHeader("Cache-Control", "no-cache");
-    res.setHeader("Connection", "keep-alive");
-    if (res.flushHeaders) res.flushHeaders();
-
-    try {
-      const openai = new OpenAI({
-        apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-        baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-      });
-
-      const stream = await openai.chat.completions.create({
-        model: "gpt-4o", 
-        messages: chatMessages,
-        stream: true,
-      });
-
-      let fullResponse = "";
-      for await (const chunk of stream) {
-        const delta = chunk.choices[0]?.delta?.content || "";
-        if (delta) {
-          fullResponse += delta;
-          res.write(`data: ${JSON.stringify({ content: delta })}\n\n`);
-        }
-      }
-
-      await pool.query('INSERT INTO messages (conversation_id, role, content) VALUES ($1, $2, $3)', [conversationId, "assistant", fullResponse]);
-      res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
-      res.end();
-    } catch (streamError) {
-      console.error("[STREAM ERROR]", streamError.message);
-      if (res.headersSent) {
-        res.write(`data: ${JSON.stringify({ error: `AI Error: ${streamError.message}` })}\n\n`);
-        res.end();
-      } else {
-        res.status(500).json({ error: streamError.message });
-      }
-    }
-  } catch (error) {
-    console.error("[CHAT ERROR]", error);
-    if (!res.headersSent) {
-      res.status(500).json({ error: error.message || "Failed to send message" });
-    }
-  }
-});
-
-app.delete("/api/conversations/:id", async (req, res) => {
-  try {
-    const id = parseInt(req.params.id);
-    await pool.query('DELETE FROM conversations WHERE id = $1', [id]);
-    res.status(204).send();
-  } catch (error) {
-    console.error("Error deleting conversation:", error);
-    res.status(500).json({ error: "Failed to delete conversation" });
-  }
 });
 
 // API Route - DB
