@@ -128,8 +128,10 @@ async function searchSimilarChunks(queryEmbedding, agentId, limit = 12) {
   try {
     const embeddingString = '[' + queryEmbedding.join(',') + ']';
     
+    // Corrigido: document_chunks não tem coluna title, apenas content. 
+    // O título está na tabela documents se precisarmos de join futuramente.
     const result = await pool.query(`
-      SELECT content, title
+      SELECT content
       FROM document_chunks
       WHERE agent_id = $1
       ORDER BY embedding <-> $2::vector
@@ -142,7 +144,7 @@ async function searchSimilarChunks(queryEmbedding, agentId, limit = 12) {
     
     if (result.rows.length > 0) {
       result.rows.forEach((r, i) => {
-        console.log(`Chunk ${i + 1} (${r.title || 'Sem título'}): ${r.content.substring(0, 50).replace(/\n/g, ' ')}...`);
+        console.log(`Chunk ${i + 1}: ${r.content.substring(0, 50).replace(/\n/g, ' ')}...`);
       });
     } else {
       console.warn('⚠️ AVISO: NENHUM CHUNK ENCONTRADO PARA ESTA PERGUNTA!');
@@ -151,7 +153,7 @@ async function searchSimilarChunks(queryEmbedding, agentId, limit = 12) {
     
     return result.rows.map(r => r.content).join('\n\n---\n\n');
   } catch (e) {
-    console.error('[SEARCH] Erro:', e.message);
+    console.error('[SEARCH] Erro fatal na busca vetorial:', e.message);
     return '';
   }
 }
