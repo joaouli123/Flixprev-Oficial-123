@@ -58,7 +58,7 @@ const ChatPage = () => {
       const response = await fetch(`/api/conversations/${convId}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: input, agentId: agent?.id }),
+        body: JSON.stringify({ content: input, agentId: agentId }),
       });
 
       if (!response.ok) {
@@ -74,18 +74,22 @@ const ChatPage = () => {
 
       const decoder = new TextDecoder();
       let assistantContent = "";
+      let buffer = "";
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
-        const chunk = decoder.decode(value);
-        const lines = chunk.split("\n\n");
-        
-        for (const line of lines) {
-          if (line.startsWith("data: ")) {
+        buffer += decoder.decode(value, { stream: true });
+        const parts = buffer.split("\n\n");
+        buffer = parts.pop() || "";
+
+        for (const part of parts) {
+          if (part.startsWith("data: ")) {
+            const jsonStr = part.slice(6).trim();
+            if (jsonStr === "[DONE]") break;
             try {
-              const data = JSON.parse(line.slice(6));
+              const data = JSON.parse(jsonStr);
               if (data.content) {
                 assistantContent += data.content;
                 setMessages((prev) => {
@@ -97,8 +101,11 @@ const ChatPage = () => {
                   return newMsgs;
                 });
               }
-            } catch (e) {
-              // Fragmented JSON, skip or handle
+              if (data.done) break;
+              if (data.error) throw new Error(data.error);
+            } catch (e: any) {
+              if (e.message.includes("AI Error")) throw e;
+              console.warn("Parse error in stream chunk:", e);
             }
           }
         }

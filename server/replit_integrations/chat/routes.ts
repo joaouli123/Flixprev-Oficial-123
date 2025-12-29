@@ -1,6 +1,6 @@
 import type { Express, Request, Response } from "express";
 import OpenAI from "openai";
-import { chatStorage } from "./storage";
+import { chatStorage, pool } from "./storage";
 
 const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
@@ -65,38 +65,32 @@ export function registerChatRoutes(app: Express): void {
       const conversationId = parseInt(req.params.id);
       const { content, agentId } = req.body;
 
-      console.log(`Received message for conversation ${conversationId}: ${content}`);
+      console.log(`[CHAT] Message for conv ${conversationId}: ${content}`);
 
-      // Fetch agent info if agentId is provided
-      let systemPrompt = "Você é um assistente prestativo.";
+      // Fetch agent context
+      let systemPrompt = "Você é um assistente prestativo especializado em advocacia previdenciária.";
       if (agentId) {
         try {
-          // Verify table name for agents. Based on the codebase it might be 'agentes'
-          const agentResult = await pool.query('SELECT * FROM "agentes" WHERE "id" = $1', [agentId]);
+          const agentResult = await pool.query('SELECT * FROM "agents" WHERE "id" = $1', [agentId]);
           const agent = agentResult.rows[0];
           if (agent) {
-            systemPrompt = `Você é o assistente: ${agent.title}. 
-Instruções: ${agent.instructions || "Sem instruções específicas."}
-Base de conhecimento: ${agent.description || "Sem descrição adicional."}`;
+            const inst = agent.instructions || agent.description || "Sem instruções específicas.";
+            systemPrompt = `Você é o assistente: ${agent.title}. \nInstruções e Base de Conhecimento: ${inst}`;
+            console.log(`[CHAT] Context loaded for agent: ${agent.title}`);
           }
         } catch (dbError: any) {
-          console.error("Error fetching agent context:", dbError.message);
+          console.error("[CHAT DB ERROR]", dbError.message);
         }
       }
 
       // Save user message
-      try {
-        await chatStorage.createMessage(conversationId, "user", content);
-      } catch (e: any) {
-        console.error(`[DB ERROR] User message insertion failed:`, e.message);
-        return res.status(500).json({ error: "Erro ao salvar mensagem no banco de dados." });
-      }
+      await chatStorage.createMessage(conversationId, "user", content);
 
-      // Get conversation history for context
-      const messages = await chatStorage.getMessagesByConversation(conversationId);
+      // Get history
+      const history = await chatStorage.getMessagesByConversation(conversationId);
       const chatMessages = [
         { role: "system", content: systemPrompt },
-        ...messages.map((m) => ({
+        ...history.map((m: any) => ({
           role: m.role as "user" | "assistant",
           content: m.content,
         }))
@@ -108,8 +102,6 @@ Base de conhecimento: ${agent.description || "Sem descrição adicional."}`;
       res.setHeader("Connection", "keep-alive");
       if ((res as any).flushHeaders) (res as any).flushHeaders();
 
-      // Stream response from OpenAI
-      console.log(`[STREAMING] Initiating OpenAI completion for conv ${conversationId}`);
       try {
         const stream = await openai.chat.completions.create({
           model: "gpt-4o", 
@@ -117,10 +109,7 @@ Base de conhecimento: ${agent.description || "Sem descrição adicional."}`;
           stream: true,
         });
 
-        console.log(`[STREAMING] Stream started for conversation ${conversationId}`);
-
         let fullResponse = "";
-
         for await (const chunk of stream) {
           const delta = chunk.choices[0]?.delta?.content || "";
           if (delta) {
@@ -129,24 +118,21 @@ Base de conhecimento: ${agent.description || "Sem descrição adicional."}`;
           }
         }
 
-        console.log(`[STREAMING] Stream finished for conversation ${conversationId}`);
-
-        // Save assistant message
         await chatStorage.createMessage(conversationId, "assistant", fullResponse);
-
         res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
         res.end();
       } catch (streamError: any) {
-        console.error("[STREAMING ERROR]", streamError);
-        throw streamError;
+        console.error("[STREAM ERROR]", streamError.message);
+        if (res.headersSent) {
+          res.write(`data: ${JSON.stringify({ error: `AI Error: ${streamError.message}` })}\n\n`);
+          res.end();
+        } else {
+          res.status(500).json({ error: streamError.message });
+        }
       }
     } catch (error: any) {
-      console.error("Error sending message:", error);
-      // Check if headers already sent (SSE streaming started)
-      if (res.headersSent) {
-        res.write(`data: ${JSON.stringify({ error: error.message || "Failed to send message" })}\n\n`);
-        res.end();
-      } else {
+      console.error("[CHAT ERROR]", error);
+      if (!res.headersSent) {
         res.status(500).json({ error: error.message || "Failed to send message" });
       }
     }
