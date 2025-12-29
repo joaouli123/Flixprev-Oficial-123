@@ -19,6 +19,7 @@ const UserManagement = lazy(() => import("./pages/UserManagement"));
 const TutorialManagement = lazy(() => import("./pages/TutorialManagement"));
 const HowToUse = lazy(() => import("./pages/HowToUse"));
 const ProfilePage = lazy(() => import("./pages/ProfilePage"));
+const ChatPage = lazy(() => import("./pages/ChatPage"));
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 const TermsOfService = lazy(() => import("./pages/TermsOfService"));
 const CookiePolicy = lazy(() => import("./pages/CookiePolicy"));
@@ -74,6 +75,7 @@ const App = () => (
                 <Route path="users" element={<UserManagement />} />
                 <Route path="tutorials" element={<TutorialManagement />} />
                 <Route path="how-to-use" element={<HowToUse />} />
+                <Route path="chat/:agentId" element={<ChatPage />} />
               </Route>
 
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

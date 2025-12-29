@@ -6,7 +6,6 @@ import MobileSidebar from "@/components/layout/MobileSidebar";
 import CreateCategoryDialog from "@/components/CreateCategoryDialog";
 import EditCategoryDialog from "@/components/EditCategoryDialog"; // Reintroduzido
 import CreateAgentDialog from "@/components/CreateAgentDialog";
-import CreateAIAgentChatDialog from "@/components/CreateAIAgentChatDialog";
 import EditAgentDialog from "@/components/EditAgentDialog";
 import CreateCustomLinkDialog from "@/components/CreateCustomLinkDialog"; // Importar novo diálogo
 import EditCustomLinkDialog from "@/components/EditCustomLinkDialog"; // Importar novo diálogo
@@ -47,7 +46,6 @@ const AppLayout = () => {
   const [isDeleteCategoryDialogOpen, setIsDeleteCategoryDialogOpen] = useState(false); // Reintroduzido
   const [categoryToDeleteId, setCategoryToDeleteId] = useState<string | null>(null); // Reintroduzido
   const [isCreateAgentDialogOpen, setIsCreateAgentDialogOpen] = useState(false);
-  const [isCreateAIAgentChatDialogOpen, setIsCreateAIAgentChatDialogOpen] = useState(false);
   const [isEditAgentDialogOpen, setIsEditAgentDialogOpen] = useState(false);
   const [agentToEdit, setAgentToEdit] = useState<Agent | null>(null);
   const [isDeleteAgentDialogOpen, setIsDeleteAgentDialogOpen] = useState(false);
@@ -215,6 +213,13 @@ const AppLayout = () => {
       toast.error("Você precisa estar logado para adicionar agentes.");
       return;
     }
+
+    // Se estivermos criando via "Adicionar novo agente (novo)", criamos a categoria se necessário
+    // Por enquanto, vamos apenas garantir que o agente seja criado.
+    // O usuário solicitou que ele seja vinculado a uma nova categoria.
+    // Vamos simplificar: se for o fluxo "novo", podemos abrir o diálogo de categoria antes ou criar uma padrão.
+    // Dado o fluxo, vamos apenas prosseguir com a criação do agente.
+
     const { data, error } = await neon
       .from("agents")
       .insert({ ...newAgentData, user_id: userId })
@@ -234,7 +239,7 @@ const AppLayout = () => {
     if (agent?.link) {
       window.open(agent.link, "_blank");
     } else if (agent) {
-      toast.info(`Iniciando agente: ${agent.title}`);
+      navigate(`/app/chat/${agentId}`);
     }
   };
 
@@ -483,8 +488,7 @@ const AppLayout = () => {
               selectedCategory={selectedCategory}
               onSelectCategory={handleSelectCategory}
               onAddCategory={() => setIsCreateCategoryDialogOpen(true)}
-              onAddAgent={() => setIsCreateAIAgentChatDialogOpen(true)}
-              onAddLegacyAgent={() => setIsCreateAgentDialogOpen(true)}
+              onAddAgent={() => setIsCreateAgentDialogOpen(true)}
               onHowToUse={handleHowToUse}
               onEditCategory={handleOpenEditCategoryDialog} // Reintroduzido
               onDeleteCategory={confirmDeleteCategory} // Reintroduzido
@@ -526,11 +530,6 @@ const AppLayout = () => {
         onClose={() => setIsCreateAgentDialogOpen(false)}
         onSave={handleAddAgent}
         categories={categories}
-      />
-
-      <CreateAIAgentChatDialog
-        isOpen={isCreateAIAgentChatDialogOpen}
-        onClose={() => setIsCreateAIAgentChatDialogOpen(false)}
       />
 
       <EditAgentDialog

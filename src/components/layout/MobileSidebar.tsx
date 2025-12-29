@@ -12,8 +12,8 @@ interface MobileSidebarProps {
   onAddCategory: () => void;
   onAddAgent: () => void;
   onHowToUse: () => void;
-  onEditCategory: (category: Category) => void; // Adicionado
-  onDeleteCategory: (categoryId: string) => void; // Adicionado
+  onEditCategory: (category: Category) => void;
+  onDeleteCategory: (categoryId: string) => void;
   onGoHome: () => void;
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
@@ -30,8 +30,8 @@ const MobileSidebar: React.FC<MobileSidebarProps> = ({
   onAddCategory,
   onAddAgent,
   onHowToUse,
-  onEditCategory, // Adicionado
-  onDeleteCategory, // Adicionado
+  onEditCategory,
+  onDeleteCategory,
   onGoHome,
   isOpen,
   onOpenChange,
@@ -65,16 +65,15 @@ const MobileSidebar: React.FC<MobileSidebarProps> = ({
             onAddAgent();
             onOpenChange(false);
           }}
-          onAddLegacyAgent={onAddLegacyAgent}
           onHowToUse={() => {
             onHowToUse();
             onOpenChange(false);
           }}
-          onEditCategory={(category) => { // Adicionado
+          onEditCategory={(category) => {
             onEditCategory(category);
             onOpenChange(false);
           }}
-          onDeleteCategory={(id) => { // Adicionado
+          onDeleteCategory={(id) => {
             onDeleteCategory(id);
             onOpenChange(false);
           }}

@@ -16,7 +16,6 @@ interface SidebarProps {
   onSelectCategory: (categoryId: string) => void;
   onAddCategory: () => void;
   onAddAgent: () => void;
-  onAddLegacyAgent?: () => void;
   onHowToUse: () => void;
   onGoHome: () => void;
   isCollapsed: boolean;
@@ -35,7 +34,6 @@ const Sidebar: React.FC<SidebarProps> = ({
   onSelectCategory,
   onAddCategory,
   onAddAgent,
-  onAddLegacyAgent,
   onHowToUse,
   onGoHome,
   isCollapsed,
@@ -355,7 +353,6 @@ const Sidebar: React.FC<SidebarProps> = ({
               )}>
                 {renderButton(PlusCircle, "Nova Categoria", onAddCategory, false, false, false, "text-green-600")}
                 {renderButton(Bot, "Adicionar novo agente (novo)", onAddAgent, false, false, false, "text-blue-600")}
-                {onAddLegacyAgent && renderButton(Bot, "Adicionar Agente Legado", onAddLegacyAgent, false, false, false, "text-purple-600")}
                 {renderButton(Shield, "Painel Admin", () => navigate("/app/admin"), isCurrentPath("/app/admin"), false, false, "text-yellow-600")}
                 {renderButton(Users, "Gerenciar Usuários", () => navigate("/app/users"), isCurrentPath("/app/users"), false, false, "text-cyan-600")}
                 {renderButton(Video, "Gerenciar Tutoriais", () => navigate("/app/tutorials"), isCurrentPath("/app/tutorials"), false, false, "text-pink-600")}
