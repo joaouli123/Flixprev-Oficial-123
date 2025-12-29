@@ -546,7 +546,18 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
         const agent = await pool.query('SELECT * FROM "agents" WHERE "id" = $1', [agentId]);
         if (agent.rows[0]) {
           const agentData = agent.rows[0];
-          prompt = `Você é o assistente: ${agentData.title}. Instruções: ${agentData.instructions || agentData.description || ""}`;
+          const systemInstructions = `
+            DIRETRIZES GLOBAIS DE PRECISÃO:
+            1. Você é um assistente acadêmico e técnico rigoroso.
+            2. Sua ÚNICA fonte de informação são os documentos anexados.
+            3. Se uma informação não estiver EXPLICITAMENTE no texto, você deve dizer que não sabe ou que o documento não aborda.
+            4. É terminantemente proibido usar "conhecimento geral" para complementar lacunas dos documentos.
+            5. Se o usuário perguntar sobre um capítulo específico, limite-se estritamente aos dados contidos naquele capítulo.
+            
+            INSTRUÇÕES ESPECÍFICAS DO AGENTE:
+            ${agentData.instructions || agentData.description || "Atue como um assistente técnico especializado nos documentos fornecidos."}
+          `;
+          prompt = `Você é o assistente: ${agentData.title}. ${systemInstructions}`;
 
           // 🔍 Verificar se agente tem documentos/chunks associados
           const hasDocuments = await pool.query(
@@ -582,17 +593,25 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
               // Se a pergunta menciona "capítulo", "seção" ou números como "2.3",
               // filtramos o contexto para priorizar esses termos
               const chapterMatch = content.match(/capítulo|seção|[\d\.]+/i);
-              if (chapterMatch && relevantContext) {
+              const chapterTitleMatch = content.match(/Avaliação por Desempenho/i);
+              
+              if ((chapterMatch || chapterTitleMatch) && relevantContext) {
                 console.log('[CHAT] Detectada referência a seção/capítulo, priorizando contextualmente...');
                 const contextLines = relevantContext.split('\n\n---\n\n');
-                const prioritizedLines = contextLines.filter(line => 
-                  line.toLowerCase().includes(chapterMatch[0].toLowerCase()) ||
-                  (content.match(/Avaliação por Desempenho/i) && line.match(/Avaliação por Desempenho/i))
-                );
+                
+                // Priorizar fragmentos que contenham o capítulo específico mencionado
+                const prioritizedLines = contextLines.filter(line => {
+                  const hasChapterNum = chapterMatch && line.toLowerCase().includes(chapterMatch[0].toLowerCase());
+                  const hasChapterTitle = chapterTitleMatch && line.toLowerCase().includes(chapterTitleMatch[0].toLowerCase());
+                  return hasChapterNum || hasChapterTitle;
+                });
                 
                 if (prioritizedLines.length > 0) {
+                  // Se encontramos fragmentos específicos, usamos apenas eles para máxima precisão
                   relevantContext = prioritizedLines.join('\n\n---\n\n');
                   console.log(`[CHAT] Contexto filtrado para priorizar seções: ${prioritizedLines.length} chunks`);
+                } else {
+                  console.log('[CHAT] Nenhum fragmento específico da seção encontrado no contexto recuperado.');
                 }
               }
 
