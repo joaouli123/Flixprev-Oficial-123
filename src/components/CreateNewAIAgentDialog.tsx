@@ -336,14 +336,19 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
             </div>
             <div className="grid gap-2">
               <Label>Categoria</Label>
-              <Select value={selectedCategory || ""} onValueChange={setSelectedCategory}>
+              <Select 
+                value={selectedCategory || ""} 
+                onValueChange={setSelectedCategory}
+              >
                 <SelectTrigger>
-                  <SelectValue placeholder="Selecione uma categoria..." />
+                  <SelectValue placeholder="Selecione uma categoria...">
+                    {categories.find(c => String(c.id) === String(selectedCategory))?.name || "Selecione uma categoria"}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {categories.length > 0 ? (
                     categories.map((cat) => (
-                      <SelectItem key={cat.id} value={cat.id}>
+                      <SelectItem key={cat.id} value={String(cat.id)}>
                         {cat.name}
                       </SelectItem>
                     ))

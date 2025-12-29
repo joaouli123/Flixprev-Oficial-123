@@ -270,12 +270,12 @@ const EditAgentDialog: React.FC<EditAgentDialogProps> = ({
             >
               <SelectTrigger>
                 <SelectValue placeholder="Selecione uma categoria">
-                  {categories.find(c => c.id === selectedCategory)?.name || "Selecione uma categoria"}
+                  {categories.find(c => String(c.id) === String(selectedCategory))?.name || "Selecione uma categoria"}
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {categories.map((cat) => (
-                  <SelectItem key={cat.id} value={cat.id}>
+                  <SelectItem key={cat.id} value={String(cat.id)}>
                     {cat.name}
                   </SelectItem>
                 ))}
