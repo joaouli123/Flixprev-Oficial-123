@@ -2,10 +2,12 @@ import express from 'express';
 import { createServer } from 'vite';
 import fs from 'fs';
 import path from 'path';
-import { fileURLToPath, createRequire } from 'url';
+import { fileURLToPath } from 'url';
+import { createRequire } from 'module';
 import pkg from 'pg';
 import OpenAI from 'openai';
 import multer from 'multer';
+import pdfParse from 'pdf-parse';
 const require = createRequire(import.meta.url);
 const { Pool } = pkg;
 
@@ -92,14 +94,19 @@ async function generateEmbeddings(chunks) {
 // 4️⃣ Busca semântica com pgvector
 async function searchSimilarChunks(queryEmbedding, agentId, limit = 5) {
   try {
+    // Formatar o embedding como string de vector para pgvector
+    // pgvector espera formato como "[0.1, 0.2, ...]"
+    const embeddingString = '[' + queryEmbedding.join(',') + ']';
+    
     const result = await pool.query(`
       SELECT content, title
       FROM document_chunks
       WHERE agent_id = $1
       ORDER BY embedding <-> $2::vector
       LIMIT $3
-    `, [agentId, JSON.stringify(queryEmbedding), limit]);
+    `, [agentId, embeddingString, limit]);
     
+    console.log(`[SEARCH] Encontrados ${result.rows.length} chunks similares`);
     return result.rows.map(r => r.content).join('\n\n---\n\n');
   } catch (e) {
     console.error('[SEARCH] Erro:', e.message);
@@ -178,12 +185,17 @@ async function initializeRagTables() {
       )
     `);
     
-    // Criar índice para busca rápida
-    await pool.query(`
-      CREATE INDEX IF NOT EXISTS idx_document_chunks_embedding 
-      ON document_chunks USING ivfflat (embedding vector_cosine_ops)
-      WITH (lists = 100)
-    `);
+    // Criar índice para busca rápida (hnsw suporta 3072 dimensões)
+    try {
+      await pool.query(`
+        CREATE INDEX IF NOT EXISTS idx_document_chunks_embedding 
+        ON document_chunks USING hnsw (embedding vector_cosine_ops)
+      `);
+    } catch (indexError) {
+      // Se hnsw não estiver disponível, criar com ivfflat é impossível com 3072 dims
+      // Vamos pular o índice e deixar a busca sem índice (mais lenta mas funciona)
+      console.warn('[RAG] hnsw não disponível, usando busca sem índice (mais lenta)');
+    }
     
     console.log('[RAG] ✅ Tabelas RAG inicializadas com sucesso');
   } catch (e) {
@@ -303,10 +315,11 @@ app.post('/api/agents/upload', upload.single('file'), async (req, res) => {
 
     // 5. Salvar chunks no Postgres
     for (let i = 0; i < chunks.length; i++) {
+      const embeddingString = '[' + embeddings[i].join(',') + ']';
       await pool.query(
         `INSERT INTO document_chunks (agent_id, document_id, content, embedding)
-         VALUES ($1, $2, $3, $4)`,
-        [agentId, documentId, chunks[i], JSON.stringify(embeddings[i])]
+         VALUES ($1, $2, $3, $4::vector)`,
+        [agentId, documentId, chunks[i], embeddingString]
       );
     }
 
