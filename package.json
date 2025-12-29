@@ -47,11 +47,15 @@
     "clsx": "^2.1.1",
     "cmdk": "^1.0.0",
     "date-fns": "^3.6.0",
+    "drizzle-zod": "^0.8.3",
     "embla-carousel-react": "^8.3.0",
     "express": "^5.2.1",
     "input-otp": "^1.2.4",
     "lucide-react": "^0.462.0",
     "next-themes": "^0.3.0",
+    "openai": "^6.15.0",
+    "p-limit": "^7.2.0",
+    "p-retry": "^7.1.1",
     "pg": "^8.16.3",
     "react": "^18.3.1",
     "react-day-picker": "^8.10.1",
@@ -66,7 +70,8 @@
     "tailwindcss-animate": "^1.0.7",
     "uuid": "^13.0.0",
     "vaul": "^0.9.3",
-    "zod": "^3.23.8"
+    "zod": "^3.25.76",
+    "zod-validation-error": "^5.0.0"
   },
   "devDependencies": {
     "@dyad-sh/react-vite-component-tagger": "^0.8.0",
