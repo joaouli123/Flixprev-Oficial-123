@@ -147,12 +147,28 @@ export function registerChatRoutes(app: Express): void {
             if (agent.attachments && Array.isArray(agent.attachments) && agent.attachments.length > 0) {
               console.log(`[CHAT] Reading ${agent.attachments.length} attachments for agent ${agent.title}`);
               for (const attachment of agent.attachments) {
-                const text = await extractFileContent(attachment);
+                // Remove leading slash if present
+                const normalizedPath = attachment.startsWith('/') ? attachment.substring(1) : attachment;
+                // Decodificar o caminho do arquivo para tratar caracteres especiais (como espaços e acentos)
+                const decodedPath = decodeURIComponent(normalizedPath);
+                
+                console.log(`[CHAT] Processing attachment: ${attachment} -> decoded: ${decodedPath}`);
+                
+                const text = await extractFileContent(decodedPath);
                 if (text) {
-                  console.log(`[CHAT] Content extracted from ${attachment}, length: ${text.length}`);
+                  console.log(`[CHAT] Content extracted from ${decodedPath}, length: ${text.length}`);
                   attachmentsContent += `\n\n--- INFORMAÇÃO OBRIGATÓRIA DO ARQUIVO (${attachment}) ---\n${text}\n--- FIM DO CONTEÚDO DO ARQUIVO ---`;
                 } else {
-                  console.warn(`[CHAT] No content extracted from ${attachment}`);
+                  console.warn(`[CHAT] No content extracted from ${decodedPath}`);
+                  // Tentar sem decodificar se falhou
+                  if (decodedPath !== normalizedPath) {
+                    console.log(`[CHAT] Retrying with normalized path: ${normalizedPath}`);
+                    const textRetry = await extractFileContent(normalizedPath);
+                    if (textRetry) {
+                      console.log(`[CHAT] Content extracted from ${normalizedPath} on retry, length: ${textRetry.length}`);
+                      attachmentsContent += `\n\n--- INFORMAÇÃO OBRIGATÓRIA DO ARQUIVO (${attachment}) ---\n${textRetry}\n--- FIM DO CONTEÚDO DO ARQUIVO ---`;
+                    }
+                  }
                 }
               }
             }
