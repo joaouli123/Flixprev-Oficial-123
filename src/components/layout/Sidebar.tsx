@@ -352,7 +352,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 isCollapsed ? "flex flex-col items-center" : ""
               )}>
                 {renderButton(PlusCircle, "Nova Categoria", onAddCategory, false, false, false, "text-green-600")}
-                {renderButton(Bot, "Adicionar novo agente (novo)", onAddAgent, false, false, false, "text-blue-600")}
+                {renderButton(Sparkles, "Adicionar novo agente (novo)", onAddAgent, false, false, false, "text-blue-600")}
                 {renderButton(Shield, "Painel Admin", () => navigate("/app/admin"), isCurrentPath("/app/admin"), false, false, "text-yellow-600")}
                 {renderButton(Users, "Gerenciar Usuários", () => navigate("/app/users"), isCurrentPath("/app/users"), false, false, "text-cyan-600")}
                 {renderButton(Video, "Gerenciar Tutoriais", () => navigate("/app/tutorials"), isCurrentPath("/app/tutorials"), false, false, "text-pink-600")}

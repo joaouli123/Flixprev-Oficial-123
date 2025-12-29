@@ -5,9 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card } from "@/components/ui/card";
-import { Send, Bot, User, ChevronLeft, Sparkles } from "lucide-react";
+import { Send, Bot, User, ChevronLeft, Sparkles, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Agent } from "@/types/app";
+import { Badge } from "@/components/ui/badge";
 
 interface Message {
   role: "assistant" | "user";
@@ -66,11 +67,17 @@ const ChatPage = () => {
         <Button variant="ghost" size="icon" onClick={() => navigate("/app")} className="hover-elevate">
           <ChevronLeft className="h-5 w-5" />
         </Button>
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Bot className="h-6 w-6 text-blue-600" />
-            {agent?.title || "Chat com Agente"}
-          </h1>
+        <div className="flex-1">
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold flex items-center gap-2">
+              <Bot className="h-6 w-6 text-blue-600" />
+              {agent?.title || "Chat com Agente"}
+            </h1>
+            <Badge variant="secondary" className="bg-blue-50 text-blue-700 border-blue-100 flex items-center gap-1">
+              <Zap className="h-3 w-3" />
+              GPT-4o Mini
+            </Badge>
+          </div>
           <p className="text-gray-500 text-sm">{agent?.description}</p>
         </div>
       </div>

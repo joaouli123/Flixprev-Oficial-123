@@ -6,6 +6,7 @@ import MobileSidebar from "@/components/layout/MobileSidebar";
 import CreateCategoryDialog from "@/components/CreateCategoryDialog";
 import EditCategoryDialog from "@/components/EditCategoryDialog"; // Reintroduzido
 import CreateAgentDialog from "@/components/CreateAgentDialog";
+import CreateNewAIAgentDialog from "@/components/CreateNewAIAgentDialog";
 import EditAgentDialog from "@/components/EditAgentDialog";
 import CreateCustomLinkDialog from "@/components/CreateCustomLinkDialog"; // Importar novo diálogo
 import EditCustomLinkDialog from "@/components/EditCustomLinkDialog"; // Importar novo diálogo
@@ -46,6 +47,7 @@ const AppLayout = () => {
   const [isDeleteCategoryDialogOpen, setIsDeleteCategoryDialogOpen] = useState(false); // Reintroduzido
   const [categoryToDeleteId, setCategoryToDeleteId] = useState<string | null>(null); // Reintroduzido
   const [isCreateAgentDialogOpen, setIsCreateAgentDialogOpen] = useState(false);
+  const [isCreateNewAIAgentDialogOpen, setIsCreateNewAIAgentDialogOpen] = useState(false);
   const [isEditAgentDialogOpen, setIsEditAgentDialogOpen] = useState(false);
   const [agentToEdit, setAgentToEdit] = useState<Agent | null>(null);
   const [isDeleteAgentDialogOpen, setIsDeleteAgentDialogOpen] = useState(false);
@@ -494,7 +496,7 @@ const AppLayout = () => {
               selectedCategory={selectedCategory}
               onSelectCategory={handleSelectCategory}
               onAddCategory={() => setIsCreateCategoryDialogOpen(true)}
-              onAddAgent={() => setIsCreateAgentDialogOpen(true)}
+              onAddAgent={() => setIsCreateNewAIAgentDialogOpen(true)}
               onHowToUse={handleHowToUse}
               onEditCategory={handleOpenEditCategoryDialog} // Reintroduzido
               onDeleteCategory={confirmDeleteCategory} // Reintroduzido
@@ -534,6 +536,13 @@ const AppLayout = () => {
       <CreateAgentDialog
         isOpen={isCreateAgentDialogOpen}
         onClose={() => setIsCreateAgentDialogOpen(false)}
+        onSave={handleAddAgent}
+        categories={categories}
+      />
+
+      <CreateNewAIAgentDialog
+        isOpen={isCreateNewAIAgentDialogOpen}
+        onClose={() => setIsCreateNewAIAgentDialogOpen(false)}
         onSave={handleAddAgent}
         categories={categories}
       />
