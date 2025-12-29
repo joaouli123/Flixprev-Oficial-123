@@ -65,6 +65,10 @@ const MobileSidebar: React.FC<MobileSidebarProps> = ({
             onAddAgent();
             onOpenChange(false);
           }}
+          onAddLegacyAgent={onAddLegacyAgent ? () => {
+            onAddLegacyAgent();
+            onOpenChange(false);
+          } : undefined}
           onHowToUse={() => {
             onHowToUse();
             onOpenChange(false);
