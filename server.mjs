@@ -176,6 +176,25 @@ async function searchKeywordChunks(keyword, agentId, limit = 5) {
   }
 }
 
+// 4C️⃣ Busca por ordem cronológica (para início/título)
+async function getFirstChunks(agentId, limit = 3) {
+  try {
+    const result = await pool.query(`
+      SELECT content
+      FROM document_chunks
+      WHERE agent_id = $1
+      ORDER BY chunk_index ASC
+      LIMIT $2
+    `, [agentId, limit]);
+    
+    console.log(`[ORDER_SEARCH] Recuperados os primeiros ${result.rows.length} chunks.`);
+    return result.rows.map(r => r.content).join('\n\n---\n\n');
+  } catch (e) {
+    console.error('[ORDER_SEARCH] Erro:', e.message);
+    return '';
+  }
+}
+
 // 5️⃣ Prompt GLOBAL DEFINITIVO e CONTRATO DE CONTEXTO
 function buildPrompt(context, agentInstructions, question) {
   const globalPrompt = `✅ PROMPT GLOBAL — USO OBRIGATÓRIO DO DOCUMENTO
@@ -297,6 +316,7 @@ async function initializeRagTables() {
         document_id UUID REFERENCES documents(id) ON DELETE CASCADE,
         content TEXT NOT NULL,
         embedding vector(3072),
+        chunk_index INTEGER DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
@@ -478,9 +498,9 @@ app.post('/api/agents/upload', upload.single('file'), async (req, res) => {
         for (let i = 0; i < chunks.length; i++) {
           const embeddingString = '[' + embeddings[i].join(',') + ']';
           await pool.query(
-            `INSERT INTO document_chunks (agent_id, document_id, content, embedding)
-             VALUES ($1, $2, $3, $4::vector)`,
-            [agentId, documentId, chunks[i], embeddingString]
+            `INSERT INTO document_chunks (agent_id, document_id, content, embedding, chunk_index)
+             VALUES ($1, $2, $3, $4::vector, $5)`,
+            [agentId, documentId, chunks[i], embeddingString, i]
           );
         }
         console.log(`[UPLOAD] ✅ RAG processado para agente ${agentId}`);
@@ -571,9 +591,9 @@ app.post('/api/admin/reprocess-attachments', async (req, res) => {
           for (let i = 0; i < chunks.length; i++) {
             const embeddingString = '[' + embeddings[i].join(',') + ']';
             await pool.query(
-              `INSERT INTO document_chunks (agent_id, document_id, content, embedding)
-               VALUES ($1, $2, $3, $4::vector)`,
-              [agentId, documentId, chunks[i], embeddingString]
+              `INSERT INTO document_chunks (agent_id, document_id, content, embedding, chunk_index)
+               VALUES ($1, $2, $3, $4::vector, $5)`,
+              [agentId, documentId, chunks[i], embeddingString, i]
             );
             savedCount++;
           }
@@ -629,23 +649,32 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
         // 🔍 BUSCA SEMÂNTICA COM RAG (apenas se houver documentos)
         if (hasChunks) {
             try {
-              // Gerar embedding da pergunta
-              const openai = new OpenAI({
-                apiKey: process.env.OPENAI_API_KEY || process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-                baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-              });
+              // 🔍 ESTRATÉGIA DE BUSCA INTELIGENTE
+              const isLookingForBeginning = content.match(/primeira frase|título|inicio|começo|autor/i);
+              let relevantContext = "";
 
-              const queryEmbedding = await openai.embeddings.create({
-                model: 'text-embedding-3-large',
-                input: content
-              });
+              if (isLookingForBeginning) {
+                console.log('[CHAT] Detectada busca por início/título. Priorizando ordem cronológica.');
+                relevantContext = await getFirstChunks(agentId, 5);
+              } else {
+                // Gerar embedding da pergunta
+                const openai = new OpenAI({
+                  apiKey: process.env.OPENAI_API_KEY || process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+                  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+                });
 
-              // Buscar chunks similares (aumentado de 8 para 12 para garantir que capítulos inteiros sejam capturados)
-              let relevantContext = await searchSimilarChunks(
-                queryEmbedding.data[0].embedding,
-                agentId,
-                12
-              );
+                const queryEmbedding = await openai.embeddings.create({
+                  model: 'text-embedding-3-large',
+                  input: content
+                });
+
+                // Buscar chunks similares (aumentado de 8 para 12 para garantir que capítulos inteiros sejam capturados)
+                relevantContext = await searchSimilarChunks(
+                  queryEmbedding.data[0].embedding,
+                  agentId,
+                  12
+                );
+              }
 
               // 🔍 RE-RANKING SIMPLES POR CAPÍTULO/SEÇÃO
               // Se a pergunta menciona "capítulo", "seção", "tópico" ou números
