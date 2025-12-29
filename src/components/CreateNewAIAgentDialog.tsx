@@ -93,12 +93,15 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
   // Preencher os campos quando estiver editando
   React.useEffect(() => {
     if (agentToEdit && isOpen) {
-      console.log("Editando agente com categoria:", agentToEdit.category_ids);
-      console.log("Agente attachments:", (agentToEdit as any).attachments);
+      console.log("Editando agente com categoria_ids:", agentToEdit.category_ids);
+      console.log("Tipo de category_ids:", typeof agentToEdit.category_ids, "Array?", Array.isArray(agentToEdit.category_ids));
+      console.log("Primeiro elemento:", agentToEdit.category_ids?.[0]);
       setTitle(agentToEdit.title);
       setDescription(agentToEdit.description);
       setIcon(agentToEdit.icon);
-      setSelectedCategory(agentToEdit.category_ids?.[0] || "");
+      const categoryId = agentToEdit.category_ids && agentToEdit.category_ids.length > 0 ? String(agentToEdit.category_ids[0]) : "";
+      console.log("Categoria selecionada:", categoryId);
+      setSelectedCategory(categoryId);
       setShortcuts(agentToEdit.shortcuts || ["Resumir docs", "Extrair cláusulas", "Analisar risco", "Dúvidas"]);
       const attachments = (agentToEdit as any).attachments || [];
       console.log("Attachments carregados:", attachments);
@@ -172,20 +175,25 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
         }
       }
 
+      const categoryArray = selectedCategory ? [selectedCategory] : [];
+      console.log("selectedCategory antes de salvar:", selectedCategory);
+      console.log("categoryArray:", categoryArray);
+      
       const agentData = {
         title: title.trim(),
         description: description.trim(),
         icon,
-        category_ids: [selectedCategory] as string[],
+        category_ids: categoryArray as string[],
         shortcuts: shortcuts.length > 0 ? shortcuts : undefined,
         instructions: description.trim(),
         attachments: uploadedPaths,
       } as any;
 
-      console.log("Dados do agente a salvar:", agentData);
+      console.log("Dados completos do agente a salvar:", agentData);
+      console.log("category_ids no agentData:", agentData.category_ids);
 
       if (isEditing && agentToEdit && onEditSave) {
-        console.log("Editando agente:", agentToEdit.id);
+        console.log("Editando agente:", agentToEdit.id, "com category_ids:", agentData.category_ids);
         onEditSave(agentToEdit.id, agentData);
       } else {
         console.log("Criando agente com categoria:", selectedCategory);
