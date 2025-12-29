@@ -48,13 +48,20 @@ const ChatPage = () => {
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
 
-    // Resposta simulada especializada
+    // Resposta simulada especializada baseada no modelo
     setTimeout(() => {
+      let modelContext = "modelo GPT-4o Mini";
+      if (agent?.description?.toLowerCase().includes("gpt-4o") && !agent?.description?.toLowerCase().includes("mini")) {
+        modelContext = "modelo GPT-4o";
+      } else if (agent?.description?.toLowerCase().includes("claude")) {
+        modelContext = "modelo Claude 3.5 Sonnet";
+      }
+
       setMessages((prev) => [
         ...prev,
         {
           role: "assistant",
-          content: `Com base nas instruções personalizadas e nos documentos anexados para o agente "${agent?.title}", analisei sua solicitação. Esta resposta está sendo gerada utilizando o modelo GPT-4o Mini com foco na sua base de dados privada.`,
+          content: `Com base nas instruções personalizadas e nos documentos anexados para o agente "${agent?.title}", analisei sua solicitação. Esta resposta está sendo gerada utilizando o ${modelContext} com foco na sua base de dados privada. Estou pronto para processar seus arquivos .docx, .pdf ou imagens conforme solicitado.`,
         },
       ]);
     }, 1500);
