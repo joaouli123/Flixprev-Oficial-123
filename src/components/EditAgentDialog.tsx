@@ -160,12 +160,13 @@ const EditAgentDialog: React.FC<EditAgentDialogProps> = ({
             />
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="description">Descrição</Label>
+            <Label htmlFor="description">Descrição Curta</Label>
             <Textarea
               id="description"
+              placeholder="Uma breve descrição do agente..."
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="min-h-[80px]"
+              className="min-h-[60px]"
             />
           </div>
           <div className="grid gap-2">
