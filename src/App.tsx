@@ -75,7 +75,7 @@ const App = () => (
                 <Route path="users" element={<UserManagement />} />
                 <Route path="tutorials" element={<TutorialManagement />} />
                 <Route path="how-to-use" element={<HowToUse />} />
-                <Route path="chat/:agentId" element={<ChatPage />} />
+                <Route path="chat/:agentId/:conversationId?" element={<ChatPage />} />
               </Route>
 
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

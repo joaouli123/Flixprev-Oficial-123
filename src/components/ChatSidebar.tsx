@@ -80,11 +80,11 @@ export const ChatSidebar = ({ agentId, currentConversationId }: ChatSidebarProps
             <div className="text-xs text-gray-500 dark:text-gray-400 p-2">Nenhuma conversa</div>
           ) : (
             conversations.map((conv) => (
-              <button
+              <div
                 key={conv.id}
                 onClick={() => navigate(`/chat/${agentId}/${conv.id}`)}
                 className={cn(
-                  "w-full text-left px-3 py-2 rounded-md text-sm transition-colors flex items-center justify-between group hover-elevate",
+                  "w-full text-left px-3 py-2 rounded-md text-sm transition-colors flex items-center justify-between group hover-elevate cursor-pointer",
                   currentConversationId === conv.id
                     ? "bg-blue-100 dark:bg-blue-900/30 text-blue-900 dark:text-blue-100"
                     : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-800"
@@ -97,12 +97,12 @@ export const ChatSidebar = ({ agentId, currentConversationId }: ChatSidebarProps
                 </div>
                 <button
                   onClick={(e) => handleDeleteConversation(e, conv.id)}
-                  className="opacity-0 group-hover:opacity-100 transition-opacity ml-2 flex-shrink-0"
+                  className="opacity-0 group-hover:opacity-100 transition-opacity ml-2 flex-shrink-0 hover:text-red-600"
                   data-testid={`button-delete-conversation-${conv.id}`}
                 >
                   <Trash2 className="h-3 w-3 text-red-500" />
                 </button>
-              </button>
+              </div>
             ))
           )}
         </div>
