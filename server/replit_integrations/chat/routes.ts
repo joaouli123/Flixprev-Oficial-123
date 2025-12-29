@@ -65,6 +65,8 @@ export function registerChatRoutes(app: Express): void {
       const conversationId = parseInt(req.params.id);
       const { content } = req.body;
 
+      console.log(`Received message for conversation ${conversationId}: ${content}`);
+
       // Save user message
       await chatStorage.createMessage(conversationId, "user", content);
 
@@ -79,13 +81,13 @@ export function registerChatRoutes(app: Express): void {
       res.setHeader("Content-Type", "text/event-stream");
       res.setHeader("Cache-Control", "no-cache");
       res.setHeader("Connection", "keep-alive");
+      res.flushHeaders(); // Ensure headers are sent immediately
 
       // Stream response from OpenAI
       const stream = await openai.chat.completions.create({
-        model: "gpt-5.1",
+        model: "gpt-4o", // Using gpt-4o as a fallback to ensure stability
         messages: chatMessages,
         stream: true,
-        max_completion_tokens: 2048,
       });
 
       console.log(`Starting stream for conversation ${conversationId}`);
@@ -93,10 +95,10 @@ export function registerChatRoutes(app: Express): void {
       let fullResponse = "";
 
       for await (const chunk of stream) {
-        const content = chunk.choices[0]?.delta?.content || "";
-        if (content) {
-          fullResponse += content;
-          res.write(`data: ${JSON.stringify({ content })}\n\n`);
+        const delta = chunk.choices[0]?.delta?.content || "";
+        if (delta) {
+          fullResponse += delta;
+          res.write(`data: ${JSON.stringify({ content: delta })}\n\n`);
         }
       }
 
@@ -107,14 +109,14 @@ export function registerChatRoutes(app: Express): void {
 
       res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
       res.end();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error sending message:", error);
       // Check if headers already sent (SSE streaming started)
       if (res.headersSent) {
-        res.write(`data: ${JSON.stringify({ error: "Failed to send message" })}\n\n`);
+        res.write(`data: ${JSON.stringify({ error: error.message || "Failed to send message" })}\n\n`);
         res.end();
       } else {
-        res.status(500).json({ error: "Failed to send message" });
+        res.status(500).json({ error: error.message || "Failed to send message" });
       }
     }
   });
