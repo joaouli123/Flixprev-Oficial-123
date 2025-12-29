@@ -88,6 +88,8 @@ export function registerChatRoutes(app: Express): void {
         max_completion_tokens: 2048,
       });
 
+      console.log(`Starting stream for conversation ${conversationId}`);
+
       let fullResponse = "";
 
       for await (const chunk of stream) {
@@ -97,6 +99,8 @@ export function registerChatRoutes(app: Express): void {
           res.write(`data: ${JSON.stringify({ content })}\n\n`);
         }
       }
+
+      console.log(`Stream finished for conversation ${conversationId}`);
 
       // Save assistant message
       await chatStorage.createMessage(conversationId, "assistant", fullResponse);

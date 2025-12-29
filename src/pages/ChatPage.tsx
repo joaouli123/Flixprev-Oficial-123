@@ -52,9 +52,9 @@ const ChatPage = () => {
     setInput("");
 
     try {
-      // First, ensure we have a conversation (using a mock or existing ID)
-      // In a real app, you'd manage conversation IDs
-      const convId = 1; // Simplified for now
+      // In a real app, we would manage the conversation ID properly.
+      // For now, ensure we use ID 1 which we created in the database.
+      const convId = 1;
       
       const response = await fetch(`/api/conversations/${convId}/messages`, {
         method: "POST",
@@ -62,45 +62,53 @@ const ChatPage = () => {
         body: JSON.stringify({ content: input }),
       });
 
-      if (!response.ok) throw new Error("Falha ao enviar mensagem");
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || "Falha ao enviar mensagem");
+      }
 
       const reader = response.body?.getReader();
       if (!reader) throw new Error("Falha ao iniciar stream");
 
-      let assistantMsg: Message = { role: "assistant", content: "" };
-      setMessages((prev) => [...prev, assistantMsg]);
+      // Initialize assistant message
+      setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
 
       const decoder = new TextDecoder();
+      let assistantContent = "";
+
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
         const chunk = decoder.decode(value);
-        const lines = chunk.split("\n");
+        const lines = chunk.split("\n\n");
         
         for (const line of lines) {
           if (line.startsWith("data: ")) {
             try {
               const data = JSON.parse(line.slice(6));
               if (data.content) {
-                assistantMsg.content += data.content;
+                assistantContent += data.content;
                 setMessages((prev) => {
                   const newMsgs = [...prev];
-                  newMsgs[newMsgs.length - 1] = { ...assistantMsg };
+                  newMsgs[newMsgs.length - 1] = { 
+                    role: "assistant", 
+                    content: assistantContent 
+                  };
                   return newMsgs;
                 });
               }
             } catch (e) {
-              // Ignore parse errors for incomplete chunks
+              // Fragmented JSON, skip or handle
             }
           }
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Chat error:", error);
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", content: "Desculpe, ocorreu um erro ao processar sua solicitação." }
+        { role: "assistant", content: `Erro: ${error.message || "Ocorreu um erro ao processar sua solicitação."}` }
       ]);
     }
   };
