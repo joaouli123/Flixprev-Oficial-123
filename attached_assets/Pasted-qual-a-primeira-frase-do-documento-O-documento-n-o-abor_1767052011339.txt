@@ -1,0 +1,184 @@
+qual a primeira frase do documento
+O documento não aborda esse ponto.
+
+qual a primeira frase do documento
+dos os itens solicitados. A presente seção tem como intuito apenas a
+
+obtenção de informação para análise estatística, não violando o caráter de anonimato do presente
+
+questionário. Contamos com a sua sinceridade e agradecemos a sua colaboração!
+
+qual a primeira frase do documento
+O documento não aborda esse ponto.
+
+Perfeito — esse vai-e-volta na resposta é o sinal mais claro possível do que está acontecendo.
+E agora dá pra cravar o diagnóstico com precisão.
+
+🔎 O QUE ESSE COMPORTAMENTO PROVA
+
+Você fez a mesma pergunta três vezes:
+
+1️⃣ → “O documento não aborda esse ponto.”
+2️⃣ → Resposta com texto real do PDF
+3️⃣ → “O documento não aborda esse ponto.”
+
+📌 Conclusão técnica inequívoca:
+
+⚠️ Seu RAG está instável e não determinístico
+O contexto às vezes é injetado, às vezes não é
+
+Isso não é erro do modelo
+Isso não é erro de prompt
+
+👉 É erro de pipeline.
+
+🧠 O QUE ESTÁ ACONTECENDO (SEM TEORIA)
+
+Em termos simples, seu backend está fazendo algo assim:
+
+Em algumas requisições:
+
+recupera chunks
+
+injeta texto
+
+o GPT vê o documento ✅
+
+Em outras:
+
+recuperação falha OU
+
+chunks vêm vazios OU
+
+injeção não acontece
+
+GPT recebe só a pergunta ❌
+
+Por isso o comportamento oscila.
+
+🚨 ISSO É UM PROBLEMA SÉRIO (MAS AGORA CONTROLÁVEL)
+
+Esse é o pior tipo de bug em RAG:
+
+❌ funciona às vezes
+
+Porque:
+
+engana testes manuais
+
+destrói confiança
+
+inviabiliza múltiplos agentes
+
+Mas a boa notícia:
+👉 agora o problema está 100% localizado
+
+🧩 CAUSA MAIS PROVÁVEL (90% DOS CASOS)
+
+Uma (ou mais) dessas falhas:
+
+1️⃣ Busca vetorial retornando [] às vezes
+
+score mínimo alto demais
+
+topK = 0 em certos casos
+
+embeddings não sincronizados
+
+2️⃣ Falta de fallback
+
+Quando a busca não retorna nada, o sistema:
+
+mesmo assim envia a pergunta
+
+deveria BLOQUEAR a resposta
+
+3️⃣ Injeção condicional
+
+Algo como:
+
+if (chunks.length > 0) {
+  injectContext()
+}
+
+
+Mas o else não interrompe o fluxo
+
+✅ REGRA DE OURO (ANOTA ISSO)
+
+Se não houver contexto, o modelo NÃO DEVE responder.
+
+Nunca.
+
+🔧 CORREÇÃO ESTRUTURAL (SIMPLES E DEFINITIVA)
+🔒 REGRA 1 — BLOQUEIO FORÇADO
+
+Antes de chamar o OpenAI:
+
+if (context.length === 0) {
+  return "Base de conhecimento indisponível para esta pergunta."
+}
+
+🔒 REGRA 2 — LOG OBRIGATÓRIO
+
+Toda pergunta precisa gerar log:
+
+Pergunta: qual a primeira frase do documento
+Chunks retornados: 1
+Caracteres enviados: 842
+
+
+Se isso não existir → bug invisível.
+
+🔒 REGRA 3 — PERGUNTAS DE ESTRUTURA ≠ BUSCA VETORIAL
+
+Perguntas como:
+
+primeira frase
+
+início do documento
+
+título
+
+capítulo 1
+
+👉 não usam embeddings
+👉 usam chunk order = 1
+
+🧪 TESTE FINAL (DEPOIS DA CORREÇÃO)
+
+Faça a MESMA pergunta 5 vezes seguidas:
+
+“Qual é a primeira frase do documento?”
+
+Resultado aceitável:
+
+5 respostas idênticas
+
+Resultado atual:
+
+respostas alternando ❌
+
+🧠 RESUMO FINAL (SEM DESCULPA, SEM PROMESSA)
+
+✔️ O documento está sendo lido
+✔️ O RAG existe
+❌ O pipeline é inconsistente
+❌ Falta bloqueio e fallback
+
+👉 Isso é engenharia, não prompt.
+
+Você agora está no ponto exato onde sistemas sérios de IA são consertados.
+
+Se quiser, no próximo passo eu posso:
+
+te ajudar a definir contrato rígido de RAG
+
+criar um modo debug obrigatório
+
+montar um roteador de perguntas
+
+ou te entregar um checklist de produção
+
+Mas o principal você já descobriu:
+🔥 o problema não é “ler PDF”, é garantir consistência.
