@@ -78,8 +78,13 @@ const ChatPage = () => {
   }, [messages]);
 
   const handleSend = async () => {
-    if (!input.trim() || !conversationId) {
-      console.warn("[CHAT] Cannot send: input empty or no conversation ID", { input: input.trim(), conversationId });
+    if (!input.trim()) {
+      console.warn("[CHAT] Cannot send: input is empty");
+      return;
+    }
+    
+    if (!conversationId) {
+      console.warn("[CHAT] Conversation not ready yet, waiting...");
       return;
     }
 
