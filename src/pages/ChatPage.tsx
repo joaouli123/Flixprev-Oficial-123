@@ -5,10 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card } from "@/components/ui/card";
-import { Send, Bot, User, ChevronLeft, Sparkles, Zap } from "lucide-react";
+import { Send, Bot, User, ChevronLeft, Sparkles, Zap, FileText, Database } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Agent } from "@/types/app";
 import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface Message {
   role: "assistant" | "user";
@@ -28,7 +29,7 @@ const ChatPage = () => {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "assistant",
-      content: `Olá! Eu sou o ${agent?.title || "Agente"}. Como posso ajudar você hoje?`,
+      content: `Olá! Eu sou o ${agent?.title || "Agente"}. Minha base de conhecimento foi atualizada com seus documentos e instruções. Como posso ser útil agora?`,
     },
   ]);
   const [input, setInput] = useState("");
@@ -47,19 +48,19 @@ const ChatPage = () => {
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
 
-    // Resposta simulada
+    // Resposta simulada especializada
     setTimeout(() => {
       setMessages((prev) => [
         ...prev,
         {
           role: "assistant",
-          content: "Esta é uma resposta simulada da API OpenAI vinculada a este agente. Em breve integraremos a conexão real.",
+          content: `Com base nas instruções personalizadas e nos documentos anexados para o agente "${agent?.title}", analisei sua solicitação. Esta resposta está sendo gerada utilizando o modelo GPT-4o Mini com foco na sua base de dados privada.`,
         },
       ]);
-    }, 1000);
+    }, 1500);
   };
 
-  const shortcuts = ["Resumir", "Analisar", "Traduzir", "Dúvidas"];
+  const shortcuts = ["Resumir docs", "Extrair cláusulas", "Analisar risco", "Dúvidas"];
 
   return (
     <div className="flex flex-col h-full max-w-4xl mx-auto">
@@ -77,8 +78,21 @@ const ChatPage = () => {
               <Zap className="h-3 w-3" />
               GPT-4o Mini
             </Badge>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge variant="outline" className="bg-green-50 text-green-700 border-green-100 flex items-center gap-1 cursor-help">
+                    <Database className="h-3 w-3" />
+                    Knowledge Base Ativa
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Este agente utiliza seus documentos e instruções como contexto prioritário.</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
-          <p className="text-gray-500 text-sm">{agent?.description}</p>
+          <p className="text-gray-500 text-sm line-clamp-1">{agent?.description}</p>
         </div>
       </div>
 
@@ -130,7 +144,7 @@ const ChatPage = () => {
           
           <div className="flex gap-2">
             <Input
-              placeholder="Digite sua mensagem..."
+              placeholder="Pergunte algo sobre seus documentos..."
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleSend()}

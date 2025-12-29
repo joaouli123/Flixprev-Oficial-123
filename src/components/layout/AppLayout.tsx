@@ -119,6 +119,7 @@ const AppLayout = () => {
     }
     
     try {
+      // Usando o pool diretamente via API proxy
       const { data, error } = await neon
         .from("categories")
         .insert({ name, user_id: userId })
