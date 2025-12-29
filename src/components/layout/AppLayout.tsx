@@ -127,7 +127,9 @@ const AppLayout = () => {
 
       if (error) {
         console.error("Erro do banco de dados ao criar categoria:", error);
-        toast.error("Erro ao criar categoria: " + (error.message || "Erro na query"));
+        // Tratamento específico para colunas faltantes ou erros de schema
+        const errorMsg = error.message || "Erro na query";
+        toast.error("Erro ao criar categoria: " + errorMsg);
       } else {
         if (data && data.length > 0) {
           setCategories((prev) => [...prev, data[0] as Category]);
