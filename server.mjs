@@ -21,6 +21,7 @@ async function initializeChatTables() {
   try {
     await pool.query(`CREATE TABLE IF NOT EXISTS conversations (id SERIAL PRIMARY KEY, title VARCHAR(255) NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);`);
     await pool.query(`CREATE TABLE IF NOT EXISTS messages (id SERIAL PRIMARY KEY, conversation_id INTEGER NOT NULL REFERENCES conversations(id) ON DELETE CASCADE, role VARCHAR(50) NOT NULL, content TEXT NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);`);
+    await pool.query(`CREATE TABLE IF NOT EXISTS agent_documents (id SERIAL PRIMARY KEY, agent_id UUID NOT NULL, title VARCHAR(255) NOT NULL, content TEXT NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);`);
     console.log('[CHAT] Database tables initialized');
   } catch (e) { console.error('[CHAT] Init error:', e.message); }
 }
@@ -52,6 +53,45 @@ app.delete("/api/conversations/:id", async (req, res) => {
     const cid = parseInt(req.params.id);
     await pool.query('DELETE FROM conversations WHERE id = $1', [cid]);
     res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Document upload endpoint
+app.post("/api/agents/:agentId/documents", async (req, res) => {
+  try {
+    const { agentId } = req.params;
+    const { title, content } = req.body;
+    
+    if (!title || !content) {
+      return res.status(400).json({ error: "Title and content are required" });
+    }
+    
+    const result = await pool.query(
+      'INSERT INTO agent_documents (agent_id, title, content) VALUES ($1, $2, $3) RETURNING *',
+      [agentId, title, content]
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (e) { 
+    console.error("[DOCS] Error:", e.message);
+    res.status(500).json({ error: e.message }); 
+  }
+});
+
+// Delete document endpoint
+app.delete("/api/agents/:agentId/documents/:docId", async (req, res) => {
+  try {
+    const { agentId, docId } = req.params;
+    await pool.query('DELETE FROM agent_documents WHERE id = $1 AND agent_id = $2', [parseInt(docId), agentId]);
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Get agent documents
+app.get("/api/agents/:agentId/documents", async (req, res) => {
+  try {
+    const { agentId } = req.params;
+    const result = await pool.query('SELECT * FROM agent_documents WHERE agent_id = $1 ORDER BY created_at DESC', [agentId]);
+    res.json(result.rows || []);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

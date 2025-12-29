@@ -132,7 +132,7 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
     setShortcuts((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (title.trim() && description.trim() && icon && selectedCategory) {
       const agentData = {
         title: title.trim(),
@@ -142,12 +142,46 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
         shortcuts: shortcuts.length > 0 ? shortcuts : undefined,
       };
 
+      let newAgentId: string | null = null;
+
       if (isEditing && agentToEdit && onEditSave) {
         console.log("Editando agente:", agentToEdit.id);
         onEditSave(agentToEdit.id, agentData);
+        newAgentId = agentToEdit.id;
       } else {
         console.log("Salvando agente com categoria selecionada:", selectedCategory);
         onSave(agentData);
+        // Para novo agente, vamos usar um ID temporário (será retornado pelo callback)
+        newAgentId = agentData.title; // Placeholder, será atualizado
+      }
+
+      // Upload documents if any
+      if (files.length > 0 && newAgentId) {
+        setTimeout(async () => {
+          // Find the actual agent ID from the latest agents
+          const agents = Array.from(document.querySelectorAll('[data-testid*="agent-card"]'));
+          if (agents.length > 0) {
+            // Get the most recently created agent
+            const lastAgent = agents[agents.length - 1];
+            const agentId = lastAgent?.getAttribute('data-agent-id');
+            
+            if (agentId) {
+              for (const file of files) {
+                try {
+                  const content = await file.text();
+                  await fetch(`/api/agents/${agentId}/documents`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ title: file.name, content })
+                  });
+                } catch (err) {
+                  console.error("Erro ao fazer upload do documento:", err);
+                }
+              }
+              toast.success("Documentos enviados com sucesso!");
+            }
+          }
+        }, 500);
       }
 
       setTitle("");
