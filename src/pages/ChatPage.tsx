@@ -59,7 +59,7 @@ const ChatPage = () => {
       const response = await fetch(`/api/conversations/${convId}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: input }),
+        body: JSON.stringify({ content: input, agentId }),
       });
 
       if (!response.ok) {

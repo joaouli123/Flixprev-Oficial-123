@@ -63,32 +63,52 @@ export function registerChatRoutes(app: Express): void {
   app.post("/api/conversations/:id/messages", async (req: Request, res: Response) => {
     try {
       const conversationId = parseInt(req.params.id);
-      const { content } = req.body;
+      const { content, agentId } = req.body;
 
       console.log(`Received message for conversation ${conversationId}: ${content}`);
+
+      // Fetch agent info if agentId is provided
+      let systemPrompt = "Você é um assistente prestativo.";
+      if (agentId) {
+        try {
+          // Verify table name for agents. Based on the codebase it might be 'agentes'
+          const agentResult = await pool.query('SELECT * FROM "agentes" WHERE "id" = $1', [agentId]);
+          const agent = agentResult.rows[0];
+          if (agent) {
+            systemPrompt = `Você é o assistente: ${agent.title}. 
+Instruções: ${agent.instructions || "Sem instruções específicas."}
+Base de conhecimento: ${agent.description || "Sem descrição adicional."}`;
+          }
+        } catch (dbError: any) {
+          console.error("Error fetching agent context:", dbError.message);
+        }
+      }
 
       // Save user message
       await chatStorage.createMessage(conversationId, "user", content);
 
       // Get conversation history for context
       const messages = await chatStorage.getMessagesByConversation(conversationId);
-      const chatMessages = messages.map((m) => ({
-        role: m.role as "user" | "assistant",
-        content: m.content,
-      }));
+      const chatMessages = [
+        { role: "system", content: systemPrompt },
+        ...messages.map((m) => ({
+          role: m.role as "user" | "assistant",
+          content: m.content,
+        }))
+      ];
 
       // Set up SSE
       res.setHeader("Content-Type", "text/event-stream");
       res.setHeader("Cache-Control", "no-cache");
       res.setHeader("Connection", "keep-alive");
-      res.flushHeaders(); // Ensure headers are sent immediately
+      if ((res as any).flushHeaders) (res as any).flushHeaders();
 
       // Stream response from OpenAI
       console.log(`[STREAMING] Initiating OpenAI completion for conv ${conversationId}`);
       try {
         const stream = await openai.chat.completions.create({
           model: "gpt-4o", 
-          messages: chatMessages,
+          messages: chatMessages as any,
           stream: true,
         });
 
