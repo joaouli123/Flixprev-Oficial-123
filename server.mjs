@@ -2,19 +2,18 @@ import express from 'express';
 import { createServer } from 'vite';
 import fs from 'fs';
 import path from 'path';
-import { fileURLToPath } from 'url';
+import { fileURLToPath, createRequire } from 'url';
 import pkg from 'pg';
 import OpenAI from 'openai';
 import multer from 'multer';
-import crypto from 'crypto';
+const require = createRequire(import.meta.url);
 const { Pool } = pkg;
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
-
 app.use(express.json());
 
-// Setup multer for file uploads
+// Setup multer
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     const uploadDir = path.join(__dirname, 'public', 'agent-attachments');
@@ -24,176 +23,301 @@ const storage = multer.diskStorage({
     cb(null, uploadDir);
   },
   filename: (req, file, cb) => {
-    // Manter o nome original, garantindo que o encoding esteja correto
-    // e removendo apenas caracteres que possam quebrar o sistema de arquivos
     try {
       const originalName = Buffer.from(file.originalname, 'latin1').toString('utf8');
       const safeName = originalName.replace(/[<>:"|?*]/g, '_');
       console.log(`[UPLOAD] Salvando arquivo como: ${safeName}`);
       cb(null, safeName);
     } catch (e) {
-      console.error('[UPLOAD] Erro ao processar nome do arquivo:', e);
+      console.error('[UPLOAD] Erro ao processar nome:', e);
       cb(null, file.originalname);
     }
   }
 });
 
 const upload = multer({ storage });
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-});
+// ============================================
+// 🧠 FUNÇÕES RAG PROFISSIONAL
+// ============================================
 
-// Função para extrair texto de arquivo
-async function extractFileContent(filePath, filename) {
+// 1️⃣ Extrair PDF
+async function extractPdfText(filePath) {
   try {
-    if (filename.toLowerCase().endsWith('.pdf')) {
-      console.log('[PDF] Arquivo PDF detectado:', filename);
-      return `[Arquivo PDF: ${filename}]\n\nPara usar PDFs como base de conhecimento, por favor:\n1. Converta o PDF para texto (.txt) usando uma ferramenta de conversão\n2. Ou copie e cole o conteúdo do PDF diretamente como arquivo de texto\n\nEm breve a extração automática de PDFs será suportada.`;
-    } else {
-      // Para arquivos de texto, ler diretamente
-      const content = fs.readFileSync(filePath, 'utf-8');
-      console.log(`[FILE] Arquivo de texto carregado: ${filename} (${content.length} caracteres)`);
-      return content;
-    }
+    const fileBuffer = fs.readFileSync(filePath);
+    const data = await pdfParse(fileBuffer);
+    return data.text || '';
   } catch (e) {
-    console.error('[FILE] Erro ao extrair conteúdo:', e.message);
-    return `[Arquivo não pode ser lido: ${filename}]`;
+    console.error('[PDF] Erro ao extrair:', e.message);
+    return fs.readFileSync(filePath, 'utf-8').substring(0, 5000);
   }
 }
 
-// Função para busca semântica simples (por palavras-chave relevantes)
-function findRelevantDocuments(userQuery, documents, maxDocs = 3) {
-  if (!documents || documents.length === 0) return [];
-  
-  const queryWords = userQuery.toLowerCase().split(/\s+/).filter(w => w.length > 2);
-  
-  const scored = documents.map(doc => {
-    const docText = (doc.content || '').toLowerCase();
-    const docTitle = (doc.title || '').toLowerCase();
-    
-    let score = 0;
-    queryWords.forEach(word => {
-      const titleMatches = (docTitle.match(new RegExp(word, 'g')) || []).length;
-      const contentMatches = (docText.match(new RegExp(word, 'g')) || []).length;
-      score += (titleMatches * 3) + contentMatches;
-    });
-    
-    return { ...doc, score };
-  }).filter(d => d.score > 0);
-  
-  return scored.sort((a, b) => b.score - a.score).slice(0, maxDocs);
+// 2️⃣ Chunking (tamanho=800, overlap=150)
+function chunkText(text, size = 800, overlap = 150) {
+  const chunks = [];
+  let start = 0;
+  while (start < text.length) {
+    chunks.push(text.slice(start, start + size));
+    start += size - overlap;
+  }
+  return chunks;
 }
 
-// Initialize chat tables
-async function initializeChatTables() {
+// 3️⃣ Gerar embeddings (OpenAI text-embedding-3-large)
+async function generateEmbeddings(chunks) {
+  const openai = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY || process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+    baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+  });
+
+  const embeddings = [];
+  for (const chunk of chunks) {
+    try {
+      const res = await openai.embeddings.create({
+        model: 'text-embedding-3-large',
+        input: chunk
+      });
+      embeddings.push(res.data[0].embedding);
+      console.log('[EMB] Embedding gerado para chunk');
+    } catch (e) {
+      console.error('[EMB] Erro:', e.message);
+      embeddings.push(Array(3072).fill(0));
+    }
+  }
+  return embeddings;
+}
+
+// 4️⃣ Busca semântica com pgvector
+async function searchSimilarChunks(queryEmbedding, agentId, limit = 5) {
   try {
-    await pool.query(`CREATE TABLE IF NOT EXISTS conversations (id SERIAL PRIMARY KEY, title VARCHAR(255) NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);`);
-    await pool.query(`CREATE TABLE IF NOT EXISTS messages (id SERIAL PRIMARY KEY, conversation_id INTEGER NOT NULL REFERENCES conversations(id) ON DELETE CASCADE, role VARCHAR(50) NOT NULL, content TEXT NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);`);
-    await pool.query(`CREATE TABLE IF NOT EXISTS agent_documents (id SERIAL PRIMARY KEY, agent_id UUID NOT NULL, title VARCHAR(255) NOT NULL, content TEXT NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);`);
-    console.log('[CHAT] Database tables initialized');
-  } catch (e) { console.error('[CHAT] Init error:', e.message); }
+    const result = await pool.query(`
+      SELECT content, title
+      FROM document_chunks
+      WHERE agent_id = $1
+      ORDER BY embedding <-> $2::vector
+      LIMIT $3
+    `, [agentId, JSON.stringify(queryEmbedding), limit]);
+    
+    return result.rows.map(r => r.content).join('\n\n---\n\n');
+  } catch (e) {
+    console.error('[SEARCH] Erro:', e.message);
+    return '';
+  }
 }
-initializeChatTables();
 
-// Chat API Routes
+// 5️⃣ Prompt RESTRITIVO HARDCORE
+function buildPrompt(context, question) {
+  return `Você é um assistente que responde EXCLUSIVAMENTE com base no texto abaixo.
+
+REGRAS OBRIGATÓRIAS:
+- Use APENAS o conteúdo fornecido abaixo
+- NÃO use conhecimento externo ou geral
+- NÃO invente autores, datas, números ou conceitos
+- NÃO faça suposições sobre o que está escrito
+- Se a pergunta não puder ser respondida com o texto, responda EXATAMENTE:
+  "O documento não aborda esse ponto."
+
+TEXTO DA BASE DE CONHECIMENTO:
+${context || '[Nenhum conteúdo encontrado]'}
+
+PERGUNTA DO USUÁRIO:
+${question}
+
+Responda com base APENAS no texto acima:`;
+}
+
+// ============================================
+// 📊 INICIALIZAR TABELAS RAG
+// ============================================
+
+async function initializeRagTables() {
+  try {
+    // Criar extensão (garantir)
+    await pool.query('CREATE EXTENSION IF NOT EXISTS vector');
+    
+    // Tabelas de conversas (existentes)
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS conversations (
+        id SERIAL PRIMARY KEY,
+        title VARCHAR(255) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS messages (
+        id SERIAL PRIMARY KEY,
+        conversation_id INTEGER NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+        role VARCHAR(50) NOT NULL,
+        content TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    
+    // Tabelas RAG profissional
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS documents (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        agent_id UUID NOT NULL,
+        title VARCHAR(255) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS document_chunks (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        agent_id UUID NOT NULL,
+        document_id UUID REFERENCES documents(id) ON DELETE CASCADE,
+        content TEXT NOT NULL,
+        embedding vector(3072),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    
+    // Criar índice para busca rápida
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_document_chunks_embedding 
+      ON document_chunks USING ivfflat (embedding vector_cosine_ops)
+      WITH (lists = 100)
+    `);
+    
+    console.log('[RAG] ✅ Tabelas RAG inicializadas com sucesso');
+  } catch (e) {
+    console.error('[RAG] Erro ao inicializar:', e.message);
+  }
+}
+
+initializeRagTables();
+
+// ============================================
+// 🔌 ENDPOINTS
+// ============================================
+
+// GET conversas
 app.get("/api/conversations", async (req, res) => {
-  try { const result = await pool.query('SELECT * FROM conversations ORDER BY created_at DESC'); res.json(result.rows || []); }
-  catch (e) { res.status(500).json({ error: e.message }); }
+  try {
+    const result = await pool.query('SELECT * FROM conversations ORDER BY created_at DESC');
+    res.json(result.rows || []);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
+// POST nova conversa
 app.post("/api/conversations", async (req, res) => {
   try {
     const result = await pool.query('INSERT INTO conversations (title) VALUES ($1) RETURNING *', [req.body.title || "New Chat"]);
     res.status(201).json(result.rows[0]);
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
+// GET mensagens
 app.get("/api/conversations/:id/messages", async (req, res) => {
   try {
     const cid = parseInt(req.params.id);
     const result = await pool.query('SELECT * FROM messages WHERE conversation_id = $1 ORDER BY created_at ASC', [cid]);
     res.json(result.rows || []);
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
+// DELETE conversa
 app.delete("/api/conversations/:id", async (req, res) => {
   try {
     const cid = parseInt(req.params.id);
     await pool.query('DELETE FROM conversations WHERE id = $1', [cid]);
     res.json({ success: true });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-// Document upload endpoint
-app.post("/api/agents/:agentId/documents", async (req, res) => {
-  try {
-    const { agentId } = req.params;
-    const { title, content } = req.body;
-    
-    if (!title || !content) {
-      return res.status(400).json({ error: "Title and content are required" });
-    }
-    
-    const result = await pool.query(
-      'INSERT INTO agent_documents (agent_id, title, content) VALUES ($1, $2, $3) RETURNING *',
-      [agentId, title, content]
-    );
-    res.status(201).json(result.rows[0]);
-  } catch (e) { 
-    console.error("[DOCS] Error:", e.message);
-    res.status(500).json({ error: e.message }); 
+  } catch (e) {
+    res.status(500).json({ error: e.message });
   }
 });
 
-// Delete document endpoint
+// GET documentos do agente
+app.get("/api/agents/:agentId/documents", async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM documents WHERE agent_id = $1 ORDER BY created_at DESC', [req.params.agentId]);
+    res.json(result.rows || []);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// DELETE documento
 app.delete("/api/agents/:agentId/documents/:docId", async (req, res) => {
   try {
     const { agentId, docId } = req.params;
-    await pool.query('DELETE FROM agent_documents WHERE id = $1 AND agent_id = $2', [parseInt(docId), agentId]);
+    await pool.query('DELETE FROM documents WHERE id = $1 AND agent_id = $2', [docId, agentId]);
     res.json({ success: true });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
-// Get agent documents
-app.get("/api/agents/:agentId/documents", async (req, res) => {
-  try {
-    const { agentId } = req.params;
-    const result = await pool.query('SELECT * FROM agent_documents WHERE agent_id = $1 ORDER BY created_at DESC', [agentId]);
-    res.json(result.rows || []);
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-// Upload endpoint for agent attachments com extração de conteúdo
+// 🚀 UPLOAD com RAG (chunking + embeddings)
 app.post('/api/agents/upload', upload.single('file'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'Nenhum arquivo foi enviado' });
     }
-    
+
     const { agentId } = req.body;
     if (!agentId) {
       return res.status(400).json({ error: 'agentId é obrigatório' });
     }
-    
+
     const filePath = path.join(process.cwd(), 'public', 'agent-attachments', req.file.filename);
-    console.log('[UPLOAD] Extraindo conteúdo do arquivo:', req.file.originalname);
-    const content = await extractFileContent(filePath, req.file.originalname);
-    
-    // Salvar no banco de dados
+    console.log('[UPLOAD] Iniciando processamento RAG para:', req.file.originalname);
+
+    // 1. Extrair texto
+    let text = '';
+    if (req.file.originalname.toLowerCase().endsWith('.pdf')) {
+      console.log('[UPLOAD] Extraindo PDF...');
+      text = await extractPdfText(filePath);
+    } else {
+      text = fs.readFileSync(filePath, 'utf-8');
+    }
+
+    console.log(`[UPLOAD] Texto extraído: ${text.length} caracteres`);
+
+    // 2. Criar documento
     const docResult = await pool.query(
-      'INSERT INTO agent_documents (agent_id, title, content) VALUES ($1, $2, $3) RETURNING *',
-      [agentId, req.file.originalname, content]
+      'INSERT INTO documents (agent_id, title) VALUES ($1, $2) RETURNING id',
+      [agentId, req.file.originalname]
     );
-    
-    console.log(`[UPLOAD] Arquivo "${req.file.originalname}" salvo com sucesso (${content.length} caracteres)`);
-    
-    const filePath2 = `/agent-attachments/${req.file.filename}`;
-    res.json({ 
-      path: filePath2, 
+    const documentId = docResult.rows[0].id;
+
+    // 3. Fazer chunks
+    const chunks = chunkText(text, 800, 150);
+    console.log(`[UPLOAD] ${chunks.length} chunks criados`);
+
+    // 4. Gerar embeddings
+    const embeddings = await generateEmbeddings(chunks);
+    console.log(`[UPLOAD] ${embeddings.length} embeddings gerados`);
+
+    // 5. Salvar chunks no Postgres
+    for (let i = 0; i < chunks.length; i++) {
+      await pool.query(
+        `INSERT INTO document_chunks (agent_id, document_id, content, embedding)
+         VALUES ($1, $2, $3, $4)`,
+        [agentId, documentId, chunks[i], JSON.stringify(embeddings[i])]
+      );
+    }
+
+    console.log(`[UPLOAD] ✅ Documento "${req.file.originalname}" indexado com sucesso!`);
+
+    res.json({
+      success: true,
+      documentId,
       filename: req.file.originalname,
-      documentId: docResult.rows[0].id,
-      contentLength: content.length
+      chunksCount: chunks.length,
+      embeddingsCount: embeddings.length
     });
   } catch (e) {
     console.error('[UPLOAD] Erro:', e.message);
@@ -201,56 +325,76 @@ app.post('/api/agents/upload', upload.single('file'), async (req, res) => {
   }
 });
 
+// 💬 CHAT com busca semântica RAG
 app.post("/api/conversations/:id/messages", async (req, res) => {
   try {
     const cid = parseInt(req.params.id);
     const { content, agentId } = req.body;
-    await pool.query('INSERT INTO messages (conversation_id, role, content) VALUES ($1, $2, $3)', [cid, "user", content]);
-    
+
+    // Salvar mensagem do usuário
+    await pool.query(
+      'INSERT INTO messages (conversation_id, role, content) VALUES ($1, $2, $3)',
+      [cid, "user", content]
+    );
+
     let prompt = "Você é um assistente prestativo.";
-    let knowledgeBase = "";
-    
+
     if (agentId) {
       try {
-        const r = await pool.query('SELECT * FROM "agents" WHERE "id" = $1', [agentId]);
-        if (r.rows[0]) {
-          const agent = r.rows[0];
-          prompt = `Você é o assistente: ${agent.title}. Instruções: ${agent.instructions || agent.description || ""}`;
-          
-          // Buscar documentos anexados ao agente com busca semântica
+        // Buscar agente
+        const agent = await pool.query('SELECT * FROM "agents" WHERE "id" = $1', [agentId]);
+        if (agent.rows[0]) {
+          const agentData = agent.rows[0];
+          prompt = `Você é o assistente: ${agentData.title}. Instruções: ${agentData.instructions || agentData.description || ""}`;
+
+          // 🔍 BUSCA SEMÂNTICA COM RAG
           try {
-            const docs = await pool.query('SELECT id, content, title FROM "agent_documents" WHERE agent_id = $1 ORDER BY created_at DESC', [agentId]);
-            if (docs.rows && docs.rows.length > 0) {
-              // Usar busca semântica para encontrar documentos relevantes
-              const relevantDocs = findRelevantDocuments(content, docs.rows, 3);
-              
-              if (relevantDocs.length > 0) {
-                knowledgeBase = "\n\n=== BASE DE CONHECIMENTO (DOCUMENTOS RELEVANTES) ===\n";
-                relevantDocs.forEach((doc, idx) => {
-                  // Limitar tamanho do conteúdo para evitar token limit
-                  const maxLength = 2000;
-                  const truncatedContent = doc.content.length > maxLength 
-                    ? doc.content.substring(0, maxLength) + '...[truncado]'
-                    : doc.content;
-                  knowledgeBase += `\n--- Documento: ${doc.title} ---\n${truncatedContent}\n`;
-                });
-                knowledgeBase += "\n=== FIM DA BASE DE CONHECIMENTO ===\n";
-                prompt += knowledgeBase + "\n⚠️ INSTRUÇÕES CRÍTICAS: Responda SOMENTE com base nos trechos de documentos acima. Se os documentos não contiverem a resposta, diga que não encontrou a informação na base de conhecimento.";
-                console.log(`[CHAT] Usando ${relevantDocs.length} documentos relevantes para a pergunta`);
-              } else {
-                console.log('[CHAT] Nenhum documento relevante encontrado para a pergunta');
-              }
+            // Gerar embedding da pergunta
+            const openai = new OpenAI({
+              apiKey: process.env.OPENAI_API_KEY || process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+              baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+            });
+
+            const queryEmbedding = await openai.embeddings.create({
+              model: 'text-embedding-3-large',
+              input: content
+            });
+
+            // Buscar chunks similares
+            const relevantContext = await searchSimilarChunks(
+              queryEmbedding.data[0].embedding,
+              agentId,
+              5
+            );
+
+            // Construir prompt com contexto
+            if (relevantContext) {
+              prompt = buildPrompt(relevantContext, content);
+              console.log('[CHAT] ✅ Usando contexto RAG para resposta');
+            } else {
+              console.log('[CHAT] ⚠️ Nenhum contexto encontrado');
             }
           } catch (e) {
-            console.log('[CHAT] Aviso: erro ao buscar documentos do agente:', e.message);
+            console.error('[CHAT] Erro ao buscar contexto:', e.message);
           }
         }
-      } catch (e) {}
+      } catch (e) {
+        console.error('[CHAT] Erro ao buscar agente:', e.message);
+      }
     }
-    
-    const hist = await pool.query('SELECT * FROM messages WHERE conversation_id = $1 ORDER BY created_at ASC', [cid]);
-    const msgs = [{ role: "system", content: prompt }, ...hist.rows.map(m => ({ role: m.role, content: m.content }))];
-    
+
+    // Buscar histórico
+    const hist = await pool.query(
+      'SELECT * FROM messages WHERE conversation_id = $1 ORDER BY created_at ASC',
+      [cid]
+    );
+
+    const msgs = [
+      { role: "system", content: prompt },
+      ...hist.rows.map(m => ({ role: m.role, content: m.content }))
+    ];
+
+    // Stream resposta
     res.setHeader("Content-Type", "text/event-stream");
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Connection", "keep-alive");
@@ -261,13 +405,27 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
       baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
     });
 
-    const stream = await openai.chat.completions.create({ model: "gpt-4o", messages: msgs, stream: true });
+    const stream = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: msgs,
+      stream: true
+    });
+
     let fullResp = "";
     for await (const chunk of stream) {
       const delta = chunk.choices[0]?.delta?.content || "";
-      if (delta) { fullResp += delta; res.write(`data: ${JSON.stringify({ content: delta })}\n\n`); }
+      if (delta) {
+        fullResp += delta;
+        res.write(`data: ${JSON.stringify({ content: delta })}\n\n`);
+      }
     }
-    await pool.query('INSERT INTO messages (conversation_id, role, content) VALUES ($1, $2, $3)', [cid, "assistant", fullResp]);
+
+    // Salvar resposta do assistente
+    await pool.query(
+      'INSERT INTO messages (conversation_id, role, content) VALUES ($1, $2, $3)',
+      [cid, "assistant", fullResp]
+    );
+
     res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
     res.end();
   } catch (e) {
@@ -277,14 +435,12 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
   }
 });
 
-// API Route - LOGIN
+// LOGIN
 app.post('/api/login', (req, res) => {
   const { email, password } = req.body;
-  
   if (!email || !password) {
     return res.status(400).json({ error: 'Email e senha são obrigatórios' });
   }
-
   if (email === 'admin@admin.com' && password === 'admin') {
     return res.status(200).json({
       success: true,
@@ -296,24 +452,20 @@ app.post('/api/login', (req, res) => {
       token: `token_admin_${Date.now()}`,
     });
   }
-
   return res.status(401).json({ error: 'Email ou senha incorretos' });
 });
 
-// API Route - DB
+// DB ENDPOINT
 app.post('/api/db', async (req, res) => {
   const { table, operation, columns, insertData, updateData, filters, orderColumn, orderAsc, limit, countExact, maybeOne } = req.body;
-
   try {
     if (!table || !operation) {
       return res.status(400).json({ data: null, error: { message: 'Table e operation são obrigatórios' } });
     }
-
     if (operation === 'SELECT') {
       let query = `SELECT ${columns || '*'} FROM "${table}"`;
       const params = [];
       let paramIndex = 1;
-
       if (filters && filters.length > 0) {
         query += ' WHERE ';
         query += filters.map((f) => {
@@ -321,44 +473,33 @@ app.post('/api/db', async (req, res) => {
           return `"${f.column}" = $${paramIndex++}`;
         }).join(' AND ');
       }
-
       if (orderColumn) {
         query += ` ORDER BY "${orderColumn}" ${orderAsc ? 'ASC' : 'DESC'}`;
       }
-
       if (limit) {
         query += ` LIMIT ${limit}`;
       }
-
       const result = await pool.query(query, params);
-      
       if (maybeOne && result.rows.length === 0) {
         return res.json({ data: null, error: null });
       }
-
       if (countExact) {
         return res.json({ data: result.rows || [], error: null, count: result.rows?.length || 0 });
       }
-
       return res.json({ data: result.rows || [], error: null });
-    } 
-    else if (operation === 'INSERT') {
+    } else if (operation === 'INSERT') {
       const cols = Object.keys(insertData);
       const values = Object.values(insertData);
       const placeholders = values.map((_, i) => `$${i + 1}`).join(', ');
       const query = `INSERT INTO "${table}" (${cols.map(c => `"${c}"`).join(', ')}) VALUES (${placeholders}) RETURNING *`;
-
       const result = await pool.query(query, values);
       return res.json({ data: result.rows || [], error: null });
-    } 
-    else if (operation === 'UPDATE') {
+    } else if (operation === 'UPDATE') {
       const updateColumns = Object.keys(updateData);
       const updateValues = Object.values(updateData);
       let paramIndex = updateValues.length + 1;
-
       let query = `UPDATE "${table}" SET ${updateColumns.map((col, i) => `"${col}" = $${i + 1}`).join(', ')}`;
       const params = [...updateValues];
-
       if (filters && filters.length > 0) {
         query += ' WHERE ';
         query += filters.map((f) => {
@@ -366,17 +507,13 @@ app.post('/api/db', async (req, res) => {
           return `"${f.column}" = $${paramIndex++}`;
         }).join(' AND ');
       }
-
       query += ' RETURNING *';
-
       const result = await pool.query(query, params);
       return res.json({ data: result.rows || [], error: null });
-    } 
-    else if (operation === 'DELETE') {
+    } else if (operation === 'DELETE') {
       let query = `DELETE FROM "${table}"`;
       const params = [];
       let paramIndex = 1;
-
       if (filters && filters.length > 0) {
         query += ' WHERE ';
         query += filters.map((f) => {
@@ -384,13 +521,9 @@ app.post('/api/db', async (req, res) => {
           return `"${f.column}" = $${paramIndex++}`;
         }).join(' AND ');
       }
-
       query += ' RETURNING *';
-
       const result = await pool.query(query, params);
       return res.json({ data: result.rows || [], error: null });
-    } else {
-      return res.status(400).json({ data: null, error: { message: 'Operation inválida' } });
     }
   } catch (error) {
     console.error('DB Error:', error);
@@ -398,7 +531,7 @@ app.post('/api/db', async (req, res) => {
   }
 });
 
-// Vite middleware
+// VITE
 const vite = await createServer({
   server: { middlewareMode: true },
   appType: 'spa',
@@ -406,7 +539,6 @@ const vite = await createServer({
 
 app.use(vite.middlewares);
 
-// SPA Fallback
 app.use('/', async (req, res) => {
   try {
     let template = fs.readFileSync(path.resolve(__dirname, 'index.html'), 'utf-8');
@@ -420,4 +552,5 @@ app.use('/', async (req, res) => {
 const PORT = 5000;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ Server on http://localhost:${PORT}`);
+  console.log(`🧠 RAG com pgvector habilitado!`);
 });
