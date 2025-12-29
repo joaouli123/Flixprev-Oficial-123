@@ -80,6 +80,8 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
   const [selectedModel, setSelectedModel] = useState("gpt-4o-mini");
   const [selectedCategory, setSelectedCategory] = useState<string | undefined>(undefined);
   const [files, setFiles] = useState<File[]>([]);
+  const [shortcuts, setShortcuts] = useState<string[]>(["Resumir docs", "Extrair cláusulas", "Analisar risco", "Dúvidas"]);
+  const [shortcutInput, setShortcutInput] = useState("");
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -92,6 +94,17 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
     setFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
+  const addShortcut = () => {
+    if (shortcutInput.trim() && shortcuts.length < 6) {
+      setShortcuts((prev) => [...prev, shortcutInput.trim()]);
+      setShortcutInput("");
+    }
+  };
+
+  const removeShortcut = (index: number) => {
+    setShortcuts((prev) => prev.filter((_, i) => i !== index));
+  };
+
   const handleSave = () => {
     if (title.trim() && description.trim() && icon && selectedCategory) {
       console.log("Salvando agente com categoria selecionada:", selectedCategory);
@@ -100,6 +113,7 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
         description: description.trim(),
         icon,
         category_ids: [selectedCategory],
+        shortcuts: shortcuts.length > 0 ? shortcuts : undefined,
       });
       setTitle("");
       setDescription("");
@@ -107,6 +121,8 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
       setSelectedModel("gpt-4o-mini");
       setSelectedCategory(undefined);
       setFiles([]);
+      setShortcuts(["Resumir docs", "Extrair cláusulas", "Analisar risco", "Dúvidas"]);
+      setShortcutInput("");
       onClose();
     } else {
       if (!selectedCategory) {
@@ -236,6 +252,48 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
                 );
               })}
             </div>
+          </div>
+
+          <div className="grid gap-2">
+            <Label>Atalhos Personalizados (Máx. 6)</Label>
+            <div className="flex gap-2 mb-2">
+              <Input
+                placeholder="Ex: Gerar relatório"
+                value={shortcutInput}
+                onChange={(e) => setShortcutInput(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && addShortcut()}
+                className="text-sm"
+              />
+              <Button 
+                type="button"
+                variant="outline" 
+                onClick={addShortcut}
+                disabled={shortcuts.length >= 6 || !shortcutInput.trim()}
+                className="px-3"
+              >
+                Adicionar
+              </Button>
+            </div>
+            {shortcuts.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {shortcuts.map((shortcut, index) => (
+                  <div
+                    key={index}
+                    className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-full px-3 py-1 text-xs text-blue-700"
+                  >
+                    <Sparkles className="h-3 w-3" />
+                    <span>{shortcut}</span>
+                    <button
+                      type="button"
+                      onClick={() => removeShortcut(index)}
+                      className="hover:text-blue-900"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
         <DialogFooter>

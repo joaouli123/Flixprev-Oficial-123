@@ -12,6 +12,7 @@ export type Agent = {
   title: string;
   description: string;
   link?: string; // Novo: link para onde o agente redireciona
+  shortcuts?: string[]; // Novo: atalhos personalizados para o agente
   userId: string;
   created_at: string;
 };

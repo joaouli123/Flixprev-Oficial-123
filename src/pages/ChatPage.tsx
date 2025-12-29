@@ -35,6 +35,9 @@ const ChatPage = () => {
   const [input, setInput] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // Use agent shortcuts or default shortcuts
+  const shortcuts = agent?.shortcuts || ["Resumir docs", "Extrair cláusulas", "Analisar risco", "Dúvidas"];
+
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTo(0, scrollRef.current.scrollHeight);
@@ -66,8 +69,6 @@ const ChatPage = () => {
       ]);
     }, 1500);
   };
-
-  const shortcuts = ["Resumir docs", "Extrair cláusulas", "Analisar risco", "Dúvidas"];
 
   return (
     <div className="flex flex-col h-full w-full">
