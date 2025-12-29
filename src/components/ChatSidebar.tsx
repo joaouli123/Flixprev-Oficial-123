@@ -40,7 +40,7 @@ export const ChatSidebar = ({ agentId, currentConversationId }: ChatSidebarProps
   }, []);
 
   const handleNewChat = () => {
-    navigate(`/chat/${agentId}`);
+    navigate(`/app/chat/${agentId}`);
     setTimeout(loadConversations, 500);
   };
 
@@ -51,7 +51,7 @@ export const ChatSidebar = ({ agentId, currentConversationId }: ChatSidebarProps
         await fetch(`/api/conversations/${convId}`, { method: "DELETE" });
         await loadConversations();
         if (currentConversationId === convId) {
-          navigate(`/chat/${agentId}`);
+          navigate(`/app/chat/${agentId}`);
         }
       } catch (error) {
         console.error("Erro ao deletar conversa:", error);
@@ -82,7 +82,7 @@ export const ChatSidebar = ({ agentId, currentConversationId }: ChatSidebarProps
             conversations.map((conv) => (
               <div
                 key={conv.id}
-                onClick={() => navigate(`/chat/${agentId}/${conv.id}`)}
+                onClick={() => navigate(`/app/chat/${agentId}/${conv.id}`)}
                 className={cn(
                   "w-full text-left px-3 py-2 rounded-md text-sm transition-colors flex items-center justify-between group hover-elevate cursor-pointer",
                   currentConversationId === conv.id
