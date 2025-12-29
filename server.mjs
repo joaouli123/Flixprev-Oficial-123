@@ -396,8 +396,16 @@ app.post('/api/agents/upload', upload.single('file'), async (req, res) => {
     console.log('[UPLOAD] Arquivo enviado:', originalname);
     console.log('[UPLOAD] AgentId processado:', agentId);
 
-    // Se temos um agentId real, processamos o RAG
-    if (agentId) {
+    // Processar RAG IMEDIATAMENTE (síncrono) se agentId foi fornecido
+    // Ajuste: Tentar obter agentId do body se não estiver processado corretamente
+    let targetAgentId = agentId;
+    if (!targetAgentId && req.body.agentId && req.body.agentId !== "undefined") {
+      targetAgentId = req.body.agentId;
+    }
+
+    console.log('[UPLOAD] AgentId final para RAG:', targetAgentId);
+
+    if (targetAgentId) {
       try {
         const fullPath = path.join(process.cwd(), 'public', filePath);
         
@@ -409,13 +417,13 @@ app.post('/api/agents/upload', upload.single('file'), async (req, res) => {
           text = fs.readFileSync(fullPath, 'utf-8');
         }
 
-        console.log(`[UPLOAD] Texto extraído: ${text.length} caracteres`);
+        console.log(`[UPLOAD] Texto extraído: ${text.length} caracteres para agente ${targetAgentId}`);
         
         if (text && text.length > 0) {
           // 2. Criar documento
           const docResult = await pool.query(
             'INSERT INTO documents (agent_id, title) VALUES ($1, $2) RETURNING id',
-            [agentId, originalname]
+            [targetAgentId, originalname]
           );
           const documentId = docResult.rows[0].id;
 
@@ -431,10 +439,10 @@ app.post('/api/agents/upload', upload.single('file'), async (req, res) => {
             await pool.query(
               `INSERT INTO document_chunks (agent_id, document_id, content, embedding)
                VALUES ($1, $2, $3, $4::vector)`,
-              [agentId, documentId, chunks[i], embeddingString]
+              [targetAgentId, documentId, chunks[i], embeddingString]
             );
           }
-          console.log(`[UPLOAD] ✅ RAG processado com sucesso para agente ${agentId}`);
+          console.log(`[UPLOAD] ✅ RAG processado com sucesso para agente ${targetAgentId}`);
         }
       } catch (e) {
         console.error('[UPLOAD] Erro ao processar RAG:', e.message);
