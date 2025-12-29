@@ -197,24 +197,36 @@ async function getFirstChunks(agentId, limit = 3) {
 
 // 5️⃣ Prompt GLOBAL DEFINITIVO e CONTRATO DE CONTEXTO
 function buildPrompt(context, agentInstructions, question) {
-  const globalPrompt = `✅ PROMPT GLOBAL — USO OBRIGATÓRIO DO DOCUMENTO
-Você é um assistente baseado exclusivamente em documentos fornecidos pelo sistema.
+  const globalPrompt = `🎯 INSTRUÇÕES DE CONTEXTO
+Você é um assistente claro, profissional e conversacional especializado em análise de documentos.
 
-REGRAS ABSOLUTAS (não negociáveis):
-1. Utilize somente as informações presentes no CONTEXTO fornecido.
-2. É proibido utilizar conhecimento externo, suposições ou inferências.
-3. Não complemente respostas com conhecimento geral.
-4. Se a resposta não estiver explicitamente no texto do CONTEXTO, responda exatamente:
-   "O documento não aborda esse ponto."
-5. Se a pergunta mencionar capítulo, seção, tópico ou autor específico, utilize apenas trechos do CONTEXTO que correspondam exatamente a essa referência.
-6. Não misture informações de capítulos, seções ou documentos diferentes.
-7. Caso o CONTEXTO seja insuficiente ou inexistente, aplique a regra 4.
-8. Não utilize expressões como "em geral", "normalmente", "no entanto" ou similares para complementar respostas fora do texto.
-9. Priorize fidelidade total ao conteúdo em detrimento de respostas elaboradas.
-10. Se qualquer parte da resposta não puder ser sustentada por um trecho literal do CONTEXTO, considere a resposta inválida e aplique a regra 4.
+REGRA FUNDAMENTAL:
+- Use EXCLUSIVAMENTE as informações presentes no CONTEXTO fornecido.
+- Não utilize conhecimento externo, suposições ou inferências.
 
-OBJETIVO:
-Garantir precisão, fidelidade acadêmica e ausência total de alucinação.`;
+QUANDO HOUVER INFORMAÇÃO NO CONTEXTO:
+- Responda de forma fluida, como um assistente humano seria.
+- Se possível, cite ou parafraseie o trecho relevante do documento.
+- Organize a resposta de forma clara e estruturada.
+
+QUANDO A INFORMAÇÃO NÃO ESTIVER NO CONTEXTO:
+- Explique isso de forma natural e educada.
+- Não repita frases genéricas iguais toda vez.
+- Seja breve e direto.
+- Aceite o limite com profissionalismo.
+
+EXEMPLOS DE BOAS RESPOSTAS (quando não houver informação):
+✓ "Analisei o documento, mas ele não traz essa informação específica."
+✓ "Não encontrei essa informação no conteúdo do documento."
+✓ "O documento não aborda esse ponto."
+
+EXEMPLO (quando houver informação):
+✓ "No documento analisado, os autores citados são: [...]"
+
+REGRA DE OURO:
+- Você pode variar: a frase, o tom, a fluidez
+- Você NÃO pode variar: a fonte, a verdade, o escopo
+- NUNCA invente informações que não estão no documento.`;
 
   const contextBlock = (context && context.trim().length > 0)
     ? `[INÍCIO DO CONTEXTO]\n${context}\n[FIM DO CONTEXTO]`
@@ -242,23 +254,24 @@ RESPONDA AGORA (apenas com base no contexto acima):
 ═══════════════════════════════════════════════════════════════════`;
 }
 
-// 6️⃣ VALIDADOR DE SAÍDA (Anti-Alucinação)
+// 6️⃣ VALIDADOR DE SAÍDA (Anti-Alucinação - LEVE)
 function validateOutput(text) {
-  const forbiddenPatterns = [
-    /no entanto/i,
-    /em geral/i,
-    /normalmente/i,
-    /em muitas empresas/i,
-    /contexto geral/i,
-    /conhecimento geral/i
+  // Apenas bloqueia respostas que claramente indicam alucinação fora do escopo
+  const severeAllucinationPatterns = [
+    /de acordo com meu conhecimento/i,
+    /em minha opinião/i,
+    /geralmente se sabe que/i,
+    /é conhecido que/i,
+    /segundo a comunidade/i,
   ];
 
-  for (const pattern of forbiddenPatterns) {
+  for (const pattern of severeAllucinationPatterns) {
     if (pattern.test(text)) {
-      console.log(`[VALIDATOR] Bloqueando resposta devido a padrão proibido: ${pattern}`);
-      return "O documento não aborda esse ponto.";
+      console.log(`[VALIDATOR] Bloqueando resposta: padrão de alucinação severa detectado`);
+      return "Analisei o documento, mas não encontrei essa informação nele.";
     }
   }
+  
   return text;
 }
 
