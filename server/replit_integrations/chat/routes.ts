@@ -17,7 +17,7 @@ async function extractFileContent(filePath: string): Promise<string> {
 
     const dataBuffer = fs.readFileSync(fullPath);
     if (filePath.toLowerCase().endsWith(".pdf")) {
-      const data = await pdf(dataBuffer);
+      const data = await (pdf as any)(dataBuffer);
       return data.text;
     } else {
       return dataBuffer.toString("utf-8");
