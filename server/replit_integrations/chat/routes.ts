@@ -3,6 +3,7 @@ import OpenAI from "openai";
 import { chatStorage, pool } from "./storage";
 import fs from "fs";
 import path from "path";
+// @ts-ignore
 import pdf from "pdf-parse";
 
 const openai = new OpenAI({
