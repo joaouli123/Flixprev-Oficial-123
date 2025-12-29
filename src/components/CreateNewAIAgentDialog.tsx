@@ -84,7 +84,7 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
   const [description, setDescription] = useState("");
   const [icon, setIcon] = useState("Bot");
   const [selectedModel, setSelectedModel] = useState("gpt-4o-mini");
-  const [selectedCategory, setSelectedCategory] = useState<string | undefined>(undefined);
+  const [selectedCategory, setSelectedCategory] = useState("");
   const [files, setFiles] = useState<File[]>([]);
   const [savedAttachments, setSavedAttachments] = useState<string[]>([]);
   const [shortcuts, setShortcuts] = useState<string[]>(["Resumir docs", "Extrair cláusulas", "Analisar risco", "Dúvidas"]);
@@ -93,12 +93,16 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
   // Preencher os campos quando estiver editando
   React.useEffect(() => {
     if (agentToEdit && isOpen) {
+      console.log("Editando agente com categoria:", agentToEdit.category_ids);
+      console.log("Agente attachments:", (agentToEdit as any).attachments);
       setTitle(agentToEdit.title);
       setDescription(agentToEdit.description);
       setIcon(agentToEdit.icon);
-      setSelectedCategory(agentToEdit.category_ids?.[0] || undefined);
+      setSelectedCategory(agentToEdit.category_ids?.[0] || "");
       setShortcuts(agentToEdit.shortcuts || ["Resumir docs", "Extrair cláusulas", "Analisar risco", "Dúvidas"]);
-      setSavedAttachments((agentToEdit as any).attachments || []);
+      const attachments = (agentToEdit as any).attachments || [];
+      console.log("Attachments carregados:", attachments);
+      setSavedAttachments(attachments);
       setFiles([]);
       setShortcutInput("");
     } else if (isOpen && !agentToEdit) {
@@ -106,7 +110,7 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
       setDescription("");
       setIcon("Bot");
       setSelectedModel("gpt-4o-mini");
-      setSelectedCategory(undefined);
+      setSelectedCategory("");
       setFiles([]);
       setSavedAttachments([]);
       setShortcuts(["Resumir docs", "Extrair cláusulas", "Analisar risco", "Dúvidas"]);
@@ -159,6 +163,7 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
             if (response.ok) {
               const data = await response.json();
               uploadedPaths.push(data.path);
+              console.log("Arquivo carregado:", data.path);
             }
           } catch (err) {
             console.error("Erro ao fazer upload do arquivo:", err);
@@ -171,17 +176,19 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
         title: title.trim(),
         description: description.trim(),
         icon,
-        category_ids: [selectedCategory],
+        category_ids: [selectedCategory] as string[],
         shortcuts: shortcuts.length > 0 ? shortcuts : undefined,
         instructions: description.trim(),
         attachments: uploadedPaths,
       } as any;
 
+      console.log("Dados do agente a salvar:", agentData);
+
       if (isEditing && agentToEdit && onEditSave) {
         console.log("Editando agente:", agentToEdit.id);
         onEditSave(agentToEdit.id, agentData);
       } else {
-        console.log("Salvando agente com categoria selecionada:", selectedCategory);
+        console.log("Criando agente com categoria:", selectedCategory);
         onSave(agentData);
       }
 
@@ -189,7 +196,7 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
       setDescription("");
       setIcon("Bot");
       setSelectedModel("gpt-4o-mini");
-      setSelectedCategory(undefined);
+      setSelectedCategory("");
       setFiles([]);
       setSavedAttachments([]);
       setShortcuts(["Resumir docs", "Extrair cláusulas", "Analisar risco", "Dúvidas"]);
@@ -305,16 +312,20 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
             </div>
             <div className="grid gap-2">
               <Label>Categoria</Label>
-              <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+              <Select value={selectedCategory || ""} onValueChange={setSelectedCategory}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Selecione..." />
+                  <SelectValue placeholder="Selecione uma categoria..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {categories.map((cat) => (
-                    <SelectItem key={cat.id} value={cat.id}>
-                      {cat.name}
-                    </SelectItem>
-                  ))}
+                  {categories.length > 0 ? (
+                    categories.map((cat) => (
+                      <SelectItem key={cat.id} value={cat.id}>
+                        {cat.name}
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <div className="p-2 text-sm text-gray-500">Nenhuma categoria disponível</div>
+                  )}
                 </SelectContent>
               </Select>
             </div>
