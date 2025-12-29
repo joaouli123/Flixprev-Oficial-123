@@ -49,10 +49,22 @@ async function extractPdfText(filePath) {
   try {
     const fileBuffer = fs.readFileSync(filePath);
     const data = await pdfParse(fileBuffer);
-    return data.text || '';
+    const text = data.text || '';
+    
+    console.log('--- TESTE DE EXTRAÇÃO ---');
+    console.log(`Documento: ${path.basename(filePath)}`);
+    console.log(`Caracteres extraídos: ${text.length}`);
+    if (text.length > 0) {
+      console.log(`Primeiras 200 letras:\n"${text.substring(0, 200).replace(/\n/g, ' ')}..."`);
+    } else {
+      console.warn('⚠️ AVISO: NENHUM TEXTO EXTRAÍDO DO PDF!');
+    }
+    console.log('-------------------------');
+    
+    return text;
   } catch (e) {
     console.error('[PDF] Erro ao extrair:', e.message);
-    return fs.readFileSync(filePath, 'utf-8').substring(0, 5000);
+    return '';
   }
 }
 
