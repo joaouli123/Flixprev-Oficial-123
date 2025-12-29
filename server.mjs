@@ -457,7 +457,8 @@ app.post('/api/agents/upload', upload.single('file'), async (req, res) => {
     res.json({
       success: true,
       path: filePath,
-      filename: originalname
+      filename: originalname,
+      agentId: agentId || null
     });
   } catch (e) {
     console.error('[UPLOAD] Erro:', e.message);

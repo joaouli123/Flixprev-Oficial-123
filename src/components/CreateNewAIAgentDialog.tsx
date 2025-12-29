@@ -102,9 +102,15 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
       setInstructions(agentToEdit.instructions || "");
       setIcon(agentToEdit.icon);
       // Ensure selectedCategory is set correctly from category_ids
-      const categoryId = agentToEdit.category_ids && agentToEdit.category_ids.length > 0 ? String(agentToEdit.category_ids[0]) : "";
-      console.log("Categoria selecionada (isEditing):", categoryId);
-      setSelectedCategory(categoryId);
+      const catId = agentToEdit.category_ids && agentToEdit.category_ids.length > 0 ? String(agentToEdit.category_ids[0]) : "";
+      console.log("Categoria selecionada (isEditing):", catId);
+      
+      // Force update of selectedCategory
+      setSelectedCategory(catId);
+      
+      // Diagnostic log
+      console.log("Categories state in dialog:", categories);
+      console.log("Matching category:", categories.find(c => String(c.id) === String(catId)));
       setShortcuts(agentToEdit.shortcuts || ["Resumir docs", "Extrair cláusulas", "Analisar risco", "Dúvidas"]);
       const attachments = (agentToEdit as any).attachments || [];
       console.log("Attachments carregados:", attachments);
@@ -337,8 +343,8 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
             <div className="grid gap-2">
               <Label>Categoria</Label>
               <Select 
-                value={selectedCategory || ""} 
-                onValueChange={setSelectedCategory}
+                value={selectedCategory || "none"} 
+                onValueChange={(val) => setSelectedCategory(val === "none" ? "" : val)}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Selecione uma categoria...">
@@ -346,15 +352,12 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  {categories.length > 0 ? (
-                    categories.map((cat) => (
-                      <SelectItem key={cat.id} value={String(cat.id)}>
-                        {cat.name}
-                      </SelectItem>
-                    ))
-                  ) : (
-                    <div className="p-2 text-sm text-gray-500">Nenhuma categoria disponível</div>
-                  )}
+                  <SelectItem value="none">Nenhuma categoria</SelectItem>
+                  {categories.map((cat) => (
+                    <SelectItem key={cat.id} value={String(cat.id)}>
+                      {cat.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

@@ -265,8 +265,8 @@ const EditAgentDialog: React.FC<EditAgentDialogProps> = ({
           <div className="grid gap-2">
             <Label htmlFor="category">Categoria</Label>
             <Select 
-              value={selectedCategory} 
-              onValueChange={setSelectedCategory}
+              value={selectedCategory || "none"} 
+              onValueChange={(val) => setSelectedCategory(val === "none" ? "" : val)}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Selecione uma categoria">
@@ -274,6 +274,7 @@ const EditAgentDialog: React.FC<EditAgentDialogProps> = ({
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="none">Nenhuma categoria</SelectItem>
                 {categories.map((cat) => (
                   <SelectItem key={cat.id} value={String(cat.id)}>
                     {cat.name}
