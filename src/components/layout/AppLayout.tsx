@@ -224,13 +224,19 @@ const AppLayout = () => {
       .from("agents")
       .insert({ ...newAgentData, user_id: userId })
       .select();
+
     if (error) {
       toast.error("Erro ao adicionar agente: " + error.message);
     } else {
       if (data && data.length > 0) {
         setAgents((prev) => [...prev, data[0] as Agent]);
+        
+        // Se houver uma nova categoria criada ou se o usuário quiser vincular a uma, 
+        // poderíamos fazer isso aqui. Por enquanto, apenas navegamos para o chat se for o caso.
+        toast.success(`Agente '${newAgentData.title}' adicionado com sucesso!`);
+        // Opcional: navegar para o chat do novo agente imediatamente
+        // navigate(`/app/chat/${data[0].id}`);
       }
-      toast.success(`Agente '${newAgentData.title}' adicionado com sucesso!`);
     }
   };
 
