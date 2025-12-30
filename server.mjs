@@ -141,7 +141,7 @@ async function generateEmbeddings(chunks) {
 }
 
 // 4️⃣ Busca semântica com pgvector - ROBUSTA (Cosine)
-async function searchSimilarChunks(queryEmbedding, agentId, limit = 12) {
+async function searchSimilarChunks(queryEmbedding, agentId, limit = 15) {
   try {
     const embeddingString = '[' + queryEmbedding.join(',') + ']';
     
@@ -1197,11 +1197,11 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
                   input: content
                 });
 
-                // Buscar chunks similares - aumentado para 12 para melhor cobertura (Visão Panorâmica)
+                // Buscar chunks similares - aumentado para 15 para melhor cobertura (Visão Panorâmica)
                 relevantContext = await searchSimilarChunks(
                   queryEmbedding.data[0].embedding,
                   agentId,
-                  12
+                  15
                 );
               }
 

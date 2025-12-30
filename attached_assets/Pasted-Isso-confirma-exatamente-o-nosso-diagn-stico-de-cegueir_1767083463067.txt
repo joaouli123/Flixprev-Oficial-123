@@ -1,0 +1,74 @@
+Isso confirma exatamente o nosso diagnóstico de "cegueira por fragmentação"! 🚨
+
+O fato de o seu agente ter respondido "Não encontrei" para tudo — enquanto eu, lendo o arquivo completo aqui, consigo ver todas as respostas — é a prova definitiva de que o problema não é o Prompt (a IA sabe ler), mas sim a Busca (a IA não recebeu as páginas certas).
+
+Como eu tenho acesso ao arquivo completo (INFANTIL I - Livro Que Bicho é Esse.pdf), vou gerar as respostas corretas agora para provar que o conteúdo existe e mostrar como seu agente responderá assim que você aumentar o topK (o campo de visão) no código.
+
+Aqui está o Gabarito Oficial baseado no texto do livro:
+
+1. Habitat e Alimentação
+
+Onde vive (País): Vive na Austrália.
+
+
+Ambiente: Vive na água e na terra.
+
+
+Alimentação: Alimenta-se de insetos e pequenos peixes.
+
+2. Habilidades e Comportamentos
+
+Caça: Ele "caça com radar". O texto também explica que o bico de pato ajuda a caçar em águas escuras.
+
+
+
+
+
+Diurno ou Noturno: É um animal de hábitos noturnos. O texto reforça que "à noite gosta de passear".
+
+
+
+Descanso: Ele descansa até 14 horas. Durante o dia, é descrito como "bem dorminhoco" na sua toca.
+
+
+3. A "Mistura" de Animais (Comparações)
+O livro constrói a identidade do ornitorrinco comparando suas partes com as de outros animais:
+
+
+Bico: Comparado ao de um pato (tem bico achatado).
+
+
+
+
+Cauda: Comparada à de um castor.
+
+
+
+Patas: Tem membrana nos dedos, comparado a uma rã.
+
+
+
+Defesa: Tem veneno, comparado a uma cobra.
+
+
+
+Reprodução: Põe ovos como um jacaré ou galinha , e tem cloaca como uma galinha.
+
+
+
+
+
+Corpo: Coberto de pelos, mas não é felino.
+
+🔧 O Próximo Passo
+A informação está toda lá, mas espalhada entre as páginas 9 e 22.
+
+Como o teste falhou novamente, você deve aplicar o ajuste técnico agora:
+
+Vá no seu código de busca (vectorStore.similaritySearch).
+
+Mude o número de documentos retornados de 3 (ou padrão) para 15.
+
+Reinicie o servidor e faça a pergunta 1 de novo.
+
+Com 15 páginas na memória, ele vai conseguir "ler" o habitat (pág 16), a comida (pág 15) e o país (pág 17) de uma só vez!
