@@ -295,48 +295,22 @@ function isAcademicAuthorityQuestion(question) {
  * Para perguntas acadêmicas, exige citação literal
  */
 function validateCitationWithProof(responseText, contextText, question) {
-  // Se é pergunta acadêmica, EXIGE que a resposta contenha um trecho
-  if (isAcademicAuthorityQuestion(question)) {
-    // Procurar por padrão "AUTOR (YYYY)"
-    const citationPattern = /([A-Z][a-záàâãéèêíïóôõöúçñ\s]+)\s*\(\d{4}\)/;
-    const citationMatch = responseText.match(citationPattern);
+  // Procurar por padrão "AUTOR (YYYY)" na pergunta
+  const citationPattern = /([A-Z][a-záàâãéèêíïóôõöúçñ\s]+)\s*\(\d{4}\)/;
+  const citationMatch = question.match(citationPattern);
+  
+  if (citationMatch) {
+    const citedYear = citationMatch[0].match(/\(\d{4}\)/)[0];
     
-    if (citationMatch) {
-      const citedAuthor = citationMatch[1].trim();
-      const citedYear = citationMatch[0].match(/\(\d{4}\)/)[0];
-      
-      // Verificar se EXATAMENTE ESSE padrão está no contexto
-      if (!contextText.includes(citedYear)) {
-        console.log(`[CITATION PROOF] 🚨 FALHA: Citação "${citationMatch[0]}" não existe no contexto`);
-        return false;
-      }
-      
-      // Verificar se há EXPLICAÇÃO no contexto (não só a citação, mas a definição)
-      // Procurar por linhas que contêm a citação E contêm conteúdo explicativo
-      const contextLines = contextText.split('\n');
-      let foundWithExplanation = false;
-      
-      for (let i = 0; i < contextLines.length; i++) {
-        if (contextLines[i].includes(citedYear)) {
-          // Verificar se a linha próxima (ou a mesma) tem conteúdo explicativo
-          const relevantText = contextLines.slice(Math.max(0, i - 2), Math.min(contextLines.length, i + 3)).join(' ');
-          // Se tem mais de 50 caracteres de explicação, é considerado "prova"
-          if (relevantText.length > 50) {
-            foundWithExplanation = true;
-            break;
-          }
-        }
-      }
-      
-      if (!foundWithExplanation) {
-        console.log(`[CITATION PROOF] 🚨 FALHA: Citação existe mas definição não está no contexto`);
-        return false;
-      }
-    } else {
-      // Pergunta exige citação mas resposta não cita ninguém
-      console.log(`[CITATION PROOF] 🚨 FALHA: Pergunta acadêmica sem citação na resposta`);
+    // Verificar se pelo menos o ano existe no contexto
+    if (!contextText.includes(citedYear)) {
+      console.log(`[CITATION PROOF] 🚨 FALHA: Citação "${citationMatch[0]}" não existe no contexto`);
       return false;
     }
+    
+    // Se o ano existe, permitimos a resposta ser gerada, confiando no modelo
+    // Removemos o check de "foundWithExplanation" que era muito rígido
+    return true;
   }
   
   return true;
@@ -785,17 +759,22 @@ function validateOutput(text, hasContext = true, question = '', questionType = '
     }
   }
 
-  // Check 2: Validação de citações com PROVA TEXTUAL
+  // Check 2: Validação de citações com PROVA TEXTUAL (SUAVIZADA)
   if (!blocked && hasContext && context) {
-    if (!validateCitationWithProof(text, context, question)) {
-      console.log(`[VALIDATOR-2] 🚨 Bloqueando: citação sem prova no contexto. Pergunta: "${question}"`);
-      finalResponse = getRandomNegativeResponse(question);
-      hasContext = false;
-      blocked = true;
+    // Só bloqueamos se for uma pergunta acadêmica explícita (Segundo Autor YYYY) 
+    // e o autor/ano NÃO existir de forma alguma no contexto.
+    if (isAcademicAuthorityQuestion(question)) {
+      if (!validateCitationWithProof(text, context, question)) {
+        console.log(`[VALIDATOR-2] 🚨 Bloqueando: citação acadêmica sem prova no contexto. Pergunta: "${question}"`);
+        finalResponse = getRandomNegativeResponse(question);
+        hasContext = false;
+        blocked = true;
+      }
     }
   }
 
-  // Check 3: Bloqueio de sínteses perigosas
+  // Check 3: Bloqueio de sínteses perigosas (DESATIVADO PARA MAIOR FLEXIBILIDADE)
+  /*
   if (!blocked && hasContext && context) {
     if (hasUnprovenClaim(text, context)) {
       console.log(`[VALIDATOR-3] 🚨 Bloqueando: afirmação não comprovada (síntese perigosa)`);
@@ -804,6 +783,7 @@ function validateOutput(text, hasContext = true, question = '', questionType = '
       blocked = true;
     }
   }
+  */
 
   // Aplicar Response Orchestrator (camada final)
   finalResponse = orchestrateResponse(finalResponse, questionType, hasContext);
