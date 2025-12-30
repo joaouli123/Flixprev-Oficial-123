@@ -226,9 +226,9 @@ const ChatPage = () => {
   };
 
   return (
-    <div className="flex w-full h-[100dvh] overflow-hidden bg-gray-50/30 dark:bg-slate-900/30 fixed inset-0">
+    <div className="flex w-full h-full overflow-hidden bg-gray-50/30 dark:bg-slate-900/30 relative">
       <ChatSidebar agentId={agentId!} currentConversationId={conversationId} />
-      <div className="flex flex-col flex-1 h-full overflow-hidden relative">
+      <div className="flex flex-col flex-1 h-full overflow-hidden relative min-w-0 bg-white dark:bg-slate-950">
       {/* Header */}
       <div className="flex-shrink-0 border-b bg-white dark:bg-slate-950 px-3 py-2 sm:px-4 sm:py-3 z-20">
         <div className="flex items-center justify-between gap-2 sm:gap-4">
