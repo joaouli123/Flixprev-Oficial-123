@@ -126,13 +126,14 @@ export function registerChatRoutes(app: Express): void {
       
       console.log(`[CHAT API] Updating conversation ${id} title to: ${title}`);
       
+      // Update in DB
       const result = await pool.query(
         'UPDATE conversations SET title = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING *',
         [title, id]
       );
       
       if (result.rows.length === 0) {
-        // Se não achou no DB, pode ser que estejamos em memória
+        // Fallback for in-memory or if record not found in DB
         const conversation = await chatStorage.getConversation(id);
         if (conversation) {
           conversation.title = title;
@@ -146,7 +147,7 @@ export function registerChatRoutes(app: Express): void {
       res.json(result.rows[0]);
     } catch (error: any) {
       console.error("Error updating conversation:", error);
-      res.status(500).json({ error: "Failed to update conversation" });
+      res.status(500).json({ error: "Failed to update conversation: " + error.message });
     }
   });
 

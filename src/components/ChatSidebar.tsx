@@ -79,6 +79,7 @@ export const ChatSidebar = ({ agentId, currentConversationId }: ChatSidebarProps
       return;
     }
     try {
+      console.log(`[SIDEBAR] Saving new title for conversation ${convId}: ${editingTitle}`);
       const res = await fetch(`/api/conversations/${convId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -86,14 +87,20 @@ export const ChatSidebar = ({ agentId, currentConversationId }: ChatSidebarProps
       });
       
       if (!res.ok) {
-        throw new Error("Falha ao salvar título");
+        const errorData = await res.json().catch(() => ({ error: "Unknown error" }));
+        throw new Error(errorData.error || "Falha ao salvar título");
       }
       
       const updatedConv = await res.json();
+      console.log("[SIDEBAR] Conversation updated successfully:", updatedConv);
+      
       setConversations(prev => prev.map(c => c.id === convId ? { ...c, title: updatedConv.title } : c));
       setEditingId(null);
-    } catch (error) {
+      // Forçar recarga para garantir sincronia
+      loadConversations();
+    } catch (error: any) {
       console.error("Erro ao editar conversa:", error);
+      alert(`Erro ao renomear conversa: ${error.message}`);
     }
   };
 
