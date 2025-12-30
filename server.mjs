@@ -441,21 +441,23 @@ const responsePatterns = {
  * - Manter apenas ajustes visuais necessários
  */
 function orchestrateResponse(rawResponse, questionType, hasContext = true) {
-  // 1. Se não tem contexto ou resposta vazia, manda a negativa elegante
+  // Se resposta está vazia e não há contexto, retorna resposta negativa humanizada
   if (!hasContext || !rawResponse || rawResponse.trim().length === 0) {
     return getRandomNegativeResponse();
   }
 
-  // 2. MANTÉM A RESPOSTA ORIGINAL (Aqui está o segredo!)
-  // Não adicionamos mais "anchorPhrases" nem prefixos robóticos.
+  // Deixar o LLM decidir a formatação - apenas aplicar ajustes visuais se necessário
   let formattedResponse = rawResponse;
 
-  // 3. Apenas garantimos a formatação visual de listas (se houver bullets)
-  if (questionType === 'factual' && (rawResponse.includes('•') || rawResponse.includes('- '))) {
+  // Garantir formatação visual adequada apenas quando necessário
+  if (questionType === 'factual' && (rawResponse.includes(',') || rawResponse.includes(';'))) {
+    // Converter listas separadas por vírgula em bullets apenas se parecer ser uma lista
     formattedResponse = ensureProperListFormat(rawResponse);
   }
 
-  // 4. Retorna o texto puro, do jeito que o GPT gerou
+  // Remover frases de ancoragem robóticas se existirem
+  formattedResponse = removeRoboticPhrases(formattedResponse);
+
   return formattedResponse;
 }
 
