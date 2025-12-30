@@ -130,46 +130,43 @@ export function registerChatRoutes(app: Express): void {
         return res.status(400).json({ error: "Título não pode ser vazio" });
       }
       
-      // Update in DB - Tentar primeiro como inteiro, depois como string
-      let result;
+      const trimmedTitle = title.trim();
       const numericId = parseInt(id);
       
-      try {
-        if (!isNaN(numericId)) {
-          result = await pool.query(
-            'UPDATE conversations SET title = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING *',
-            [title.trim(), numericId]
-          );
-        }
-        
-        if (!result || result.rows.length === 0) {
-          result = await pool.query(
-            'UPDATE conversations SET title = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING *',
-            [title.trim(), id]
-          );
-        }
-      } catch (err) {
-        console.error(`[CHAT API] DB update error for ${id}:`, err.message);
+      // Tentativa 1: Update direto com ID como fornecido (pode ser string no banco)
+      let result = await pool.query(
+        'UPDATE conversations SET title = $1, updated_at = CURRENT_TIMESTAMP WHERE id::text = $2 RETURNING *',
+        [trimmedTitle, id]
+      );
+      
+      // Tentativa 2: Se falhar e for numérico, tentar como inteiro
+      if (result.rows.length === 0 && !isNaN(numericId)) {
+        console.log(`[CHAT API] Tentativa 2: UPDATE com ID numérico ${numericId}`);
+        result = await pool.query(
+          'UPDATE conversations SET title = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING *',
+          [trimmedTitle, numericId]
+        );
       }
       
-      if (!result || result.rows.length === 0) {
+      if (result.rows.length === 0) {
         // Fallback para memória
         const conversation = await chatStorage.getConversation(!isNaN(numericId) ? numericId : -1);
         if (conversation) {
-          conversation.title = title.trim();
+          conversation.title = trimmedTitle;
           conversation.updated_at = new Date().toISOString();
           console.log(`[CHAT API] Updated in-memory conversation ${id}`);
           return res.json(conversation);
         }
         
-        return res.status(404).json({ error: "Conversa não encontrada para renomear" });
+        console.error(`[CHAT API] Conversa ${id} não encontrada em NENHUM lugar`);
+        return res.status(404).json({ error: "Conversa não encontrada" });
       }
       
       console.log(`[CHAT API] Sucesso ao renomear ${id}`);
       res.json(result.rows[0]);
     } catch (error: any) {
       console.error("Error updating conversation:", error);
-      res.status(500).json({ error: "Falha ao atualizar conversa: " + error.message });
+      res.status(500).json({ error: "Erro interno: " + error.message });
     }
   });
 
