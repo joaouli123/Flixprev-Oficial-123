@@ -7,9 +7,17 @@ const dbUrl = process.env.NODE_ENV === 'production'
   ? process.env.PROD_DATABASE_URL 
   : process.env.DATABASE_URL;
 
+console.log('[DB] Environment:', process.env.NODE_ENV);
+console.log('[DB] Using database URL:', dbUrl ? '✅ Configurado' : '❌ NÃO CONFIGURADO');
+
 const pool = new Pool({
   connectionString: dbUrl,
 });
+
+// Test connection on startup
+pool.query('SELECT 1')
+  .then(() => console.log('[DB] ✅ Conexão com banco de dados bem-sucedida'))
+  .catch(err => console.error('[DB] ❌ Erro ao conectar:', err.message));
 
 router.post('/db', async (req: Request, res: Response) => {
   const { table, operation, columns, insertData, updateData, filters, orderColumn, orderAsc, limit, countExact, maybeOne } = req.body;
