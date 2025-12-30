@@ -588,6 +588,12 @@ CAMADA 1 + 4: INTELIGÊNCIA PERCEBIDA + FEEDBACK
 - Se possível, cite ou parafraseie o trecho relevante
 - Organize a resposta para ser "escaneável"
 
+✨ REGRA CRÍTICA PARA CITAÇÕES:
+- Se a resposta menciona um autor ou ano (ex: "Ensslin (2010)"), 
+  a informação DEVE estar EXATAMENTE no documento fornecido
+- Não interpole, não complete, não invente definições
+- Se a citação existe mas a definição não está no contexto, NEGAR
+
 ✨ Quando NÃO houver informação:
 - Sempre comece explicando o que ENCONTROU ("O documento trata de...")
 - Depois explique o limite ("...mas não entra nesse ponto específico")
@@ -596,7 +602,8 @@ CAMADA 1 + 4: INTELIGÊNCIA PERCEBIDA + FEEDBACK
 REGRA DE OURO:
 - Você pode variar: a frase, o tom, a fluidez
 - Você NÃO pode variar: a fonte, a verdade, o escopo
-- NUNCA invente informações que não estão no documento.`;
+- NUNCA invente informações que não estão no documento
+- NUNCA complete ou interpole citações`;
 
   const contextBlock = (context && context.trim().length > 0)
     ? `[INÍCIO DO CONTEXTO]\n${context}\n[FIM DO CONTEXTO]`
@@ -624,11 +631,31 @@ RESPONDA AGORA (apenas com base no contexto acima):
 ═══════════════════════════════════════════════════════════════════`;
 }
 
-// 6️⃣ VALIDADOR + ORCHESTRATOR (PIPELINE FINAL)
-function validateOutput(text, hasContext = true, question = '', questionType = 'general', contextSize = 0, chunksUsed = 0) {
+// 🔍 VALIDADOR DE CITAÇÕES (Anti-Alucinação Silenciosa)
+function validateCitations(responseText, contextText) {
+  // Detectar padrão "AUTOR (YYYY)"
+  const citationPattern = /([A-Z][a-záàâãéèêíïóôõöúçñ\s]+)\s*\(\d{4}\)/g;
+  const citations = responseText.match(citationPattern) || [];
+  
+  for (const citation of citations) {
+    // Extrair apenas o padrão "(YYYY)" para buscar no contexto
+    const simplePattern = citation.match(/\(\d{4}\)/)?.[0];
+    
+    if (simplePattern && !contextText.includes(simplePattern)) {
+      // Citação inventada - não existe no documento!
+      console.log(`[CITATION VALIDATOR] 🚨 ALUCINAÇÃO DETECTADA: "${citation}" não existe no contexto`);
+      return false;
+    }
+  }
+  
+  return true;
+}
+
+// 6️⃣ VALIDADOR + ORCHESTRATOR (PIPELINE FINAL - MELHORADO)
+function validateOutput(text, hasContext = true, question = '', questionType = 'general', contextSize = 0, chunksUsed = 0, context = '') {
   const startTime = Date.now();
   
-  // Apenas bloqueia respostas que claramente indicam alucinação fora do escopo
+  // Padrões de alucinação severa
   const severeAllucinationPatterns = [
     /de acordo com meu conhecimento/i,
     /em minha opinião/i,
@@ -639,6 +666,7 @@ function validateOutput(text, hasContext = true, question = '', questionType = '
 
   let finalResponse = text;
 
+  // Check 1: Padrões severos de alucinação
   for (const pattern of severeAllucinationPatterns) {
     if (pattern.test(text)) {
       console.log(`[VALIDATOR] Bloqueando resposta: padrão de alucinação severa detectado`);
@@ -646,6 +674,13 @@ function validateOutput(text, hasContext = true, question = '', questionType = '
       hasContext = false;
       break;
     }
+  }
+
+  // Check 2: Validação de citações (novo - anti-alucinação silenciosa)
+  if (hasContext && context && !validateCitations(text, context)) {
+    console.log(`[VALIDATOR] Bloqueando resposta: citação inventada detectada`);
+    finalResponse = getRandomNegativeResponse(question);
+    hasContext = false;
   }
 
   // Aplicar Response Orchestrator (camada final)
@@ -1189,7 +1224,8 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
     }
 
     // Aplicar Validação de Saída (Anti-Alucinação) com Response Orchestrator
-    const validatedResp = validateOutput(fullResp, hasContext, content, questionType, contextSize, chunksUsed);
+    // Passar o contexto para validação de citações
+    const validatedResp = validateOutput(fullResp, hasContext, content, questionType, contextSize, chunksUsed, relevantContext || '');
     
     // Salvar resposta do assistente (validada)
     await pool.query(
