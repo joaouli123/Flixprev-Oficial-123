@@ -70,8 +70,22 @@ const ChatPage = () => {
             setMessages(formattedMsgs);
           }
         } else {
-          // Criar nova conversa
-          console.log("[CHAT] Creating conversation for agent:", agent?.title, "ID:", agentId);
+          // Tentar encontrar a última conversa deste agente antes de criar uma nova
+          console.log("[CHAT] Checking for existing conversations for agent:", agentId);
+          const conversationsRes = await fetch(`/api/conversations?agentId=${agentId}`);
+          if (conversationsRes.ok) {
+            const conversations = await conversationsRes.json();
+            if (conversations && conversations.length > 0) {
+              const lastConv = conversations[0]; // Assumindo que o backend retorna ordenado por data descendente
+              console.log("[CHAT] Found existing conversation, redirecting:", lastConv.id);
+              setConversationId(lastConv.id);
+              navigate(`/app/chat/${agentId}/${lastConv.id}`, { replace: true });
+              return;
+            }
+          }
+
+          // Criar nova conversa se não existir nenhuma
+          console.log("[CHAT] No existing conversation found. Creating new one for agent:", agent?.title, "ID:", agentId);
           const response = await fetch("/api/conversations", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
