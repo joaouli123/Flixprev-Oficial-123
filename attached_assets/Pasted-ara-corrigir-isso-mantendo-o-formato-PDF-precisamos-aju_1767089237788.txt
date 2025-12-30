@@ -1,0 +1,67 @@
+ara corrigir isso mantendo o formato PDF, precisamos ajustar como o Node.js lê o arquivo. O pdf-parse por padrão pode falhar em arquivos longos ou com tabelas complexas (comum no Planalto) porque ele tenta carregar tudo de uma vez no buffer.
+
+Aqui estão as três alterações que você deve fazer no seu server.mjs para "destravar" a leitura de PDFs longos:
+
+1. Aumentar o limite do Buffer no extractPdfText
+O pdf-parse permite desativar limites de páginas e buffers. Altere a chamada na sua função:
+
+JavaScript
+
+async function extractPdfText(filePath) {
+  try {
+    const fileBuffer = await fs.promises.readFile(filePath);
+    
+    // Opções para forçar a leitura de todas as páginas sem interrupção
+    const options = {
+        pagerender: function(pageData) {
+            return pageData.getTextContent()
+                .then(function(textContent) {
+                    return textContent.items.map(item => item.str).join(' ');
+                });
+        }
+    };
+
+    const data = await pdfParse(fileBuffer); // O pdf-parse padrão já tenta ler tudo, mas vamos validar
+    let text = data.text || '';
+    
+    // LOG DE DEBUG ESSENCIAL
+    console.log(`[DEBUG PDF] Arquivo: ${path.basename(filePath)}`);
+    console.log(`[DEBUG PDF] Páginas lidas: ${data.numpages}`);
+    console.log(`[DEBUG PDF] Caracteres totais: ${text.length}`);
+
+    // ... restante do seu código de limpeza (Regex)
+2. Verificar o limite de Payload do Express
+Se o PDF for grande, o Express pode estar "cortando" a requisição antes dela chegar no banco. No topo do seu arquivo, onde você configurou o app.use, aumente os limites:
+
+JavaScript
+
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
+3. Ajuste no multer (Timeout)
+Arquivos longos demoram mais para serem processados. Garanta que o servidor não feche a conexão:
+
+JavaScript
+
+// Adicione isso logo após o app.listen no final do arquivo
+const server = app.listen(PORT, '0.0.0.0', () => {
+  console.log(`✅ Server on http://localhost:${PORT}`);
+});
+
+server.timeout = 600000; // 10 minutos para processar PDFs pesados
+Por que o seu log mostrou apenas 77k caracteres?
+Provavelmente o PDF do Planalto tem uma página corrompida ou um elemento gráfico (como o brasão da República) que o extrator padrão não soube pular.
+
+Dica Profissional: Se após essas mudanças o log continuar mostrando 77648 caracteres para a LRF, o problema não é o código, é a biblioteca. O pdf-parse é antigo (baseado no PDF.js de 2015).
+
+Se não quiser usar .txt, a solução definitiva é instalar o pdf-js-extract ou pdf-reader, que são mais modernos e ignoram erros de renderização para focar apenas no texto bruto.
+
+Próximo passo para você:
+Aplique o console.log das páginas lidas (item 1).
+
+Tente o upload da LRF novamente.
+
+Se o número de páginas for menor que o real do PDF (aprox. 30 páginas no formato do Planalto), você saberá que o leitor "engasgou" em algum gráfico no meio do caminho.
+
+Deseja que eu escreva a versão do código usando uma biblioteca mais robusta caso essa continue falhando?
+
+Meta-descrição: Ajustes técnicos no Node.js e Express para evitar o truncamento de texto em uploads de PDFs longos.
