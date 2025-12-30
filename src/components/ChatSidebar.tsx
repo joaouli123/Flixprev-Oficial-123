@@ -166,7 +166,10 @@ export const ChatSidebar = ({ agentId, currentConversationId }: ChatSidebarProps
                   </div>
                 ) : (
                   <div
-                    onClick={() => navigate(`/app/chat/${agentId}/${conv.id}`)}
+                    onClick={() => {
+                      console.log(`[SIDEBAR] Navigating to conversation ${conv.id}`);
+                      navigate(`/app/chat/${agentId}/${conv.id}`);
+                    }}
                     className={cn(
                       "w-full text-left px-3 py-2 rounded-md text-sm transition-colors flex items-center justify-between group hover-elevate cursor-pointer",
                       currentConversationId === conv.id

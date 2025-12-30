@@ -50,15 +50,19 @@ export function registerChatRoutes(app: Express): void {
     console.log('[CHAT API] GET /api/conversations', agentId ? `for agent ${agentId}` : '');
     try {
       let conversations;
-      if (agentId) {
-        try {
-          const result = await pool.query('SELECT * FROM conversations WHERE agent_id = $1 ORDER BY created_at DESC', [agentId]);
-          conversations = result.rows;
-        } catch (e) {
-          // Fallback if column doesn't exist yet
-          conversations = await chatStorage.getAllConversations();
+      // Sempre tentamos buscar do banco primeiro, filtrando por agent_id se fornecido
+      try {
+        let query = 'SELECT * FROM conversations';
+        let params = [];
+        if (agentId) {
+          query += ' WHERE agent_id = $1';
+          params.push(agentId);
         }
-      } else {
+        query += ' ORDER BY created_at DESC';
+        const result = await pool.query(query, params);
+        conversations = result.rows;
+      } catch (dbErr) {
+        console.warn('[CHAT API] DB query failed, falling back to storage helper:', dbErr);
         conversations = await chatStorage.getAllConversations();
       }
       res.json(conversations);
@@ -134,6 +138,7 @@ export function registerChatRoutes(app: Express): void {
       
       if (result.rows.length === 0) {
         // Fallback for in-memory or if record not found in DB
+        // Verificamos no storage helper também
         const conversation = await chatStorage.getConversation(id);
         if (conversation) {
           conversation.title = title.trim();
@@ -141,7 +146,14 @@ export function registerChatRoutes(app: Express): void {
           console.log(`[CHAT API] Updated in-memory conversation ${id}`);
           return res.json(conversation);
         }
-        return res.status(404).json({ error: "Conversa não encontrada" });
+        
+        // Se ainda não encontrou, talvez o ID seja do storage.ts mas a rota está usando o Pool local
+        // Vamos tentar buscar sem o agent_id
+        const fallbackResult = await pool.query('SELECT * FROM conversations WHERE id = $1', [id]);
+        if (fallbackResult.rows.length === 0) {
+           console.error(`[CHAT API] Conversation ${id} NOT FOUND in any storage`);
+           return res.status(404).json({ error: "Conversa não encontrada no sistema" });
+        }
       }
       
       res.json(result.rows[0]);
