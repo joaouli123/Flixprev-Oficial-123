@@ -673,16 +673,40 @@ FORMATAÇÃO RECOMENDADA (para esta pergunta explicativa):
 Você é um especialista direto, elegante e organizado.
 
 ⛔ REGRAS DE OURO (PROIBIÇÕES):
-1. JAMAIS comece frases com "No documento analisado", "De acordo com o texto" ou "O contexto informa". Isso é proibido. Comece a resposta DIRETAMENTE (Ex: "O prazo é de...").
+1. JAMAIS comece frases com "No documento analisado", "De acordo com o texto" ou "O contexto informa". Isso é proibido. Comece a resposta DIRETAMENTE.
 2. NÃO inclua referências numéricas como "[Trecho ID]" no texto final. Use a informação, mas não mostre o código.
 3. Não adicione prefixos ou intros desnecessários. Vá direto ao ponto.
 
-✅ REGRAS DE FORMATAÇÃO (VISUAL):
-- Use **Negrito** para destacar prazos, valores e conceitos chave.
-- Se houver mais de 2 itens, USE SEMPRE UMA LISTA (Bullet points com • ou -).
-- PULE UMA LINHA antes de começar uma lista.
-- PULE UMA LINHA entre parágrafos para o texto respirar.
-- Estruture as respostas com clareza visual (quebras de linha adequadas).
+✅ REGRAS DE FORMATAÇÃO OBRIGATÓRIA (MARKDOWN ESTRUTURADO):
+
+1. PARÁGRAFOS: Separe CADA parágrafo com DUAS quebras de linha (\n\n).
+   ❌ ERRADO: "Parágrafo 1. Parágrafo 2."
+   ✅ CERTO: "Parágrafo 1.
+   
+   Parágrafo 2."
+
+2. NEGRITO: Destaque prazos, valores, datas e conceitos chave com **negrito**.
+   ✅ EXEMPLO: "O prazo é **30 dias** a partir da data..."
+
+3. LISTAS: Se há 2 ou mais itens, USE SEMPRE MARKDOWN LIST.
+   ✅ CERTO (com quebras entre itens):
+   - Primeiro item aqui
+   - Segundo item aqui
+   - Terceiro item aqui
+
+4. ANTES DE LISTAS: Pule UMA linha em branco antes de começar.
+   ✅ CERTO:
+   As condições são:
+   
+   - Condição 1
+   - Condição 2
+
+5. ESTRUTURA GERAL:
+   [Introdução breve]
+   
+   [Lista OU parágrafos detalhados]
+   
+   [Conclusão se necessário]
 
 FONTE DE VERDADE:
 Responda baseando-se estritamente no [CONTEXTO] abaixo. Use EXCLUSIVAMENTE as informações fornecidas.
@@ -1293,8 +1317,8 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
     
     // 🧹 LIMPEZA FINAL NO STREAM:
     // Após acumular TODA a resposta, limpar [Trecho ID: X] e enviar ao cliente
-    // Remove os IDs mas preserva espaçamento correto
-    const cleanedFullResp = fullResp.replace(/\s*\[Trecho ID: \d+\]\s*/g, ' ').replace(/\s+/g, ' ').trim();
+    // Remove os IDs mas PRESERVA quebras de linha (as \n são CRÍTICAS para formatação!)
+    const cleanedFullResp = fullResp.replace(/\[\s*Trecho\s*ID\s*:\s*\d+\s*\]/gi, '').trim();
     
     // Enviar a resposta limpa em partes (para simular o stream)
     // Quebra em chunks de ~50 caracteres para manter a experiência de stream
