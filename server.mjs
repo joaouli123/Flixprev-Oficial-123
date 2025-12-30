@@ -47,7 +47,7 @@ const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 // 1️⃣ Extrair PDF
 async function extractPdfText(filePath) {
   try {
-    const fileBuffer = fs.readFileSync(filePath);
+    const fileBuffer = await fs.promises.readFile(filePath);
     const data = await pdfParse(fileBuffer);
     const text = data.text || '';
     
@@ -68,30 +68,47 @@ async function extractPdfText(filePath) {
   }
 }
 
-// 2️⃣ Chunking (tamanho=800, overlap=300 para melhor contexto)
+// 2️⃣ Chunking Inteligente (Respeita frases e palavras)
 function chunkText(text, size = 800, overlap = 300) {
   if (!text || text.trim().length === 0) {
     console.warn('[CHUNK] Texto vazio, nenhum chunk criado.');
     return [];
   }
-  
+
+  // Normalizar espaços em branco
+  const cleanText = text.replace(/\s+/g, ' ').trim();
   const chunks = [];
   let start = 0;
-  while (start < text.length) {
-    const chunk = text.slice(start, start + size);
-    if (chunk.trim().length > 0) {
+
+  while (start < cleanText.length) {
+    let end = start + size;
+
+    // Se não estamos no final do texto, tentar recuar até o último ponto final ou espaço
+    if (end < cleanText.length) {
+      // Tentar encontrar o último ponto final dentro da margem de segurança (últimos 20% do chunk)
+      const lastPeriod = cleanText.lastIndexOf('.', end);
+      const lastSpace = cleanText.lastIndexOf(' ', end);
+
+      if (lastPeriod > start + (size * 0.8)) {
+        end = lastPeriod + 1; // Inclui o ponto
+      } else if (lastSpace > start + (size * 0.5)) {
+        end = lastSpace; // Corta no espaço
+      }
+    }
+
+    const chunk = cleanText.slice(start, end).trim();
+    if (chunk.length > 0) {
       chunks.push(chunk);
     }
-    start += size - overlap;
+
+    // Avança para o próximo, considerando o overlap
+    start = end - overlap;
+    
+    // Proteção contra loop infinito se o overlap for maior que o chunk
+    if (start >= end) start = end;
   }
-  
-  console.log('--- TESTE DE CHUNKING ---');
-  console.log(`Total de chunks: ${chunks.length}`);
-  chunks.slice(0, 3).forEach((c, i) => {
-    console.log(`Chunk ${i + 1}: ${c.length} caracteres`);
-  });
-  console.log('-------------------------');
-  
+
+  console.log(`[CHUNK] Gerados ${chunks.length} chunks inteligentes.`);
   return chunks;
 }
 
@@ -123,16 +140,16 @@ async function generateEmbeddings(chunks) {
   return embeddings;
 }
 
-// 4️⃣ Busca semântica com pgvector - ROBUSTA
+// 4️⃣ Busca semântica com pgvector - ROBUSTA (Cosine)
 async function searchSimilarChunks(queryEmbedding, agentId, limit = 20) {
   try {
     const embeddingString = '[' + queryEmbedding.join(',') + ']';
     
     const result = await pool.query(`
-      SELECT content
+      SELECT content, chunk_index, 1 - (embedding <=> $2::vector) as similarity
       FROM document_chunks
       WHERE agent_id = $1
-      ORDER BY embedding <-> $2::vector
+      ORDER BY embedding <=> $2::vector
       LIMIT $3
     `, [agentId, embeddingString, limit]);
     
@@ -142,14 +159,15 @@ async function searchSimilarChunks(queryEmbedding, agentId, limit = 20) {
     
     if (result.rows.length > 0) {
       result.rows.slice(0, 3).forEach((r, i) => {
-        console.log(`Chunk ${i + 1}: ${r.content.substring(0, 60).replace(/\n/g, ' ')}...`);
+        console.log(`Chunk ${i + 1} (ID: ${r.chunk_index}, Sim: ${r.similarity.toFixed(3)}): ${r.content.substring(0, 60).replace(/\n/g, ' ')}...`);
       });
     } else {
       console.warn('⚠️ AVISO: NENHUM CHUNK ENCONTRADO PARA ESTA PERGUNTA!');
     }
     console.log('----------------------------------');
     
-    return result.rows.map(r => r.content).join('\n\n---\n\n');
+    // Retornar com IDs para citação
+    return result.rows.map(r => `[Trecho ID: ${r.chunk_index}]\n${r.content}`).join('\n\n---\n\n');
   } catch (e) {
     console.error('[SEARCH] Erro fatal na busca vetorial:', e.message);
     return '';
@@ -679,12 +697,13 @@ FORMATAÇÃO OBRIGATÓRIA:
 - Responda APENAS com base no contexto fornecido
 - Seja claro, conciso e objetivo
 - Use listas quando apropriado
-- Cite trechos quando necessário
+- Cite trechos SEMPRE mencionando o ID do trecho, ex: [Trecho ID: 3]
 
 PROIBIDO:
 - Inferências que não estão no texto
 - Conhecimento geral ou "você sabe que"
-- Respostas que parecem certas mas não têm prova no contexto`;
+- Respostas que parecem certas mas não têm prova no contexto
+- Fazer afirmações sem citar a origem [Trecho ID: X]`;
 
   const contextBlock = (context && context.trim().length > 0)
     ? `[INÍCIO DO CONTEXTO]\n${context}\n[FIM DO CONTEXTO]`
@@ -980,7 +999,7 @@ app.post('/api/agents/upload', upload.single('file'), async (req, res) => {
     if (originalname.toLowerCase().endsWith('.pdf')) {
       text = await extractPdfText(fullPath);
     } else {
-      text = fs.readFileSync(fullPath, 'utf-8');
+      text = await fs.promises.readFile(fullPath, 'utf-8');
     }
 
     console.log('--- TESTE DE EXTRAÇÃO (PARTE 1) ---');
@@ -1386,81 +1405,9 @@ app.post('/api/login', (req, res) => {
   return res.status(401).json({ error: 'Email ou senha incorretos' });
 });
 
-// DB ENDPOINT
-app.post('/api/db', async (req, res) => {
-  const { table, operation, columns, insertData, updateData, filters, orderColumn, orderAsc, limit, countExact, maybeOne } = req.body;
-  try {
-    if (!table || !operation) {
-      return res.status(400).json({ data: null, error: { message: 'Table e operation são obrigatórios' } });
-    }
-    if (operation === 'SELECT') {
-      let query = `SELECT ${columns || '*'} FROM "${table}"`;
-      const params = [];
-      let paramIndex = 1;
-      if (filters && filters.length > 0) {
-        query += ' WHERE ';
-        query += filters.map((f) => {
-          params.push(f.value);
-          return `"${f.column}" = $${paramIndex++}`;
-        }).join(' AND ');
-      }
-      if (orderColumn) {
-        query += ` ORDER BY "${orderColumn}" ${orderAsc ? 'ASC' : 'DESC'}`;
-      }
-      if (limit) {
-        query += ` LIMIT ${limit}`;
-      }
-      const result = await pool.query(query, params);
-      if (maybeOne && result.rows.length === 0) {
-        return res.json({ data: null, error: null });
-      }
-      if (countExact) {
-        return res.json({ data: result.rows || [], error: null, count: result.rows?.length || 0 });
-      }
-      return res.json({ data: result.rows || [], error: null });
-    } else if (operation === 'INSERT') {
-      const cols = Object.keys(insertData);
-      const values = Object.values(insertData);
-      const placeholders = values.map((_, i) => `$${i + 1}`).join(', ');
-      const query = `INSERT INTO "${table}" (${cols.map(c => `"${c}"`).join(', ')}) VALUES (${placeholders}) RETURNING *`;
-      const result = await pool.query(query, values);
-      return res.json({ data: result.rows || [], error: null });
-    } else if (operation === 'UPDATE') {
-      const updateColumns = Object.keys(updateData);
-      const updateValues = Object.values(updateData);
-      let paramIndex = updateValues.length + 1;
-      let query = `UPDATE "${table}" SET ${updateColumns.map((col, i) => `"${col}" = $${i + 1}`).join(', ')}`;
-      const params = [...updateValues];
-      if (filters && filters.length > 0) {
-        query += ' WHERE ';
-        query += filters.map((f) => {
-          params.push(f.value);
-          return `"${f.column}" = $${paramIndex++}`;
-        }).join(' AND ');
-      }
-      query += ' RETURNING *';
-      const result = await pool.query(query, params);
-      return res.json({ data: result.rows || [], error: null });
-    } else if (operation === 'DELETE') {
-      let query = `DELETE FROM "${table}"`;
-      const params = [];
-      let paramIndex = 1;
-      if (filters && filters.length > 0) {
-        query += ' WHERE ';
-        query += filters.map((f) => {
-          params.push(f.value);
-          return `"${f.column}" = $${paramIndex++}`;
-        }).join(' AND ');
-      }
-      query += ' RETURNING *';
-      const result = await pool.query(query, params);
-      return res.json({ data: result.rows || [], error: null });
-    }
-  } catch (error) {
-    console.error('DB Error:', error);
-    return res.status(500).json({ data: null, error: { message: error.message || 'Erro na query' } });
-  }
-});
+// 🚨 ENDPOINT /api/db REMOVIDO POR RAZÕES DE SEGURANÇA
+// Este endpoint estava permitindo acesso direto ao banco de dados.
+// Substitua por endpoints específicos com autenticação e validação apropriadas.
 
 // VITE
 const vite = await createServer({

@@ -1,0 +1,140 @@
+O código que você compartilhou é um servidor backend robusto para um sistema RAG (Retrieval-Augmented Generation) usando Node.js, Express, OpenAI e PostgreSQL (pgvector). Ele contém uma lógica avançada de orquestração de respostas, validação anti-alucinação e múltiplas camadas de prompt.
+
+No entanto, identifiquei 3 pontos críticos (incluindo uma falha de segurança grave) e algumas oportunidades de melhoria na qualidade do RAG.
+
+Abaixo estão as correções e otimizações recomendadas:
+
+1. 🚨 CORREÇÃO DE SEGURANÇA CRÍTICA: Endpoint /api/db
+O endpoint /api/db permite que qualquer pessoa execute operações de banco de dados (SELECT, INSERT, UPDATE, DELETE) passando parâmetros via JSON. Mesmo que use queries parametrizadas para os valores, a construção dinâmica de nomes de tabelas e colunas é perigosa, e expor o banco diretamente para o frontend é uma má prática de segurança.
+
+Recomendação: Remova este endpoint ou proteja-o estritamente com middleware de autenticação administrativa. Se precisar dele para desenvolvimento, comente-o em produção.
+
+2. 🧠 MELHORIA DE CHUNKING (Corte Inteligente)
+Sua função chunkText atual usa text.slice. Isso corta palavras no meio (ex: "bananas" vira "ban" + "anas"), o que destrói o sentido semântico para o embedding.
+
+Substitua a função chunkText por esta versão que respeita limites de frases e palavras:
+
+JavaScript
+
+// 2️⃣ Chunking Inteligente (Respeita frases e palavras)
+function chunkText(text, size = 800, overlap = 300) {
+  if (!text || text.trim().length === 0) return [];
+
+  // Normalizar espaços
+  const cleanText = text.replace(/\s+/g, ' ').trim();
+  
+  const chunks = [];
+  let start = 0;
+
+  while (start < cleanText.length) {
+    let end = start + size;
+
+    // Se não estamos no final do texto, tentamos recuar até o último ponto final ou espaço
+    if (end < cleanText.length) {
+      // Tentar encontrar o último ponto final dentro da margem de segurança (últimos 20% do chunk)
+      const lastPeriod = cleanText.lastIndexOf('.', end);
+      const lastSpace = cleanText.lastIndexOf(' ', end);
+
+      if (lastPeriod > start + (size * 0.8)) {
+        end = lastPeriod + 1; // Inclui o ponto
+      } else if (lastSpace > start + (size * 0.5)) {
+        end = lastSpace; // Corta no espaço
+      }
+    }
+
+    const chunk = cleanText.slice(start, end).trim();
+    if (chunk.length > 0) {
+      chunks.push(chunk);
+    }
+
+    // Avança para o próximo, considerando o overlap
+    start = end - overlap;
+    
+    // Proteção contra loop infinito se o overlap for maior que o chunk
+    if (start >= end) start = end; 
+  }
+
+  console.log(`[CHUNK] Gerados ${chunks.length} chunks inteligentes.`);
+  return chunks;
+}
+3. 🔍 MELHORIA NA BUSCA VETORIAL (Distância de Cosseno)
+Você está usando o operador <-> (Distância Euclidiana/L2). Para similaridade de textos com embeddings da OpenAI, a Distância de Cosseno (<=>) geralmente oferece melhores resultados semânticos, a menos que os vetores já estejam normalizados (o que a OpenAI faz, mas é bom garantir).
+
+Atualize a query na função searchSimilarChunks:
+
+JavaScript
+
+// Na função searchSimilarChunks
+const result = await pool.query(`
+  SELECT content, 1 - (embedding <=> $2::vector) as similarity
+  FROM document_chunks
+  WHERE agent_id = $1
+  ORDER BY embedding <=> $2::vector -- Operador de Cosseno
+  LIMIT $3
+`, [agentId, embeddingString, limit]);
+4. ⚡ OTIMIZAÇÃO: Leitura Assíncrona no Upload
+Na rota de upload, você está usando fs.readFileSync, que bloqueia o Event Loop do Node.js. Se dois usuários fizerem upload de arquivos grandes ao mesmo tempo, o servidor vai travar momentaneamente.
+
+Ajuste no endpoint de upload:
+
+JavaScript
+
+// Substituir:
+// const fileBuffer = fs.readFileSync(filePath);
+
+// Por:
+const fileBuffer = await fs.promises.readFile(filePath);
+5. 🛠 CORREÇÃO NO PDF PARSE
+A função extractPdfText usa fs.readFileSync. Ajuste para:
+
+JavaScript
+
+async function extractPdfText(filePath) {
+  try {
+    // Leitura assíncrona
+    const fileBuffer = await fs.promises.readFile(filePath);
+    const data = await pdfParse(fileBuffer);
+    // ... resto do código
+6. 📝 SUGESTÃO PARA O SYSTEM PROMPT (Citações)
+Seu prompt pede para citar trechos, mas o modelo muitas vezes inventa citações se não for forçado. Para melhorar a precisão, você pode injetar o ID do chunk no texto do contexto.
+
+Alteração na montagem do contexto:
+
+Na busca (searchSimilarChunks), retorne o índice também:
+
+JavaScript
+
+// SELECT content, chunk_index FROM ...
+No buildPrompt, monte o contexto com IDs:
+
+JavaScript
+
+const contextBlock = contextChunks.map(c => 
+  `[Trecho ID: ${c.chunk_index}] ${c.content}`
+).join('\n\n');
+No Prompt do Sistema:
+
+Plaintext
+
+Sempre que afirmar algo, cite o ID do trecho de onde tirou a informação, ex: [Trecho ID: 5].
+Resumo das Dependências Necessárias
+Para rodar este código, certifique-se de que seu package.json tenha:
+
+JSON
+
+{
+  "dependencies": {
+    "express": "^4.18.2",
+    "vite": "^5.0.0",
+    "pg": "^8.11.3",
+    "openai": "^4.24.1",
+    "multer": "^1.4.5-lts.1",
+    "pdf-parse": "^1.1.1"
+  }
+}
+E que no banco Postgres você tenha executado:
+
+SQL
+
+CREATE EXTENSION IF NOT EXISTS vector;
+Este código é muito avançado e bem estruturado. Com o ajuste no Chunking e a remoção da vulnerabilidade do /api/db, ele estará pronto para produção.
