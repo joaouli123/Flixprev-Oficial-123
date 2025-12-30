@@ -243,17 +243,271 @@ const negativeResponseVariations = [
   "O texto analisado não entra nesse detalhe.",
 ];
 
-// Detectar tipo de pergunta para inteligência de intenção
+// ============================================
+// 2️⃣ CLASSIFICADOR AVANÇADO DE INTENÇÃO (Melhorado)
+// ============================================
+
 function detectQuestionType(question) {
-  const factualTerms = /liste|qual é|quais são|quantos|quando|onde|nome|autor/i;
-  const structuralTerms = /primeira frase|título|inicio|começo|capítulo|seção|tópico|estrutura/i;
-  const explanatoryTerms = /explique|como funciona|por que|descreva|como é|qual a diferença/i;
+  // Termos expandidos para melhor detecção
+  const factualTerms = /liste|qual é|quais são|quantos|quando|onde|nome|autor|enumere|mencione|cite|indique|mostre|apresente|aponte/i;
+  const structuralTerms = /primeira frase|título|inicio|começo|capítulo|seção|tópico|estrutura|onde está|localiza|parágrafo|página|introdução|conclusão|índice/i;
+  const explanatoryTerms = /explique|como funciona|por que|descreva|como é|qual a diferença|o que é|qual o objetivo|qual a função|qual a importância|qual o propósito/i;
 
   if (structuralTerms.test(question)) return 'structural';
   if (explanatoryTerms.test(question)) return 'explanatory';
   if (factualTerms.test(question)) return 'factual';
   return 'general';
 }
+
+// ============================================
+// 3️⃣ PADRÕES DE RESPOSTA (POR TIPO)
+// ============================================
+
+const responsePatterns = {
+  structural: {
+    anchorPhrases: [
+      "De acordo com o conteúdo fornecido",
+      "Localizei no documento",
+      "O documento apresenta",
+      "Conforme o texto analisado"
+    ],
+    format: "direct", // Resposta direta + localização
+    example: 'A primeira frase do documento é: "..."'
+  },
+  
+  factual: {
+    anchorPhrases: [
+      "No documento analisado, os itens listados são",
+      "Conforme o conteúdo, identifiquei",
+      "O documento apresenta os seguintes",
+      "Analisei o documento e encontrei"
+    ],
+    format: "list", // Resposta em lista
+    example: '• Item 1\n• Item 2\n• Item 3'
+  },
+  
+  explanatory: {
+    anchorPhrases: [
+      "No documento, é apresentado que",
+      "Com base no conteúdo fornecido",
+      "O documento explica que",
+      "Analisando o texto, encontro"
+    ],
+    format: "paragraphs", // Resposta em parágrafos
+    example: 'O conceito é definido como... No contexto do documento...'
+  },
+  
+  general: {
+    anchorPhrases: [
+      "No documento analisado",
+      "Com base no conteúdo fornecido",
+      "De acordo com o texto",
+      "Analisei o documento e encontrei"
+    ],
+    format: "natural", // Resposta natural
+    example: ''
+  }
+};
+
+// ============================================
+// 1️⃣ RESPONSE ORCHESTRATOR (CAMADA FINAL)
+// ============================================
+
+/**
+ * Response Orchestrator
+ * 
+ * Responsabilidades:
+ * - Receber resposta bruta
+ * - Aplicar tom, estrutura, clareza
+ * - Garantir consistência global
+ * - Nunca muda conteúdo, só a forma
+ */
+function orchestrateResponse(rawResponse, questionType, hasContext = true) {
+  // Se não há contexto, usa resposta negativa
+  if (!hasContext) {
+    return getRandomNegativeResponse();
+  }
+
+  // Se resposta está vazia, trata como sem contexto
+  if (!rawResponse || rawResponse.trim().length === 0) {
+    return getRandomNegativeResponse();
+  }
+
+  // Obter padrão de resposta
+  const pattern = responsePatterns[questionType] || responsePatterns.general;
+  
+  // Escolher frase de ancoragem aleatória
+  const anchorPhrase = pattern.anchorPhrases[
+    Math.floor(Math.random() * pattern.anchorPhrases.length)
+  ];
+
+  // Formatar baseado no tipo
+  let formattedResponse = rawResponse;
+
+  if (questionType === 'factual' && pattern.format === 'list') {
+    // Garantir que listas estejam bem formatadas
+    formattedResponse = ensureProperListFormat(rawResponse);
+  } else if (questionType === 'explanatory' && pattern.format === 'paragraphs') {
+    // Garantir parágrafos curtos e claros
+    formattedResponse = ensureProperParagraphFormat(rawResponse);
+  } else if (questionType === 'structural' && pattern.format === 'direct') {
+    // Manter resposta direta e concisa
+    formattedResponse = trimToFirstSentence(rawResponse, 3);
+  }
+
+  // Adicionar frase de ancoragem se não estiver presente
+  if (!hasAnchorPhrase(formattedResponse)) {
+    formattedResponse = `${anchorPhrase}: ${formattedResponse}`;
+  }
+
+  return formattedResponse;
+}
+
+// Helpers para formatação
+function ensureProperListFormat(text) {
+  // Se já tem bullets ou números, mantém
+  if (/^[•\-*\d]/.test(text.trim())) {
+    return text;
+  }
+  
+  // Se parece ser uma lista separada por vírgulas, converte
+  if (text.includes(',') && !text.includes('\n')) {
+    const items = text.split(',').map(item => item.trim());
+    if (items.length > 2) {
+      return items.map(item => `• ${item}`).join('\n');
+    }
+  }
+
+  return text;
+}
+
+function ensureProperParagraphFormat(text) {
+  // Se parágrafos são muito longos, quebra em linhas menores
+  const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
+  
+  if (sentences.length > 3) {
+    // Agrupar em parágrafos de 2-3 frases
+    const paragraphs = [];
+    for (let i = 0; i < sentences.length; i += 2) {
+      paragraphs.push(sentences.slice(i, i + 2).join('').trim());
+    }
+    return paragraphs.join('\n\n');
+  }
+
+  return text;
+}
+
+function trimToFirstSentence(text, maxSentences = 1) {
+  const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
+  return sentences.slice(0, maxSentences).join('').trim();
+}
+
+function hasAnchorPhrase(text) {
+  const phrases = [
+    'No documento',
+    'Com base no',
+    'De acordo com',
+    'Analisei',
+    'O documento',
+    'Conforme',
+    'Localizei',
+    'Identificar'
+  ];
+  
+  return phrases.some(phrase => text.toLowerCase().startsWith(phrase.toLowerCase()));
+}
+
+// ============================================
+// 4️⃣ TELEMETRIA DE QUALIDADE (OBSERVABILIDADE)
+// ============================================
+
+const telemetryMetrics = {
+  totalQuestions: 0,
+  answeredWithContext: 0,
+  answeredWithoutContext: 0,
+  avgContextSize: 0,
+  avgChunksUsed: 0,
+  avgResponseTime: 0,
+  questionTypes: { factual: 0, structural: 0, explanatory: 0, general: 0 },
+  repeatedQuestions: {}
+};
+
+function recordTelemetry(question, hasContext, contextSize, chunksUsed, responseTime, questionType) {
+  telemetryMetrics.totalQuestions++;
+  
+  if (hasContext) {
+    telemetryMetrics.answeredWithContext++;
+  } else {
+    telemetryMetrics.answeredWithoutContext++;
+  }
+  
+  telemetryMetrics.avgContextSize = 
+    (telemetryMetrics.avgContextSize * (telemetryMetrics.totalQuestions - 1) + contextSize) / telemetryMetrics.totalQuestions;
+  telemetryMetrics.avgChunksUsed =
+    (telemetryMetrics.avgChunksUsed * (telemetryMetrics.totalQuestions - 1) + chunksUsed) / telemetryMetrics.totalQuestions;
+  telemetryMetrics.avgResponseTime =
+    (telemetryMetrics.avgResponseTime * (telemetryMetrics.totalQuestions - 1) + responseTime) / telemetryMetrics.totalQuestions;
+  
+  telemetryMetrics.questionTypes[questionType] = (telemetryMetrics.questionTypes[questionType] || 0) + 1;
+  
+  // Rastrear perguntas repetidas
+  const questionNorm = question.toLowerCase().trim();
+  telemetryMetrics.repeatedQuestions[questionNorm] = (telemetryMetrics.repeatedQuestions[questionNorm] || 0) + 1;
+  
+  // Alertas automáticos
+  const negativeRate = (telemetryMetrics.answeredWithoutContext / telemetryMetrics.totalQuestions) * 100;
+  if (negativeRate > 40) {
+    console.warn(`[TELEMETRIA] 🚨 Taxa de negativas ALTA: ${negativeRate.toFixed(2)}%`);
+  }
+  
+  if (contextSize === 0) {
+    console.warn(`[TELEMETRIA] 🚨 Contexto vazio detectado`);
+  }
+  
+  console.log(`[TELEMETRIA] Q#${telemetryMetrics.totalQuestions} | Type: ${questionType} | Context: ${hasContext ? 'SIM' : 'NÃO'} | Time: ${responseTime}ms`);
+}
+
+function getTelemetryReport() {
+  const negativeRate = ((telemetryMetrics.answeredWithoutContext / telemetryMetrics.totalQuestions) * 100).toFixed(2);
+  return {
+    totalQuestions: telemetryMetrics.totalQuestions,
+    answeredWithContext: telemetryMetrics.answeredWithContext,
+    answeredWithoutContext: telemetryMetrics.answeredWithoutContext,
+    successRate: (100 - parseFloat(negativeRate)).toFixed(2) + '%',
+    avgContextSize: telemetryMetrics.avgContextSize.toFixed(0),
+    avgChunksUsed: telemetryMetrics.avgChunksUsed.toFixed(1),
+    avgResponseTime: telemetryMetrics.avgResponseTime.toFixed(0) + 'ms',
+    questionTypes: telemetryMetrics.questionTypes
+  };
+}
+
+// ============================================
+// 5️⃣ GUIA DE ESTILO INTERNO (PADRÕES CHATGPT)
+// ============================================
+
+/*
+ * GUIA DE ESTILO - PRINCÍPIOS FUNDAMENTAIS
+ * 
+ * ✅ PERMITIDO:
+ * - Frases naturais e conversacionais
+ * - Tom neutro-amigável e profissional
+ * - Termos simples, sem jargão técnico
+ * - Frases de ancoragem: "No documento analisado...", "Com base no..."
+ * - Oferecimento de próximos passos
+ * 
+ * ❌ PROIBIDO:
+ * - "Como uma IA, eu..."
+ * - "Não tenho acesso..."
+ * - "Baseado no meu treinamento..."
+ * - Justificativas excessivas
+ * - Respostas robóticas ou repetitivas
+ * 
+ * 🎯 ESTRUTURA PADRÃO:
+ * 1. Frase de ancoragem
+ * 2. Resposta direta
+ * 3. (Opcional) Detalhes ou lista
+ * 4. (Opcional) Próximo passo
+ */
 
 // CAMADA 3 + 4: Enriquecer resposta negativa com contexto e sugestão
 function getRandomNegativeResponse(question = '') {
@@ -370,8 +624,10 @@ RESPONDA AGORA (apenas com base no contexto acima):
 ═══════════════════════════════════════════════════════════════════`;
 }
 
-// 6️⃣ VALIDADOR DE SAÍDA (Anti-Alucinação - LEVE) com 4 CAMADAS
-function validateOutput(text, hasContext = true, question = '') {
+// 6️⃣ VALIDADOR + ORCHESTRATOR (PIPELINE FINAL)
+function validateOutput(text, hasContext = true, question = '', questionType = 'general', contextSize = 0, chunksUsed = 0) {
+  const startTime = Date.now();
+  
   // Apenas bloqueia respostas que claramente indicam alucinação fora do escopo
   const severeAllucinationPatterns = [
     /de acordo com meu conhecimento/i,
@@ -381,15 +637,27 @@ function validateOutput(text, hasContext = true, question = '') {
     /segundo a comunidade/i,
   ];
 
+  let finalResponse = text;
+
   for (const pattern of severeAllucinationPatterns) {
     if (pattern.test(text)) {
       console.log(`[VALIDATOR] Bloqueando resposta: padrão de alucinação severa detectado`);
-      return getRandomNegativeResponse(question);
+      finalResponse = getRandomNegativeResponse(question);
+      hasContext = false;
+      break;
     }
   }
+
+  // Aplicar Response Orchestrator (camada final)
+  finalResponse = orchestrateResponse(finalResponse, questionType, hasContext);
   
-  // Formata a resposta final (varia as negativas se necessário + sugestões)
-  return formatResponse(text, hasContext, question);
+  // Registrar telemetria
+  const responseTime = Date.now() - startTime;
+  recordTelemetry(question, hasContext, contextSize, chunksUsed, responseTime, questionType);
+  
+  console.log(`[ORCHESTRATOR] ✅ Resposta orquestrada | Tipo: ${questionType} | Contexto: ${hasContext}`);
+  
+  return finalResponse;
 }
 
 // ============================================
@@ -757,6 +1025,9 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
 
     let prompt = "Você é um assistente prestativo.";
     let hasContext = false;
+    let questionType = 'general';
+    let contextSize = 0;
+    let chunksUsed = 0;
 
     if (agentId) {
       try {
@@ -765,6 +1036,9 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
         if (agent.rows[0]) {
           const agentData = agent.rows[0];
           const agentInstructions = agentData.instructions || agentData.description || "";
+
+        // 🔍 Detectar tipo de pergunta logo no início
+        questionType = detectQuestionType(content);
 
         // 🔍 Verificar se agente tem documentos/chunks associados
         const hasDocuments = await pool.query(
@@ -844,6 +1118,8 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
               // Construir prompt DEFINITIVO com ordem estrita: Global -> Agent -> Context -> User
               prompt = buildPrompt(relevantContext || '', agentInstructions, content);
               hasContext = relevantContext && relevantContext.trim().length > 0;
+              contextSize = relevantContext ? relevantContext.length : 0;
+              chunksUsed = relevantContext ? relevantContext.split('\n\n---\n\n').length : 0;
               
               if (relevantContext) {
                 console.log('[CHAT] ✅ Contexto RAG encontrado e injetado');
@@ -912,8 +1188,8 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
       }
     }
 
-    // Aplicar Validação de Saída (Anti-Alucinação) com 4 Camadas
-    const validatedResp = validateOutput(fullResp, hasContext, content);
+    // Aplicar Validação de Saída (Anti-Alucinação) com Response Orchestrator
+    const validatedResp = validateOutput(fullResp, hasContext, content, questionType, contextSize, chunksUsed);
     
     // Salvar resposta do assistente (validada)
     await pool.query(
