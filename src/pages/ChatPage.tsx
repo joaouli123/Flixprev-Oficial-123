@@ -262,6 +262,35 @@ const ChatPage = () => {
         <ScrollArea className="flex-1 w-full" ref={scrollRef}>
           <div className="px-3 py-4 sm:px-4 sm:py-6 w-full h-full">
             <div className="max-w-2xl mx-auto space-y-3 sm:space-y-4">
+              {/* Mensagem de Boas-vindas e Atalhos */}
+              {messages.length === 0 && (
+                <div className="flex flex-col items-center text-center space-y-6 py-8 animate-in fade-in slide-in-from-top-4 duration-500">
+                  <div className="space-y-2">
+                    <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
+                      Olá! Sou seu agente de IA em "{agent?.title}"
+                    </h2>
+                    <p className="text-gray-500 dark:text-gray-400">
+                      Estou aqui para ajudar. Em que posso te ajudar hoje?
+                    </p>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full max-w-lg">
+                    {shortcuts.map((s) => (
+                      <Button
+                        key={s}
+                        variant="outline"
+                        className="justify-start h-auto py-3 px-4 rounded-xl hover-elevate border-gray-200 dark:border-slate-800"
+                        onClick={() => setInput(s)}
+                        data-testid={`button-shortcut-welcome-${s.toLowerCase().replace(/\s+/g, '-')}`}
+                      >
+                        <Sparkles className="h-4 w-4 mr-2 text-blue-500 flex-shrink-0" />
+                        <span className="text-sm truncate">{s}</span>
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {messages.map((msg, i) => (
                 <div
                   key={i}
@@ -312,23 +341,6 @@ const ChatPage = () => {
         {/* Input Area */}
         <div className="flex-shrink-0 bg-white dark:bg-slate-950 border-t dark:border-slate-800 px-3 py-2 sm:px-4 sm:py-3 z-20">
         <div className="w-full max-w-2xl mx-auto space-y-1">
-          <div className="flex flex-wrap gap-1 sm:gap-2 overflow-x-auto pb-1">
-            {shortcuts.map((s) => (
-              <Button
-                key={s}
-                variant="outline"
-                size="sm"
-                className="rounded-full text-xs px-2 sm:px-3 hover-elevate flex-shrink-0 whitespace-nowrap"
-                onClick={() => setInput(s)}
-                data-testid={`button-shortcut-${s.toLowerCase().replace(/\s+/g, '-')}`}
-              >
-                <Sparkles className="h-3 w-3 mr-1" />
-                <span className="hidden sm:inline">{s}</span>
-                <span className="sm:hidden text-xs">{s.split(' ')[0]}</span>
-              </Button>
-            ))}
-          </div>
-          
           <div className="flex gap-2">
             <Input
               placeholder="Pergunte..."
