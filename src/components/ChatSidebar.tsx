@@ -118,9 +118,25 @@ export const ChatSidebar = ({ agentId, currentConversationId }: ChatSidebarProps
     setEditingTitle("");
   };
 
+  const handleClearAll = async () => {
+    if (confirm("Tem certeza que deseja apagar TODO o histórico de conversas? Esta ação não pode ser desfeita.")) {
+      try {
+        const res = await fetch("/api/conversations/clear-all", { method: "POST" });
+        if (res.ok) {
+          setConversations([]);
+          navigate(`/app/chat/${agentId}`);
+        } else {
+          alert("Falha ao limpar conversas");
+        }
+      } catch (error) {
+        console.error("Erro ao limpar conversas:", error);
+      }
+    }
+  };
+
   return (
     <div className="w-64 bg-white dark:bg-slate-900 border-r border-gray-200 dark:border-slate-700 flex flex-col h-full">
-      <div className="p-4 border-b border-gray-200 dark:border-slate-700">
+      <div className="p-4 border-b border-gray-200 dark:border-slate-700 space-y-2">
         <Button
           onClick={handleNewChat}
           className="w-full gap-2"
@@ -128,6 +144,16 @@ export const ChatSidebar = ({ agentId, currentConversationId }: ChatSidebarProps
         >
           <Plus className="h-4 w-4" />
           Nova Conversa
+        </Button>
+        <Button
+          variant="outline"
+          onClick={handleClearAll}
+          className="w-full gap-2 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/10"
+          size="sm"
+          data-testid="button-clear-all-conversations"
+        >
+          <Trash2 className="h-3 w-3" />
+          Limpar Histórico
         </Button>
       </div>
 

@@ -170,6 +170,20 @@ export function registerChatRoutes(app: Express): void {
     }
   });
 
+  // LIMPAR TODAS AS CONVERSAS E MENSAGENS
+  app.post("/api/conversations/clear-all", async (req: Request, res: Response) => {
+    try {
+      console.log('[API] Limpando todas as conversas e mensagens...');
+      await pool.query('DELETE FROM messages');
+      await pool.query('DELETE FROM conversations');
+      console.log('[API] Limpeza concluída com sucesso');
+      res.json({ success: true, message: 'Todas as conversas foram excluídas' });
+    } catch (e: any) {
+      console.error('[API ERROR] Falha ao limpar conversas:', e);
+      res.status(500).json({ success: false, error: e.message });
+    }
+  });
+
   // Delete conversation
   app.delete("/api/conversations/:id", async (req: Request, res: Response) => {
     try {
