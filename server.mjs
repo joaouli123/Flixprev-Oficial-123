@@ -52,20 +52,26 @@ async function extractPdfText(filePath) {
     let text = data.text || '';
     
     // 🧹 LIMPEZA DE DADOS (Sanitization)
-    // 1. Remover marcadores de [source] ou similares
-    text = text.replace(/\[source\]/gi, '');
+    // 1. Remover marcadores de [source] ou similares e tags de escape de caracteres especiais (ex: \[ e \])
+    text = text.replace(/\\\[source\\\]/gi, '');
+    text = text.replace(/\\\[/g, '[').replace(/\\\]/g, ']'); // Remove escapes de colchetes
     
-    // 2. Remover cabeçalhos/rodapés repetitivos (ex: --- PAGE 5 ---)
+    // 2. Remover marcadores específicos de rodapé/página e números soltos que parecem ser contagem de linha/página
+    // Remove "--- PAGE X ---" e números isolados no meio do texto que quebram o fluxo
     text = text.replace(/--- PAGE \d+ ---/gi, '');
+    text = text.replace(/\n\s*\d+\s*\n/g, '\n'); // Números de página isolados em novas linhas
     
     // 3. Unir linhas quebradas para manter o fluxo do parágrafo
-    // Remove quebras de linha que não são seguidas por uma letra maiúscula ou início de parágrafo
-    text = text.replace(/([a-z,;])\n(?=[a-z])/g, '$1 ');
+    // Remove quebras de linha que não são seguidas por uma letra maiúscula (início de frase) ou ponto final
+    // Isso garante que "cálculo de\nvolume" vire "cálculo de volume"
+    text = text.replace(/([a-z,;0-9])\s*\n\s*(?=[a-z0-9])/gi, '$1 ');
     
-    // 4. Normalizar espaços múltiplos
-    text = text.replace(/\s+/g, ' ').trim();
+    // 4. Normalizar espaços múltiplos e quebras de linha excessivas
+    text = text.replace(/[ \t]+/g, ' '); // Espaços e tabs
+    text = text.replace(/\n\s*\n/g, '\n\n'); // Preserva parágrafos duplos mas remove triplos+
+    text = text.replace(/\s+/g, ' ').trim(); // Limpeza final para blocos contínuos
     
-    console.log('--- TESTE DE EXTRAÇÃO E LIMPEZA ---');
+    console.log('--- TESTE DE EXTRAÇÃO E LIMPEZA AVANÇADA ---');
     console.log(`Documento: ${path.basename(filePath)}`);
     console.log(`Caracteres extraídos: ${text.length}`);
     if (text.length > 0) {

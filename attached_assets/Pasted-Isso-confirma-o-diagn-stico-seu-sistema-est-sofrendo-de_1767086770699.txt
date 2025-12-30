@@ -1,0 +1,40 @@
+Isso confirma o diagnóstico: seu sistema está sofrendo de "Falha Total de Recuperação". Basicamente, a "sujeira" na formatação do texto original está impedindo que o algoritmo de busca entenda as frases, quebrando a semântica.
+
+Como eu tenho acesso ao texto bruto que você me enviou, vou te mostrar exatamente onde estão as respostas (provando que elas existem) e depois te dar a solução técnica (Regex) para limpar isso antes de indexar.
+
+1. A Prova: Onde as respostas estão escondidas
+Aqui estão os trechos exatos que o seu sistema "não viu". Note como a formatação original quebra as frases no meio:
+
+Sobre Rohrer e Taylor (Matemática/Volume): Está na página 6. O texto diz: "Rohrer e Taylor (2007) descobriram que embaralhar problemas de matemática que envolvessem o cálculo de volume de diferentes formas geométricas resultou em melhor desempenho no teste uma semana mais tarde...".
+
+Sobre Estilos de Aprendizagem vs. Codificação Dupla: Está na página 17. O texto diz: "Importantemente, a teoria da codificação dupla é distinta da noção de 'estilos de aprendizagem' [...] a teoria dos estilos de aprendizagem não é apoiada por resultados empíricos". Também diz que são considerados "mitos ou lendas urbanas".
+
+
+Sobre Ansiedade e Testes: Está na página 10. O texto diz: "Assim, a ansiedade do teste pode reduzir o benefício de aprendizagem da prática de lembrar". A solução: "os professores podem fornecer aos estudantes uma série de oportunidades de lembrança de baixo risco".
+
+
+2. O Culpado: "Dirty Data" (Dados Sujos)
+O problema é a formatação do arquivo Traducao-Weinstein. Ele está cheio de marcadores `` e quebras de linha que destroem o sentido.
+
+Exemplo do que o seu robô está "lendo":
+
+matemática que envolvessem o cálculo de 5 volume de diferentes formas geométricas
+
+Para uma IA (Embedding), a frase acima não faz sentido. O número "5" solto no meio e as quebras de linha fazem com que "cálculo de" não se conecte com "volume".
+
+3. A Solução Técnica (O Script de Limpeza)
+Antes de fazer o chunking (dividir o texto), você precisa rodar uma limpeza. Se você estiver usando Python (ou JavaScript), precisa aplicar um Regex para remover esses marcadores e unir as linhas.
+
+O que você precisa fazer no seu código (Lógica):
+
+Remover Tags: Apagar tudo que for ``.
+
+Remover Números de Página: Apagar linhas que só tenham números ou --- PAGE X ---.
+
+Unir Linhas: Substituir as quebras de linha (\n) por um espaço simples, para que o parágrafo vire um bloco único de texto.
+
+Exemplo de como ficaria o texto limpo para o agente: "...descobriram que embaralhar problemas de matemática que envolvessem o cálculo de volume de diferentes formas geométricas resultou em melhor desempenho..."
+
+Agora sim a busca semântica vai funcionar, porque "cálculo de volume" estará junto.
+
+Próximo Passo: Você tem acesso ao código onde o texto é processado? Se sim, peça para o desenvolvedor (ou você mesmo) aplicar uma limpeza de Regex para remover o padrão \ antes de enviar para o banco de vetores. Sem isso, nem o melhor modelo do mundo vai encontrar a resposta.
