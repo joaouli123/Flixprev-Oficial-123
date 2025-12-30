@@ -1405,9 +1405,81 @@ app.post('/api/login', (req, res) => {
   return res.status(401).json({ error: 'Email ou senha incorretos' });
 });
 
-// 🚨 ENDPOINT /api/db REMOVIDO POR RAZÕES DE SEGURANÇA
-// Este endpoint estava permitindo acesso direto ao banco de dados.
-// Substitua por endpoints específicos com autenticação e validação apropriadas.
+// ✅ ENDPOINTS SEGUROS PARA AGENTES
+// GET todos os agentes
+app.get('/api/agents', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM "agents" ORDER BY created_at DESC');
+    res.json(result.rows || []);
+  } catch (e) {
+    console.error('[API] Erro ao buscar agentes:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// GET agente por ID
+app.get('/api/agents/:id', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM "agents" WHERE id = $1', [req.params.id]);
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Agente não encontrado' });
+    }
+    res.json(result.rows[0]);
+  } catch (e) {
+    console.error('[API] Erro ao buscar agente:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// POST novo agente
+app.post('/api/agents', async (req, res) => {
+  try {
+    const { name, description, instructions } = req.body;
+    if (!name) {
+      return res.status(400).json({ error: 'Nome é obrigatório' });
+    }
+    const result = await pool.query(
+      'INSERT INTO "agents" (name, description, instructions) VALUES ($1, $2, $3) RETURNING *',
+      [name, description || '', instructions || '']
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (e) {
+    console.error('[API] Erro ao criar agente:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// PUT atualizar agente
+app.put('/api/agents/:id', async (req, res) => {
+  try {
+    const { name, description, instructions } = req.body;
+    const result = await pool.query(
+      'UPDATE "agents" SET name = COALESCE($1, name), description = COALESCE($2, description), instructions = COALESCE($3, instructions) WHERE id = $4 RETURNING *',
+      [name || null, description || null, instructions || null, req.params.id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Agente não encontrado' });
+    }
+    res.json(result.rows[0]);
+  } catch (e) {
+    console.error('[API] Erro ao atualizar agente:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// DELETE agente
+app.delete('/api/agents/:id', async (req, res) => {
+  try {
+    const result = await pool.query('DELETE FROM "agents" WHERE id = $1 RETURNING *', [req.params.id]);
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Agente não encontrado' });
+    }
+    res.json({ success: true, message: 'Agente deletado' });
+  } catch (e) {
+    console.error('[API] Erro ao deletar agente:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
 
 // VITE
 const vite = await createServer({
