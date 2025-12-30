@@ -369,8 +369,15 @@ function hasUnprovenClaim(responseText, contextText) {
       // Se encontrou a frase, verificar se ela está LITERALMENTE no contexto
       const matchedPhrase = responseText.match(pattern)?.[0];
       if (matchedPhrase && !contextText.toLowerCase().includes(matchedPhrase.toLowerCase())) {
-        console.log(`[UNPROVEN CLAIM] 🚨 Detectada síntese sem prova: "${matchedPhrase}"`);
-        return true; // HÁ reclamação não provada
+        // Se não for literal, pode ser uma síntese válida se as palavras-chave principais estiverem presentes
+        // Mas para ser "agressivo", bloqueamos se não for literal ou quase literal
+        const keywords = matchedPhrase.split(/\s+/).filter(w => w.length > 4);
+        const hasSomeKeywords = keywords.some(k => contextText.toLowerCase().includes(k.toLowerCase()));
+        
+        if (!hasSomeKeywords) {
+          console.log(`[UNPROVEN CLAIM] 🚨 Detectada síntese sem prova: "${matchedPhrase}"`);
+          return true;
+        }
       }
     }
   }
@@ -770,7 +777,7 @@ function validateOutput(text, hasContext = true, question = '', questionType = '
   // Check 1: Padrões severos de alucinação
   for (const pattern of severeAllucinationPatterns) {
     if (pattern.test(text)) {
-      console.log(`[VALIDATOR-1] 🚨 Bloqueando: padrão de alucinação severa`);
+      console.log(`[VALIDATOR-1] 🚨 Bloqueando: padrão de alucinação severa. Texto: "${text.substring(0, 50)}..."`);
       finalResponse = getRandomNegativeResponse(question);
       hasContext = false;
       blocked = true;
@@ -778,20 +785,20 @@ function validateOutput(text, hasContext = true, question = '', questionType = '
     }
   }
 
-  // Check 2: Validação de citações com PROVA TEXTUAL (novo - anti-alucinação silenciosa)
+  // Check 2: Validação de citações com PROVA TEXTUAL
   if (!blocked && hasContext && context) {
     if (!validateCitationWithProof(text, context, question)) {
-      console.log(`[VALIDATOR-2] 🚨 Bloqueando: citação inventada ou sem prova`);
+      console.log(`[VALIDATOR-2] 🚨 Bloqueando: citação sem prova no contexto. Pergunta: "${question}"`);
       finalResponse = getRandomNegativeResponse(question);
       hasContext = false;
       blocked = true;
     }
   }
 
-  // Check 3: Bloqueio de respostas "bonitas mas falsas" (novo)
+  // Check 3: Bloqueio de sínteses perigosas
   if (!blocked && hasContext && context) {
     if (hasUnprovenClaim(text, context)) {
-      console.log(`[VALIDATOR-3] 🚨 Bloqueando: reclamação não provada no contexto`);
+      console.log(`[VALIDATOR-3] 🚨 Bloqueando: afirmação não comprovada (síntese perigosa)`);
       finalResponse = getRandomNegativeResponse(question);
       hasContext = false;
       blocked = true;
