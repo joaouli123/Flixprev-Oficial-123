@@ -53,11 +53,10 @@ async function extractPdfText(filePath) {
 
     // 🧹 LIMPEZA DE DADOS (Sanitization) - CONFIGURAÇÃO NUCLEAR
 
-    // 1. Remover marcadores (Sintaxe segura)
+    // 1. Remover marcadores (Esta é a linha que estava quebrada)
     text = text.replace(/\[source\]/gi, ''); 
 
     // 2. Remover marcadores escapados tipo \[source\] se existirem
-    // Usando new RegExp para evitar erro de sintaxe com barras
     const escapedSource = new RegExp('\\\\\\[source\\\\\\]', 'gi');
     text = text.replace(escapedSource, '');
 
