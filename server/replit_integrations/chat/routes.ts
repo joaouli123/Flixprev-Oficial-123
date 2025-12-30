@@ -120,34 +120,34 @@ export function registerChatRoutes(app: Express): void {
       const id = parseInt(req.params.id);
       const { title } = req.body;
       
-      if (!title || title.trim() === "") {
-        return res.status(400).json({ error: "Title cannot be empty" });
+      console.log(`[PATCH /api/conversations/${id}] title:`, title);
+
+      if (!title || (typeof title !== 'string') || title.trim() === "") {
+        return res.status(400).json({ error: "Título não pode ser vazio" });
       }
-      
-      console.log(`[CHAT API] Updating conversation ${id} title to: ${title}`);
       
       // Update in DB
       const result = await pool.query(
         'UPDATE conversations SET title = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING *',
-        [title, id]
+        [title.trim(), id]
       );
       
       if (result.rows.length === 0) {
         // Fallback for in-memory or if record not found in DB
         const conversation = await chatStorage.getConversation(id);
         if (conversation) {
-          conversation.title = title;
+          conversation.title = title.trim();
           conversation.updated_at = new Date().toISOString();
           console.log(`[CHAT API] Updated in-memory conversation ${id}`);
           return res.json(conversation);
         }
-        return res.status(404).json({ error: "Conversation not found" });
+        return res.status(404).json({ error: "Conversa não encontrada" });
       }
       
       res.json(result.rows[0]);
     } catch (error: any) {
       console.error("Error updating conversation:", error);
-      res.status(500).json({ error: "Failed to update conversation: " + error.message });
+      res.status(500).json({ error: "Falha ao atualizar conversa: " + error.message });
     }
   });
 
