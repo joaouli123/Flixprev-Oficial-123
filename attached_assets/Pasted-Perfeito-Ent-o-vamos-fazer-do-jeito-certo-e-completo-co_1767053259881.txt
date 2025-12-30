@@ -1,0 +1,228 @@
+Perfeito. Então vamos fazer do jeito certo e completo, como um produto de IA de alto nível, não como experimento.
+
+O que vou te entregar agora é praticamente um manual de arquitetura + UX de IA, dividido em blocos claros, reutilizáveis e escaláveis.
+
+Respira fundo — isso aqui é nível empresa grande 👇
+
+🧠 VISÃO GERAL DO QUE VAMOS CONSTRUIR
+
+Você vai ter 5 camadas bem definidas:
+
+1️⃣ Response Orchestrator (cérebro final da resposta)
+2️⃣ Classificador de intenção da pergunta
+3️⃣ Padrões de resposta por tipo
+4️⃣ Telemetria de qualidade (observabilidade)
+5️⃣ Guia de estilo interno (jeito ChatGPT)
+
+Cada camada é independente.
+Nada aqui quebra seu RAG.
+
+1️⃣ RESPONSE ORCHESTRATOR (CAMADA FINAL)
+
+👉 Essa é a última camada antes da resposta ir para o usuário.
+
+Função
+
+Receber a resposta “bruta” do modelo
+
+Aplicar tom, estrutura, clareza e UX
+
+Garantir consistência global
+
+Fluxo mental
+Pergunta do usuário
+→ RAG
+→ Resposta bruta
+→ Response Orchestrator
+→ Resposta final (bonita)
+
+Responsabilidades
+
+✔️ Ajustar tom
+✔️ Estruturar resposta
+✔️ Tratar negativas
+✔️ Padronizar listas
+✔️ Inserir frases de ancoragem
+
+📌 Nunca muda o conteúdo, só a forma.
+
+2️⃣ CLASSIFICADOR DE INTENÇÃO DA PERGUNTA
+
+Antes de responder, classifique a pergunta.
+
+Tipos principais
+
+Estrutural
+
+“primeira frase”
+
+“título”
+
+“capítulo 2”
+
+Factual
+
+“liste”
+
+“quem são”
+
+“quais autores”
+
+Explicativa
+
+“explique”
+
+“como funciona”
+
+“qual o objetivo”
+
+Negativa esperada
+
+perguntas fora do escopo
+
+detalhes inexistentes
+
+📌 Isso pode ser feito:
+
+por regras simples
+
+ou por um mini-classificador LLM
+
+3️⃣ PADRÕES DE RESPOSTA (POR TIPO)
+
+Aqui está o ouro da UX.
+
+🔹 Estrutural
+
+Formato direto
+
+A primeira frase do documento é:
+“…”
+
+🔹 Factual
+
+Lista clara
+
+No documento analisado, os autores citados são:
+
+…
+
+…
+
+🔹 Explicativa
+
+3 partes
+
+Contextualização curta
+
+Resposta
+
+(Opcional) referência implícita
+
+No documento, a avaliação de desempenho é apresentada como…
+
+🔹 Negativa
+
+Negativa humanizada
+
+Analisei o documento, mas ele não aborda esse ponto específico.
+
+Nunca:
+
+“Erro”
+“Não encontrado”
+“O documento não aborda esse ponto.” (seco)
+
+4️⃣ TELEMETRIA DE QUALIDADE (ISSO É DIFERENCIAL)
+
+Agora entramos em produto sério.
+
+Métricas que você deve registrar
+
+% perguntas respondidas com contexto
+
+% negativas
+
+tamanho médio do contexto
+
+número de chunks usados
+
+tempo de resposta
+
+perguntas repetidas
+
+Alertas automáticos
+
+🚨 Se muitas negativas seguidas
+🚨 Se contexto = 0
+🚨 Se respostas muito curtas
+🚨 Se usuário reformula a mesma pergunta
+
+👉 Isso te diz onde melhorar o sistema.
+
+5️⃣ GUIA DE ESTILO INTERNO (CHATGPT-LIKE)
+
+Esse é o documento que padroniza tudo.
+
+Princípios do estilo
+
+Frases naturais
+
+Tom neutro-amigável
+
+Sem jargão técnico
+
+Sem “eu não posso”
+
+Sem justificativa excessiva
+
+Frases de ancoragem permitidas
+
+“No documento analisado…”
+
+“Com base no conteúdo fornecido…”
+
+“De acordo com o texto…”
+
+Frases proibidas
+
+❌ “Como uma IA…”
+❌ “Não tenho acesso…”
+❌ “Baseado no meu treinamento…”
+
+🧩 COMO ISSO SE ENCAIXA NO SEU SISTEMA
+[Prompt Global]
+        ↓
+[Prompt do Agente]
+        ↓
+[Contexto RAG]
+        ↓
+[Resposta Bruta]
+        ↓
+[Response Orchestrator]
+        ↓
+[Usuário]
+
+
+✔️ Escala
+✔️ Manutenível
+✔️ Bonito
+✔️ Confiável
+
+🟢 RESULTADO FINAL
+
+Você terá um sistema que:
+
+responde como ChatGPT
+
+mas é mais confiável
+
+mais auditável
+
+mais controlável
+
+pronto para múltiplos agentes
+
+pronto para clientes reais
+
+🔥 Isso é produto, não demo.

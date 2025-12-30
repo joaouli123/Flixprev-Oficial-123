@@ -1,0 +1,117 @@
+✨ CAMADA 1 — INTELIGÊNCIA PERCEBIDA (UX COGNITIVO)
+🎯 Objetivo
+
+Fazer o usuário sentir que a IA entende, mesmo quando nega.
+
+O que implementar
+
+Frase de ancoragem
+
+Antes da resposta, situar o usuário.
+
+Exemplo:
+
+“No documento analisado…”
+“Com base no conteúdo fornecido…”
+
+Negativas contextualizadas
+
+Nunca só “não aborda”.
+
+Exemplo:
+
+“O documento trata de treinamento e capacitação, mas não entra nesse ponto específico.”
+
+👉 Isso não adiciona conhecimento, só contexto linguístico.
+
+✨ CAMADA 2 — RESPOSTA ESTRUTURADA (CLAREZA)
+🎯 Objetivo
+
+Deixar a resposta “escaneável” como o ChatGPT.
+
+Padrão ouro de resposta
+
+1 frase introdutória
+
+conteúdo direto
+
+listas quando fizer sentido
+
+parágrafo curto
+
+Exemplo:
+
+No documento analisado, os autores citados são:
+
+Aline Pereira de Souza Gomes
+
+Ana Lídia Francisca dos Santos
+
+Orientadora: MSc. Regina Célia Alves da Cunha
+
+📌 Mesma informação, outra experiência.
+
+✨ CAMADA 3 — INTELIGÊNCIA DE INTENÇÃO (WOW REAL)
+🎯 Objetivo
+
+Responder melhor do que foi perguntado, sem inventar.
+
+Como
+
+Classifique perguntas em:
+
+factual (“liste”, “qual é”)
+
+estrutural (“primeira frase”, “capítulo”)
+
+explicativa (“explique”, “como funciona”)
+
+E ajuste o formato da resposta, não o conteúdo.
+
+Exemplo:
+Pergunta:
+
+“Explique o objetivo do documento”
+
+Resposta:
+
+O documento tem como objetivo principal evidenciar a importância do treinamento e da capacitação dos colaboradores dentro das organizações, conforme apresentado logo na introdução do trabalho.
+
+👉 Nada novo, só melhor apresentado.
+
+✨ CAMADA 4 — FEEDBACK DE CONFIANÇA (DIFERENCIAL)
+🎯 Objetivo
+
+Gerar confiança explícita.
+
+O que o ChatGPT faz (e você pode copiar)
+
+Ele implicitamente mostra limites
+
+Ele sugere próximos passos
+
+Exemplo:
+
+“Se quiser, posso transcrever o trecho exato do documento.”
+“Posso buscar essa informação em outra base, se desejar.”
+
+📌 Isso não é alucinação, é oferta de ação.
+
+🧠 O QUE NÃO FAZER (IMPORTANTE)
+
+❌ Não adicionar conhecimento externo
+❌ Não explicar teoria quando não pediram
+❌ Não justificar demais
+❌ Não virar professor chato
+
+🧩 ARQUITETURA FINAL (EXTRAORDINÁRIA)
+
+Você terá:
+
+1️⃣ RAG confiável
+2️⃣ Respostas consistentes
+3️⃣ Linguagem natural
+4️⃣ UX nível ChatGPT
+5️⃣ Controle total do sistema
+
+👉 Pouquíssimos produtos chegam aqui.

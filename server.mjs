@@ -229,9 +229,10 @@ Quando a resposta não estiver no documento:
 };
 
 // ============================================
-// 🎲 FORMATTER DE RESPOSTAS VARIÁVEIS
+// 🎲 FORMATTER DE RESPOSTAS VARIÁVEIS (4 CAMADAS)
 // ============================================
 
+// CAMADA 1: Inteligência Percebida - Respostas com contexto e ancoragem
 const negativeResponseVariations = [
   "Não encontrei essa informação no documento analisado.",
   "O texto não aborda esse ponto específico.",
@@ -242,26 +243,101 @@ const negativeResponseVariations = [
   "O texto analisado não entra nesse detalhe.",
 ];
 
-function getRandomNegativeResponse() {
-  return negativeResponseVariations[Math.floor(Math.random() * negativeResponseVariations.length)];
+// Detectar tipo de pergunta para inteligência de intenção
+function detectQuestionType(question) {
+  const factualTerms = /liste|qual é|quais são|quantos|quando|onde|nome|autor/i;
+  const structuralTerms = /primeira frase|título|inicio|começo|capítulo|seção|tópico|estrutura/i;
+  const explanatoryTerms = /explique|como funciona|por que|descreva|como é|qual a diferença/i;
+
+  if (structuralTerms.test(question)) return 'structural';
+  if (explanatoryTerms.test(question)) return 'explanatory';
+  if (factualTerms.test(question)) return 'factual';
+  return 'general';
 }
 
-function formatResponse(answer, hasContext) {
-  // Se não há contexto, retorna uma resposta variável negativa
+// CAMADA 3 + 4: Enriquecer resposta negativa com contexto e sugestão
+function getRandomNegativeResponse(question = '') {
+  const base = negativeResponseVariations[Math.floor(Math.random() * negativeResponseVariations.length)];
+  
+  // Adicionar sugestão de próximos passos (CAMADA 4 - Feedback de Confiança)
+  const suggestions = [
+    "Se preferir, posso buscar informações correlatas no documento.",
+    "Posso tentar uma busca com termos alternativos se desejar.",
+    "Se tiver outra pergunta sobre o conteúdo, fico à disposição."
+  ];
+  
+  const suggestion = suggestions[Math.floor(Math.random() * suggestions.length)];
+  return `${base} ${suggestion}`;
+}
+
+function formatResponse(answer, hasContext, question = '') {
+  // Se não há contexto, retorna uma resposta variável negativa com sugestão
   if (!hasContext) {
-    return getRandomNegativeResponse();
+    return getRandomNegativeResponse(question);
   }
   // Se há contexto, retorna a resposta normalmente
   return answer;
 }
 
-// 5️⃣ Prompt GLOBAL DEFINITIVO e CONTRATO DE CONTEXTO
+// 5️⃣ Prompt GLOBAL DEFINITIVO com 4 CAMADAS DE INTELIGÊNCIA
 // PADRÃO: ChatGPT-style (mude para 'formal' ou 'neutral' se necessário)
 function buildPrompt(context, agentInstructions, question, toneStyle = 'chatgpt') {
   const selectedTone = toneVariations[toneStyle] || toneVariations.chatgpt;
+  const questionType = detectQuestionType(question);
+
+  // Instruções específicas por tipo de pergunta (CAMADA 3)
+  let structuringInstructions = '';
+  if (questionType === 'factual') {
+    structuringInstructions = `
+FORMATAÇÃO RECOMENDADA (para esta pergunta factual):
+- Comece com: "No documento analisado..."
+- Liste os itens de forma clara
+- Seja conciso e direto`;
+  } else if (questionType === 'structural') {
+    structuringInstructions = `
+FORMATAÇÃO RECOMENDADA (para esta pergunta sobre estrutura):
+- Comece com: "De acordo com o conteúdo..."
+- Descreva a localização ou organização
+- Se não encontrar, explique onde seria esperado`;
+  } else if (questionType === 'explanatory') {
+    structuringInstructions = `
+FORMATAÇÃO RECOMENDADA (para esta pergunta explicativa):
+- Comece com: "No documento analisado..."
+- Organize em parágrafos curtos e claros
+- Use estrutura: ideia principal → detalhes → contexto`;
+  }
 
   const globalPrompt = `🎯 INSTRUÇÕES DE CONTEXTO
 ${selectedTone}
+
+═══════════════════════════════════════════════════════════════════
+CAMADA 2: RESPOSTA ESTRUTURADA (CLAREZA)
+═══════════════════════════════════════════════════════════════════
+✨ Padrão de Resposta:
+1. Uma frase introdutória/de ancoragem
+2. Conteúdo direto e objetivo
+3. Listas quando fizerem sentido
+4. Parágrafo conclusivo breve
+
+✨ Exemplos de boas frases de ancoragem:
+- "No documento analisado..."
+- "Com base no conteúdo fornecido..."
+- "De acordo com o texto..."
+- "Analisei o documento e encontrei..."
+${structuringInstructions}
+
+═══════════════════════════════════════════════════════════════════
+CAMADA 1 + 4: INTELIGÊNCIA PERCEBIDA + FEEDBACK
+═══════════════════════════════════════════════════════════════════
+✨ Quando HOUVER informação:
+- Responda fluido e natural como um assistente humano
+- Se possível, cite ou parafraseie o trecho relevante
+- Organize a resposta para ser "escaneável"
+
+✨ Quando NÃO houver informação:
+- Sempre comece explicando o que ENCONTROU ("O documento trata de...")
+- Depois explique o limite ("...mas não entra nesse ponto específico")
+- Ofereça próximos passos quando aplicável
 
 REGRA DE OURO:
 - Você pode variar: a frase, o tom, a fluidez
@@ -294,8 +370,8 @@ RESPONDA AGORA (apenas com base no contexto acima):
 ═══════════════════════════════════════════════════════════════════`;
 }
 
-// 6️⃣ VALIDADOR DE SAÍDA (Anti-Alucinação - LEVE)
-function validateOutput(text, hasContext = true) {
+// 6️⃣ VALIDADOR DE SAÍDA (Anti-Alucinação - LEVE) com 4 CAMADAS
+function validateOutput(text, hasContext = true, question = '') {
   // Apenas bloqueia respostas que claramente indicam alucinação fora do escopo
   const severeAllucinationPatterns = [
     /de acordo com meu conhecimento/i,
@@ -308,12 +384,12 @@ function validateOutput(text, hasContext = true) {
   for (const pattern of severeAllucinationPatterns) {
     if (pattern.test(text)) {
       console.log(`[VALIDATOR] Bloqueando resposta: padrão de alucinação severa detectado`);
-      return getRandomNegativeResponse();
+      return getRandomNegativeResponse(question);
     }
   }
   
-  // Formata a resposta final (varia as negativas se necessário)
-  return formatResponse(text, hasContext);
+  // Formata a resposta final (varia as negativas se necessário + sugestões)
+  return formatResponse(text, hasContext, question);
 }
 
 // ============================================
@@ -836,8 +912,8 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
       }
     }
 
-    // Aplicar Validação de Saída (Anti-Alucinação)
-    const validatedResp = validateOutput(fullResp, hasContext);
+    // Aplicar Validação de Saída (Anti-Alucinação) com 4 Camadas
+    const validatedResp = validateOutput(fullResp, hasContext, content);
     
     // Salvar resposta do assistente (validada)
     await pool.query(
