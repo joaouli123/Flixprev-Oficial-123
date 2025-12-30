@@ -1,0 +1,65 @@
+Para deixar o seu sistema "à prova de falhas" e garantir que ele nunca mais diga "não encontrei" quando a informação está lá, você precisa ajustar a "tubulação" (pipeline) do seu RAG.
+
+O problema que tivemos aqui foi clássico: a IA é inteligente, mas o sistema de busca (que entrega o texto para ela) estava "cego".
+
+Aqui está o Checklist Técnico Definitivo para consertar isso no seu sistema:
+
+1. Limpeza de Dados (Sanitization) - O Passo Vital
+O texto que você me mandou está cheio de "sujeira" para um robô.
+
+O Problema: Coisas como ``, --- PAGE 5 ---, e quebras de linha no meio de frases confundem a busca semântica. A frase fica quebrada e o sentido se perde.
+
+A Solução: Antes de salvar no banco de vetores, passe um script de limpeza:
+
+Remover todos os marcadores de ``.
+
+Remover cabeçalhos e rodapés repetitivos (ex: --- PAGE X ---).
+
+Unir linhas quebradas: Transformar parágrafos que estão quebrados em várias linhas em uma linha única de texto contínuo.
+
+2. Aumente o "Overlap" (Sobreposição) dos Chunks
+Esse foi o provável culpado pela falha na pergunta do "Resumo".
+
+O Problema: Se o seu sistema corta o texto a cada 500 caracteres, a frase "As estratégias são:" pode ficar no final do Chunk A, e a lista "1. Prática, 2. Intercalação..." no início do Chunk B. A IA recebe um pedaço sem contexto e não entende.
+
+A Solução: Configure o seu Splitter:
+
+Chunk Size: Aumente para 1000 a 1500 caracteres (ou 250-400 tokens). Chunks muito pequenos perdem o raciocínio.
+
+Chunk Overlap: Isso é obrigatório. Coloque pelo menos 20% de sobreposição (ex: 200 caracteres). Isso garante que o final de um parágrafo apareça também no começo do próximo.
+
+3. Use "Hybrid Search" (Busca Híbrida)
+Seu sistema falhou em encontrar "quais são as estratégias" porque essa é uma pergunta de palavra-chave, não apenas de sentido.
+
+O Problema: A busca vetorial (semantic search) entende conceitos, mas às vezes ignora termos exatos.
+
+A Solução: Ative a Busca Híbrida (disponível no Pinecone, Weaviate, Qdrant, etc.).
+
+Ela combina BM25 (busca por palavra-chave exata, igual ao Ctrl+F) + Embeddings (busca pelo sentido).
+
+Isso resolveria o caso onde você pergunta o nome exato da teoria e o vetor não acha, mas a palavra-chave acha.
+
+4. Aumente o "Top-K" (Janela de Contexto)
+O Problema: Por padrão, muitos sistemas pegam apenas os 3 ou 4 trechos mais parecidos. Se a resposta para "Elaboração" começa na página 11, continua na 12 e termina na 13, pegar só 3 trechos vai cortar a explicação pela metade.
+
+A Solução: Aumente o Top-K (retrieved_chunks) para 7 a 10 chunks.
+
+Como você está (provavelmente) usando modelos atuais (GPT-4o, Gemini 1.5), a janela de contexto é grande e barata. É melhor pecar pelo excesso e enviar mais texto para a IA filtrar do que enviar pouco e ela não ter a resposta.
+
+5. Prompt de Sistema (System Prompt) Mais Flexível
+Às vezes o erro é o agente sendo "chato" demais.
+
+O Problema: Prompts como "Responda APENAS se estiver 100% explícito" fazem a IA ter medo de inferir conexões óbvias.
+
+A Solução: Ajuste o prompt para:
+
+"Você é um assistente especialista. Use os fragmentos de contexto fornecidos para responder à pergunta do usuário. Se a resposta estiver espalhada por vários fragmentos, sintetize-os em uma resposta coerente. Se o contexto mencionar o tópico mas não der detalhes, explique o que o contexto diz sobre isso."
+
+Resumo do Plano de Ação:
+Limpe o texto (remova [source] e quebras de linha).
+
+Aumente os Chunks (1000 chars) com Overlap (200 chars).
+
+Recupere mais pedaços (Top-K = 8).
+
+Se possível, ative Hybrid Search (Keyword + Semantic).

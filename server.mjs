@@ -44,14 +44,28 @@ const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 // 🧠 FUNÇÕES RAG PROFISSIONAL
 // ============================================
 
-// 1️⃣ Extrair PDF
+// 1️⃣ Extrair e Limpar PDF
 async function extractPdfText(filePath) {
   try {
     const fileBuffer = await fs.promises.readFile(filePath);
     const data = await pdfParse(fileBuffer);
-    const text = data.text || '';
+    let text = data.text || '';
     
-    console.log('--- TESTE DE EXTRAÇÃO ---');
+    // 🧹 LIMPEZA DE DADOS (Sanitization)
+    // 1. Remover marcadores de [source] ou similares
+    text = text.replace(/\[source\]/gi, '');
+    
+    // 2. Remover cabeçalhos/rodapés repetitivos (ex: --- PAGE 5 ---)
+    text = text.replace(/--- PAGE \d+ ---/gi, '');
+    
+    // 3. Unir linhas quebradas para manter o fluxo do parágrafo
+    // Remove quebras de linha que não são seguidas por uma letra maiúscula ou início de parágrafo
+    text = text.replace(/([a-z,;])\n(?=[a-z])/g, '$1 ');
+    
+    // 4. Normalizar espaços múltiplos
+    text = text.replace(/\s+/g, ' ').trim();
+    
+    console.log('--- TESTE DE EXTRAÇÃO E LIMPEZA ---');
     console.log(`Documento: ${path.basename(filePath)}`);
     console.log(`Caracteres extraídos: ${text.length}`);
     if (text.length > 0) {
@@ -69,7 +83,7 @@ async function extractPdfText(filePath) {
 }
 
 // 2️⃣ Chunking Inteligente (Respeita frases e palavras)
-function chunkText(text, size = 1000, overlap = 400) {
+function chunkText(text, size = 1200, overlap = 300) {
   if (!text || text.trim().length === 0) {
     console.warn('[CHUNK] Texto vazio, nenhum chunk criado.');
     return [];
@@ -1175,35 +1189,45 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
         console.log(`[CHAT] Chunks no banco: ${hasDocuments.rows[0].count}`);
         console.log(`[CHAT] Modo: ${hasChunks ? 'RAG (com documentos)' : 'NORMAL (só prompt)'}`);
 
-        // 🔍 BUSCA SEMÂNTICA COM RAG (apenas se houver documentos)
-        if (hasChunks) {
-            try {
-              // 🔍 ESTRATÉGIA DE BUSCA INTELIGENTE
-              const isLookingForBeginning = content.match(/primeira frase|título|inicio|começo|autor/i);
-              let relevantContext = "";
+                // 🔍 BUSCA SEMÂNTICA COM RAG (apenas se houver documentos)
+                if (hasChunks) {
+                    try {
+                      // 🔍 ESTRATÉGIA DE BUSCA INTELIGENTE
+                      const isLookingForBeginning = content.match(/primeira frase|título|inicio|começo|autor/i);
+                      let relevantContext = "";
 
-              if (isLookingForBeginning) {
-                console.log('[CHAT] Detectada busca por início/título. Priorizando ordem cronológica.');
-                relevantContext = await getFirstChunks(agentId, 5);
-              } else {
-                // Gerar embedding da pergunta
-                const openai = new OpenAI({
-                  apiKey: process.env.OPENAI_API_KEY || process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-                  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-                });
+                      if (isLookingForBeginning) {
+                        console.log('[CHAT] Detectada busca por início/título. Priorizando ordem cronológica.');
+                        relevantContext = await getFirstChunks(agentId, 5);
+                      } else {
+                        // Gerar embedding da pergunta
+                        const openai = new OpenAI({
+                          apiKey: process.env.OPENAI_API_KEY || process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+                          baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+                        });
 
-                const queryEmbedding = await openai.embeddings.create({
-                  model: 'text-embedding-3-large',
-                  input: content
-                });
+                        const queryEmbedding = await openai.embeddings.create({
+                          model: 'text-embedding-3-large',
+                          input: content
+                        });
 
-                // Buscar chunks similares - aumentado para 25 para melhor cobertura (Visão Panorâmica)
-                relevantContext = await searchSimilarChunks(
-                  queryEmbedding.data[0].embedding,
-                  agentId,
-                  25
-                );
-              }
+                        // Buscar chunks similares - aumentado para 25 para melhor cobertura (Visão Panorâmica)
+                        relevantContext = await searchSimilarChunks(
+                          queryEmbedding.data[0].embedding,
+                          agentId,
+                          25
+                        );
+
+                        // 🔍 BUSCA POR PALAVRA-CHAVE (Simulando Hybrid Search)
+                        // Pega os substantivos mais importantes da pergunta para busca exata
+                        const keywords = content.match(/[A-ZÁÉÍÓÚ][a-zàéíóúç]+/g) || [];
+                        if (keywords.length > 0) {
+                          const keywordContext = await searchKeywordChunks(keywords[0], agentId, 3);
+                          if (keywordContext) {
+                            relevantContext = keywordContext + "\n\n---\n\n" + relevantContext;
+                          }
+                        }
+                      }
 
               // 🧹 LIMPAR IDs DO CONTEXTO ANTES DE ENVIAR PARA OPENAI
               // Remove [Trecho ID: XXX] para que a IA não veja nem referencie isso
