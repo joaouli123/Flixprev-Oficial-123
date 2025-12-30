@@ -213,7 +213,9 @@ export const ChatSidebar = ({ agentId, currentConversationId }: ChatSidebarProps
                   >
                     <div className="flex items-center gap-2 flex-1 min-w-0">
                       <MessageSquare className="h-4 w-4 flex-shrink-0" />
-                      <span className="truncate text-xs">{conv.title}</span>
+                      <span className="truncate text-xs">
+                        {conv.title.length > 20 ? `${conv.title.substring(0, 20)}...` : conv.title}
+                      </span>
                     </div>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
