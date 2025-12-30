@@ -112,7 +112,13 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
       console.log("Categorias disponíveis:", categories.map(c => ({ id: String(c.id), name: c.name })));
       const matched = categories.find(c => String(c.id) === String(catId));
       console.log("Categoria correspondente encontrada:", matched);
-      setShortcuts(agentToEdit.shortcuts || ["Resumir docs", "Extrair cláusulas", "Analisar risco", "Dúvidas"]);
+      
+      // Garantir que os shortcuts sejam carregados se existirem, senão usar os padrões
+      const agentShortcuts = (agentToEdit as any).shortcuts;
+      setShortcuts(Array.isArray(agentShortcuts) && agentShortcuts.length > 0 
+        ? agentShortcuts 
+        : ["Resumir docs", "Extrair cláusulas", "Analisar risco", "Dúvidas"]);
+        
       const attachments = (agentToEdit as any).attachments || [];
       console.log("Attachments carregados:", attachments);
       setSavedAttachments(attachments);
@@ -195,7 +201,7 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
         description: description.trim(),
         icon,
         category_ids: categoryArray as string[],
-        shortcuts: shortcuts.length > 0 ? shortcuts : undefined,
+        shortcuts: shortcuts, // Sempre enviar os shortcuts atuais
         instructions: instructions.trim() || undefined,
         attachments: uploadedPaths,
       } as any;
