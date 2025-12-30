@@ -87,12 +87,15 @@ export const ChatSidebar = ({ agentId, currentConversationId }: ChatSidebarProps
       });
       
       if (!res.ok) {
+        // Log the status for debugging
+        console.error(`[SIDEBAR] Server returned status ${res.status}`);
         let errorMsg = "Falha ao salvar título";
+        const text = await res.text();
         try {
-          const errorData = await res.json();
+          const errorData = JSON.parse(text);
           errorMsg = errorData.error || errorMsg;
         } catch (e) {
-          console.warn("Could not parse error response as JSON");
+          console.warn("[SIDEBAR] Could not parse error response as JSON:", text);
         }
         throw new Error(errorMsg);
       }

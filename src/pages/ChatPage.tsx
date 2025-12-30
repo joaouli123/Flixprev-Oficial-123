@@ -189,6 +189,24 @@ const ChatPage = () => {
       ]);
     } finally {
       setIsSending(false);
+      // Forçar recarga das mensagens da conversa atual após o envio para garantir sincronia com o banco
+      const reloadMessages = async () => {
+        try {
+          const res = await fetch(`/api/conversations/${conversationId}/messages`);
+          if (res.ok) {
+            const msgs = await res.json();
+            const formattedMsgs = msgs.map((m: any) => ({
+              role: m.role as "user" | "assistant",
+              content: m.content,
+            }));
+            setMessages(formattedMsgs);
+          }
+        } catch (e) {
+          console.error("[CHAT] Erro ao recarregar mensagens:", e);
+        }
+      };
+      // Pequeno delay para garantir que o backend salvou
+      setTimeout(reloadMessages, 500);
     }
   };
 

@@ -298,7 +298,10 @@ DIRETRIZES DE RESPOSTA (RAG):
           }
         }
 
-        await chatStorage.createMessage(conversationId, "assistant", fullResponse);
+        console.log(`[CHAT] AI stream finished for conv ${conversationId}. Saving response...`);
+        const savedAssistantMsg = await chatStorage.createMessage(conversationId, "assistant", fullResponse);
+        console.log(`[CHAT] Assistant message saved in storage with ID: ${savedAssistantMsg?.id}`);
+        
         res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
         res.end();
       } catch (streamError: any) {
