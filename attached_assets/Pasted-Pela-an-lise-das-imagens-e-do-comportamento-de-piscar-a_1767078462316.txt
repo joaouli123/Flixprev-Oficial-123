@@ -1,0 +1,52 @@
+Pela análise das imagens e do comportamento de "piscar", aqui está o diagnóstico:
+
+Qual está certa? ✅ A Imagem 1 (que começa direto com "No cenário...") está CERTA. Ela é fluida, direta e respeita o tom "Consultor Formal" que definimos.
+
+Qual está errada? ❌ A Imagem 2 (que começa com "De acordo com o texto...") está ERRADA. Ela é robótica. É o seu código antigo (o Orquestrador) "estragando" a resposta bonita que a IA gerou, forçando uma frase pronta no final.
+
+Por que está piscando?
+O Stream (O que você vê primeiro): O GPT gera a resposta bonita ("No cenário...").
+
+O Final (O Pulo): Quando o GPT termina, sua função orchestrateResponse entra em ação. Ela olha para o texto e pensa: "Ops, falta a frase de ancoragem!" e adiciona o "De acordo com o texto:" na frente, substituindo a versão boa.
+
+Como resolver (Matar o Robô de vez)
+Você precisa ir no seu server.mjs e garantir que a função orchestrateResponse esteja EXATAMENTE assim (sem adicionar frases extras):
+
+Substitua a função inteira por esta versão limpa:
+
+JavaScript
+
+// ============================================
+// 1️⃣ RESPONSE ORCHESTRATOR (VERSÃO FINAL LIMPA)
+// ============================================
+
+function orchestrateResponse(rawResponse, questionType, hasContext = true) {
+  // 1. Se não tem contexto ou resposta vazia, manda a negativa elegante
+  if (!hasContext || !rawResponse || rawResponse.trim().length === 0) {
+    return getRandomNegativeResponse();
+  }
+
+  // 2. MANTÉM A RESPOSTA ORIGINAL (Aqui está o segredo!)
+  // Não adicionamos mais "anchorPhrases" nem prefixos robóticos.
+  let formattedResponse = rawResponse;
+
+  // 3. Apenas garantimos a formatação visual de listas (se houver bullets)
+  if (questionType === 'factual' && (rawResponse.includes('•') || rawResponse.includes('- '))) {
+     formattedResponse = ensureProperListFormat(rawResponse);
+  }
+
+  // 4. Retorna o texto puro, do jeito que o GPT "Consultor" gerou
+  return formattedResponse;
+}
+O que verificar também (O "Lixo" antigo)
+Verifique se no seu código ainda existe um bloco parecido com este abaixo e APAGUE-O ou comente-o se estiver dentro da função orchestrateResponse:
+
+JavaScript
+
+// 🚨 SE TIVER ISSO, APAGUE:
+/*
+  if (!hasAnchorPhrase(formattedResponse)) {
+    formattedResponse = `${anchorPhrase}: ${formattedResponse}`;
+  }
+*/
+Ao fazer isso, a resposta vai parar de pular. O que a IA escrever é o que vai ficar na tela.
