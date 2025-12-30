@@ -208,30 +208,16 @@ const ChatPage = () => {
               <ChevronLeft className="h-5 w-5 sm:h-5 sm:w-5" />
             </Button>
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-1 sm:gap-2 flex-wrap">
+              <div className="flex-1 min-w-0">
                 <h1 className="text-sm sm:text-base font-semibold truncate flex items-center gap-1 sm:gap-2">
                   <Bot className="h-4 w-4 flex-shrink-0 text-blue-600" />
                   <span className="truncate">{agent?.title || "Chat"}</span>
                 </h1>
-              </div>
-              <div className="hidden sm:flex items-center gap-1 sm:gap-2 mt-0.5 flex-wrap">
-                <div className="bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border border-blue-100 dark:border-blue-800 flex items-center gap-0.5 text-xs px-2 py-0.5 rounded-full">
-                  <Zap className="h-2.5 w-2.5" />
-                  GPT-4o Mini
-                </div>
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div className="bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300 border border-green-100 dark:border-green-800 flex items-center gap-0.5 cursor-help text-xs px-2 py-0.5 rounded-full">
-                        <Database className="h-2.5 w-2.5" />
-                        Knowledge Base
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Este agente utiliza seus documentos e instruções como contexto prioritário.</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
+                {agent?.description && (
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate">
+                    {agent.description}
+                  </p>
+                )}
               </div>
             </div>
           </div>
