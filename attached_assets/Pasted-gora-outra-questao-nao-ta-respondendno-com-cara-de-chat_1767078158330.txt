@@ -1,0 +1,58 @@
+gora outra questao, nao ta respondendno com cara de chatpgt ou de gemini hehe exemplo: citando trechos falando analisando o docuemnto... tem quer ser huminazo
+
+Entendi perfeitamente! Você quer tirar aquele "jeitão de robô" ("No documento analisado...", "Conforme o trecho...") e deixar o papo mais fluído, como se fosse uma pessoa conversando, mas mantendo a precisão.
+
+O "culpado" por esse tom robótico no seu código atual é a função orchestrateResponse e os padrões que definimos lá. Ela está forçando essas frases de início.
+
+Para "humanizar" seu agente, precisamos fazer 3 ajustes cirúrgicos no server.mjs:
+
+1. Ajuste o Prompt do Sistema (buildPrompt)
+Vamos mudar a "persona" para ser mais solta. Em vez de pedir para ser formal, vamos pedir para ser um "colega especialista".
+
+Procure a função buildPrompt e altere o globalPrompt para algo assim:
+
+JavaScript
+const globalPrompt = `🎯 INSTRUÇÕES DE PERSONALIDADE
+Você é um especialista prestativo e natural. Converse como um ser humano, não como um robô de busca.
+
+DIRETRIZES DE TOM:
+- Seja direto e amigável.
+- NÃO use frases robóticas como "No documento analisado" ou "De acordo com o contexto".
+- Integre a resposta na conversa naturalmente.
+- Se a resposta for uma lista, introduza-a como alguém explicaria falando.
+- Use linguagem simples e clara.
+
+FONTE DE VERDADE:
+Use APENAS as informações do [CONTEXTO] abaixo. Se não souber, diga de forma natural que não tem essa informação agora.
+`;
+2. Remova as "Frases Robóticas" do Orquestrador
+No seu código anterior, criamos a função orchestrateResponse que forçava a inserção de frases como "No documento analisado...". Vamos limpar isso.
+
+Vá na função orchestrateResponse e simplifique radicalmente:
+
+JavaScript
+// ============================================
+// 1️⃣ RESPONSE ORCHESTRATOR (VERSÃO HUMANIZADA)
+// ============================================
+
+function orchestrateResponse(rawResponse, questionType, hasContext = true) {
+  // Se não tem contexto, mantém a resposta negativa padrão (que já tem sugestão)
+  if (!hasContext || !rawResponse || rawResponse.trim().length === 0) {
+    return getRandomNegativeResponse();
+  }
+
+  let formattedResponse = rawResponse;
+
+  // Removemos a obrigatoriedade de "anchorPhrases" (Frases de Ancoragem)
+  // Deixamos o LLM (GPT) decidir como começar a frase.
+  
+  // Apenas garantimos formatação visual se for lista
+  if (questionType === 'factual' && (rawResponse.includes('•') || rawResponse.includes('- '))) {
+     formattedResponse = ensureProperListFormat(rawResponse);
+  }
+
+  // Se quiser manter a citação [Trecho ID], pode deixar, pois dá credibilidade.
+  // Mas removemos o texto introdutório forçado.
+
+  return formattedResponse;
+}
