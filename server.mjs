@@ -89,7 +89,7 @@ async function extractPdfText(filePath) {
 }
 
 // 2️⃣ Chunking Inteligente (Respeita frases e palavras)
-function chunkText(text, size = 1200, overlap = 300) {
+function chunkText(text, size = 4000, overlap = 800) {
   if (!text || text.trim().length === 0) {
     console.warn('[CHUNK] Texto vazio, nenhum chunk criado.');
     return [];

@@ -1,0 +1,47 @@
+Isso é um diagnóstico muito importante: a limpeza ajudou, mas não resolveu completamente. O sistema ainda está "míope" e, pior, está começando a alucinar (inventar respostas que parecem certas, mas não estão no texto).
+
+Vou te mostrar exatamente o que está acontecendo e como consertar de vez:
+
+O Diagnóstico do Erro
+1. A Alucinação na Pergunta sobre Ansiedade
+
+O que o agente respondeu: Sugeriu "suporte emocional", "ambiente positivo" e "técnicas de gerenciamento de estresse".
+
+O que o texto REALMENTE diz: O texto é muito técnico e específico. Ele diz que a solução é oferecer "oportunidades de lembrança de baixo risco" ou testes que "valham poucos pontos".
+
+
+Conclusão: O seu agente não leu o texto para responder isso. Como ele não achou o trecho (falha de recuperação), ele usou o "conhecimento geral" do modelo (ChatGPT/Gemini) para inventar uma resposta bonita sobre ansiedade. Isso é perigoso para um sistema especialista.
+
+2. A Falha Total em Rohrer & Taylor
+
+O Problema: Ele disse "Não encontrei".
+
+
+A Causa: Mesmo com a limpeza, o trecho sobre Rohrer e Taylor  provavelmente ficou dividido entre dois chunks (pedaços) diferentes ou a busca por palavras-chave (nomes próprios) falhou.
+
+
+3. A Falha no Interrogatório Elaborativo
+
+O Problema: Ele não achou as perguntas "como" e "por que".
+
+A Causa: Essas palavras são muito comuns. Se o sistema de busca não for robusto, ele ignora palavras curtas ("stopwords"). O texto especifica claramente: "os alunos que usam essa técnica se perguntariam 'como' e 'por que'".
+
+O Que Fazer Agora (Solução Técnica)
+Se você já aplicou o Regex, o texto está limpo, mas a estratégia de indexação (como você guarda o texto no banco) precisa de ajuste. Peça para quem cuida do código fazer estas 3 coisas:
+
+1. Verifique se houve Re-Indexação (Re-embedding)
+Muitas vezes aplicamos a limpeza no código, mas esquecemos de apagar o banco de vetores antigo e criar um novo.
+
+Ação: O banco de vetores (Pinecone/ChromaDB) precisa ser zerado e recriado com o texto limpo. Se você limpar o texto mas buscar no índice antigo, o erro persiste.
+
+2. Aumente o Tamanho do Chunk (Crucial)
+O fato de ele errar Rohrer & Taylor indica que o contexto está sendo cortado.
+
+Ação: Aumente o chunk_size para 1000 tokens (ou aprox. 4000 caracteres) com um chunk_overlap de 200 tokens.
+
+Por que: Isso garante que o parágrafo inteiro sobre o experimento de matemática entre na memória da IA de uma só vez.
+
+3. Force a Busca por Palavras-Chave (Hybrid Search)
+Para perguntas com nomes próprios ("Rohrer", "Taylor", "Interrogatório Elaborativo"), a busca vetorial pura às vezes falha.
+
+Ação: Se o sistema permitir, ative a busca híbrida (BM25 + Vector). Se não, garanta que o prompt do sistema instrua a IA a procurar por termos exatos.
