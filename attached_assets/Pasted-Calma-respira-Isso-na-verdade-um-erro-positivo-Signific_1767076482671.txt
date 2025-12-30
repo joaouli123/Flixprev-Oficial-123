@@ -1,0 +1,114 @@
+Calma, respira! Isso na verdade é um "erro positivo".
+
+Significa que o seu Sistema de Segurança (Anti-Alucinação) está funcionando perfeitamente. O sistema não encontrou os trechos no banco de dados e, em vez de inventar uma data ou um percentual, ele respondeu honestamente que não sabe.
+
+O problema agora não é a "IA", é a Engenharia de Dados (Retrieval). O banco de dados não está entregando os trechos corretos para a IA ler.
+
+Vamos corrigir isso agora com 3 passos práticos:
+
+Passo 1: O "Vilão" pode ser a Distância Euclidiana
+No código anterior, usamos o operador <-> (Distância Euclidiana). Para embeddings da OpenAI (que são normalizados), a Distância de Cosseno (<=>) funciona muito melhor. A Euclidiana às vezes falha silenciosamente se os vetores não estiverem na escala perfeita.
+
+Vá na função searchSimilarChunks e troque a query SQL:
+
+JavaScript
+
+// CORREÇÃO: Usar <=> (Cosseno) em vez de <-> (Euclidiana)
+async function searchSimilarChunks(queryEmbedding, agentId, limit = 20) {
+  try {
+    const embeddingString = '[' + queryEmbedding.join(',') + ']';
+    
+    // ATENÇÃO AQUI: Mudamos para <=> e adicionamos log de similaridade
+    const result = await pool.query(`
+      SELECT content, 1 - (embedding <=> $2::vector) as similarity
+      FROM document_chunks
+      WHERE agent_id = $1
+      ORDER BY embedding <=> $2::vector
+      LIMIT $3
+    `, [agentId, embeddingString, limit]);
+    
+    console.log('--- DIAGNÓSTICO RAG ---');
+    console.log(`Chunks encontrados: ${result.rows.length}`);
+    if (result.rows.length > 0) {
+       console.log(`Top 1 Similaridade: ${(result.rows[0].similarity * 100).toFixed(2)}%`);
+       console.log(`Conteúdo Top 1: ${result.rows[0].content.substring(0, 100)}...`);
+    } else {
+       console.log('🚨 ZERO chunks retornados. Verifique o agent_id!');
+    }
+    console.log('-----------------------');
+    
+    return result.rows.map(r => r.content).join('\n\n---\n\n');
+  } catch (e) {
+    console.error('[SEARCH] Erro:', e.message);
+    return '';
+  }
+}
+Passo 2: O Problema do agent_id (O Erro Invisível)
+Este é a causa de 90% dos erros "Não encontrei".
+
+Você fez o upload do PDF. O backend salvou com agent_id: "uuid-tal".
+
+Você abriu o chat. O frontend mandou a mensagem. O agentId que o chat enviou é exatamente o mesmo?
+
+Se você fez upload numa tela de "Novo Agente" mas não salvou o agente antes, ou se a variável agentId mudou, o banco de dados tem os chunks, mas a query WHERE agent_id = $1 filtra tudo.
+
+Teste rápido: No seu banco de dados (via terminal ou ferramenta visual), rode:
+
+SQL
+
+SELECT count(*) FROM document_chunks;
+Se der 0: O upload falhou ou não salvou nada. (Verifique sua API Key da OpenAI).
+
+Se der > 0: Os dados estão lá, mas o agent_id está diferente do que você está usando no chat.
+
+Passo 3: Verifique seus Logs do Terminal
+Olhe para o terminal onde o servidor node está rodando quando você faz a pergunta.
+
+Cenário A:
+
+Plaintext
+
+[EMB] Erro no chunk 0: 401 Unauthorized (ou Insufficient Quota)
+Diagnóstico: Sua chave da OpenAI acabou os créditos ou é inválida. O código inseriu vetores zerados ([0,0,0...]) no banco. Vetor zerado nunca dá match.
+
+Cenário B:
+
+Plaintext
+
+[SEARCH] Chunks encontrados: 0/20
+⚠️ AVISO: NENHUM CHUNK ENCONTRADO PARA ESTA PERGUNTA!
+Diagnóstico: Disparidade de agentId. O Chat está mandando um ID e os documentos estão salvos com outro (ou NULL).
+
+Cenário C:
+
+Plaintext
+
+[CHAT] Contexto encontrado: true
+[PROMPT FINAL] ... (texto dos chunks aqui) ...
+Diagnóstico: Se o log mostra que achou contexto, mas a IA diz que não, então o Prompt está muito restritivo ("Prompt Over-Refusal").
+
+Solução Imediata (Debug Endpoint)
+Adicione esta rota temporária no seu server.mjs e acesse pelo navegador (http://localhost:5000/api/debug/chunks) para ver se tem algo no banco:
+
+JavaScript
+
+app.get('/api/debug/chunks', async (req, res) => {
+  try {
+    // Pega os 5 últimos chunks salvos de qualquer agente
+    const result = await pool.query(`
+      SELECT agent_id, left(content, 50) as preview, created_at 
+      FROM document_chunks 
+      ORDER BY created_at DESC LIMIT 5
+    `);
+    res.json(result.rows);
+  } catch (e) {
+    res.json({ error: e.message });
+  }
+});
+Resumo:
+
+Troque para <=> (Cosseno).
+
+Verifique se sua OpenAI API Key tem saldo (se falhar na geração, grava tudo zero).
+
+Confirme se o agentId do upload é o mesmo do chat.

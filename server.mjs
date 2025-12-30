@@ -1481,6 +1481,23 @@ app.delete('/api/agents/:id', async (req, res) => {
   }
 });
 
+// 🔧 DEBUG ENDPOINT - Verificar chunks no banco
+app.get('/api/debug/chunks', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT agent_id, document_id, left(content, 80) as preview, chunk_index, created_at 
+      FROM document_chunks 
+      ORDER BY created_at DESC LIMIT 10
+    `);
+    res.json({
+      total: result.rows.length,
+      chunks: result.rows
+    });
+  } catch (e) {
+    res.json({ error: e.message });
+  }
+});
+
 // 🚨 ENDPOINT /api/db RESTAURADO (APENAS PARA categories, agents, custom_links)
 app.post('/api/db', async (req, res) => {
   const { table, operation, columns, insertData, updateData, filters, orderColumn, orderAsc, limit, countExact, maybeOne } = req.body;
