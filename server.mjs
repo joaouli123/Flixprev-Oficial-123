@@ -461,15 +461,19 @@ function orchestrateResponse(rawResponse, questionType, hasContext = true) {
   // Formatar baseado no tipo
   let formattedResponse = rawResponse;
 
+  // 🧹 LIMPEZA: Remove qualquer referência [Trecho ID: XXX] antes de exibir ao usuário
+  // A IA ainda usa internamente para validação, mas o usuário vê texto limpo e profissional
+  formattedResponse = formattedResponse.replace(/\[Trecho ID: \d+\]/g, '').trim();
+
   if (questionType === 'factual' && pattern.format === 'list') {
     // Garantir que listas estejam bem formatadas
-    formattedResponse = ensureProperListFormat(rawResponse);
+    formattedResponse = ensureProperListFormat(formattedResponse);
   } else if (questionType === 'explanatory' && pattern.format === 'paragraphs') {
     // Garantir parágrafos curtos e claros
-    formattedResponse = ensureProperParagraphFormat(rawResponse);
+    formattedResponse = ensureProperParagraphFormat(formattedResponse);
   } else if (questionType === 'structural' && pattern.format === 'direct') {
     // Manter resposta direta e concisa
-    formattedResponse = trimToFirstSentence(rawResponse, 3);
+    formattedResponse = trimToFirstSentence(formattedResponse, 3);
   }
 
   // Adicionar frase de ancoragem se não estiver presente
