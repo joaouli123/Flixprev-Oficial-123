@@ -299,8 +299,18 @@ DIRETRIZES DE RESPOSTA (RAG):
         }
 
         console.log(`[CHAT] AI stream finished for conv ${conversationId}. Saving response...`);
-        const savedAssistantMsg = await chatStorage.createMessage(conversationId, "assistant", fullResponse);
-        console.log(`[CHAT] Assistant message saved in storage with ID: ${savedAssistantMsg?.id}`);
+        try {
+          const savedAssistantMsg = await chatStorage.createMessage(conversationId, "assistant", fullResponse);
+          console.log(`[CHAT] Assistant message saved in storage with ID: ${savedAssistantMsg?.id}`);
+          
+          // Confirmar que foi salvo no DB
+          const check = await pool.query('SELECT * FROM messages WHERE id = $1', [savedAssistantMsg.id]);
+          if (check.rows.length === 0) {
+            console.error(`[CHAT] 🚨 FATAL: Mensagem ID ${savedAssistantMsg.id} NÃO encontrada no DB após salvar!`);
+          }
+        } catch (saveErr) {
+          console.error(`[CHAT] 🚨 Erro crítico ao salvar no DB:`, saveErr);
+        }
         
         res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
         res.end();

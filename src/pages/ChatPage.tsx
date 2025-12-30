@@ -192,6 +192,7 @@ const ChatPage = () => {
       // Forçar recarga das mensagens da conversa atual após o envio para garantir sincronia com o banco
       const reloadMessages = async () => {
         try {
+          console.log("[CHAT] Recarregando histórico do banco para garantir persistência...");
           const res = await fetch(`/api/conversations/${conversationId}/messages`);
           if (res.ok) {
             const msgs = await res.json();
@@ -205,8 +206,8 @@ const ChatPage = () => {
           console.error("[CHAT] Erro ao recarregar mensagens:", e);
         }
       };
-      // Pequeno delay para garantir que o backend salvou
-      setTimeout(reloadMessages, 500);
+      // Delay um pouco maior para garantir que o backend finalize o commit no DB
+      setTimeout(reloadMessages, 1000);
     }
   };
 

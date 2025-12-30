@@ -1343,10 +1343,11 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
     const validatedResp = validateOutput(fullResp, hasContext, content, questionType, contextSize, chunksUsed, (typeof relevantContext !== 'undefined' ? relevantContext : ''));
     
     // Salvar resposta do assistente (validada)
-    await pool.query(
-      'INSERT INTO messages (conversation_id, role, content) VALUES ($1, $2, $3)',
+    const result = await pool.query(
+      'INSERT INTO messages (conversation_id, role, content) VALUES ($1, $2, $3) RETURNING *',
       [cid, "assistant", validatedResp]
     );
+    console.log(`[CHAT] (server.mjs) Resposta salva no DB. ID: ${result.rows[0]?.id}`);
 
     res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
     res.end();
