@@ -123,13 +123,11 @@ async function generateEmbeddings(chunks) {
   return embeddings;
 }
 
-// 4️⃣ Busca semântica com pgvector
-async function searchSimilarChunks(queryEmbedding, agentId, limit = 12) {
+// 4️⃣ Busca semântica com pgvector - ROBUSTA
+async function searchSimilarChunks(queryEmbedding, agentId, limit = 20) {
   try {
     const embeddingString = '[' + queryEmbedding.join(',') + ']';
     
-    // Corrigido: document_chunks não tem coluna title, apenas content. 
-    // O título está na tabela documents se precisarmos de join futuramente.
     const result = await pool.query(`
       SELECT content
       FROM document_chunks
@@ -140,11 +138,11 @@ async function searchSimilarChunks(queryEmbedding, agentId, limit = 12) {
     
     console.log('--- TESTE DE RECUPERAÇÃO (RAG) ---');
     console.log(`Agente: ${agentId}`);
-    console.log(`Chunks encontrados: ${result.rows.length}`);
+    console.log(`Chunks encontrados: ${result.rows.length}/${limit}`);
     
     if (result.rows.length > 0) {
-      result.rows.forEach((r, i) => {
-        console.log(`Chunk ${i + 1}: ${r.content.substring(0, 50).replace(/\n/g, ' ')}...`);
+      result.rows.slice(0, 3).forEach((r, i) => {
+        console.log(`Chunk ${i + 1}: ${r.content.substring(0, 60).replace(/\n/g, ' ')}...`);
       });
     } else {
       console.warn('⚠️ AVISO: NENHUM CHUNK ENCONTRADO PARA ESTA PERGUNTA!');
@@ -661,42 +659,32 @@ FORMATAÇÃO RECOMENDADA (para esta pergunta explicativa):
 - Use estrutura: ideia principal → detalhes → contexto`;
   }
 
-  const globalPrompt = `🎯 INSTRUÇÕES DE CONTEXTO
+  const globalPrompt = `🎯 INSTRUÇÕES CRÍTICAS
 ${selectedTone}
 
 ═══════════════════════════════════════════════════════════════════
-CAMADA 2: RESPOSTA ESTRUTURADA (CLAREZA)
+TAREFA ESSENCIAL:
 ═══════════════════════════════════════════════════════════════════
-✨ Padrão de Resposta:
-1. Uma frase introdutória/de ancoragem
-2. Conteúdo direto e objetivo
-3. Listas quando fizerem sentido
-4. Parágrafo conclusivo breve
+Use EXCLUSIVAMENTE as informações fornecidas no bloco [CONTEXTO] abaixo.
+NÃO use conhecimento externo nem inferências não baseadas no texto.
 
-✨ Exemplos de boas frases de ancoragem:
-- "No documento analisado..."
-- "Com base no conteúdo fornecido..."
-- "De acordo com o texto..."
-- "Analisei o documento e encontrei..."
+Se a pergunta for respondida pelo contexto → RESPONDA DIRETAMENTE com base nele.
+Se a pergunta NÃO estiver coberta pelo contexto → Diga claramente que não foi encontrada.
+
 ${structuringInstructions}
 
 ═══════════════════════════════════════════════════════════════════
-CAMADA 1 + 4: INTELIGÊNCIA PERCEBIDA + FEEDBACK
+FORMATAÇÃO OBRIGATÓRIA:
 ═══════════════════════════════════════════════════════════════════
-✨ Quando HOUVER informação:
-- Responda fluido e natural como um assistente humano
-- Se possível, cite ou parafraseie o trecho relevante
-- Organize a resposta para ser "escaneável"
+- Responda APENAS com base no contexto fornecido
+- Seja claro, conciso e objetivo
+- Use listas quando apropriado
+- Cite trechos quando necessário
 
-✨ Quando NÃO houver informação:
-- Sempre comece explicando o que ENCONTROU ("O documento trata de...")
-- Depois explique o limite ("...mas não entra nesse ponto específico")
-- Ofereça próximos passos quando aplicável
-
-REGRA DE OURO:
-- Você pode variar: a frase, o tom, a fluidez
-- Você NÃO pode variar: a fonte, a verdade, o escopo
-- NUNCA invente informações que não estão no documento`;
+PROIBIDO:
+- Inferências que não estão no texto
+- Conhecimento geral ou "você sabe que"
+- Respostas que parecem certas mas não têm prova no contexto`;
 
   const contextBlock = (context && context.trim().length > 0)
     ? `[INÍCIO DO CONTEXTO]\n${context}\n[FIM DO CONTEXTO]`
@@ -1203,36 +1191,12 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
                   input: content
                 });
 
-                // Buscar chunks similares (aumentado de 8 para 12 para garantir que capítulos inteiros sejam capturados)
+                // Buscar chunks similares - aumentado para 20 para melhor cobertura
                 relevantContext = await searchSimilarChunks(
                   queryEmbedding.data[0].embedding,
                   agentId,
-                  12
+                  20
                 );
-              }
-
-              // 🔍 RE-RANKING SIMPLES POR CAPÍTULO/SEÇÃO
-              // Se a pergunta menciona "capítulo", "seção", "tópico" ou números
-              const strictTermsMatch = content.match(/capítulo|seção|tópico|[\d\.]+|segundo autor/i);
-              const chapterTitleMatch = content.match(/Avaliação por Desempenho/i);
-              
-              if ((strictTermsMatch || chapterTitleMatch) && relevantContext) {
-                console.log('[CHAT] MODO RESTRITO ATIVADO: Detectada referência a seção/capítulo/autor');
-                const contextLines = relevantContext.split('\n\n---\n\n');
-                
-                const prioritizedLines = contextLines.filter(line => {
-                  const hasTerm = strictTermsMatch && line.toLowerCase().includes(strictTermsMatch[0].toLowerCase());
-                  const hasTitle = chapterTitleMatch && line.toLowerCase().includes(chapterTitleMatch[0].toLowerCase());
-                  return hasTerm || hasTitle;
-                });
-                
-                if (prioritizedLines.length > 0) {
-                  relevantContext = prioritizedLines.join('\n\n---\n\n');
-                  console.log(`[CHAT] Busca filtrada com sucesso: ${prioritizedLines.length} chunks relevantes encontrados.`);
-                } else {
-                  console.log('[CHAT] MODO RESTRITO: Nenhum fragmento específico encontrado. O prompt global forçará a resposta de "não aborda".');
-                  relevantContext = ""; // Forçar contexto vazio para acionar regra 4
-                }
               }
 
               // 🔍 DEBUGAR CONTEXTO ANTES DE ENVIAR PARA OPENAI
