@@ -44,14 +44,11 @@ export const ChatSidebar = ({ agentId, currentConversationId }: ChatSidebarProps
 
   useEffect(() => {
     loadConversations();
-    // Aumentar frequência de atualização do histórico
-    const interval = setInterval(loadConversations, 3000);
-    return () => clearInterval(interval);
   }, [agentId]);
 
   const handleNewChat = () => {
     navigate(`/app/chat/${agentId}`);
-    setTimeout(loadConversations, 500);
+    // Não fazer reload aqui - deixa o ChatPage carregar normalmente
   };
 
   const handleDeleteConversation = async (convId: number) => {

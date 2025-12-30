@@ -98,14 +98,14 @@ const ChatPage = () => {
             const conv = await response.json();
             console.log("[CHAT] Conversation created with ID:", conv.id);
             setConversationId(conv.id);
-            setMessages([]);
+            // Manter mensagens vazias apenas para nova conversa
             // Atualizar a URL para incluir o ID da conversa sem recarregar
             navigate(`/app/chat/${agentId}/${conv.id}`, { replace: true });
           }
         }
       } catch (error) {
         console.error("[CHAT] Error:", error);
-        setMessages([]);
+        // Não limpar mensagens em caso de erro
       } finally {
         setIsLoading(false);
       }
@@ -113,7 +113,7 @@ const ChatPage = () => {
     if (agent?.title) {
       initConversation();
     }
-  }, [agent?.title, conversationId]);
+  }, [agent?.title, agentId, conversationId]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -203,25 +203,6 @@ const ChatPage = () => {
       ]);
     } finally {
       setIsSending(false);
-      // Forçar recarga das mensagens da conversa atual após o envio para garantir sincronia com o banco
-      const reloadMessages = async () => {
-        try {
-          console.log("[CHAT] Recarregando histórico do banco para garantir persistência...");
-          const res = await fetch(`/api/conversations/${conversationId}/messages`);
-          if (res.ok) {
-            const msgs = await res.json();
-            const formattedMsgs = msgs.map((m: any) => ({
-              role: m.role as "user" | "assistant",
-              content: m.content,
-            }));
-            setMessages(formattedMsgs);
-          }
-        } catch (e) {
-          console.error("[CHAT] Erro ao recarregar mensagens:", e);
-        }
-      };
-      // Delay um pouco maior para garantir que o backend finalize o commit no DB
-      setTimeout(reloadMessages, 1000);
     }
   };
 
@@ -293,7 +274,7 @@ const ChatPage = () => {
 
               {messages.map((msg, i) => (
                 <div
-                  key={i}
+                  key={`${msg.role}-${i}`}
                   className={cn(
                     "flex gap-2 sm:gap-3 animate-in fade-in slide-in-from-bottom-2 duration-300",
                     msg.role === "user" ? "justify-end" : "justify-start"
