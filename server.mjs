@@ -1406,10 +1406,10 @@ app.post('/api/login', (req, res) => {
 });
 
 // ✅ ENDPOINTS SEGUROS PARA AGENTES
-// GET todos os agentes
+// GET todos os agentes (sem instruções para não sobrecarregar)
 app.get('/api/agents', async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM "agents" ORDER BY created_at DESC');
+    const result = await pool.query('SELECT id, title, description, link, category_ids, created_at, icon, user_id FROM "agents" ORDER BY created_at DESC');
     res.json(result.rows || []);
   } catch (e) {
     console.error('[API] Erro ao buscar agentes:', e.message);
@@ -1417,7 +1417,7 @@ app.get('/api/agents', async (req, res) => {
   }
 });
 
-// GET agente por ID
+// GET agente por ID (incluindo instruções)
 app.get('/api/agents/:id', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM "agents" WHERE id = $1', [req.params.id]);
@@ -1512,7 +1512,7 @@ app.post('/api/categories', async (req, res) => {
 // ✅ ENDPOINTS PARA LINKS PERSONALIZADOS
 app.get('/api/links', async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM "personalized_links" ORDER BY title ASC');
+    const result = await pool.query('SELECT * FROM "custom_links" ORDER BY title ASC');
     res.json(result.rows || []);
   } catch (e) {
     console.error('[API] Erro ao buscar links:', e.message);
@@ -1527,7 +1527,7 @@ app.post('/api/links', async (req, res) => {
       return res.status(400).json({ error: 'Título e URL são obrigatórios' });
     }
     const result = await pool.query(
-      'INSERT INTO "personalized_links" (title, url) VALUES ($1, $2) RETURNING *',
+      'INSERT INTO "custom_links" (title, url) VALUES ($1, $2) RETURNING *',
       [title, url]
     );
     res.status(201).json(result.rows[0]);
