@@ -53,6 +53,9 @@ async function extractPdfText(filePath) {
 
     // 🧹 LIMPEZA DE DADOS (Sanitization) - CONFIGURAÇÃO NUCLEAR
 
+    // 0. Remover caracteres nulos (invalid byte sequence for encoding "UTF8": 0x00)
+    text = text.replace(/\0/g, '');
+
     // 1. Remover marcadores (Esta é a linha que estava quebrada)
     text = text.replace(/\[source\]/gi, ''); 
 
