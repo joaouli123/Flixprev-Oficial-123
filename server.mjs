@@ -195,33 +195,73 @@ async function getFirstChunks(agentId, limit = 3) {
   }
 }
 
+// ============================================
+// 🎯 VARIAÇÕES DE TOM GLOBAIS
+// ============================================
+
+const toneVariations = {
+  formal: `Você é um assistente profissional e objetivo.
+
+Responda exclusivamente com base no CONTEXTO fornecido.
+Não utilize conhecimento externo.
+
+Quando a informação não estiver presente no documento:
+- Informe isso de maneira clara e formal.
+- Não faça suposições.`,
+
+  neutral: `Você é um assistente claro, educado e profissional.
+
+Utilize apenas as informações presentes no CONTEXTO fornecido.
+Não complemente respostas com conhecimento externo.
+
+Quando a informação solicitada não estiver no documento:
+- Explique isso de forma natural.
+- Seja direto e educado.`,
+
+  chatgpt: `Você é um assistente conversacional, claro e natural, com o estilo do ChatGPT.
+
+Responda usando somente as informações presentes no CONTEXTO fornecido.
+Não utilize conhecimento externo nem faça inferências.
+
+Quando a resposta não estiver no documento:
+- Explique isso de forma amigável e natural.
+- Evite respostas robóticas ou repetitivas.`
+};
+
+// ============================================
+// 🎲 FORMATTER DE RESPOSTAS VARIÁVEIS
+// ============================================
+
+const negativeResponseVariations = [
+  "Não encontrei essa informação no documento analisado.",
+  "O texto não aborda esse ponto específico.",
+  "Analisei o documento, mas essa informação não está presente.",
+  "O documento não apresenta dados sobre isso.",
+  "Essa informação não consta no conteúdo fornecido.",
+  "Após analisar o documento, não identifiquei essa informação.",
+  "O texto analisado não entra nesse detalhe.",
+];
+
+function getRandomNegativeResponse() {
+  return negativeResponseVariations[Math.floor(Math.random() * negativeResponseVariations.length)];
+}
+
+function formatResponse(answer, hasContext) {
+  // Se não há contexto, retorna uma resposta variável negativa
+  if (!hasContext) {
+    return getRandomNegativeResponse();
+  }
+  // Se há contexto, retorna a resposta normalmente
+  return answer;
+}
+
 // 5️⃣ Prompt GLOBAL DEFINITIVO e CONTRATO DE CONTEXTO
-function buildPrompt(context, agentInstructions, question) {
+// PADRÃO: ChatGPT-style (mude para 'formal' ou 'neutral' se necessário)
+function buildPrompt(context, agentInstructions, question, toneStyle = 'chatgpt') {
+  const selectedTone = toneVariations[toneStyle] || toneVariations.chatgpt;
+
   const globalPrompt = `🎯 INSTRUÇÕES DE CONTEXTO
-Você é um assistente claro, profissional e conversacional especializado em análise de documentos.
-
-REGRA FUNDAMENTAL:
-- Use EXCLUSIVAMENTE as informações presentes no CONTEXTO fornecido.
-- Não utilize conhecimento externo, suposições ou inferências.
-
-QUANDO HOUVER INFORMAÇÃO NO CONTEXTO:
-- Responda de forma fluida, como um assistente humano seria.
-- Se possível, cite ou parafraseie o trecho relevante do documento.
-- Organize a resposta de forma clara e estruturada.
-
-QUANDO A INFORMAÇÃO NÃO ESTIVER NO CONTEXTO:
-- Explique isso de forma natural e educada.
-- Não repita frases genéricas iguais toda vez.
-- Seja breve e direto.
-- Aceite o limite com profissionalismo.
-
-EXEMPLOS DE BOAS RESPOSTAS (quando não houver informação):
-✓ "Analisei o documento, mas ele não traz essa informação específica."
-✓ "Não encontrei essa informação no conteúdo do documento."
-✓ "O documento não aborda esse ponto."
-
-EXEMPLO (quando houver informação):
-✓ "No documento analisado, os autores citados são: [...]"
+${selectedTone}
 
 REGRA DE OURO:
 - Você pode variar: a frase, o tom, a fluidez
@@ -230,7 +270,7 @@ REGRA DE OURO:
 
   const contextBlock = (context && context.trim().length > 0)
     ? `[INÍCIO DO CONTEXTO]\n${context}\n[FIM DO CONTEXTO]`
-    : '[⚠️ ERRO CRÍTICO: Nenhum conteúdo de documento foi encontrado para esta pergunta. Aplique a REGRA 4 IMEDIATAMENTE.]';
+    : '';
 
   return `${globalPrompt}
 
@@ -255,7 +295,7 @@ RESPONDA AGORA (apenas com base no contexto acima):
 }
 
 // 6️⃣ VALIDADOR DE SAÍDA (Anti-Alucinação - LEVE)
-function validateOutput(text) {
+function validateOutput(text, hasContext = true) {
   // Apenas bloqueia respostas que claramente indicam alucinação fora do escopo
   const severeAllucinationPatterns = [
     /de acordo com meu conhecimento/i,
@@ -268,11 +308,12 @@ function validateOutput(text) {
   for (const pattern of severeAllucinationPatterns) {
     if (pattern.test(text)) {
       console.log(`[VALIDATOR] Bloqueando resposta: padrão de alucinação severa detectado`);
-      return "Analisei o documento, mas não encontrei essa informação nele.";
+      return getRandomNegativeResponse();
     }
   }
   
-  return text;
+  // Formata a resposta final (varia as negativas se necessário)
+  return formatResponse(text, hasContext);
 }
 
 // ============================================
@@ -639,6 +680,7 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
     );
 
     let prompt = "Você é um assistente prestativo.";
+    let hasContext = false;
 
     if (agentId) {
       try {
@@ -725,6 +767,7 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
 
               // Construir prompt DEFINITIVO com ordem estrita: Global -> Agent -> Context -> User
               prompt = buildPrompt(relevantContext || '', agentInstructions, content);
+              hasContext = relevantContext && relevantContext.trim().length > 0;
               
               if (relevantContext) {
                 console.log('[CHAT] ✅ Contexto RAG encontrado e injetado');
@@ -738,6 +781,7 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
             // 📝 Modo normal: sem documentos, usa as instruções do agente dentro do prompt global
             console.log('[CHAT] ✅ Usando modo normal (prompt do agente sem documentos)');
             prompt = buildPrompt('', agentInstructions, content);
+            hasContext = false;
           }
         }
       } catch (e) {
@@ -793,7 +837,7 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
     }
 
     // Aplicar Validação de Saída (Anti-Alucinação)
-    const validatedResp = validateOutput(fullResp);
+    const validatedResp = validateOutput(fullResp, hasContext);
     
     // Salvar resposta do assistente (validada)
     await pool.query(
