@@ -1358,6 +1358,55 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
   }
 });
 
+// Middleware central para logar todas as requisições API
+app.use((req, res, next) => {
+  if (req.path.startsWith('/api/')) {
+    console.log(`[API] ${req.method} ${req.path}`);
+  }
+  next();
+});
+
+// Rota GLOBAL de renomeação para garantir que funcione independente de onde estiver registrada
+app.patch('/api/conversations/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { title } = req.body;
+    console.log(`[PATCH /api/conversations/${id}] (GLOBAL) title:`, title);
+    
+    if (!title || title.trim() === '') {
+      return res.status(400).json({ error: 'Título é obrigatório' });
+    }
+    
+    // Tentar como texto primeiro (UUID)
+    let result = await pool.query(
+      'UPDATE conversations SET title = $1, updated_at = CURRENT_TIMESTAMP WHERE id::text = $2 RETURNING *',
+      [title.trim(), id]
+    );
+    
+    // Tentar como número se falhar
+    if (result.rows.length === 0) {
+      const numericId = parseInt(id);
+      if (!isNaN(numericId)) {
+        result = await pool.query(
+          'UPDATE conversations SET title = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING *',
+          [title.trim(), numericId]
+        );
+      }
+    }
+    
+    if (result.rows.length === 0) {
+      console.error(`[PATCH GLOBAL] Conversa ${id} não encontrada`);
+      return res.status(404).json({ error: 'Conversa não encontrada' });
+    }
+    
+    console.log(`[PATCH GLOBAL] Sucesso ao renomear ${id}`);
+    res.json(result.rows[0]);
+  } catch (e) {
+    console.error('[PATCH CONVERSATION ERROR (GLOBAL)]', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // LOGIN
 app.post('/api/login', (req, res) => {
   const { email, password } = req.body;
