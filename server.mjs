@@ -462,10 +462,10 @@ function orchestrateResponse(rawResponse, questionType, hasContext = true) {
   let formattedResponse = rawResponse;
 
   // 🧹 LIMPEZA AGRESSIVA: Remove qualquer referência [Trecho ID: XXX] antes de exibir ao usuário
-  // Cobre variações: [Trecho ID: 116], [Trecho ID:116], com quebras de linha, espaços extras, etc.
+  // Cobre todas as variações: [Trecho ID: 116], [Trecho ID: 116]., com quebras de linha, espaços, etc.
   // A IA ainda usa internamente para validação, mas o usuário vé texto limpo e profissional
   formattedResponse = formattedResponse
-    .replace(/\[\s*Trecho\s+ID:\s*\d+\s*\]\n?/g, '') // Remove [Trecho ID: XXX] com variações de espaço
+    .replace(/\s*\[\s*Trecho\s+ID:\s*\d+\s*\]\s*\.?\s*/gi, '') // Remove [Trecho ID: XXX] e pontos/espaços após
     .replace(/\n\n+/g, '\n\n') // Remove múltiplas quebras de linha
     .trim();
 
