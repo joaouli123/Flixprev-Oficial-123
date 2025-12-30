@@ -426,63 +426,32 @@ const responsePatterns = {
 };
 
 // ============================================
-// 1️⃣ RESPONSE ORCHESTRATOR (CAMADA FINAL)
+// 1️⃣ RESPONSE ORCHESTRATOR (FINAL E LIMPA)
 // ============================================
 
 /**
- * Response Orchestrator
- * 
- * Responsabilidades:
- * - Receber resposta bruta
- * - Aplicar tom, estrutura, clareza
- * - Garantir consistência global
- * - Nunca muda conteúdo, só a forma
+ * Orquestra a resposta final:
+ * - Validação básica (se não tiver resposta, manda a negativa)
+ * - Remove [Trecho ID: XXX] para o usuário final
+ * - NÃO adiciona prefixos desnecessários
+ * - Mantém o texto exatamente como o GPT gerou
  */
 function orchestrateResponse(rawResponse, questionType, hasContext = true) {
-  // 🔧 DESCOMENTADO: Permitir resposta mesmo sem contexto perfeito
-  // if (!hasContext) {
-  //   return getRandomNegativeResponse();
-  // }
-
-  // Se resposta está vazia, trata como sem contexto
-  // DESCOMENTADO: Permitir resposta mesmo que esteja vazia
-  // if (!rawResponse || rawResponse.trim().length === 0) {
-  //   return getRandomNegativeResponse();
-  // }
-
-  // Obter padrão de resposta
-  const pattern = responsePatterns[questionType] || responsePatterns.general;
-  
-  // Escolher frase de ancoragem aleatória
-  const anchorPhrase = pattern.anchorPhrases[
-    Math.floor(Math.random() * pattern.anchorPhrases.length)
-  ];
-
-  // Formatar baseado no tipo
-  let formattedResponse = rawResponse;
-
-  // 🧹 LIMPEZA AGRESSIVA: Remove qualquer referência [Trecho ID: XXX] antes de exibir ao usuário
-  // Cobre todas as variações: [Trecho ID: 116], [Trecho ID: 116]., com quebras de linha, espaços, etc.
-  // A IA ainda usa internamente para validação, mas o usuário vé texto limpo e profissional
-  formattedResponse = formattedResponse
-    .replace(/\s*\[\s*Trecho\s+ID:\s*\d+\s*\]\s*\.?\s*/gi, '') // Remove [Trecho ID: XXX] e pontos/espaços após
-    .replace(/\n\n+/g, '\n\n') // Remove múltiplas quebras de linha
-    .trim();
-
-  if (questionType === 'factual' && pattern.format === 'list') {
-    // Garantir que listas estejam bem formatadas
-    formattedResponse = ensureProperListFormat(formattedResponse);
-  } else if (questionType === 'explanatory' && pattern.format === 'paragraphs') {
-    // Garantir parágrafos curtos e claros
-    formattedResponse = ensureProperParagraphFormat(formattedResponse);
-  } else if (questionType === 'structural' && pattern.format === 'direct') {
-    // Manter resposta direta e concisa
-    formattedResponse = trimToFirstSentence(formattedResponse, 3);
+  // 1. Validação básica (se não tiver resposta, manda a negativa)
+  if (!hasContext || !rawResponse || rawResponse.trim().length === 0) {
+    return getRandomNegativeResponse();
   }
 
-  // Adicionar frase de ancoragem se não estiver presente
-  if (!hasAnchorPhrase(formattedResponse)) {
-    formattedResponse = `${anchorPhrase}: ${formattedResponse}`;
+  let formattedResponse = rawResponse;
+
+  // 🧹 LIMPEZA DO ID:
+  // Essa linha apaga o [Trecho ID: 123] para o usuário final
+  // Remove todas as variações: [Trecho ID: 116], [Trecho ID:116], etc.
+  formattedResponse = formattedResponse.replace(/\[Trecho ID: \d+\]/g, '').trim();
+
+  // 2. Formatação de listas (apenas visual, mantém se houver bullets)
+  if (questionType === 'factual' && (formattedResponse.includes('•') || formattedResponse.includes('- '))) {
+     formattedResponse = ensureProperListFormat(formattedResponse);
   }
 
   return formattedResponse;

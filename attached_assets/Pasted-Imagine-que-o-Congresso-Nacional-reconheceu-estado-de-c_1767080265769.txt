@@ -1,0 +1,69 @@
+Imagine que o Congresso Nacional reconheceu estado de calamidade pública devido a uma pandemia. Nesse cenário específico, o que acontece com a contagem dos prazos para recondução da dívida e com a obrigação de atingir os resultados fiscais? Eles continuam valendo ou são suspensos?
+
+
+
+
+
+De acordo com o texto: No cenário de calamidade pública reconhecida pelo Congresso Nacional, a contagem dos prazos para recondução da dívida e a obrigação de atingir os resultados fiscais são suspensas. Especificamente, "serão suspensas a contagem dos prazos e as disposições estabelecidas nos arts. 23, 31 e 70" e "serão dispensados o atingimento dos resultados fiscais e a limitação de empenho prevista no art. 9º"
+
+Imagine que o Congresso Nacional reconheceu estado de calamidade pública devido a uma pandemia. Nesse cenário específico, o que acontece com a contagem dos prazos para recondução da dívida e com a obrigação de atingir os resultados fiscais? Eles continuam valendo ou são suspensos?
+
+
+
+
+
+No cenário de calamidade pública reconhecida pelo Congresso Nacional, a contagem dos prazos para recondução da dívida e a obrigação de atingir os resultados fiscais são suspensas. Especificamente, "serão suspensas a contagem dos prazos e as disposições estabelecidas nos arts. 23, 31 e 70" e "serão dispensados o atingimento dos resultados fiscais e a limitação de empenho prevista no art. 9º" [Trecho ID: 116].
+
+
+
+
+
+olha ai quando atualizo a pagina ele altera a resposta!
+
+a primeira resposta e quando atualizei a pagina a segunda e sem atualizar!
+
+Isso acontece por causa de uma diferença entre o que você vê na hora (Stream) e o que é salvo no banco de dados.
+
+Na hora (Sem atualizar): Você vê o texto chegando "picadinho" direto do GPT-4 (Stream). O GPT manda a resposta limpa e correta: "No cenário de calamidade...".
+
+No Banco (Ao atualizar): Quando o GPT termina, seu servidor roda a função orchestrateResponse antes de salvar. É essa função que está "estragando" o texto, adicionando o prefixo "De acordo com o texto:" e salvando a versão "robótica" no banco.
+
+Quando você atualiza a página, o chat puxa o histórico do banco, que está com a versão modificada.
+
+A Solução Definitiva (Para corrigir o "Salvar" e remover o ID)
+Você precisa substituir a função orchestrateResponse no seu server.mjs por esta versão abaixo. Ela faz duas coisas:
+
+Não adiciona nada (Mata o robô "De acordo com...").
+
+Remove o ID (Limpa o [Trecho ID: 116]).
+
+Substitua a função inteira no seu código:
+
+JavaScript
+// ============================================
+// 1️⃣ RESPONSE ORCHESTRATOR (FINAL E LIMPA)
+// ============================================
+
+function orchestrateResponse(rawResponse, questionType, hasContext = true) {
+  // 1. Validação básica (se não tiver resposta, manda a negativa)
+  if (!hasContext || !rawResponse || rawResponse.trim().length === 0) {
+    return getRandomNegativeResponse();
+  }
+
+  let formattedResponse = rawResponse;
+
+  // 🛑 CORREÇÃO DO PISCA-PISCA:
+  // Removemos qualquer lógica que adicione "De acordo com", "No documento", etc.
+  // O texto começa exatamente como o GPT gerou.
+
+  // 🧹 LIMPEZA DO ID:
+  // Essa linha apaga o [Trecho ID: 123] para o usuário final
+  formattedResponse = formattedResponse.replace(/\[Trecho ID: \d+\]/g, '').trim();
+
+  // 2. Formatação de listas (apenas visual, mantém se houver bullets)
+  if (questionType === 'factual' && (formattedResponse.includes('•') || formattedResponse.includes('- '))) {
+     formattedResponse = ensureProperListFormat(formattedResponse);
+  }
+
+  return formattedResponse;
+}
