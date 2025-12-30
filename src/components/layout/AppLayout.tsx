@@ -543,11 +543,11 @@ const AppLayout = () => {
       )}
       
       {isMobile ? (
-        <main className="flex-grow container mx-auto p-4 md:p-6">
+        <main className="flex-grow flex flex-col min-h-0 container mx-auto p-4 md:p-6 overflow-hidden">
           <Outlet context={outletContextValue} />
         </main>
       ) : (
-        <ResizablePanelGroup direction="horizontal" className="flex-grow w-full">
+        <ResizablePanelGroup direction="horizontal" className="flex-grow w-full overflow-hidden">
           <ResizablePanel
             defaultSize={15}
             minSize={4}
@@ -576,7 +576,7 @@ const AppLayout = () => {
           </ResizablePanel>
           <ResizableHandle withHandle />
           <ResizablePanel defaultSize={85}>
-            <main className="flex-grow container mx-auto p-4 md:p-6">
+            <main className="flex flex-col h-full min-h-0 container mx-auto p-4 md:p-6 overflow-hidden">
               <Outlet context={outletContextValue} />
             </main>
           </ResizablePanel>

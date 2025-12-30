@@ -212,11 +212,11 @@ const ChatPage = () => {
   };
 
   return (
-    <div className="flex w-full h-screen overflow-hidden bg-gray-50/30 dark:bg-slate-900/30">
+    <div className="flex w-full h-[100dvh] overflow-hidden bg-gray-50/30 dark:bg-slate-900/30 fixed inset-0">
       <ChatSidebar agentId={agentId!} currentConversationId={conversationId} />
-      <div className="flex flex-col flex-1 overflow-hidden">
+      <div className="flex flex-col flex-1 h-full overflow-hidden relative">
       {/* Header */}
-      <div className="flex-shrink-0 border-b bg-white dark:bg-slate-950 px-3 py-2 sm:px-4 sm:py-3">
+      <div className="flex-shrink-0 border-b bg-white dark:bg-slate-950 px-3 py-2 sm:px-4 sm:py-3 z-20">
         <div className="flex items-center justify-between gap-2 sm:gap-4">
           <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
             <Button 
@@ -296,9 +296,9 @@ const ChatPage = () => {
       </div>
 
         {/* Input Area */}
-        <div className="flex-shrink-0 bg-white dark:bg-slate-950 border-t dark:border-slate-800 px-3 py-1 sm:px-4 sm:py-1">
-        <div className="w-full max-w-2xl mx-auto space-y-0">
-          <div className="flex flex-wrap gap-1 sm:gap-1 overflow-x-auto">
+        <div className="flex-shrink-0 bg-white dark:bg-slate-950 border-t dark:border-slate-800 px-3 py-2 sm:px-4 sm:py-3 z-20">
+        <div className="w-full max-w-2xl mx-auto space-y-1">
+          <div className="flex flex-wrap gap-1 sm:gap-2 overflow-x-auto pb-1">
             {shortcuts.map((s) => (
               <Button
                 key={s}
