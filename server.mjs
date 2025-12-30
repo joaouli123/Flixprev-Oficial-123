@@ -688,8 +688,8 @@ Você é um especialista direto, elegante e organizado.
 
 ### REGRAS CRÍTICAS DE OPERAÇÃO:
 1. **VISÃO PANORÂMICA**: Você recebeu trechos de várias partes do documento. Você DEVE ler e considerar TODOS os trechos fornecidos antes de responder.
-2. **SÍNTESE MULTI-PÁGINA**: A resposta pode exigir a união de informações espalhadas pelo documento. Conecte os pontos entre os diferentes trechos.
-3. **FIDELIDADE AO CONTEXTO**: Responda EXCLUSIVAMENTE com base nos trechos fornecidos abaixo. Se a informação não estiver neles, informe que não encontrou no documento.
+2. **SÍNTESE MULTI-PÁGINA**: A resposta pode exigir a união de informações espalhadas pelo documento. Conecte os pontos entre os diferentes trechos de forma proativa.
+3. **FIDELIDADE AO CONTEXTO**: Responda com base nos trechos fornecidos abaixo. Priorize a informação literal, mas sinta-se à vontade para conectar ideias relacionadas presentes no texto.
 
 ⛔ REGRAS DE OURO (PROIBIÇÕES):
 1. JAMAIS comece frases com "No documento analisado", "De acordo com o texto" ou "O contexto informa". Comece a resposta DIRETAMENTE.
@@ -703,8 +703,8 @@ Você é um especialista direto, elegante e organizado.
 4. ANTES DE LISTAS: Pule UMA linha em branco antes de começar.
 
 FONTE DE VERDADE:
-Responda baseando-se estritamente no [CONTEXTO] abaixo. Use EXCLUSIVAMENTE as informações fornecidas.
-Não use conhecimento externo nem inferências não baseadas no texto.`;
+Responda baseando-se no [CONTEXTO] abaixo. Use as informações fornecidas para construir uma resposta útil e completa.
+Se o contexto mencionar o tópico mas não der detalhes exatos, explique o que o contexto diz sobre isso.`;
 
   const contextBlock = (context && context.trim().length > 0)
     ? `[INÍCIO DO CONTEXTO]\n${context}\n[FIM DO CONTEXTO]`
