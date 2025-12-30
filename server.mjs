@@ -1196,6 +1196,12 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
                 );
               }
 
+              // 🧹 LIMPAR IDs DO CONTEXTO ANTES DE ENVIAR PARA OPENAI
+              // Remove [Trecho ID: XXX] para que a IA não veja nem referencie isso
+              if (relevantContext) {
+                relevantContext = relevantContext.replace(/\[Trecho ID: \d+\]\n?/g, '').trim();
+              }
+
               // 🔍 DEBUGAR CONTEXTO ANTES DE ENVIAR PARA OPENAI
               console.log('[CHAT] ========== CONTEXTO RAG ==========');
               console.log('[CHAT] Contexto encontrado:', !!relevantContext);
