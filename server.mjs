@@ -433,8 +433,8 @@ const responsePatterns = {
  * Orquestra a resposta final:
  * - Validação básica (se não tiver resposta, manda a negativa)
  * - Remove [Trecho ID: XXX] para o usuário final
- * - NÃO adiciona prefixos desnecessários
- * - Mantém o texto exatamente como o GPT gerou
+ * - Remove prefixos robóticos caso a IA desobedeça o prompt
+ * - Mantém a formatação e estrutura visual
  */
 function orchestrateResponse(rawResponse, questionType, hasContext = true) {
   // 1. Validação básica (se não tiver resposta, manda a negativa)
@@ -444,14 +444,28 @@ function orchestrateResponse(rawResponse, questionType, hasContext = true) {
 
   let formattedResponse = rawResponse;
 
-  // 🧹 LIMPEZA DO ID:
-  // Essa linha apaga o [Trecho ID: 123] para o usuário final
-  // Remove todas as variações: [Trecho ID: 116], [Trecho ID:116], etc.
-  formattedResponse = formattedResponse.replace(/\[Trecho ID: \d+\]/g, '').trim();
+  // 2. 🧹 LIMPEZA DE EMERGÊNCIA
+  // Remove qualquer variação de [Trecho ID: X] que a IA tenha deixado escapar
+  formattedResponse = formattedResponse.replace(/\[\s*Trecho\s*ID\s*:\s*\d+\s*\]/gi, '').trim();
 
-  // 2. Formatação de listas (apenas visual, mantém se houver bullets)
-  if (questionType === 'factual' && (formattedResponse.includes('•') || formattedResponse.includes('- '))) {
-     formattedResponse = ensureProperListFormat(formattedResponse);
+  // 3. REMOVE PREFIXOS ROBÓTICOS (Caso a IA desobedeça o prompt)
+  // Remove "No documento analisado," ou "De acordo com o texto," do início
+  const robotPrefixes = [
+    /^No documento analisado,?\s*/i,
+    /^De acordo com o texto,?\s*/i,
+    /^Com base no contexto,?\s*/i,
+    /^Conforme o documento,?\s*/i,
+    /^O contexto informa,?\s*/i,
+    /^Analisei o documento e encontrei,?\s*/i
+  ];
+
+  robotPrefixes.forEach(prefix => {
+    formattedResponse = formattedResponse.replace(prefix, '');
+  });
+
+  // 4. Capitaliza a primeira letra (já que removemos o prefixo)
+  if (formattedResponse.length > 0) {
+    formattedResponse = formattedResponse.charAt(0).toUpperCase() + formattedResponse.slice(1);
   }
 
   return formattedResponse;
@@ -655,33 +669,24 @@ FORMATAÇÃO RECOMENDADA (para esta pergunta explicativa):
 - Use estrutura: ideia principal → detalhes → contexto`;
   }
 
-  const globalPrompt = `🎯 INSTRUÇÕES CRÍTICAS
-${selectedTone}
+  const globalPrompt = `🎯 PERSONA: CONSULTOR SÊNIOR
+Você é um especialista direto, elegante e organizado.
 
-═══════════════════════════════════════════════════════════════════
-TAREFA ESSENCIAL:
-═══════════════════════════════════════════════════════════════════
-Use EXCLUSIVAMENTE as informações fornecidas no bloco [CONTEXTO] abaixo.
-NÃO use conhecimento externo nem inferências não baseadas no texto.
+⛔ REGRAS DE OURO (PROIBIÇÕES):
+1. JAMAIS comece frases com "No documento analisado", "De acordo com o texto" ou "O contexto informa". Isso é proibido. Comece a resposta DIRETAMENTE (Ex: "O prazo é de...").
+2. NÃO inclua referências numéricas como "[Trecho ID]" no texto final. Use a informação, mas não mostre o código.
+3. Não adicione prefixos ou intros desnecessários. Vá direto ao ponto.
 
-Se a pergunta for respondida pelo contexto → RESPONDA DIRETAMENTE com base nele.
-Se a pergunta NÃO estiver coberta pelo contexto → Diga claramente que não foi encontrada.
+✅ REGRAS DE FORMATAÇÃO (VISUAL):
+- Use **Negrito** para destacar prazos, valores e conceitos chave.
+- Se houver mais de 2 itens, USE SEMPRE UMA LISTA (Bullet points com • ou -).
+- PULE UMA LINHA antes de começar uma lista.
+- PULE UMA LINHA entre parágrafos para o texto respirar.
+- Estruture as respostas com clareza visual (quebras de linha adequadas).
 
-${structuringInstructions}
-
-═══════════════════════════════════════════════════════════════════
-FORMATAÇÃO OBRIGATÓRIA:
-═══════════════════════════════════════════════════════════════════
-- Responda APENAS com base no contexto fornecido
-- Seja claro, conciso e objetivo
-- Use listas quando apropriado
-- Cite trechos SEMPRE mencionando o ID do trecho, ex: [Trecho ID: 3]
-
-PROIBIDO:
-- Inferências que não estão no texto
-- Conhecimento geral ou "você sabe que"
-- Respostas que parecem certas mas não têm prova no contexto
-- Fazer afirmações sem citar a origem [Trecho ID: X]`;
+FONTE DE VERDADE:
+Responda baseando-se estritamente no [CONTEXTO] abaixo. Use EXCLUSIVAMENTE as informações fornecidas.
+Não use conhecimento externo nem inferências não baseadas no texto.`;
 
   const contextBlock = (context && context.trim().length > 0)
     ? `[INÍCIO DO CONTEXTO]\n${context}\n[FIM DO CONTEXTO]`

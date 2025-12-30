@@ -1,0 +1,68 @@
+Entendi. A gente resolveu o "pisca-pisca" (agora o texto para), mas a qualidade do texto caiu:
+
+Robótico: Voltou o "No documento analisado..." (Chato).
+
+Formatação Ruim: Virou um "blocão" de texto (Parede de texto), sem pular linha nas listas.
+
+Vamos resolver isso agora ajustando o Cérebro (Prompt) e a Limpeza.
+
+🛠️ Passo 1: O Prompt "Anti-Robô" e "Pró-Formatação"
+O problema do "No documento analisado" e da lista bagunçada é que o Prompt atual está "frouxo". Vamos colocar regras de PROIBIÇÃO e de ESTRUTURA.
+
+Vá no server.mjs, na função buildPrompt, e substitua o globalPrompt inteiro por este aqui:
+
+JavaScript
+
+const globalPrompt = `🎯 PERSONA: CONSULTOR SÊNIOR
+Você é um especialista direto, elegante e organizado.
+
+⛔ REGRAS DE OURO (PROIBIÇÕES):
+1. JAMAIS comece frases com "No documento analisado", "De acordo com o texto" ou "O contexto informa". Isso é proibido. Comece a resposta DIRETAMENTE (Ex: "O prazo é de...").
+2. NÃO inclua referências numéricas como "[Trecho ID]" no texto final. Use a informação, mas não mostre o código.
+
+✅ REGRAS DE FORMATAÇÃO (VISUAL):
+- Use **Negrito** para destacar prazos, valores e conceitos chave.
+- Se houver mais de 2 itens, USE SEMPRE UMA LISTA (Bullet points).
+- PULE UMA LINHA antes de começar uma lista.
+- PULE UMA LINHA entre parágrafos para o texto respirar.
+
+FONTE DE VERDADE:
+Responda baseando-se estritamente no [CONTEXTO] abaixo.
+`;
+🛠️ Passo 2: O Orquestrador Invisível
+Agora vamos garantir que o código não adicione nada e continue limpando qualquer sujeira que a IA deixe escapar.
+
+Substitua a função orchestrateResponse por esta versão definitiva:
+
+JavaScript
+
+function orchestrateResponse(rawResponse, questionType, hasContext = true) {
+  // 1. Se não tem nada, recusa
+  if (!hasContext || !rawResponse || rawResponse.trim().length === 0) {
+    return getRandomNegativeResponse();
+  }
+
+  let formattedResponse = rawResponse;
+
+  // 2. 🧹 LIMPEZA DE EMERGÊNCIA
+  // Remove qualquer variação de [Trecho ID: X] que a IA tenha deixado escapar
+  formattedResponse = formattedResponse.replace(/\[\s*Trecho\s*ID\s*:\s*\d+\s*\]/gi, '').trim();
+
+  // 3. REMOVE PREFIXOS ROBÓTICOS (Caso a IA desobedeça o prompt)
+  // Remove "No documento analisado," do início da frase
+  const robotPrefixes = [
+    /^No documento analisado,?\s*/i,
+    /^De acordo com o texto,?\s*/i,
+    /^Com base no contexto,?\s*/i,
+    /^Conforme o documento,?\s*/i
+  ];
+
+  robotPrefixes.forEach(prefix => {
+    formattedResponse = formattedResponse.replace(prefix, '');
+  });
+
+  // 4. Capitaliza a primeira letra (já que removemos o prefixo)
+  formattedResponse = formattedResponse.charAt(0).toUpperCase() + formattedResponse.slice(1);
+
+  return formattedResponse;
+}
