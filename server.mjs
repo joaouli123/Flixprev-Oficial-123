@@ -69,7 +69,7 @@ async function extractPdfText(filePath) {
 }
 
 // 2️⃣ Chunking Inteligente (Respeita frases e palavras)
-function chunkText(text, size = 800, overlap = 300) {
+function chunkText(text, size = 1000, overlap = 400) {
   if (!text || text.trim().length === 0) {
     console.warn('[CHUNK] Texto vazio, nenhum chunk criado.');
     return [];
@@ -141,7 +141,7 @@ async function generateEmbeddings(chunks) {
 }
 
 // 4️⃣ Busca semântica com pgvector - ROBUSTA (Cosine)
-async function searchSimilarChunks(queryEmbedding, agentId, limit = 15) {
+async function searchSimilarChunks(queryEmbedding, agentId, limit = 25) {
   try {
     const embeddingString = '[' + queryEmbedding.join(',') + ']';
     
@@ -1010,8 +1010,8 @@ app.post('/api/agents/upload', upload.single('file'), async (req, res) => {
         );
         const documentId = docResult.rows[0].id;
 
-        // 3. Fazer chunks
-        const chunks = chunkText(text, 800, 150);
+        // 3. Fazer chunks (Aumentado para evitar fragmentação)
+        const chunks = chunkText(text, 1000, 400);
 
         // 4. Gerar embeddings
         const embeddings = await generateEmbeddings(chunks);
@@ -1100,8 +1100,8 @@ app.post('/api/admin/reprocess-attachments', async (req, res) => {
           const documentId = docResult.rows[0].id;
           console.log('[REPROCESS] Documento criado:', documentId);
           
-          // 3. Fazer chunks
-          const chunks = chunkText(text, 800, 150);
+          // 3. Fazer chunks (Aumentado para evitar fragmentação)
+          const chunks = chunkText(text, 1000, 400);
           console.log(`[REPROCESS] ${chunks.length} chunks criados`);
           
           // 4. Gerar embeddings
@@ -1197,11 +1197,11 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
                   input: content
                 });
 
-                // Buscar chunks similares - aumentado para 15 para melhor cobertura (Visão Panorâmica)
+                // Buscar chunks similares - aumentado para 25 para melhor cobertura (Visão Panorâmica)
                 relevantContext = await searchSimilarChunks(
                   queryEmbedding.data[0].embedding,
                   agentId,
-                  15
+                  25
                 );
               }
 

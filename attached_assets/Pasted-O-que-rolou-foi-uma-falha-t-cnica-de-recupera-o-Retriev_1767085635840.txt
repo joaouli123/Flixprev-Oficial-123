@@ -1,0 +1,37 @@
+O que rolou foi uma falha técnica de recuperação (Retrieval Failure) no seu sistema, ou o que chamamos de "Alucinação Negativa" (a IA diz que não tem a informação, mesmo ela estando lá).
+
+Como eu tenho acesso ao documento completo que você enviou, posso te garantir: o problema não é o texto/PDF, é como o seu agente está "lendo" ele.
+
+Aqui está a prova de que as respostas estão no documento, e o diagnóstico do porquê seu sistema falhou:
+
+1. A Prova (Onde está no texto)
+Seu agente disse que não encontrou, mas veja exatamente onde as informações estão no PDF que você enviou:
+
+Sobre a "Nova Teoria do Desuso": Está explicitamente na Página 3. O texto diz: "A 'nova teoria do desuso' (Bjork & Bjork, 1992) nos dá uma explicação mecanicista para os benefícios do espaçamento ao aprendizado.". Ele explica logo em seguida a relação entre força de evocação e força de armazenamento.
+
+
+
+Sobre "Quais são as estratégias": Está logo no resumo, na Página 1. O texto lista: "nos concentramos em seis estratégias cognitivas específicas... prática espaçada, intercalação, prática de lembrar, elaboração, exemplos concretos e codificação dupla.".
+
+Sobre "O que usar na Codificação Dupla": Está na Página 16. O texto diz: "Para aproveitar a dupla codificação, a informação verbal deve ser acompanhada de uma representação visual, quando possível.".
+
+2. O Diagnóstico: Por que seu agente falhou?
+Se você está usando aquele sistema de agentes que conversamos (RAG ou Contexto Longo), aqui estão os 3 culpados prováveis:
+
+A. Falha na Busca Vetorial (Se for RAG) Se o seu sistema "recorta" o PDF em pedaços (chunks) para buscar:
+
+Quando você perguntou sobre "Nova teoria do desuso", o sistema de busca (search) não encontrou o pedaço da Página 3 para entregar ao LLM.
+
+O LLM recebeu um contexto vazio ou irrelevante e, obedecendo ao comando de "não invente nada", respondeu corretamente que não encontrou a informação (porque ela não chegou até ele).
+
+Solução: Aumentar o tamanho dos chunks ou melhorar o "overlap" (sobreposição) entre eles.
+
+B. Truncamento de Contexto (Se for Contexto Longo) Se você tentou enviar o texto todo de uma vez num modelo menor (como o GPT-4o-mini ou modelos open source):
+
+O modelo pode ter cortado o texto no meio. Como a "Codificação Dupla" está na Página 16 (quase no fim), se o limite de tokens estourou na página 10, o agente literalmente nunca viu essa parte.
+
+C. Prompt do Sistema Muito Restritivo Às vezes, o System Prompt diz algo como "Responda apenas se tiver certeza absoluta e a informação estiver explícita palavra por palavra".
+
+Na pergunta "O que é Prática Espaçada?", o texto define o conceito, mas se o agente for muito "rígido", ele pode achar que a definição não está num formato de dicionário e negar a resposta.
+
+Resumo: O PDF está perfeito. O erro está na "tubulação" (pipeline) que leva o texto do PDF até o cérebro da IA.
