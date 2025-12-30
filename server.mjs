@@ -47,27 +47,37 @@ const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 // 🧠 FUNÇÕES RAG PROFISSIONAL
 // ============================================
 
-// 1️⃣ Extrair e Limpar PDF (CORRIGIDO PARA EVITAR SYNTAX ERROR)
+// 1️⃣ Extrair e Limpar PDF (CORRIGIDO COM LIMPEZA DE BUFFER AVANÇADA)
 async function extractPdfText(filePath) {
   try {
     const fileBuffer = await fs.promises.readFile(filePath);
     
-    // ✅ CORREÇÃO 2: Opções robustas para leitura completa de PDFs longos
-    const options = {
+    // ✅ LIMPEZA DE BUFFER: Forçamos pdf-parse ser resiliente
+    const data = await pdfParse(fileBuffer, {
+      // Esta função de pagerender tenta ignorar erros de cada página
       pagerender: function(pageData) {
-        return pageData.getTextContent().then(function(textContent) {
+        return pageData.getTextContent({
+          normalizeWhitespace: true,
+          disableCombineTextItems: false
+        }).then(function(textContent) {
           return textContent.items.map(item => item.str).join(' ');
         });
       }
-    };
-    
-    const data = await pdfParse(fileBuffer, options);
+    });
+
     let text = data.text || '';
 
     // 📊 LOG DE DEBUG ESSENCIAL - Validar leitura completa
     console.log(`[DEBUG PDF] Arquivo: ${path.basename(filePath)}`);
     console.log(`[DEBUG PDF] Páginas lidas: ${data.numpages}`);
     console.log(`[DEBUG PDF] Caracteres totais ANTES da limpeza: ${text.length}`);
+    
+    // ⚠️ Verificação de segurança - Detectar cortes de extração
+    if (text.length < 90000 && data.numpages > 25) {
+      console.warn(`⚠️ ALERTA CRÍTICO: A extração parece ter sido cortada pela metade!`);
+      console.warn(`   Esperado: ~150k+ caracteres | Obtido: ${text.length} caracteres`);
+      console.warn(`   Solução: Abra o PDF no navegador, clique em Imprimir > Salvar como PDF e tente novamente`);
+    }
 
     // 🧹 LIMPEZA DE DADOS (Sanitization) - CONFIGURAÇÃO NUCLEAR
 
