@@ -3,9 +3,7 @@ import { Pool } from 'pg';
 
 const router = Router();
 
-const dbUrl = process.env.NODE_ENV === 'production' 
-  ? process.env.PROD_DATABASE_URL 
-  : process.env.DATABASE_URL;
+const dbUrl = process.env.PROD_DATABASE_URL || process.env.DATABASE_URL;
 
 const pool = new Pool({
   connectionString: dbUrl,
