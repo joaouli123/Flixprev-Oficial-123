@@ -461,9 +461,13 @@ function orchestrateResponse(rawResponse, questionType, hasContext = true) {
   // Formatar baseado no tipo
   let formattedResponse = rawResponse;
 
-  // 🧹 LIMPEZA: Remove qualquer referência [Trecho ID: XXX] antes de exibir ao usuário
-  // A IA ainda usa internamente para validação, mas o usuário vê texto limpo e profissional
-  formattedResponse = formattedResponse.replace(/\[Trecho ID: \d+\]/g, '').trim();
+  // 🧹 LIMPEZA AGRESSIVA: Remove qualquer referência [Trecho ID: XXX] antes de exibir ao usuário
+  // Cobre variações: [Trecho ID: 116], [Trecho ID:116], com quebras de linha, espaços extras, etc.
+  // A IA ainda usa internamente para validação, mas o usuário vé texto limpo e profissional
+  formattedResponse = formattedResponse
+    .replace(/\[\s*Trecho\s+ID:\s*\d+\s*\]\n?/g, '') // Remove [Trecho ID: XXX] com variações de espaço
+    .replace(/\n\n+/g, '\n\n') // Remove múltiplas quebras de linha
+    .trim();
 
   if (questionType === 'factual' && pattern.format === 'list') {
     // Garantir que listas estejam bem formatadas
