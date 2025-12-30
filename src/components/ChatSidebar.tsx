@@ -9,8 +9,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Plus, MessageSquare, Trash2, MoreVertical, Pencil } from "lucide-react";
+import { Plus, MessageSquare, Trash2, MoreVertical, Pencil, ChevronRight, ChevronLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface Conversation {
   id: number;
@@ -25,11 +26,13 @@ interface ChatSidebarProps {
 
 export const ChatSidebar = ({ agentId, currentConversationId }: ChatSidebarProps) => {
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
   const [showAll, setShowAll] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(isMobile ?? false);
 
   const loadConversations = async () => {
     try {
@@ -134,34 +137,67 @@ export const ChatSidebar = ({ agentId, currentConversationId }: ChatSidebarProps
     }
   };
 
+  if (isMobile && isCollapsed) {
+    return (
+      <div className="w-12 bg-white dark:bg-slate-900 border-r border-gray-200 dark:border-slate-700 flex flex-col h-full items-center justify-between py-4">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setIsCollapsed(false)}
+          className="h-10 w-10"
+          data-testid="button-expand-sidebar"
+          title="Expandir conversas"
+        >
+          <ChevronRight className="h-5 w-5" />
+        </Button>
+      </div>
+    );
+  }
+
   return (
-    <div className="w-64 bg-white dark:bg-slate-900 border-r border-gray-200 dark:border-slate-700 flex flex-col h-full">
+    <div className={cn(
+      "bg-white dark:bg-slate-900 border-r border-gray-200 dark:border-slate-700 flex flex-col h-full",
+      isMobile ? "fixed left-0 top-0 bottom-0 w-64 z-40 shadow-lg" : "w-64"
+    )}>
       <div className="p-4 border-b border-gray-200 dark:border-slate-700 flex justify-between items-center gap-2">
         <Button
           onClick={handleNewChat}
-          className="flex-1 gap-2"
+          className={isMobile ? "flex-1" : "flex-1 gap-2"}
           data-testid="button-new-conversation"
         >
-          <Plus className="h-4 w-4" />
-          Nova Conversa
+          {!isMobile && <Plus className="h-4 w-4" />}
+          {isMobile ? <Plus className="h-4 w-4" /> : "Nova Conversa"}
         </Button>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-9 w-9" data-testid="button-sidebar-more">
-              <MoreVertical className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem
-              onClick={handleClearAll}
-              className="text-red-600 focus:text-red-600"
-              data-testid="button-clear-all-conversations"
-            >
-              <Trash2 className="h-4 w-4 mr-2" />
-              Limpar Histórico
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {isMobile && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setIsCollapsed(true)}
+            className="h-9 w-9"
+            data-testid="button-collapse-sidebar"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+        )}
+        {!isMobile && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-9 w-9" data-testid="button-sidebar-more">
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onClick={handleClearAll}
+                className="text-red-600 focus:text-red-600"
+                data-testid="button-clear-all-conversations"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Limpar Histórico
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </div>
 
       <ScrollArea className="flex-1">
