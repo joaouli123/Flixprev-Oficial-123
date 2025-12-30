@@ -141,7 +141,7 @@ async function generateEmbeddings(chunks) {
 }
 
 // 4️⃣ Busca semântica com pgvector - ROBUSTA (Cosine)
-async function searchSimilarChunks(queryEmbedding, agentId, limit = 20) {
+async function searchSimilarChunks(queryEmbedding, agentId, limit = 12) {
   try {
     const embeddingString = '[' + queryEmbedding.join(',') + ']';
     
@@ -672,41 +672,21 @@ FORMATAÇÃO RECOMENDADA (para esta pergunta explicativa):
   const globalPrompt = `🎯 PERSONA: CONSULTOR SÊNIOR
 Você é um especialista direto, elegante e organizado.
 
+### REGRAS CRÍTICAS DE OPERAÇÃO:
+1. **VISÃO PANORÂMICA**: Você recebeu trechos de várias partes do documento. Você DEVE ler e considerar TODOS os trechos fornecidos antes de responder.
+2. **SÍNTESE MULTI-PÁGINA**: A resposta pode exigir a união de informações espalhadas pelo documento. Conecte os pontos entre os diferentes trechos.
+3. **FIDELIDADE AO CONTEXTO**: Responda EXCLUSIVAMENTE com base nos trechos fornecidos abaixo. Se a informação não estiver neles, informe que não encontrou no documento.
+
 ⛔ REGRAS DE OURO (PROIBIÇÕES):
-1. JAMAIS comece frases com "No documento analisado", "De acordo com o texto" ou "O contexto informa". Isso é proibido. Comece a resposta DIRETAMENTE.
-2. NÃO inclua referências numéricas como "[Trecho ID]" no texto final. Use a informação, mas não mostre o código.
+1. JAMAIS comece frases com "No documento analisado", "De acordo com o texto" ou "O contexto informa". Comece a resposta DIRETAMENTE.
+2. NÃO inclua referências numéricas como "[Trecho ID]" no texto final.
 3. Não adicione prefixos ou intros desnecessários. Vá direto ao ponto.
 
 ✅ REGRAS DE FORMATAÇÃO OBRIGATÓRIA (MARKDOWN ESTRUTURADO):
-
 1. PARÁGRAFOS: Separe CADA parágrafo com DUAS quebras de linha (\n\n).
-   ❌ ERRADO: "Parágrafo 1. Parágrafo 2."
-   ✅ CERTO: "Parágrafo 1.
-   
-   Parágrafo 2."
-
 2. NEGRITO: Destaque prazos, valores, datas e conceitos chave com **negrito**.
-   ✅ EXEMPLO: "O prazo é **30 dias** a partir da data..."
-
 3. LISTAS: Se há 2 ou mais itens, USE SEMPRE MARKDOWN LIST.
-   ✅ CERTO (com quebras entre itens):
-   - Primeiro item aqui
-   - Segundo item aqui
-   - Terceiro item aqui
-
 4. ANTES DE LISTAS: Pule UMA linha em branco antes de começar.
-   ✅ CERTO:
-   As condições são:
-   
-   - Condição 1
-   - Condição 2
-
-5. ESTRUTURA GERAL:
-   [Introdução breve]
-   
-   [Lista OU parágrafos detalhados]
-   
-   [Conclusão se necessário]
 
 FONTE DE VERDADE:
 Responda baseando-se estritamente no [CONTEXTO] abaixo. Use EXCLUSIVAMENTE as informações fornecidas.
@@ -1217,11 +1197,11 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
                   input: content
                 });
 
-                // Buscar chunks similares - aumentado para 20 para melhor cobertura
+                // Buscar chunks similares - aumentado para 12 para melhor cobertura (Visão Panorâmica)
                 relevantContext = await searchSimilarChunks(
                   queryEmbedding.data[0].embedding,
                   agentId,
-                  20
+                  12
                 );
               }
 
