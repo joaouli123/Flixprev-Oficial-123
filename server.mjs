@@ -1277,11 +1277,33 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
     });
 
     let fullResp = "";
+    let accumulatedChunk = ""; // Acumula chunks para limpar [Trecho ID: X] completos
+    
     for await (const chunk of stream) {
       const delta = chunk.choices[0]?.delta?.content || "";
       if (delta) {
         fullResp += delta;
-        res.write(`data: ${JSON.stringify({ content: delta })}\n\n`);
+        accumulatedChunk += delta;
+        
+        // 🧹 Limpar [Trecho ID: X] completos no stream
+        // Aguarda pelo menos 50 chars para garantir que temos um ID completo
+        if (accumulatedChunk.length > 50) {
+          const cleanedChunk = accumulatedChunk.replace(/\[Trecho ID: \d+\]/g, '').trim();
+          accumulatedChunk = "";
+          
+          // Enviar apenas a parte limpa para o cliente
+          if (cleanedChunk) {
+            res.write(`data: ${JSON.stringify({ content: cleanedChunk })}\n\n`);
+          }
+        }
+      }
+    }
+    
+    // 🧹 Processar qualquer remainder no final
+    if (accumulatedChunk) {
+      const cleanedChunk = accumulatedChunk.replace(/\[Trecho ID: \d+\]/g, '').trim();
+      if (cleanedChunk) {
+        res.write(`data: ${JSON.stringify({ content: cleanedChunk })}\n\n`);
       }
     }
 
