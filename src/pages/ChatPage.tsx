@@ -85,6 +85,8 @@ const ChatPage = () => {
             console.log("[CHAT] Conversation created with ID:", conv.id);
             setConversationId(conv.id);
             setMessages([]);
+            // Atualizar a URL para incluir o ID da conversa sem recarregar
+            navigate(`/app/chat/${agentId}/${conv.id}`, { replace: true });
           }
         }
       } catch (error) {

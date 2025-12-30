@@ -265,7 +265,7 @@ DIRETRIZES DE RESPOSTA (RAG):
       // Save user message
       await chatStorage.createMessage(conversationId, "user", content);
 
-      // Get history
+      // Get history AFTER saving user message but BEFORE AI response
       const history = await chatStorage.getMessagesByConversation(conversationId);
       const chatMessages = [
         { role: "system", content: systemPrompt },

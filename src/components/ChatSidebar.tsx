@@ -44,7 +44,8 @@ export const ChatSidebar = ({ agentId, currentConversationId }: ChatSidebarProps
 
   useEffect(() => {
     loadConversations();
-    const interval = setInterval(loadConversations, 5000);
+    // Aumentar frequência de atualização do histórico
+    const interval = setInterval(loadConversations, 3000);
     return () => clearInterval(interval);
   }, [agentId]);
 
