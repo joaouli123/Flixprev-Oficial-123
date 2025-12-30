@@ -121,25 +121,40 @@ export function registerChatRoutes(app: Express): void {
   // Update conversation title
   app.patch("/api/conversations/:id", async (req: Request, res: Response) => {
     try {
-      const id = parseInt(req.params.id);
+      const { id } = req.params;
       const { title } = req.body;
       
-      console.log(`[PATCH /api/conversations/${id}] title:`, title);
+      console.log(`[PATCH /api/conversations/${id}] Tentando renomear para:`, title);
 
       if (!title || (typeof title !== 'string') || title.trim() === "") {
         return res.status(400).json({ error: "Título não pode ser vazio" });
       }
       
-      // Update in DB
-      const result = await pool.query(
-        'UPDATE conversations SET title = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING *',
-        [title.trim(), id]
-      );
+      // Update in DB - Tentar primeiro como inteiro, depois como string
+      let result;
+      const numericId = parseInt(id);
       
-      if (result.rows.length === 0) {
-        // Fallback for in-memory or if record not found in DB
-        // Verificamos no storage helper também
-        const conversation = await chatStorage.getConversation(id);
+      try {
+        if (!isNaN(numericId)) {
+          result = await pool.query(
+            'UPDATE conversations SET title = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING *',
+            [title.trim(), numericId]
+          );
+        }
+        
+        if (!result || result.rows.length === 0) {
+          result = await pool.query(
+            'UPDATE conversations SET title = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING *',
+            [title.trim(), id]
+          );
+        }
+      } catch (err) {
+        console.error(`[CHAT API] DB update error for ${id}:`, err.message);
+      }
+      
+      if (!result || result.rows.length === 0) {
+        // Fallback para memória
+        const conversation = await chatStorage.getConversation(!isNaN(numericId) ? numericId : -1);
         if (conversation) {
           conversation.title = title.trim();
           conversation.updated_at = new Date().toISOString();
@@ -147,15 +162,10 @@ export function registerChatRoutes(app: Express): void {
           return res.json(conversation);
         }
         
-        // Se ainda não encontrou, talvez o ID seja do storage.ts mas a rota está usando o Pool local
-        // Vamos tentar buscar sem o agent_id
-        const fallbackResult = await pool.query('SELECT * FROM conversations WHERE id = $1', [id]);
-        if (fallbackResult.rows.length === 0) {
-           console.error(`[CHAT API] Conversation ${id} NOT FOUND in any storage`);
-           return res.status(404).json({ error: "Conversa não encontrada no sistema" });
-        }
+        return res.status(404).json({ error: "Conversa não encontrada para renomear" });
       }
       
+      console.log(`[CHAT API] Sucesso ao renomear ${id}`);
       res.json(result.rows[0]);
     } catch (error: any) {
       console.error("Error updating conversation:", error);
