@@ -688,12 +688,6 @@ CAMADA 1 + 4: INTELIGÊNCIA PERCEBIDA + FEEDBACK
 - Se possível, cite ou parafraseie o trecho relevante
 - Organize a resposta para ser "escaneável"
 
-✨ REGRA CRÍTICA PARA CITAÇÕES:
-- Se a resposta menciona um autor ou ano (ex: "Ensslin (2010)"), 
-  a informação DEVE estar EXATAMENTE no documento fornecido
-- Não interpole, não complete, não invente definições
-- Se a citação existe mas a definição não está no contexto, NEGAR
-
 ✨ Quando NÃO houver informação:
 - Sempre comece explicando o que ENCONTROU ("O documento trata de...")
 - Depois explique o limite ("...mas não entra nesse ponto específico")
@@ -702,8 +696,7 @@ CAMADA 1 + 4: INTELIGÊNCIA PERCEBIDA + FEEDBACK
 REGRA DE OURO:
 - Você pode variar: a frase, o tom, a fluidez
 - Você NÃO pode variar: a fonte, a verdade, o escopo
-- NUNCA invente informações que não estão no documento
-- NUNCA complete ou interpole citações`;
+- NUNCA invente informações que não estão no documento`;
 
   const contextBlock = (context && context.trim().length > 0)
     ? `[INÍCIO DO CONTEXTO]\n${context}\n[FIM DO CONTEXTO]`
@@ -759,10 +752,9 @@ function validateOutput(text, hasContext = true, question = '', questionType = '
     }
   }
 
-  // Check 2: Validação de citações com PROVA TEXTUAL (SUAVIZADA)
+  // Check 2: Validação de citações (DESATIVADA PARA EVITAR FALSOS POSITIVOS)
+  /*
   if (!blocked && hasContext && context) {
-    // Só bloqueamos se for uma pergunta acadêmica explícita (Segundo Autor YYYY) 
-    // e o autor/ano NÃO existir de forma alguma no contexto.
     if (isAcademicAuthorityQuestion(question)) {
       if (!validateCitationWithProof(text, context, question)) {
         console.log(`[VALIDATOR-2] 🚨 Bloqueando: citação acadêmica sem prova no contexto. Pergunta: "${question}"`);
@@ -772,8 +764,9 @@ function validateOutput(text, hasContext = true, question = '', questionType = '
       }
     }
   }
+  */
 
-  // Check 3: Bloqueio de sínteses perigosas (DESATIVADO PARA MAIOR FLEXIBILIDADE)
+  // Check 3: Bloqueio de sínteses perigosas (DESATIVADO)
   /*
   if (!blocked && hasContext && context) {
     if (hasUnprovenClaim(text, context)) {

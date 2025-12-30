@@ -1,0 +1,31 @@
+Para fazer sua IA parar de "alucinar" (ou sofrer de "alucinação negativa", que é quando ela diz que não sabe algo que está no texto), você precisa ajustar a "engenharia" por trás do seu agente. Como você é desenvolvedor, vou focar em ajustes técnicos práticos para o seu sistema (provavelmente um RAG - Retrieval Augmented Generation).
+
+Aqui estão 5 ações para reduzir drasticamente esses erros:
+
+1. Ajuste o "Chunking" (Fragmentação)
+O erro mais comum em PDFs de leis é o corte do texto. Se o seu sistema cortou o PDF exatamente entre o título "Art. 2º" e o texto da definição, a IA perde o contexto.
+
+O que fazer: Aumente o overlap (sobreposição) entre os chunks.
+
+Recomendação: Se usa chunks de 1000 tokens, coloque um overlap de 200 tokens. Isso garante que o início de um artigo e sua definição apareçam juntos no mesmo bloco de texto recuperado.
+
+2. Implemente Busca Híbrida (Keyword + Vetorial)
+Buscas puramente semânticas (vetoriais/embeddings) às vezes falham em encontrar termos exatos como "Art. 2º" ou números específicos.
+
+O que fazer: Combine a busca vetorial (que entende o significado) com a busca por palavras-chave (BM25).
+
+Por que funciona: A busca por palavra-chave garante que, se o usuário pedir o "Artigo 2", o sistema traga o texto que contém explicitamente "Art. 2", enquanto o vetor entende o contexto de "receita".
+
+3. Zere a Temperatura
+Para extração de dados de documentos, a criatividade é inimiga.
+
+O que fazer: Defina a temperature do modelo para 0.
+
+Resultado: Isso torna o modelo determinístico. Ele vai se ater estritamente aos fatos fornecidos no contexto, reduzindo a chance de inventar ou ignorar informações.
+
+4. Aumente o "Top-K" (Janela de Contexto)
+Às vezes a resposta certa está no documento, mas o seu sistema de busca recuperou apenas os 3 trechos (chunks) mais prováveis, e a resposta correta era o 4º ou 5º.
+
+O que fazer: Aumente o número de chunks enviados para a IA (ex: de 3 para 5 ou 7), desde que caiba na janela de contexto do modelo (LLM).
+
+Dica: Se usar modelos com janelas grandes (como GPT-4o ou Gemini 1.5 Pro), você pode enviar pedaços muito maiores do documento.
