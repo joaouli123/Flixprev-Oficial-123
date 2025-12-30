@@ -87,8 +87,14 @@ export const ChatSidebar = ({ agentId, currentConversationId }: ChatSidebarProps
       });
       
       if (!res.ok) {
-        const errorData = await res.json().catch(() => ({ error: "Unknown error" }));
-        throw new Error(errorData.error || "Falha ao salvar título");
+        let errorMsg = "Falha ao salvar título";
+        try {
+          const errorData = await res.json();
+          errorMsg = errorData.error || errorMsg;
+        } catch (e) {
+          console.warn("Could not parse error response as JSON");
+        }
+        throw new Error(errorMsg);
       }
       
       const updatedConv = await res.json();

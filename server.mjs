@@ -1340,7 +1340,7 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
 
     // Aplicar Validação de Saída (Anti-Alucinação) com Response Orchestrator
     // Passar o contexto para validação de citações
-    const validatedResp = validateOutput(fullResp, hasContext, content, questionType, contextSize, chunksUsed, relevantContext || '');
+    const validatedResp = validateOutput(fullResp, hasContext, content, questionType, contextSize, chunksUsed, (typeof relevantContext !== 'undefined' ? relevantContext : ''));
     
     // Salvar resposta do assistente (validada)
     await pool.query(
