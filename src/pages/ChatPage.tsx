@@ -247,7 +247,7 @@ const ChatPage = () => {
       <div className="flex-1 flex flex-col overflow-hidden min-h-0">
         <ScrollArea className="flex-1 w-full" ref={scrollRef}>
           <div className="px-3 py-4 sm:px-4 sm:py-6 w-full h-full">
-            <div className="max-w-2xl mx-auto space-y-3 sm:space-y-4 pb-32">
+            <div className="max-w-2xl mx-auto space-y-3 sm:space-y-4">
               {messages.map((msg, i) => (
                 <div
                   key={i}
@@ -296,9 +296,9 @@ const ChatPage = () => {
       </div>
 
         {/* Input Area */}
-        <div className="flex-shrink-0 bg-transparent px-3 py-3 sm:px-4 sm:py-4 -mt-32 relative z-10">
-        <div className="w-full max-w-2xl mx-auto space-y-2 bg-white/80 dark:bg-slate-950/80 backdrop-blur-sm p-4 rounded-2xl border dark:border-slate-800 shadow-lg">
-          <div className="flex flex-wrap gap-1 sm:gap-2 overflow-x-auto pb-1">
+        <div className="flex-shrink-0 bg-white dark:bg-slate-950 border-t dark:border-slate-800 px-3 py-1 sm:px-4 sm:py-1">
+        <div className="w-full max-w-2xl mx-auto space-y-0">
+          <div className="flex flex-wrap gap-1 sm:gap-1 overflow-x-auto">
             {shortcuts.map((s) => (
               <Button
                 key={s}
