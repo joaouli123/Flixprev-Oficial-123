@@ -1481,6 +1481,62 @@ app.delete('/api/agents/:id', async (req, res) => {
   }
 });
 
+// ✅ ENDPOINTS PARA CATEGORIAS
+app.get('/api/categories', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM "categories" ORDER BY name ASC');
+    res.json(result.rows || []);
+  } catch (e) {
+    console.error('[API] Erro ao buscar categorias:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/categories', async (req, res) => {
+  try {
+    const { name, description } = req.body;
+    if (!name) {
+      return res.status(400).json({ error: 'Nome é obrigatório' });
+    }
+    const result = await pool.query(
+      'INSERT INTO "categories" (name, description) VALUES ($1, $2) RETURNING *',
+      [name, description || '']
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (e) {
+    console.error('[API] Erro ao criar categoria:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ✅ ENDPOINTS PARA LINKS PERSONALIZADOS
+app.get('/api/links', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM "personalized_links" ORDER BY title ASC');
+    res.json(result.rows || []);
+  } catch (e) {
+    console.error('[API] Erro ao buscar links:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/links', async (req, res) => {
+  try {
+    const { title, url } = req.body;
+    if (!title || !url) {
+      return res.status(400).json({ error: 'Título e URL são obrigatórios' });
+    }
+    const result = await pool.query(
+      'INSERT INTO "personalized_links" (title, url) VALUES ($1, $2) RETURNING *',
+      [title, url]
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (e) {
+    console.error('[API] Erro ao criar link:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // VITE
 const vite = await createServer({
   server: { middlewareMode: true },
