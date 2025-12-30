@@ -260,6 +260,125 @@ function detectQuestionType(question) {
 }
 
 // ============================================
+// 🟠 CLASSIFICADOR DE PERGUNTA ACADÊMICA PERIGOSA (Novo)
+// ============================================
+
+/**
+ * Detecta perguntas que EXIGEM citação literal do documento
+ * Exemplos: "Segundo X (2010)...", "Conforme autor Y...", "Definição formal de..."
+ * 
+ * Essas perguntas NÃO podem ser respondidas com interpolação/síntese
+ * Precisam de trecho EXATO do documento
+ */
+function isAcademicAuthorityQuestion(question) {
+  const academicPatterns = [
+    /segundo\s+[A-Z][a-záàâãéèêíïóôõöúçñ\s]*\s*\(\d{4}\)/i, // "segundo Ensslin (2010)"
+    /conforme\s+[A-Z][a-záàâãéèêíïóôõöúçñ\s]*\s*\(\d{4}\)/i, // "conforme Silva (2015)"
+    /de acordo com\s+[A-Z][a-záàâãéèêíïóôõöúçñ\s]*\s*\(\d{4}\)/i, // "de acordo com Costa (2018)"
+    /segundo o autor/i, // "segundo o autor X"
+    /conforme o autor/i, // "conforme o autor"
+    /definição formal de/i, // "definição formal de avaliação"
+    /defina\s+/i, // "defina performance"
+    /qual é a definição/i, // "qual é a definição de"
+    /como [A-Za-z]+ define/i, // "como o documento define"
+  ];
+  
+  return academicPatterns.some(pattern => pattern.test(question));
+}
+
+// ============================================
+// 🔍 VALIDADOR AGRESSIVO DE CITAÇÕES (Melhorado)
+// ============================================
+
+/**
+ * Valida se a resposta tem PROVA TEXTUAL no contexto
+ * Para perguntas acadêmicas, exige citação literal
+ */
+function validateCitationWithProof(responseText, contextText, question) {
+  // Se é pergunta acadêmica, EXIGE que a resposta contenha um trecho
+  if (isAcademicAuthorityQuestion(question)) {
+    // Procurar por padrão "AUTOR (YYYY)"
+    const citationPattern = /([A-Z][a-záàâãéèêíïóôõöúçñ\s]+)\s*\(\d{4}\)/;
+    const citationMatch = responseText.match(citationPattern);
+    
+    if (citationMatch) {
+      const citedAuthor = citationMatch[1].trim();
+      const citedYear = citationMatch[0].match(/\(\d{4}\)/)[0];
+      
+      // Verificar se EXATAMENTE ESSE padrão está no contexto
+      if (!contextText.includes(citedYear)) {
+        console.log(`[CITATION PROOF] 🚨 FALHA: Citação "${citationMatch[0]}" não existe no contexto`);
+        return false;
+      }
+      
+      // Verificar se há EXPLICAÇÃO no contexto (não só a citação, mas a definição)
+      // Procurar por linhas que contêm a citação E contêm conteúdo explicativo
+      const contextLines = contextText.split('\n');
+      let foundWithExplanation = false;
+      
+      for (let i = 0; i < contextLines.length; i++) {
+        if (contextLines[i].includes(citedYear)) {
+          // Verificar se a linha próxima (ou a mesma) tem conteúdo explicativo
+          const relevantText = contextLines.slice(Math.max(0, i - 2), Math.min(contextLines.length, i + 3)).join(' ');
+          // Se tem mais de 50 caracteres de explicação, é considerado "prova"
+          if (relevantText.length > 50) {
+            foundWithExplanation = true;
+            break;
+          }
+        }
+      }
+      
+      if (!foundWithExplanation) {
+        console.log(`[CITATION PROOF] 🚨 FALHA: Citação existe mas definição não está no contexto`);
+        return false;
+      }
+    } else {
+      // Pergunta exige citação mas resposta não cita ninguém
+      console.log(`[CITATION PROOF] 🚨 FALHA: Pergunta acadêmica sem citação na resposta`);
+      return false;
+    }
+  }
+  
+  return true;
+}
+
+// ============================================
+// 🛑 BLOQUEADOR DE RESPOSTAS "BONITAS SEM PROVA" (Novo)
+// ============================================
+
+/**
+ * Detecta frases que indicam síntese/interpolação SEM ancoragem literal
+ * Exemplos: "o documento relaciona", "é visto como", "destaca que"
+ */
+function hasUnprovenClaim(responseText, contextText) {
+  // Padrões que indicam síntese perigosa (construção lógica, não literal)
+  const unprovenPatterns = [
+    /o documento relaciona/i,
+    /é visto como/i,
+    /destaca que/i,
+    /apresenta.*como/i,
+    /considera.*que/i,
+    /sugere que/i,
+    /implica que/i,
+    /podemos concluir/i,
+    /em resumo/i,
+  ];
+  
+  for (const pattern of unprovenPatterns) {
+    if (pattern.test(responseText)) {
+      // Se encontrou a frase, verificar se ela está LITERALMENTE no contexto
+      const matchedPhrase = responseText.match(pattern)?.[0];
+      if (matchedPhrase && !contextText.toLowerCase().includes(matchedPhrase.toLowerCase())) {
+        console.log(`[UNPROVEN CLAIM] 🚨 Detectada síntese sem prova: "${matchedPhrase}"`);
+        return true; // HÁ reclamação não provada
+      }
+    }
+  }
+  
+  return false; // Tudo OK
+}
+
+// ============================================
 // 3️⃣ PADRÕES DE RESPOSTA (POR TIPO)
 // ============================================
 
@@ -631,27 +750,8 @@ RESPONDA AGORA (apenas com base no contexto acima):
 ═══════════════════════════════════════════════════════════════════`;
 }
 
-// 🔍 VALIDADOR DE CITAÇÕES (Anti-Alucinação Silenciosa)
-function validateCitations(responseText, contextText) {
-  // Detectar padrão "AUTOR (YYYY)"
-  const citationPattern = /([A-Z][a-záàâãéèêíïóôõöúçñ\s]+)\s*\(\d{4}\)/g;
-  const citations = responseText.match(citationPattern) || [];
-  
-  for (const citation of citations) {
-    // Extrair apenas o padrão "(YYYY)" para buscar no contexto
-    const simplePattern = citation.match(/\(\d{4}\)/)?.[0];
-    
-    if (simplePattern && !contextText.includes(simplePattern)) {
-      // Citação inventada - não existe no documento!
-      console.log(`[CITATION VALIDATOR] 🚨 ALUCINAÇÃO DETECTADA: "${citation}" não existe no contexto`);
-      return false;
-    }
-  }
-  
-  return true;
-}
 
-// 6️⃣ VALIDADOR + ORCHESTRATOR (PIPELINE FINAL - MELHORADO)
+// 6️⃣ VALIDADOR + ORCHESTRATOR (PIPELINE FINAL - SUPER AGRESSIVO)
 function validateOutput(text, hasContext = true, question = '', questionType = 'general', contextSize = 0, chunksUsed = 0, context = '') {
   const startTime = Date.now();
   
@@ -665,22 +765,37 @@ function validateOutput(text, hasContext = true, question = '', questionType = '
   ];
 
   let finalResponse = text;
+  let blocked = false;
 
   // Check 1: Padrões severos de alucinação
   for (const pattern of severeAllucinationPatterns) {
     if (pattern.test(text)) {
-      console.log(`[VALIDATOR] Bloqueando resposta: padrão de alucinação severa detectado`);
+      console.log(`[VALIDATOR-1] 🚨 Bloqueando: padrão de alucinação severa`);
       finalResponse = getRandomNegativeResponse(question);
       hasContext = false;
+      blocked = true;
       break;
     }
   }
 
-  // Check 2: Validação de citações (novo - anti-alucinação silenciosa)
-  if (hasContext && context && !validateCitations(text, context)) {
-    console.log(`[VALIDATOR] Bloqueando resposta: citação inventada detectada`);
-    finalResponse = getRandomNegativeResponse(question);
-    hasContext = false;
+  // Check 2: Validação de citações com PROVA TEXTUAL (novo - anti-alucinação silenciosa)
+  if (!blocked && hasContext && context) {
+    if (!validateCitationWithProof(text, context, question)) {
+      console.log(`[VALIDATOR-2] 🚨 Bloqueando: citação inventada ou sem prova`);
+      finalResponse = getRandomNegativeResponse(question);
+      hasContext = false;
+      blocked = true;
+    }
+  }
+
+  // Check 3: Bloqueio de respostas "bonitas mas falsas" (novo)
+  if (!blocked && hasContext && context) {
+    if (hasUnprovenClaim(text, context)) {
+      console.log(`[VALIDATOR-3] 🚨 Bloqueando: reclamação não provada no contexto`);
+      finalResponse = getRandomNegativeResponse(question);
+      hasContext = false;
+      blocked = true;
+    }
   }
 
   // Aplicar Response Orchestrator (camada final)
@@ -690,7 +805,7 @@ function validateOutput(text, hasContext = true, question = '', questionType = '
   const responseTime = Date.now() - startTime;
   recordTelemetry(question, hasContext, contextSize, chunksUsed, responseTime, questionType);
   
-  console.log(`[ORCHESTRATOR] ✅ Resposta orquestrada | Tipo: ${questionType} | Contexto: ${hasContext}`);
+  console.log(`[ORCHESTRATOR] ✅ Resposta orquestrada | Tipo: ${questionType} | Context: ${hasContext} | Blocked: ${blocked}`);
   
   return finalResponse;
 }

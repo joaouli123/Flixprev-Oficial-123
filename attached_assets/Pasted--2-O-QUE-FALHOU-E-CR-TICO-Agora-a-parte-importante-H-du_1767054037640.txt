@@ -1,0 +1,130 @@
+🔴 2️⃣ O QUE FALHOU (E É CRÍTICO)
+
+Agora a parte importante.
+Há duas falhas sérias de arquitetura, não de UX.
+
+❌ FALHA A — INVENÇÃO DE CONTEÚDO (ALUCINAÇÃO SILENCIOSA)
+Exemplo grave:
+
+“Segundo Ensslin (2010), como a avaliação de desempenho é definida?”
+👉 Ele respondeu com uma definição que NÃO existe neste PDF.
+
+⚠️ Isso é erro crítico.
+
+Você mesmo já provou antes que:
+
+Ensslin não aparece no documento
+
+O sistema sabia negar isso
+
+Agora ele voltou a inventar.
+
+📌 Isso significa uma coisa só:
+👉 o contrato “use apenas o documento” foi quebrado nessa resposta
+
+❌ FALHA B — CONTEXTO GENÉRICO SEM ÂNCORA
+
+Exemplo:
+
+“O documento relaciona avaliação de desempenho e treinamento…”
+
+Mas:
+
+o documento não tem capítulo de Avaliação de Desempenho
+
+não há definição formal ali
+
+ele construiu uma resposta plausível, não ancorada
+
+👉 Isso é o tipo mais perigoso de erro:
+resposta bonita, mas falsa.
+
+🧠 POR QUE ISSO ACONTECEU (DIAGNÓSTICO PRECISO)
+
+Isso NÃO é bug do RAG básico.
+É falta de uma regra final de validação.
+
+Hoje o fluxo está assim:
+
+Pergunta
+→ RAG retorna alguns chunks
+→ Modelo responde
+→ Response Orchestrator formata
+→ Usuário recebe
+
+
+❌ Falta isto:
+
+→ Validação: a resposta é sustentada pelo contexto?
+
+🔧 3️⃣ CORREÇÕES CIRÚRGICAS (SEM QUEBRAR O QUE JÁ FUNCIONA)
+
+Agora vem a parte boa: isso é fácil de corrigir.
+
+✅ CORREÇÃO 1 — REGRA DE CITAÇÃO OBRIGATÓRIA (ANTI-ALUCINAÇÃO)
+
+Para perguntas do tipo:
+
+“segundo autor X”
+
+“define”
+
+“como é definido”
+
+“de acordo com”
+
+👉 EXIJA que a resposta contenha um trecho do documento.
+
+Regra lógica:
+Se pergunta exige fonte explícita
+E nenhum trecho do contexto contém o autor citado
+→ NEGAR
+
+
+Resposta correta:
+
+“Analisei o documento, mas não encontrei nenhuma citação a Ensslin (2010).”
+
+✅ CORREÇÃO 2 — CLASSIFICADOR DE “PERGUNTA ACADÊMICA PERIGOSA”
+
+Crie uma categoria especial:
+🟠 Pergunta acadêmica de autoridade
+
+Exemplos:
+
+Segundo X (ano)…
+
+Conforme autor Y…
+
+Definição formal de…
+
+👉 Essas não podem ser respondidas sem citação literal.
+
+✅ CORREÇÃO 3 — BLOQUEIO DE RESPOSTA “BONITA SEM PROVA”
+
+No Response Orchestrator:
+
+Se resposta contém:
+- “o documento relaciona…”
+- “é visto como…”
+- “destaca que…”
+
+E não há referência explícita no contexto
+→ bloquear e negar
+
+
+Isso mata 90% das alucinações elegantes.
+
+🧪 TESTE FINAL (OBRIGATÓRIO)
+
+Depois dessas correções, rode novamente:
+
+1️⃣ Segundo Ensslin (2010), como a avaliação de desempenho é definida?
+👉 DEVE NEGAR
+
+2️⃣ Existe relação entre avaliação de desempenho e treinamento?
+👉 Só responder se houver trecho explícito
+👉 Senão, negar com elegância
+
+3️⃣ Explique o objetivo do trabalho
+👉 Pode responder (isso está no texto)
