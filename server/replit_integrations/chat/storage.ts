@@ -1,7 +1,11 @@
 import { Pool } from 'pg';
 
+const dbUrl = process.env.NODE_ENV === 'production' 
+  ? process.env.PROD_DATABASE_URL 
+  : process.env.DATABASE_URL;
+
 export const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString: dbUrl,
 });
 
 // In-memory fallback storage
