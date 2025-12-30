@@ -46,9 +46,21 @@ export function registerChatRoutes(app: Express): void {
   
   // Get all conversations
   app.get("/api/conversations", async (req: Request, res: Response) => {
-    console.log('[CHAT API] GET /api/conversations');
+    const { agentId } = req.query;
+    console.log('[CHAT API] GET /api/conversations', agentId ? `for agent ${agentId}` : '');
     try {
-      const conversations = await chatStorage.getAllConversations();
+      let conversations;
+      if (agentId) {
+        try {
+          const result = await pool.query('SELECT * FROM conversations WHERE agent_id = $1 ORDER BY created_at DESC', [agentId]);
+          conversations = result.rows;
+        } catch (e) {
+          // Fallback if column doesn't exist yet
+          conversations = await chatStorage.getAllConversations();
+        }
+      } else {
+        conversations = await chatStorage.getAllConversations();
+      }
       res.json(conversations);
     } catch (error) {
       console.error("Error fetching conversations:", error);
@@ -75,9 +87,25 @@ export function registerChatRoutes(app: Express): void {
   // Create new conversation
   app.post("/api/conversations", async (req: Request, res: Response) => {
     try {
-      const { title } = req.body;
-      console.log('[CHAT API] Creating conversation with title:', title);
+      const { title, agentId } = req.body;
+      console.log('[CHAT API] Creating conversation with title:', title, 'agentId:', agentId);
+      
+      // Armazenamos o agentId no título ou em metadados se a tabela suportar
+      // Por enquanto, vamos garantir que o título reflita o agente
       const conversation = await chatStorage.createConversation(title || "New Chat");
+      
+      // Se tivermos agentId, podemos vincular a conversa ao agente na tabela se ela existir
+      // Verificando se a tabela conversations tem a coluna agent_id
+      try {
+        await pool.query('ALTER TABLE conversations ADD COLUMN IF NOT EXISTS agent_id TEXT');
+        if (agentId) {
+          await pool.query('UPDATE conversations SET agent_id = $1 WHERE id = $2', [agentId, conversation.id]);
+          conversation.agent_id = agentId;
+        }
+      } catch (e) {
+        console.warn('[CHAT] Could not update agent_id in conversation:', e);
+      }
+
       console.log('[CHAT API] Created conversation:', conversation);
       res.status(201).json(conversation);
     } catch (error: any) {
@@ -96,12 +124,22 @@ export function registerChatRoutes(app: Express): void {
         return res.status(400).json({ error: "Title cannot be empty" });
       }
       
+      console.log(`[CHAT API] Updating conversation ${id} title to: ${title}`);
+      
       const result = await pool.query(
         'UPDATE conversations SET title = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING *',
         [title, id]
       );
       
       if (result.rows.length === 0) {
+        // Se não achou no DB, pode ser que estejamos em memória
+        const conversation = await chatStorage.getConversation(id);
+        if (conversation) {
+          conversation.title = title;
+          conversation.updated_at = new Date().toISOString();
+          console.log(`[CHAT API] Updated in-memory conversation ${id}`);
+          return res.json(conversation);
+        }
         return res.status(404).json({ error: "Conversation not found" });
       }
       

@@ -208,17 +208,15 @@ const ChatPage = () => {
               <ChevronLeft className="h-5 w-5 sm:h-5 sm:w-5" />
             </Button>
             <div className="flex-1 min-w-0">
-              <div className="flex-1 min-w-0">
-                <h1 className="text-sm sm:text-base font-semibold truncate flex items-center gap-1 sm:gap-2">
-                  <Bot className="h-4 w-4 flex-shrink-0 text-blue-600" />
-                  <span className="truncate">{agent?.title || "Chat"}</span>
-                </h1>
-                {agent?.description && (
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate">
-                    {agent.description}
-                  </p>
-                )}
-              </div>
+              <h1 className="text-sm sm:text-base font-semibold truncate flex items-center gap-1 sm:gap-2">
+                <Bot className="h-4 w-4 flex-shrink-0 text-blue-600" />
+                <span className="truncate">{agent?.title || "Chat"}</span>
+              </h1>
+              {agent?.description && (
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 whitespace-pre-wrap">
+                  {agent.description}
+                </p>
+              )}
             </div>
           </div>
         </div>

@@ -78,12 +78,18 @@ export const ChatSidebar = ({ agentId, currentConversationId }: ChatSidebarProps
       return;
     }
     try {
-      await fetch(`/api/conversations/${convId}`, {
+      const res = await fetch(`/api/conversations/${convId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title: editingTitle }),
       });
-      await loadConversations();
+      
+      if (!res.ok) {
+        throw new Error("Falha ao salvar título");
+      }
+      
+      const updatedConv = await res.json();
+      setConversations(prev => prev.map(c => c.id === convId ? { ...c, title: updatedConv.title } : c));
       setEditingId(null);
     } catch (error) {
       console.error("Erro ao editar conversa:", error);
