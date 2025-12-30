@@ -439,15 +439,16 @@ const responsePatterns = {
  * - Nunca muda conteúdo, só a forma
  */
 function orchestrateResponse(rawResponse, questionType, hasContext = true) {
-  // Se não há contexto, usa resposta negativa
-  if (!hasContext) {
-    return getRandomNegativeResponse();
-  }
+  // 🔧 DESCOMENTADO: Permitir resposta mesmo sem contexto perfeito
+  // if (!hasContext) {
+  //   return getRandomNegativeResponse();
+  // }
 
   // Se resposta está vazia, trata como sem contexto
-  if (!rawResponse || rawResponse.trim().length === 0) {
-    return getRandomNegativeResponse();
-  }
+  // DESCOMENTADO: Permitir resposta mesmo que esteja vazia
+  // if (!rawResponse || rawResponse.trim().length === 0) {
+  //   return getRandomNegativeResponse();
+  // }
 
   // Obter padrão de resposta
   const pattern = responsePatterns[questionType] || responsePatterns.general;
@@ -641,10 +642,10 @@ function getRandomNegativeResponse(question = '') {
 }
 
 function formatResponse(answer, hasContext, question = '') {
-  // Se não há contexto, retorna uma resposta variável negativa com sugestão
-  if (!hasContext) {
-    return getRandomNegativeResponse(question);
-  }
+  // 🔧 DESCOMENTADO: Permitir resposta mesmo sem contexto perfeito
+  // if (!hasContext) {
+  //   return getRandomNegativeResponse(question);
+  // }
   // Se há contexto, retorna a resposta normalmente
   return answer;
 }
