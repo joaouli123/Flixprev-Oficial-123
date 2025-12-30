@@ -13,7 +13,10 @@ const { Pool } = pkg;
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
-app.use(express.json());
+
+// ✅ CORREÇÃO 1: Aumentar limite de payload para PDFs longos
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // Setup multer
 const storage = multer.diskStorage({
@@ -48,8 +51,23 @@ const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 async function extractPdfText(filePath) {
   try {
     const fileBuffer = await fs.promises.readFile(filePath);
-    const data = await pdfParse(fileBuffer);
+    
+    // ✅ CORREÇÃO 2: Opções robustas para leitura completa de PDFs longos
+    const options = {
+      pagerender: function(pageData) {
+        return pageData.getTextContent().then(function(textContent) {
+          return textContent.items.map(item => item.str).join(' ');
+        });
+      }
+    };
+    
+    const data = await pdfParse(fileBuffer, options);
     let text = data.text || '';
+
+    // 📊 LOG DE DEBUG ESSENCIAL - Validar leitura completa
+    console.log(`[DEBUG PDF] Arquivo: ${path.basename(filePath)}`);
+    console.log(`[DEBUG PDF] Páginas lidas: ${data.numpages}`);
+    console.log(`[DEBUG PDF] Caracteres totais ANTES da limpeza: ${text.length}`);
 
     // 🧹 LIMPEZA DE DADOS (Sanitization) - CONFIGURAÇÃO NUCLEAR
 
@@ -77,13 +95,18 @@ async function extractPdfText(filePath) {
 
     console.log('--- TESTE DE EXTRAÇÃO E LIMPEZA AVANÇADA ---');
     console.log(`Documento: ${path.basename(filePath)}`);
-    console.log(`Caracteres extraídos: ${text.length}`);
+    console.log(`Caracteres extraídos DEPOIS da limpeza: ${text.length}`);
     if (text.length > 0) {
       console.log(`Primeiras 200 letras limpas:\n"${text.substring(0, 200)}..."`);
     } else {
       console.warn('⚠️ AVISO: NENHUM TEXTO EXTRAÍDO DO PDF!');
     }
     console.log('-------------------------');
+
+    // ✅ Se o número de caracteres é muito pequeno comparado às páginas, algo errou
+    if (data.numpages > 5 && text.length < 10000) {
+      console.warn(`⚠️ AVISO: PDF com ${data.numpages} páginas mas apenas ${text.length} caracteres. Possível problema de leitura.`);
+    }
 
     return text;
   } catch (e) {
@@ -986,7 +1009,10 @@ app.use('/', async (req, res) => {
 });
 
 const PORT = 5000;
-app.listen(PORT, '0.0.0.0', () => {
+const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ Server on http://localhost:${PORT}`);
   console.log(`🧠 RAG NUCLEAR ATIVADO (Chunk: 4000 | Overlap: 1000 | Top-K: 25)`);
 });
+
+// ✅ CORREÇÃO 3: Aumentar timeout para processar PDFs pesados (10 minutos)
+server.timeout = 600000;
