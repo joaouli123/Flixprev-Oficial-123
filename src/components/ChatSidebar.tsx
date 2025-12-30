@@ -29,6 +29,7 @@ export const ChatSidebar = ({ agentId, currentConversationId }: ChatSidebarProps
   const [isLoading, setIsLoading] = useState(true);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
+  const [showAll, setShowAll] = useState(false);
 
   const loadConversations = async () => {
     try {
@@ -41,6 +42,8 @@ export const ChatSidebar = ({ agentId, currentConversationId }: ChatSidebarProps
       setIsLoading(false);
     }
   };
+
+  const displayedConversations = showAll ? conversations : conversations.slice(0, 10);
 
   useEffect(() => {
     loadConversations();
@@ -168,7 +171,7 @@ export const ChatSidebar = ({ agentId, currentConversationId }: ChatSidebarProps
           ) : conversations.length === 0 ? (
             <div className="text-xs text-gray-500 dark:text-gray-400 p-2">Nenhuma conversa</div>
           ) : (
-            conversations.map((conv) => (
+            displayedConversations.map((conv) => (
               <div key={conv.id}>
                 {editingId === conv.id ? (
                   <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-gray-50 dark:bg-slate-800">
@@ -252,6 +255,16 @@ export const ChatSidebar = ({ agentId, currentConversationId }: ChatSidebarProps
                 )}
               </div>
             ))
+          )}
+          {conversations.length > 10 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full text-xs mt-2"
+              onClick={() => setShowAll(!showAll)}
+            >
+              {showAll ? "Mostrar menos" : `Ver ${conversations.length - 10} mais`}
+            </Button>
           )}
         </div>
       </ScrollArea>

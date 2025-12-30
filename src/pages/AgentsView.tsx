@@ -23,7 +23,7 @@ const AgentsView: React.FC = () => {
     onStartAgent,
     onDeleteAgent,
     onEditAgent,
-    categories, // Usar a lista de categorias sem "Todos"
+    categories,
     selectedCategory,
     onSelectCategory,
   } = useOutletContext<OutletContextType>();
@@ -31,12 +31,12 @@ const AgentsView: React.FC = () => {
   return (
     <div className="flex flex-col gap-4">
       <TopCategoryBar
-        categories={categories} // Passa as categorias reais
+        categories={categories}
         selectedCategory={selectedCategory}
         onSelectCategory={onSelectCategory}
       />
 
-      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {filteredAgents.length > 0 ? (
           filteredAgents.map((agent) => (
             <AgentCard
@@ -48,8 +48,8 @@ const AgentsView: React.FC = () => {
             />
           ))
         ) : (
-          <p className="col-span-full text-center text-muted-foreground">
-            Nenhum agente encontrado. Crie um novo agente ou selecione outra categoria.
+          <p className="col-span-full text-center text-muted-foreground py-8">
+            Nenhum agente encontrado.
           </p>
         )}
       </section>
@@ -57,4 +57,4 @@ const AgentsView: React.FC = () => {
   );
 };
 
-export default AgentsView;
+export default React.memo(AgentsView);
