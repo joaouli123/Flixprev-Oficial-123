@@ -136,25 +136,32 @@ export const ChatSidebar = ({ agentId, currentConversationId }: ChatSidebarProps
 
   return (
     <div className="w-64 bg-white dark:bg-slate-900 border-r border-gray-200 dark:border-slate-700 flex flex-col h-full">
-      <div className="p-4 border-b border-gray-200 dark:border-slate-700 space-y-2">
+      <div className="p-4 border-b border-gray-200 dark:border-slate-700 flex justify-between items-center gap-2">
         <Button
           onClick={handleNewChat}
-          className="w-full gap-2"
+          className="flex-1 gap-2"
           data-testid="button-new-conversation"
         >
           <Plus className="h-4 w-4" />
           Nova Conversa
         </Button>
-        <Button
-          variant="outline"
-          onClick={handleClearAll}
-          className="w-full gap-2 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/10"
-          size="sm"
-          data-testid="button-clear-all-conversations"
-        >
-          <Trash2 className="h-3 w-3" />
-          Limpar Histórico
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-9 w-9" data-testid="button-sidebar-more">
+              <MoreVertical className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem
+              onClick={handleClearAll}
+              className="text-red-600 focus:text-red-600"
+              data-testid="button-clear-all-conversations"
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Limpar Histórico
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       <ScrollArea className="flex-1">
