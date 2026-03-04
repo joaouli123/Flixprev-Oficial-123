@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardTitle, CardDescription } from "@/components/ui/card";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import LandingNavbar from "@/components/layout/LandingNavbar";
 import { 
   Brain, 
@@ -28,8 +28,33 @@ import { Agent } from "@/types/app";
 import { toast } from "sonner";
 
 const LandingPage = () => {
+  const location = useLocation();
   const [agents, setAgents] = useState<Agent[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const referralCode = useMemo(() => {
+    const fromQuery = new URLSearchParams(location.search).get("ref") || "";
+    const cleanedFromQuery = fromQuery.toUpperCase().replace(/[^A-Z0-9]/g, "").trim();
+
+    if (cleanedFromQuery) {
+      localStorage.setItem("referral_code", cleanedFromQuery);
+      return cleanedFromQuery;
+    }
+
+    const fromStorage = localStorage.getItem("referral_code") || "";
+    return fromStorage.toUpperCase().replace(/[^A-Z0-9]/g, "").trim();
+  }, [location.search]);
+
+  const checkoutUrl = useMemo(() => {
+    const url = new URL("https://pay.cakto.com.br/vhmancx_628125");
+    if (referralCode) {
+      url.searchParams.set("ref", referralCode);
+      url.searchParams.set("referral_code", referralCode);
+      url.searchParams.set("codigo_indicacao", referralCode);
+      url.searchParams.set("utm_content", referralCode);
+    }
+    return url.toString();
+  }, [referralCode]);
 
   useEffect(() => {
     const fetchAgents = async () => {
@@ -84,7 +109,7 @@ const LandingPage = () => {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 text-gray-800 flex flex-col relative overflow-hidden">
       {/* Background decorativo */}
       <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-blue-400/20 rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-indigo-400/20 rounded-full blur-3xl animate-pulse"></div>
         <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-indigo-400/20 rounded-full blur-3xl animate-pulse delay-1000"></div>
         <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-purple-400/10 rounded-full blur-3xl animate-pulse delay-500"></div>
       </div>
@@ -124,7 +149,7 @@ const LandingPage = () => {
 
             {/* CTA Button */}
             <div className="animate-in fade-in-0 slide-in-from-bottom-14 duration-1000 delay-1000">
-              <a href="https://pay.cakto.com.br/vhmancx_628125" target="_blank" rel="noopener noreferrer">
+              <a href={checkoutUrl} target="_blank" rel="noopener noreferrer">
                 <Button size="lg" className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold px-12 py-6 text-xl rounded-2xl shadow-2xl shadow-blue-500/25 transform transition-all duration-300 hover:scale-105 hover:-translate-y-1 group">
                   <span className="flex items-center gap-3">
                     Começar Agora
@@ -145,7 +170,7 @@ const LandingPage = () => {
                 <span className="text-sm font-medium text-slate-700">IA Avançada</span>
               </div>
               <div className="flex items-center gap-2 bg-white/60 backdrop-blur-sm px-4 py-2 rounded-full shadow-lg">
-                <Users className="w-5 h-5 text-blue-600" />
+                <Users className="w-5 h-5 text-indigo-600" />
                 <span className="text-sm font-medium text-slate-700">Suporte 24/7</span>
               </div>
             </div>
@@ -227,9 +252,9 @@ const LandingPage = () => {
           <div className="max-w-7xl mx-auto relative z-10">
             {/* Header da seção melhorado */}
             <div className="text-center mb-20">
-              <div className="inline-flex items-center gap-3 bg-gradient-to-r from-blue-600/10 to-indigo-600/10 backdrop-blur-sm px-6 py-3 rounded-full border border-blue-200/50 mb-8">
-                <Sparkles className="h-6 w-6 text-blue-600" />
-                <span className="text-blue-700 font-semibold text-sm uppercase tracking-wider">Inteligência Artificial</span>
+              <div className="inline-flex items-center gap-3 bg-gradient-to-r from-blue-600/10 to-indigo-600/10 backdrop-blur-sm px-6 py-3 rounded-full border border-indigo-200/50 mb-8">
+                <Sparkles className="h-6 w-6 text-indigo-600" />
+                <span className="text-indigo-700 font-semibold text-sm uppercase tracking-wider">Inteligência Artificial</span>
               </div>
               
               <h2 className="text-5xl sm:text-6xl lg:text-7xl font-bold mb-8 leading-tight">
@@ -244,13 +269,13 @@ const LandingPage = () => {
               
               <p className="text-xl sm:text-2xl text-slate-600 max-w-4xl mx-auto leading-relaxed">
                 Assistentes de IA especializados, treinados com milhares de casos reais para 
-                <span className="text-blue-600 font-semibold"> revolucionar sua advocacia</span>
+                <span className="text-indigo-600 font-semibold"> revolucionar sua advocacia</span>
               </p>
 
               {/* Estatísticas impressionantes */}
               <div className="flex flex-wrap justify-center gap-8 mt-12">
                 <div className="text-center">
-                  <div className="text-3xl font-bold text-blue-600">98%</div>
+                  <div className="text-3xl font-bold text-indigo-600">98%</div>
                   <div className="text-sm text-slate-500 uppercase tracking-wide">Precisão</div>
                 </div>
                 <div className="text-center">
@@ -267,8 +292,8 @@ const LandingPage = () => {
             {loading ? (
               <div className="flex justify-center items-center py-20">
                 <div className="relative">
-                  <div className="animate-spin rounded-full h-20 w-20 border-4 border-blue-200"></div>
-                  <div className="animate-spin rounded-full h-20 w-20 border-4 border-blue-600 border-t-transparent absolute top-0 left-0"></div>
+                  <div className="animate-spin rounded-full h-20 w-20 border-4 border-indigo-200"></div>
+                  <div className="animate-spin rounded-full h-20 w-20 border-4 border-indigo-600 border-t-transparent absolute top-0 left-0"></div>
                 </div>
               </div>
             ) : agents.length === 0 ? (
@@ -327,7 +352,7 @@ const LandingPage = () => {
                         </div>
                         
                         {/* Título com animação */}
-                        <CardTitle className="text-2xl font-bold mb-4 text-slate-900 group-hover:text-blue-900 transition-colors duration-300">
+                        <CardTitle className="text-2xl font-bold mb-4 text-slate-900 group-hover:text-indigo-900 transition-colors duration-300">
                           {agent.title}
                         </CardTitle>
                         
@@ -373,8 +398,8 @@ const LandingPage = () => {
             <p className="text-xl mb-10 opacity-90">
               Junte-se aos advogados que já estão usando IA para maximizar seus resultados
             </p>
-            <a href="https://pay.cakto.com.br/vhmancx_628125" target="_blank" rel="noopener noreferrer">
-              <Button size="lg" className="bg-white text-blue-600 hover:bg-gray-100 font-bold px-12 py-6 text-xl rounded-2xl shadow-2xl transform transition-all duration-300 hover:scale-105 hover:-translate-y-1">
+            <a href={checkoutUrl} target="_blank" rel="noopener noreferrer">
+              <Button size="lg" className="bg-white text-indigo-600 hover:bg-gray-100 font-bold px-12 py-6 text-xl rounded-2xl shadow-2xl transform transition-all duration-300 hover:scale-105 hover:-translate-y-1">
                 Começar Agora
               </Button>
             </a>
@@ -386,7 +411,7 @@ const LandingPage = () => {
       <footer className="bg-slate-900 text-white py-16 px-4 relative overflow-hidden">
         {/* Background decorativo */}
         <div className="absolute inset-0 overflow-hidden">
-          <div className="absolute -top-20 -right-20 w-40 h-40 bg-blue-500/10 rounded-full blur-2xl"></div>
+          <div className="absolute -top-20 -right-20 w-40 h-40 bg-indigo-500/10 rounded-full blur-2xl"></div>
           <div className="absolute -bottom-20 -left-20 w-40 h-40 bg-indigo-500/10 rounded-full blur-2xl"></div>
         </div>
 
@@ -412,7 +437,7 @@ const LandingPage = () => {
                   <span>LGPD Compliant</span>
                 </div>
                 <div className="flex items-center gap-2 text-sm text-slate-400">
-                  <Lock className="w-4 h-4 text-blue-400" />
+                  <Lock className="w-4 h-4 text-indigo-400" />
                   <span>Dados Seguros</span>
                 </div>
               </div>
@@ -425,36 +450,36 @@ const LandingPage = () => {
                 <li>
                   <Link 
                     to="/privacy" 
-                    className="text-slate-300 hover:text-blue-400 transition-colors flex items-center gap-2 group"
+                    className="text-slate-300 hover:text-indigo-400 transition-colors flex items-center gap-2 group"
                   >
-                    <FileText className="w-4 h-4 group-hover:text-blue-400" />
+                    <FileText className="w-4 h-4 group-hover:text-indigo-400" />
                     Política de Privacidade
                   </Link>
                 </li>
                 <li>
                   <Link 
                     to="/terms" 
-                    className="text-slate-300 hover:text-blue-400 transition-colors flex items-center gap-2 group"
+                    className="text-slate-300 hover:text-indigo-400 transition-colors flex items-center gap-2 group"
                   >
-                    <ScrollText className="w-4 h-4 group-hover:text-blue-400" />
+                    <ScrollText className="w-4 h-4 group-hover:text-indigo-400" />
                     Termos de Uso
                   </Link>
                 </li>
                 <li>
                   <Link 
                     to="/cookie-policy" 
-                    className="text-slate-300 hover:text-blue-400 transition-colors flex items-center gap-2 group"
+                    className="text-slate-300 hover:text-indigo-400 transition-colors flex items-center gap-2 group"
                   >
-                    <Cookie className="w-4 h-4 group-hover:text-blue-400" />
+                    <Cookie className="w-4 h-4 group-hover:text-indigo-400" />
                     Política de Cookies
                   </Link>
                 </li>
                 <li>
                   <Link 
                     to="/lgpd" 
-                    className="text-slate-300 hover:text-blue-400 transition-colors flex items-center gap-2 group"
+                    className="text-slate-300 hover:text-indigo-400 transition-colors flex items-center gap-2 group"
                   >
-                    <Shield className="w-4 h-4 group-hover:text-blue-400" />
+                    <Shield className="w-4 h-4 group-hover:text-indigo-400" />
                     Aviso LGPD
                   </Link>
                 </li>
@@ -468,18 +493,18 @@ const LandingPage = () => {
                 <li>
                   <a 
                     href="mailto:contatodireitomastigado@gmail.com" 
-                    className="text-slate-300 hover:text-blue-400 transition-colors flex items-center gap-2 group"
+                    className="text-slate-300 hover:text-indigo-400 transition-colors flex items-center gap-2 group"
                   >
-                    <Mail className="w-4 h-4 group-hover:text-blue-400" />
+                    <Mail className="w-4 h-4 group-hover:text-indigo-400" />
                     <span className="break-all">contatodireitomastigado@gmail.com</span>
                   </a>
                 </li>
                 <li>
                   <a 
                     href="tel:+5511932064655" 
-                    className="text-slate-300 hover:text-blue-400 transition-colors flex items-center gap-2 group"
+                    className="text-slate-300 hover:text-indigo-400 transition-colors flex items-center gap-2 group"
                   >
-                    <Phone className="w-4 h-4 group-hover:text-blue-400" />
+                    <Phone className="w-4 h-4 group-hover:text-indigo-400" />
                     <span>+55 (11) 93206-4655</span>
                   </a>
                 </li>

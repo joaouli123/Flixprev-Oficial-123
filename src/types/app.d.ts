@@ -8,8 +8,10 @@ export type Category = {
 export type Agent = {
   id: string;
   icon: string; // Nome do ícone do Lucide
+  background_icon?: string; // Ícone de fundo do card
   category_ids: string[]; // Corrigido para snake_case
   title: string;
+  role?: string; // Função do agente
   description: string;
   link?: string; // Novo: link para onde o agente redireciona
   shortcuts?: string[]; // Novo: atalhos personalizados para o agente
@@ -38,6 +40,10 @@ export type AdminUser = {
   role: 'user' | 'admin';
   avatar_url: string | null;
   status_da_assinatura: string | null;
+  documento: string | null;
+  telefone: string | null;
+  plan_type: string | null;
+  nome_completo: string | null;
 };
 
 export type CustomLink = {

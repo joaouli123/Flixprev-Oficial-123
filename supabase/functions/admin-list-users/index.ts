@@ -16,6 +16,15 @@ interface Profile {
 interface Usuario {
     user_id: string;
     status_da_assinatura: string | null;
+    documento?: string | null;
+    telefone?: string | null;
+    nome_completo?: string | null;
+    email?: string | null;
+}
+
+interface Subscription {
+  user_id: string;
+  plan_type: string | null;
 }
 
 serve(async (req: Request) => {
@@ -93,7 +102,7 @@ serve(async (req: Request) => {
     // Fetch all subscription statuses from public.usuarios
     const { data: usuarios, error: usuariosError } = await supabaseAdmin
       .from('usuarios')
-      .select('user_id, status_da_assinatura');
+      .select('user_id, status_da_assinatura, documento, telefone, nome_completo, email');
 
     if (usuariosError) {
         console.error('Error listing usuarios:', usuariosError);
@@ -103,10 +112,24 @@ serve(async (req: Request) => {
         });
     }
 
+    // Fetch subscription plans
+    const { data: subscriptions, error: subscriptionsError } = await supabaseAdmin
+      .from('subscriptions')
+      .select('user_id, plan_type');
+
+    if (subscriptionsError) {
+      console.error('Error listing subscriptions:', subscriptionsError);
+      return new Response(JSON.stringify({ error: subscriptionsError.message }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 500,
+      });
+    }
+
     // Combine auth users with their profiles and subscription status
     const usersWithProfiles = authUsers.users.map((authUser: AuthUser) => {
       const profile = profiles.find((p: Profile) => p.id === authUser.id);
       const usuario = usuarios.find((u: Usuario) => u.user_id === authUser.id);
+      const subscription = (subscriptions as Subscription[]).find((s) => s.user_id === authUser.id);
       return {
         id: authUser.id,
         email: authUser.email,
@@ -117,6 +140,10 @@ serve(async (req: Request) => {
         role: profile?.role || 'user',
         avatar_url: profile?.avatar_url || null,
         status_da_assinatura: usuario?.status_da_assinatura || null,
+        documento: usuario?.documento || null,
+        telefone: usuario?.telefone || null,
+        nome_completo: usuario?.nome_completo || null,
+        plan_type: subscription?.plan_type || null,
       };
     });
 

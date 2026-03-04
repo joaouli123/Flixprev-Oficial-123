@@ -2,10 +2,10 @@ import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSession } from "@/components/SessionContextProvider";
 import { Button } from "@/components/ui/button";
-import { Plus, Edit, Trash2, Users, Search } from "lucide-react";
+import { Plus, Edit, Trash2, Users, Search, Download, Ban } from "lucide-react";
 import { toast } from "sonner";
 import { logger } from "@/utils/logger";
-import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
   Table,
@@ -43,6 +43,8 @@ const UserManagement: React.FC = () => {
   const [isEditUserRoleDialogOpen, setIsEditUserRoleDialogOpen] = useState(false);
   const [userToEditRole, setUserToEditRole] = useState<AdminUser | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("todos");
+  const [planFilter, setPlanFilter] = useState("todos");
 
   const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 
@@ -66,16 +68,16 @@ const UserManagement: React.FC = () => {
 
     try {
       const response = await fetch(`${SUPABASE_URL}/functions/v1/admin-list-users`, {
-        method: 'GET',
+        method: "GET",
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.access_token}`,
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session?.access_token}`,
         },
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to fetch users from Edge Function');
+        throw new Error(errorData.error || "Failed to fetch users from Edge Function");
       }
 
       const data: AdminUser[] = await response.json();
@@ -94,20 +96,20 @@ const UserManagement: React.FC = () => {
     }
   }, [isAdmin, fetchUsers]);
 
-  const handleCreateUser = async (email: string, firstName: string, lastName: string, role: 'user' | 'admin', password: string) => {
+  const handleCreateUser = async (email: string, firstName: string, lastName: string, role: "user" | "admin", password: string) => {
     try {
       const response = await fetch(`${SUPABASE_URL}/functions/v1/admin-create-user`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.access_token}`,
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session?.access_token}`,
         },
         body: JSON.stringify({ email, first_name: firstName, last_name: lastName, role, password }),
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to create user via Edge Function');
+        throw new Error(errorData.error || "Failed to create user via Edge Function");
       }
 
       const responseData = await response.json();
@@ -128,32 +130,21 @@ const UserManagement: React.FC = () => {
     if (!userToDelete) return;
 
     try {
-      // Usar a nova Edge Function que transfere a propriedade dos dados
       const response = await fetch(`${SUPABASE_URL}/functions/v1/admin-transfer-and-delete-user`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.access_token}`,
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session?.access_token}`,
         },
         body: JSON.stringify({ userId: userToDelete.id }),
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to delete user via Edge Function');
+        throw new Error(errorData.error || "Failed to delete user via Edge Function");
       }
 
-      const responseData = await response.json();
-      
-      let successMessage = `Usuário removido com sucesso!`;
-      if (responseData.transfer_summary && responseData.transfer_summary.length > 0) {
-          const totalTransferred = responseData.transfer_summary.reduce((sum: number, item: { count: number }) => sum + item.count, 0);
-          if (totalTransferred > 0) {
-              successMessage += ` (${totalTransferred} itens transferidos para o administrador de destino.)`;
-          }
-      }
-      
-      toast.success(successMessage);
+      toast.success("Usuário removido com sucesso!");
       fetchUsers();
     } catch (error: any) {
       toast.error("Erro ao remover usuário: " + error.message);
@@ -169,20 +160,20 @@ const UserManagement: React.FC = () => {
     setIsEditUserRoleDialogOpen(true);
   };
 
-  const handleUpdateUserRole = async (userId: string, newRole: 'user' | 'admin') => {
+  const handleUpdateUserRole = async (userId: string, newRole: "user" | "admin") => {
     try {
       const response = await fetch(`${SUPABASE_URL}/functions/v1/admin-update-user-role`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.access_token}`,
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session?.access_token}`,
         },
         body: JSON.stringify({ userId, newRole }),
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to update user role via Edge Function');
+        throw new Error(errorData.error || "Failed to update user role via Edge Function");
       }
 
       toast.success("Papel do usuário atualizado com sucesso!");
@@ -190,70 +181,106 @@ const UserManagement: React.FC = () => {
     } catch (error: any) {
       toast.error("Erro ao atualizar papel do usuário: " + error.message);
       logger.error("Erro ao atualizar papel do usuário via Edge Function:", error);
-    } finally{
+    } finally {
       setIsEditUserRoleDialogOpen(false);
       setUserToEditRole(null);
     }
   };
 
   const handleSubscriptionStatusChange = async (user: AdminUser, isChecked: boolean) => {
-    // Mudar 'inativo' para 'desativado'
-    const newStatus = isChecked ? 'ativo' : 'desativado';
+    const newStatus = isChecked ? "ativo" : "desativado";
     const originalStatus = user.status_da_assinatura;
 
-    // Optimistic UI update
-    setUsers(users.map(u => u.id === user.id ? { ...u, status_da_assinatura: newStatus } : u));
+    setUsers((prev) => prev.map((u) => (u.id === user.id ? { ...u, status_da_assinatura: newStatus } : u)));
 
     try {
       const response = await fetch(`${SUPABASE_URL}/functions/v1/admin-update-subscription-status`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.access_token}`,
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session?.access_token}`,
         },
         body: JSON.stringify({ userId: user.id, newStatus }),
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to update status');
+        throw new Error(errorData.error || "Failed to update status");
       }
 
       toast.success(`Status de ${user.email} atualizado para ${newStatus}.`);
     } catch (error: any) {
       toast.error("Erro ao atualizar status: " + error.message);
-      // Revert UI on error
-      setUsers(users.map(u => u.id === user.id ? { ...u, status_da_assinatura: originalStatus } : u));
+      setUsers((prev) => prev.map((u) => (u.id === user.id ? { ...u, status_da_assinatura: originalStatus } : u)));
     }
   };
 
-  // Filtrar usuários com base na pesquisa
   const filteredUsers = useMemo(() => {
-    if (!searchQuery.trim()) {
-      return users;
-    }
+    const query = searchQuery.trim().toLowerCase();
 
-    const query = searchQuery.toLowerCase();
     return users.filter((user) => {
-      const email = user.email?.toLowerCase() || '';
-      const firstName = user.first_name?.toLowerCase() || '';
-      const lastName = user.last_name?.toLowerCase() || '';
-      const fullName = `${firstName} ${lastName}`.trim();
-      const role = user.role?.toLowerCase() || '';
+      const fullName = `${user.first_name || ""} ${user.last_name || ""}`.trim().toLowerCase();
+      const nomeCompleto = (user.nome_completo || "").toLowerCase();
+      const email = (user.email || "").toLowerCase();
+      const documento = (user.documento || "").toLowerCase();
+      const telefone = (user.telefone || "").toLowerCase();
+      const status = (user.status_da_assinatura || "").toLowerCase();
+      const plano = (user.plan_type || "").toLowerCase();
 
-      return (
-        email.includes(query) ||
-        firstName.includes(query) ||
-        lastName.includes(query) ||
+      const matchQuery =
+        !query ||
         fullName.includes(query) ||
-        role.includes(query)
-      );
-    });
-  }, [users, searchQuery]);
+        nomeCompleto.includes(query) ||
+        email.includes(query) ||
+        documento.includes(query) ||
+        telefone.includes(query);
 
-  if (!isAdmin) {
-    return null;
-  }
+      const matchStatus = statusFilter === "todos" || status === statusFilter;
+      const matchPlan = planFilter === "todos" || plano === planFilter;
+
+      return matchQuery && matchStatus && matchPlan;
+    });
+  }, [users, searchQuery, statusFilter, planFilter]);
+
+  const stats = useMemo(() => {
+    const total = users.length;
+    const ativos = users.filter((u) => (u.status_da_assinatura || "").toLowerCase() === "ativo").length;
+    const assinantes = users.filter((u) => (u.plan_type || "").toLowerCase() !== "basic").length;
+    const administradores = users.filter((u) => u.role === "admin").length;
+    return { total, ativos, assinantes, administradores };
+  }, [users]);
+
+  const exportToCsv = () => {
+    const headers = ["nome", "email", "cpf", "telefone", "status", "plano", "cadastro"];
+    const lines = filteredUsers.map((user) => {
+      const nome = user.nome_completo || `${user.first_name || ""} ${user.last_name || ""}`.trim() || "Sem nome";
+      const cadastro = user.created_at ? new Date(user.created_at).toLocaleDateString("pt-BR") : "-";
+      return [
+        nome,
+        user.email || "",
+        user.documento || "",
+        user.telefone || "",
+        user.status_da_assinatura || "",
+        user.plan_type || "",
+        cadastro,
+      ]
+        .map((value) => `"${String(value).replace(/"/g, '""')}"`)
+        .join(",");
+    });
+
+    const csv = [headers.join(","), ...lines].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", `usuarios_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  if (!isAdmin) return null;
 
   if (loading) {
     return (
@@ -264,126 +291,212 @@ const UserManagement: React.FC = () => {
   }
 
   return (
-    <div className="bg-background text-foreground p-6 min-h-full">
-      <div className="max-w-6xl mx-auto">
-        <h1 className="text-3xl font-bold mb-6 flex items-center gap-2">
-          <Users className="h-8 w-8" /> Gerenciamento de Usuários
-        </h1>
+    <div className="flex flex-col gap-6 animate-in fade-in duration-500 max-w-6xl mx-auto w-full">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-4xl font-bold tracking-tight text-indigo-600">Gestão de Usuários</h1>
+          <p className="text-gray-500">Gerencie todos os usuários da plataforma</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <Button onClick={() => setIsCreateUserDialogOpen(true)} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+            <Plus className="h-4 w-4 mr-2" />
+            Cadastrar Usuário
+          </Button>
+          <Button onClick={exportToCsv} className="bg-indigo-600 hover:bg-indigo-700 text-white">
+            <Download className="h-4 w-4 mr-2" />
+            Exportar CSV
+          </Button>
+        </div>
+      </div>
 
-        <Card className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md mb-8">
-          <CardHeader className="p-0 mb-4">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-2xl font-semibold">Lista de Usuários</CardTitle>
-              <Button onClick={() => setIsCreateUserDialogOpen(true)} className="flex items-center gap-2">
-                <Plus className="h-4 w-4" />
-                Adicionar Usuário
-              </Button>
-            </div>
-            <CardDescription className="text-muted-foreground">
-              Visualize e gerencie todos os usuários registrados na plataforma.
-            </CardDescription>
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+        <Card className="border-gray-200/80 bg-white">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm text-slate-400 uppercase">Total</CardTitle>
           </CardHeader>
-          <CardContent className="p-0">
-            {/* Barra de Pesquisa */}
-            <div className="mb-4 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                type="text"
-                placeholder="Pesquisar por email, nome ou papel..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-
-            {users.length === 0 ? (
-              <p className="text-muted-foreground text-center py-4">Nenhum usuário encontrado.</p>
-            ) : filteredUsers.length === 0 ? (
-              <p className="text-muted-foreground text-center py-4">Nenhum usuário encontrado com "{searchQuery}".</p>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Nome</TableHead>
-                    <TableHead>Papel</TableHead>
-                    <TableHead>Status Assinatura</TableHead>
-                    <TableHead>Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredUsers.map((user) => (
-                    <TableRow key={user.id}>
-                      <TableCell className="font-medium">{user.email}</TableCell>
-                      <TableCell>{user.first_name || '-'} {user.last_name || ''}</TableCell>
-                      <TableCell>{user.role}</TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Switch
-                            checked={user.status_da_assinatura === 'ativo'}
-                            onCheckedChange={(isChecked) => handleSubscriptionStatusChange(user, isChecked)}
-                            id={`status-${user.id}`}
-                          />
-                          <Label 
-                            htmlFor={`status-${user.id}`} 
-                            className={cn(
-                              "font-medium",
-                              user.status_da_assinatura === 'ativo' ? 'text-green-600' : 'text-red-600'
-                            )}
-                          >
-                            {user.status_da_assinatura === 'ativo' ? 'Ativo' : 'Desativado'}
-                          </Label>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex gap-2">
-                          <Button variant="outline" size="sm" onClick={() => handleEditUserRole(user)}>
-                            <Edit className="h-4 w-4 mr-2" /> Editar Papel
-                          </Button>
-                          <Button variant="destructive" size="sm" onClick={() => confirmDeleteUser(user)}>
-                            <Trash2 className="h-4 w-4 mr-2" /> Remover
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
+          <CardContent>
+            <div className="text-4xl font-bold text-indigo-600">{stats.total}</div>
           </CardContent>
         </Card>
 
-        <CreateUserDialog
-          isOpen={isCreateUserDialogOpen}
-          onClose={() => setIsCreateUserDialogOpen(false)}
-          onSave={handleCreateUser}
-        />
+        <Card className="border-gray-200/80 bg-white">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm text-slate-400 uppercase">Ativos</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-4xl font-bold text-emerald-600">{stats.ativos}</div>
+          </CardContent>
+        </Card>
 
-        <EditUserRoleDialog
-          isOpen={isEditUserRoleDialogOpen}
-          onClose={() => setIsEditUserRoleDialogOpen(false)}
-          onSave={handleUpdateUserRole}
-          userToEdit={userToEditRole}
-        />
+        <Card className="border-gray-200/80 bg-white">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm text-slate-400 uppercase">Assinantes</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-4xl font-bold text-indigo-600">{stats.assinantes}</div>
+          </CardContent>
+        </Card>
 
-        <AlertDialog open={isDeleteUserDialogOpen} onOpenChange={setIsDeleteUserDialogOpen}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
-              <AlertDialogDescription>
-                Esta ação não pode ser desfeita. Isso removerá permanentemente o usuário{" "}
-                <span className="font-semibold">{userToDelete?.email}</span> e todos os dados associados.
-                <br />
-                <span className="font-bold text-red-600">Atenção:</span> Se este usuário for um administrador, seus dados (agentes, categorias, links) serão transferidos para outro administrador antes da exclusão.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancelar</AlertDialogCancel>
-              <AlertDialogAction onClick={handleDeleteUser}>Remover</AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+        <Card className="border-gray-200/80 bg-white">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm text-slate-400 uppercase">Administradores</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-4xl font-bold text-amber-600">{stats.administradores}</div>
+          </CardContent>
+        </Card>
       </div>
+
+      <Card className="border-gray-200/80 bg-white">
+        <CardContent className="p-4 grid grid-cols-1 lg:grid-cols-[1fr_auto_auto] gap-3 items-center">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <Input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Buscar por nome, email ou CPF..."
+              className="pl-10"
+            />
+          </div>
+
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="h-11 rounded-lg border border-slate-200 bg-white px-4 text-slate-800"
+          >
+            <option value="todos">Todos os status</option>
+            <option value="ativo">Ativo</option>
+            <option value="desativado">Inativo</option>
+            <option value="inativo">Inativo (legado)</option>
+          </select>
+
+          <select
+            value={planFilter}
+            onChange={(e) => setPlanFilter(e.target.value)}
+            className="h-11 rounded-lg border border-slate-200 bg-white px-4 text-slate-800"
+          >
+            <option value="todos">Todos os planos</option>
+            <option value="basic">Basic</option>
+            <option value="premium">Premium</option>
+            <option value="enterprise">Enterprise</option>
+          </select>
+        </CardContent>
+      </Card>
+
+      <Card className="border-gray-200/80 bg-white overflow-hidden">
+        <Table>
+          <TableHeader className="bg-slate-50/80">
+            <TableRow>
+              <TableHead>USUÁRIO</TableHead>
+              <TableHead>CPF</TableHead>
+              <TableHead>TELEFONE</TableHead>
+              <TableHead>STATUS</TableHead>
+              <TableHead>PLANO</TableHead>
+              <TableHead>CADASTRO</TableHead>
+              <TableHead className="text-right">AÇÕES</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filteredUsers.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={7} className="text-center text-slate-500 py-12">
+                  Nenhum usuário encontrado com os filtros aplicados.
+                </TableCell>
+              </TableRow>
+            ) : (
+              filteredUsers.map((user) => {
+                const nome = user.nome_completo || `${user.first_name || ""} ${user.last_name || ""}`.trim() || "Sem nome";
+                const status = (user.status_da_assinatura || "").toLowerCase();
+                const cadastro = user.created_at ? new Date(user.created_at).toLocaleDateString("pt-BR") : "-";
+
+                return (
+                  <TableRow key={user.id}>
+                    <TableCell>
+                      <div className="font-semibold text-slate-900">{nome}</div>
+                      <div className="text-sm text-slate-500">{user.email || "-"}</div>
+                    </TableCell>
+                    <TableCell>{user.documento || "-"}</TableCell>
+                    <TableCell>{user.telefone || "-"}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <Switch
+                          checked={status === "ativo"}
+                          onCheckedChange={(checked) => handleSubscriptionStatusChange(user, checked)}
+                          id={`status-${user.id}`}
+                        />
+                        <Label
+                          htmlFor={`status-${user.id}`}
+                          className={cn(
+                            "inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold",
+                            status === "ativo"
+                              ? "bg-emerald-100 text-emerald-700"
+                              : "bg-red-100 text-red-700"
+                          )}
+                        >
+                          {status === "ativo" ? "Ativo" : "Inativo"}
+                        </Label>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">
+                        {(user.plan_type || "basic").toUpperCase()}
+                      </span>
+                    </TableCell>
+                    <TableCell>{cadastro}</TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <Button variant="ghost" size="sm" onClick={() => handleEditUserRole(user)} className="text-indigo-600 hover:bg-indigo-50">
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleSubscriptionStatusChange(user, status !== "ativo")}
+                          className="text-amber-600 hover:bg-amber-50"
+                        >
+                          <Ban className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => confirmDeleteUser(user)} className="text-red-600 hover:bg-red-50">
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })
+            )}
+          </TableBody>
+        </Table>
+      </Card>
+
+      <CreateUserDialog
+        isOpen={isCreateUserDialogOpen}
+        onClose={() => setIsCreateUserDialogOpen(false)}
+        onSave={handleCreateUser}
+      />
+
+      <EditUserRoleDialog
+        isOpen={isEditUserRoleDialogOpen}
+        onClose={() => setIsEditUserRoleDialogOpen(false)}
+        onSave={handleUpdateUserRole}
+        userToEdit={userToEditRole}
+      />
+
+      <AlertDialog open={isDeleteUserDialogOpen} onOpenChange={setIsDeleteUserDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação não pode ser desfeita. Isso removerá permanentemente o usuário{" "}
+              <span className="font-semibold">{userToDelete?.email}</span>.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteUser} className="bg-red-600 hover:bg-red-700">Remover</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

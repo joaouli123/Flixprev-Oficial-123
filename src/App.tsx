@@ -26,13 +26,16 @@ const CookiePolicy = lazy(() => import("./pages/CookiePolicy"));
 const LGPDNotice = lazy(() => import("./pages/LGPDNotice"));
 const EsqueciSenha = lazy(() => import("./pages/EsqueciSenha"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
+const Financeiro = lazy(() => import("./pages/Financeiro"));
+const AILogs = lazy(() => import("./pages/AILogs"));
+const Indicacoes = lazy(() => import("./pages/Indicacoes"));
 const FaviconUpdater = lazy(() => import("./components/FaviconUpdater"));
 const CookieConsent = lazy(() => import("./components/CookieConsent"));
 
 // Loading component
 const PageLoader = () => (
   <div className="flex items-center justify-center min-h-screen">
-    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
   </div>
 );
 
@@ -59,8 +62,7 @@ const App = () => (
               <Route path="/privacy" element={<PrivacyPolicy />} />
               <Route path="/terms" element={<TermsOfService />} />
               <Route path="/cookie-policy" element={<CookiePolicy />} />
-              <Route path="/lgpd" element={<LGPDNotice />} />
-
+              <Route path="/lgpd" element={<LGPDNotice />} />              
               {/* Protected routes with AppLayout (Header + Sidebar) */}
               <Route path="/app" element={
                 <AppSettingsProvider>
@@ -73,9 +75,23 @@ const App = () => (
                 <Route path="profile" element={<ProfilePage />} />
                 <Route path="admin" element={<AdminDashboard />} />
                 <Route path="users" element={<UserManagement />} />
+                <Route path="finance" element={<Financeiro />} />
+                <Route path="ai-logs" element={<AILogs />} />
+                <Route path="indications" element={<Indicacoes />} />
                 <Route path="tutorials" element={<TutorialManagement />} />
                 <Route path="how-to-use" element={<HowToUse />} />
                 <Route path="chat/:agentId/:conversationId?" element={<ChatPage />} />
+                <Route path="agente/:agentSlug/:conversationId?" element={<ChatPage />} />
+                <Route path="categorias/:categorySlug" element={<AgentsView />} />
+                <Route path="configuracoes" element={<Settings />} />
+                <Route path="perfil" element={<ProfilePage />} />
+                <Route path="administracao" element={<AdminDashboard />} />
+                <Route path="usuarios" element={<UserManagement />} />
+                <Route path="financeiro" element={<Financeiro />} />
+                <Route path="logs-ia" element={<AILogs />} />
+                <Route path="indicacoes" element={<Indicacoes />} />
+                <Route path="tutoriais" element={<TutorialManagement />} />
+                <Route path="como-usar" element={<HowToUse />} />
               </Route>
 
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

@@ -1,6 +1,6 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
-import { PlusCircle, BookOpen, Bot, Settings, LogOut, Shield, MoreVertical, Edit, Trash2, Home, Users, Video, Link as LinkIcon, Plus, Sparkles } from "lucide-react";
+import { PlusCircle, BookOpen, Bot, Settings, LogOut, Shield, MoreVertical, Edit, Trash2, Home, Users, Video, Link as LinkIcon, Plus, Sparkles, ChevronLeft, ChevronRight, Wallet, Activity, HandCoins } from "lucide-react";
 import { Category, CustomLink } from "@/types/app";
 import { cn } from "@/lib/utils";
 import { useSession } from "@/components/SessionContextProvider";
@@ -9,6 +9,7 @@ import { neon as supabase } from '@/lib/neon';
 import { toast } from "sonner";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import FlixPrevLogo from "@/components/ui/FlixPrevLogo";
 
 interface SidebarProps {
   categories: Category[];
@@ -23,9 +24,9 @@ interface SidebarProps {
   onAddCustomLink: () => void;
   onEditCustomLink: (link: CustomLink) => void;
   onDeleteCustomLink: (linkId: string) => void;
-  // Novas props para gerenciamento de categoria
   onEditCategory: (category: Category) => void;
   onDeleteCategory: (categoryId: string) => void;
+  onToggleCollapse?: () => void;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
@@ -43,6 +44,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   onDeleteCustomLink,
   onEditCategory,
   onDeleteCategory,
+  onToggleCollapse,
 }) => {
   const { isAdmin } = useSession();
   const navigate = useNavigate();
@@ -57,14 +59,11 @@ const Sidebar: React.FC<SidebarProps> = ({
       const { error } = await supabase.auth.signOut({ scope: 'local' });
       if (error) {
         toast.error("Erro ao sair: " + error.message);
-        console.error("Logout error:", error);
       } else {
         toast.success("Você saiu com sucesso!");
         navigate("/login");
       }
     } catch (err) {
-      console.error("Unexpected logout error:", err);
-      // Fallback for when supabase is mocked or has issues
       toast.success("Você saiu com sucesso!");
       navigate("/login");
     }
@@ -79,7 +78,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     isActive: boolean,
     isDestructive: boolean = false,
     forceTooltip: boolean = false,
-    iconColorClass: string = "text-gray-700"
+    iconColorClass: string = "text-slate-500"
   ) => (
     <TooltipProvider key={label}>
       <Tooltip delayDuration={0}>
@@ -88,47 +87,50 @@ const Sidebar: React.FC<SidebarProps> = ({
             variant="ghost"
             onClick={onClick}
             className={cn(
-              "justify-start w-full transition-all duration-300 group sidebar-item",
-              "hover:shadow-sm hover:scale-[1.02] active:scale-[0.98]",
-              isCollapsed ? "h-10 w-10 p-0" : "h-10 px-3",
+              "justify-start w-full transition-all duration-300 group relative",
+              isCollapsed ? "h-12 w-12 p-0 justify-center rounded-xl mx-auto" : "h-11 px-3 rounded-xl overflow-hidden",
               isActive 
-                ? "bg-gradient-to-r from-blue-100 to-blue-50 text-blue-800 hover:from-blue-200 hover:to-blue-100 shadow-md shadow-blue-500/20 border border-blue-200/50" 
-                : "text-gray-700 hover:bg-gradient-to-r hover:from-gray-50 hover:to-gray-100 hover:text-gray-800 hover:border-gray-200/30",
-              isDestructive && "text-red-600 hover:text-red-700 hover:from-red-50 hover:to-red-100 hover:border-red-200/30"
+                ? "bg-white shadow-sm border border-slate-200/60 text-slate-900 font-medium" 
+                : "text-slate-600 hover:bg-slate-100/80 hover:text-slate-900 border border-transparent",
+              isDestructive && "text-red-600 hover:bg-red-50 hover:text-red-700"
             )}
           >
+            {isActive && (
+              <div className={cn(
+                "absolute top-1/2 -translate-y-1/2 w-1 h-6 bg-indigo-600 rounded-r-full",
+                isCollapsed ? "-left-4" : "left-0"
+              )} />
+            )}
             <div className={cn(
-              "flex items-center justify-center transition-all duration-200",
-              isActive && "drop-shadow-sm",
-              !isCollapsed && "mr-3"
+              "flex items-center justify-center transition-transform duration-300",
+              !isCollapsed && "mr-3",
+              isActive && !isCollapsed && "ml-1"
             )}>
               {React.createElement(icon, { 
                 className: cn(
-                  "h-4 w-4 transition-all duration-200",
-                  iconColorClass,
-                  isActive && "drop-shadow-sm scale-110",
+                  "h-5 w-5 transition-colors duration-300",
+                  isActive ? "text-indigo-600" : iconColorClass,
+                  isDestructive && "text-red-500",
                   "group-hover:scale-110"
                 ) 
               })}
             </div>
             {!isCollapsed && (
               <span className={cn(
-                "truncate max-w-[calc(100%-3rem)] block font-medium transition-all duration-200",
-                isActive && "font-semibold",
+                "truncate max-w-[calc(100%-3rem)] block transition-all duration-300 text-sm",
+                isActive ? "font-semibold text-slate-900" : "font-medium",
                 forceTooltip && "block"
               )}>
                 {label}
               </span>
-            )}
-            {isActive && !isCollapsed && (
-              <div className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse" />
             )}
           </Button>
         </TooltipTrigger>
         {(isCollapsed || forceTooltip) && (
           <TooltipContent 
             side="right" 
-            className="bg-white/95 border-gray-200/50 text-gray-800 backdrop-blur-xl shadow-xl font-medium"
+            sideOffset={20}
+            className="bg-slate-900 text-white border-none shadow-xl font-medium text-xs py-1.5 px-3 rounded-lg z-[100]"
           >
             {label}
           </TooltipContent>
@@ -140,65 +142,89 @@ const Sidebar: React.FC<SidebarProps> = ({
   return (
     <div
       className={cn(
-        "sticky top-0 h-[calc(100vh-4rem)] overflow-y-auto",
-        "flex flex-col p-3 border-r transition-all duration-200 ease-in-out",
-        "bg-white/95 backdrop-blur-sm border border-gray-200/50",
-        "shadow-lg shadow-gray-500/10",
-        "before:absolute before:inset-0 before:bg-gradient-to-b before:from-blue-50/20 before:via-indigo-50/10 before:to-purple-50/20",
-        isCollapsed ? "w-16 items-center" : "w-full"
+        "h-full flex flex-col p-4 transition-all duration-300 ease-in-out",
+        "bg-slate-50/50 backdrop-blur-xl border-r border-slate-200/60",
+        "relative z-40",
+        isCollapsed ? "w-20 items-center" : "w-72"
       )}
     >
-      <nav className="flex flex-col flex-1 min-h-0 space-y-4 relative z-10">
+      {/* Logo Section */}
+      <div className={cn(
+        "flex items-center gap-3 mb-8 group cursor-pointer transition-all duration-300",
+        isCollapsed ? "justify-center" : "px-2"
+      )} onClick={() => navigate("/app")}>
+        <div className="relative flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-50 to-purple-50 border border-indigo-100/50 shadow-sm group-hover:shadow-md transition-all duration-300 shrink-0">
+          <FlixPrevLogo className="h-6 w-6 drop-shadow-sm group-hover:scale-110 transition-transform duration-300" />
+        </div>
+        {!isCollapsed && (
+          <div className="flex flex-col overflow-hidden pr-6">
+            <span className="text-lg font-bold bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent tracking-tight truncate">
+              FlixPrev I.A
+            </span>
+            <span className="text-[10px] text-slate-500 font-semibold tracking-wider uppercase truncate">
+              Plataforma de Agentes
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Toggle Button */}
+      {onToggleCollapse && (
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onToggleCollapse}
+          className="absolute -right-3.5 top-6 z-[100] h-7 w-7 rounded-full bg-white border border-slate-200/60 shadow-sm hover:bg-slate-50 hover:text-indigo-600 transition-all hidden md:flex items-center justify-center text-slate-400"
+          style={{ zIndex: 9999 }}
+        >
+          {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+        </Button>
+      )}
+      
+      <nav className="flex flex-col flex-1 min-h-0 space-y-6 relative z-10 w-full">
         {/* Navegação principal */}
-        <div className="flex-1 flex flex-col gap-3 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent hover:scrollbar-thumb-gray-400 pr-1">
+        <div className="flex-1 flex flex-col gap-6 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] pr-1">
+          
           {/* Seção Início */}
-          <div className="flex flex-col gap-1">
+          <div className="flex flex-col gap-1.5">
             {!isCollapsed && (
-              <div className="flex items-center gap-2 mb-2">
-                <div className="h-px bg-gradient-to-r from-blue-200 to-transparent flex-1"></div>
-                <h2 className="text-xs font-semibold text-gray-600 uppercase tracking-wider px-2">Navegação</h2>
-                <div className="h-px bg-gradient-to-l from-blue-200 to-transparent flex-1"></div>
-              </div>
+              <h2 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider px-3 mb-1">Navegação</h2>
             )}
-            {renderButton(Home, "Início", onGoHome, isCurrentPath("/app"), false, false, "text-blue-600")}
+            {renderButton(Home, "Início", onGoHome, isCurrentPath("/app") && selectedCategory === "all", false, false, "text-slate-500")}
           </div>
       
           {/* Seção Meus Links */}
           {customLinks.length > 0 && (
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-1.5">
               {!isCollapsed && (
-                <div className="flex items-center gap-2 mb-2 mt-4">
-                  <div className="h-px bg-gradient-to-r from-green-200 to-transparent flex-1"></div>
-                  <h2 className="text-xs font-semibold text-gray-600 uppercase tracking-wider px-2">Meus Links</h2>
-                  <div className="h-px bg-gradient-to-l from-green-200 to-transparent flex-1"></div>
-                </div>
+                <h2 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider px-3 mb-1">Meus Links</h2>
               )}
-              <div className="max-h-32 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent hover:scrollbar-thumb-gray-400 transition-colors">
+              <div className="flex flex-col gap-1">
                 {customLinks.map((link) => (
-                  <div key={link.id} className="flex items-center justify-between group">
+                  <div key={link.id} className="flex items-center justify-between group relative">
                     <Button
                       variant="ghost"
                       onClick={() => window.open(link.url, '_blank')}
                       className={cn(
-                        "justify-start flex-1 transition-all duration-300 hover:bg-green-50 hover:text-green-700",
-                        isCollapsed ? "h-10 w-10 p-0" : "h-9 text-sm"
+                        "justify-start flex-1 transition-all duration-300 hover:bg-white hover:shadow-sm hover:border-slate-200/60 border border-transparent",
+                        isCollapsed ? "h-12 w-12 p-0 rounded-xl justify-center mx-auto" : "h-10 text-sm rounded-xl px-3"
                       )}
                     >
                       {isCollapsed ? (
                         <TooltipProvider>
                           <Tooltip delayDuration={0}>
                             <TooltipTrigger asChild>
-                              <LinkIcon className="h-4 w-4 text-green-600" />
+                              <LinkIcon className="h-4 w-4 text-slate-500 group-hover:text-slate-900 transition-colors" />
                             </TooltipTrigger>
-                            <TooltipContent side="right" className="bg-white/95 border-gray-200/50 text-gray-800 backdrop-blur-xl shadow-xl font-medium">
+                            <TooltipContent side="right" sideOffset={20} className="bg-slate-900 text-white border-none shadow-xl font-medium text-xs py-1.5 px-3 rounded-lg z-[100]">
                               {link.title}
                             </TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
                       ) : (
                         <>
-                          <LinkIcon className="h-4 w-4 mr-2 text-green-600" />
-                          <span className="flex-1 truncate text-left">{link.title}</span>
+                          <LinkIcon className="h-4 w-4 mr-3 text-slate-500 group-hover:text-slate-900 transition-colors" />
+                          <span className="flex-1 truncate text-left font-medium text-slate-600 group-hover:text-slate-900">{link.title}</span>
                         </>
                       )}
                     </Button>
@@ -208,21 +234,21 @@ const Sidebar: React.FC<SidebarProps> = ({
                           <Button 
                             variant="ghost" 
                             size="sm" 
-                            className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-all duration-200 hover:bg-gray-100"
+                            className="absolute right-1 h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-all duration-200 hover:bg-slate-100 rounded-lg"
                           >
-                            <MoreVertical className="h-3 w-3 text-gray-500" />
+                            <MoreVertical className="h-4 w-4 text-slate-400" />
                           </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="bg-white/95 border-gray-200/50 backdrop-blur-xl shadow-xl">
+                        <DropdownMenuContent align="end" className="bg-white/95 border-slate-200/60 backdrop-blur-xl shadow-xl rounded-xl p-1">
                           <DropdownMenuItem 
-                            className="flex items-center gap-2 text-gray-700 hover:bg-blue-50 focus:bg-blue-50 transition-colors" 
+                            className="flex items-center gap-2 text-slate-700 hover:bg-slate-50 focus:bg-slate-50 rounded-lg cursor-pointer" 
                             onClick={() => onEditCustomLink(link)}
                           >
-                            <Edit className="h-4 w-4 text-blue-600" />
+                            <Edit className="h-4 w-4 text-indigo-500" />
                             Editar Link
                           </DropdownMenuItem>
                           <DropdownMenuItem 
-                            className="flex items-center gap-2 text-red-600 hover:bg-red-50 focus:bg-red-50 transition-colors" 
+                            className="flex items-center gap-2 text-red-600 hover:bg-red-50 focus:bg-red-50 rounded-lg cursor-pointer" 
                             onClick={() => onDeleteCustomLink(link.id)}
                           >
                             <Trash2 className="h-4 w-4" />
@@ -238,154 +264,131 @@ const Sidebar: React.FC<SidebarProps> = ({
                 <Button 
                   variant="ghost" 
                   onClick={onAddCustomLink} 
-                  className="justify-start w-full mt-2 text-green-600 hover:text-green-700 hover:bg-green-50 transition-all duration-300 text-sm h-9"
+                  className="justify-start w-full mt-1 text-slate-500 hover:text-slate-900 hover:bg-slate-100/80 transition-all duration-300 text-sm h-10 rounded-xl px-3 font-medium"
                 >
-                  <Plus className="h-4 w-4 mr-2" /> Adicionar Link
+                  <Plus className="h-4 w-4 mr-3" /> Adicionar Link
                 </Button>
               )}
             </div>
           )}
       
           {/* Seção de Categorias */}
-          <div className="flex flex-col gap-1 mt-4">
+          <div className="flex flex-col gap-1.5">
             {!isCollapsed && (
-              <div className="flex items-center gap-2 mb-2">
-                <div className="h-px bg-gradient-to-r from-purple-200 to-transparent flex-1"></div>
-                <h2 className="text-xs font-semibold text-gray-600 uppercase tracking-wider px-2">Categorias</h2>
-                <div className="h-px bg-gradient-to-l from-purple-200 to-transparent flex-1"></div>
-              </div>
+              <h2 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider px-3 mb-1">Categorias</h2>
             )}
-            <div className="space-y-1">
-              {categories.map((category) => (
-                <div key={category.id} className="flex items-center justify-between group">
-                  <Button
-                    variant="ghost"
-                    onClick={() => onSelectCategory(category.id)}
-                    className={cn(
-                      "justify-start flex-1 transition-all duration-300 hover:shadow-sm",
-                      isCollapsed ? "h-10 w-10 p-0" : "h-10",
-                      selectedCategory === category.id 
-                        ? "bg-purple-100 text-purple-800 hover:bg-purple-200 shadow-sm" 
-                        : "text-gray-700 hover:bg-purple-50 hover:text-purple-700",
-                      "hover:scale-[1.02] active:scale-[0.98]"
-                    )}
-                  >
-                    {isCollapsed ? (
-                      <TooltipProvider>
-                        <Tooltip delayDuration={0}>
-                          <TooltipTrigger asChild>
-                            <div className="flex items-center justify-center w-full h-full relative">
-                              <Bot className="h-4 w-4 text-purple-600" />
-                              {selectedCategory === category.id && (
-                                <div className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-purple-600 animate-pulse" />
-                              )}
-                            </div>
-                          </TooltipTrigger>
-                          <TooltipContent side="right" className="bg-white/95 border-gray-200/50 text-gray-800 backdrop-blur-xl">
-                            {category.name}
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    ) : (
-                      <div className="flex items-center gap-3 w-full">
+            <div className="flex flex-col gap-1">
+              {categories.map((category) => {
+                const isActive = selectedCategory === category.id;
+                return (
+                  <div key={category.id} className="flex items-center justify-between group relative">
+                    <Button
+                      variant="ghost"
+                      onClick={() => onSelectCategory(category.id)}
+                      className={cn(
+                        "justify-start flex-1 transition-all duration-300",
+                        isCollapsed ? "h-12 w-12 p-0 rounded-xl justify-center mx-auto" : "h-11 px-3 rounded-xl overflow-hidden",
+                        isActive 
+                          ? "bg-white shadow-sm border border-slate-200/60 text-slate-900 font-medium" 
+                          : "text-slate-600 hover:bg-slate-100/80 hover:text-slate-900 border border-transparent"
+                      )}
+                    >
+                      {isActive && (
                         <div className={cn(
-                          "w-2 h-2 rounded-full transition-colors duration-200",
-                          selectedCategory === category.id ? "bg-purple-600" : "bg-gray-300"
+                          "absolute top-1/2 -translate-y-1/2 w-1 h-6 bg-indigo-600 rounded-r-full",
+                          isCollapsed ? "-left-4" : "left-0"
                         )} />
-                        <Bot className="h-4 w-4 text-purple-600" />
-                        <span className="flex-1 truncate font-medium text-left">{category.name}</span>
-                        {selectedCategory === category.id && (
-                          <div className="w-1.5 h-1.5 rounded-full bg-purple-600 animate-pulse" />
-                        )}
-                      </div>
+                      )}
+                      {isCollapsed ? (
+                        <TooltipProvider>
+                          <Tooltip delayDuration={0}>
+                            <TooltipTrigger asChild>
+                              <div className="flex items-center justify-center w-full h-full relative">
+                                <Bot className={cn("h-5 w-5 transition-colors", isActive ? "text-indigo-600" : "text-slate-500 group-hover:text-slate-900")} />
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent side="right" sideOffset={20} className="bg-slate-900 text-white border-none shadow-xl font-medium text-xs py-1.5 px-3 rounded-lg z-[100]">
+                              {category.name}
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      ) : (
+                        <div className={cn("flex items-center gap-3 w-full", isActive && "ml-1")}>
+                          <Bot className={cn("h-5 w-5 transition-colors", isActive ? "text-indigo-600" : "text-slate-500 group-hover:text-slate-900")} />
+                          <span className={cn("flex-1 truncate text-left", isActive ? "font-semibold text-slate-900" : "font-medium")}>{category.name}</span>
+                        </div>
+                      )}
+                    </Button>
+                    {isAdmin && !isCollapsed && category.id !== "all" && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="absolute right-1 h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-all duration-200 hover:bg-slate-100 rounded-lg"
+                          >
+                            <MoreVertical className="h-4 w-4 text-slate-400" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="bg-white/95 border-slate-200/60 backdrop-blur-xl shadow-xl rounded-xl p-1">
+                          <DropdownMenuItem 
+                            className="flex items-center gap-2 text-slate-700 hover:bg-slate-50 focus:bg-slate-50 rounded-lg cursor-pointer" 
+                            onClick={() => onEditCategory(category)}
+                          >
+                            <Edit className="h-4 w-4 text-indigo-500" />
+                            Editar Categoria
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator className="bg-slate-100" />
+                          <DropdownMenuItem 
+                            className="flex items-center gap-2 text-red-600 hover:bg-red-50 focus:bg-red-50 rounded-lg cursor-pointer" 
+                            onClick={() => onDeleteCategory(category.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                            Remover Categoria
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     )}
-                  </Button>
-                  {isAdmin && !isCollapsed && category.id !== "all" && (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-all duration-200 hover:bg-gray-100"
-                        >
-                          <MoreVertical className="h-3 w-3 text-gray-500" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="bg-white/95 border-gray-200/50 backdrop-blur-xl shadow-xl">
-                        <DropdownMenuItem 
-                          className="flex items-center gap-2 text-gray-700 hover:bg-blue-50 focus:bg-blue-50 transition-colors" 
-                          onClick={() => onEditCategory(category)}
-                        >
-                          <Edit className="h-4 w-4 text-blue-600" />
-                          Editar Categoria
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem 
-                          className="flex items-center gap-2 text-red-600 hover:bg-red-50 focus:bg-red-50 transition-colors" 
-                          onClick={() => onDeleteCategory(category.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                          Remover Categoria
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  )}
-                </div>
-              ))}
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
 
         {/* Rodapé fixo no fundo */}
         <div className={cn(
-          "mt-auto flex flex-col gap-3 pt-4 border-t border-gradient-to-r from-gray-200 via-gray-100 to-gray-200 shrink-0 relative z-10 bg-gradient-to-b from-transparent to-gray-50/50 transition-all duration-200",
-          isCollapsed ? "items-center px-2" : "px-0"
+          "mt-auto flex flex-col gap-6 pt-6 border-t border-slate-200/60 shrink-0 relative z-10",
+          isCollapsed ? "items-center" : ""
         )}>
           {/* Seção de Administração (apenas para admins) */}
           {isAdmin && (
-            <div className={cn(
-              "flex flex-col gap-1 w-full transition-all duration-200",
-              isCollapsed ? "items-center" : ""
-            )}>
+            <div className="flex flex-col gap-1.5 w-full">
               {!isCollapsed && (
-                <div className="flex items-center gap-2 mb-2 px-1">
-                  <div className="h-px bg-gradient-to-r from-orange-200 to-transparent flex-1 min-w-0"></div>
-                  <h2 className="text-xs font-semibold text-gray-600 uppercase tracking-wider px-2 whitespace-nowrap">Administração</h2>
-                  <div className="h-px bg-gradient-to-l from-orange-200 to-transparent flex-1 min-w-0"></div>
-                </div>
+                <h2 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider px-3 mb-1">Administração</h2>
               )}
-              <div className={cn(
-                "space-y-1 w-full",
-                isCollapsed ? "flex flex-col items-center" : ""
-              )}>
-                {renderButton(PlusCircle, "Nova Categoria", onAddCategory, false, false, false, "text-green-600")}
-                {renderButton(Sparkles, "Adicionar novo agente (novo)", onAddAgent, false, false, false, "text-blue-600")}
-                {renderButton(Shield, "Painel Admin", () => navigate("/app/admin"), isCurrentPath("/app/admin"), false, false, "text-yellow-600")}
-                {renderButton(Users, "Gerenciar Usuários", () => navigate("/app/users"), isCurrentPath("/app/users"), false, false, "text-cyan-600")}
-                {renderButton(Video, "Gerenciar Tutoriais", () => navigate("/app/tutorials"), isCurrentPath("/app/tutorials"), false, false, "text-pink-600")}
+              <div className="flex flex-col gap-1 w-full">
+                {renderButton(PlusCircle, "Nova Categoria", onAddCategory, false, false, false, "text-slate-500")}
+                {renderButton(Sparkles, "Novo Agente", onAddAgent, false, false, false, "text-slate-500")}
+                {renderButton(Shield, "Painel Admin", () => navigate("/app/admin"), isCurrentPath("/app/admin"), false, false, "text-slate-500")}
+                {renderButton(Users, "Usuários", () => navigate("/app/users"), isCurrentPath("/app/users"), false, false, "text-slate-500")}
+                {renderButton(Video, "Tutoriais", () => navigate("/app/tutorials"), isCurrentPath("/app/tutorials"), false, false, "text-slate-500")}
+                {renderButton(Wallet, "Financeiro", () => navigate("/app/financeiro"), isCurrentPath("/app/financeiro"), false, false, "text-slate-500")}
+                {renderButton(Activity, "Logs IA", () => navigate("/app/logs-ia"), isCurrentPath("/app/logs-ia"), false, false, "text-slate-500")}
               </div>
             </div>
           )}
 
           {/* Seção de Ações Gerais */}
-          <div className={cn(
-            "flex flex-col gap-1 transition-all duration-200",
-            isCollapsed ? "items-center" : ""
-          )}>
+          <div className="flex flex-col gap-1.5 w-full">
             {!isCollapsed && (
-              <div className="flex items-center gap-2 mb-2 px-1">
-                <div className="h-px bg-gradient-to-r from-gray-300 to-transparent flex-1 min-w-0"></div>
-                <h2 className="text-xs font-semibold text-gray-600 uppercase tracking-wider px-2 whitespace-nowrap">Conta</h2>
-                <div className="h-px bg-gradient-to-l from-gray-300 to-transparent flex-1 min-w-0"></div>
-              </div>
+              <h2 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider px-3 mb-1">Conta</h2>
             )}
-            <div className={cn(
-              "space-y-1 w-full",
-              isCollapsed ? "flex flex-col items-center" : ""
-            )}>
-              {!isAdmin && renderButton(BookOpen, "Como Usar a Plataforma", onHowToUse, isCurrentPath("/app/how-to-use"), false, false, "text-orange-600")}
-              {renderButton(Settings, "Configurações", handleSettings, isCurrentPath("/app/settings"), false, false, "text-gray-600")}
-              {renderButton(LogOut, "Sair", handleLogout, false, true, false, "text-red-600")}
+            <div className="flex flex-col gap-1 w-full">
+              {renderButton(HandCoins, "Indicações", () => navigate("/app/indicacoes"), isCurrentPath("/app/indicacoes"), false, false, "text-slate-500")}
+              {!isAdmin && renderButton(BookOpen, "Como Usar", onHowToUse, isCurrentPath("/app/how-to-use"), false, false, "text-slate-500")}
+              {renderButton(Settings, "Configurações", handleSettings, isCurrentPath("/app/settings"), false, false, "text-slate-500")}
+              {renderButton(LogOut, "Sair", handleLogout, false, true, false, "text-red-500")}
             </div>
           </div>
         </div>

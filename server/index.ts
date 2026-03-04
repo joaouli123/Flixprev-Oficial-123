@@ -1,6 +1,7 @@
 import express, { Express } from 'express';
 import authRoutes from './auth-routes';
 import dbRoutes from './db-routes';
+import referralRoutes from './referral-routes';
 import { registerChatRoutes } from "./replit_integrations/chat";
 import { registerUploadRoutes } from "./upload-routes";
 
@@ -28,6 +29,7 @@ console.log('[SERVER] Upload routes registered');
 
 app.use('/api', authRoutes);
 app.use('/api', dbRoutes);
+app.use('/api', referralRoutes);
 console.log('[SERVER] All routes registered');
 
 // Error handling middleware
