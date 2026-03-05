@@ -5,10 +5,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { neon as supabase } from "@/lib/neon"
+import { supabaseAuth } from "@/lib/supabase-auth";
 import { toast } from 'sonner';
-import { useSession } from '@/components/SessionContextProvider';
 import { resetPasswordSchema } from '@/lib/validations';
+import { loginUser } from '@/lib/auth';
 
 const ResetPassword: React.FC = () => {
   const [newPassword, setNewPassword] = useState('');
@@ -19,28 +19,45 @@ const ResetPassword: React.FC = () => {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [recoveryEmail, setRecoveryEmail] = useState<string | null>(null);
+  const [hasRecoverySession, setHasRecoverySession] = useState(false);
   const navigate = useNavigate();
-  const { session } = useSession();
 
   useEffect(() => {
-    if (session && session.user) {
-      setMessage('Sessão de recuperação de senha ativa. Por favor, insira sua nova senha.');
-      setIsError(false);
-    } else {
-      setMessage('Aguardando sessão de recuperação ou token inválido/expirado. Se você chegou aqui por um link de e-mail, por favor, aguarde ou tente novamente o processo de recuperação de senha.');
-      setIsError(true);
-    }
+    const loadRecoverySession = async () => {
+      try {
+        const { data, error } = await supabaseAuth.auth.getSession();
+        const email = data?.session?.user?.email ?? null;
+
+        if (!error && email) {
+          setRecoveryEmail(email);
+          setHasRecoverySession(true);
+          setMessage('Sessão de recuperação ativa. Defina sua nova senha para ativar a conta.');
+          setIsError(false);
+        } else {
+          setHasRecoverySession(false);
+          setMessage('Sessão de recuperação não encontrada ou expirada. Solicite um novo e-mail de ativação/redefinição.');
+          setIsError(true);
+        }
+      } catch {
+        setHasRecoverySession(false);
+        setMessage('Não foi possível validar a sessão de recuperação. Tente novamente pelo link enviado no e-mail.');
+        setIsError(true);
+      }
+    };
+
+    loadRecoverySession();
 
     // Proteção adicional: bloquear tentativas de navegação para /app durante redefinição
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (session && !showSuccessModal) {
+      if (hasRecoverySession && !showSuccessModal) {
         e.preventDefault();
         e.returnValue = 'Você tem uma redefinição de senha em andamento. Tem certeza que deseja sair?';
       }
     };
 
     const handlePopState = (e: PopStateEvent) => {
-      if (session && !showSuccessModal && window.location.pathname.startsWith('/app')) {
+      if (hasRecoverySession && !showSuccessModal && window.location.pathname.startsWith('/app')) {
         e.preventDefault();
         navigate('/reset-password');
         toast.warning('Complete a redefinição de senha antes de acessar o aplicativo.');
@@ -54,7 +71,7 @@ const ResetPassword: React.FC = () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
       window.removeEventListener('popstate', handlePopState);
     };
-  }, [session, showSuccessModal, navigate]);
+  }, [hasRecoverySession, showSuccessModal, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,7 +79,7 @@ const ResetPassword: React.FC = () => {
     setMessage('');
     setIsError(false);
 
-    if (!session?.user) {
+    if (!hasRecoverySession || !recoveryEmail) {
       setMessage('Sessão de recuperação de senha não encontrada ou expirada. Por favor, inicie o processo de recuperação novamente.');
       setIsError(true);
       setLoading(false);
@@ -86,7 +103,7 @@ const ResetPassword: React.FC = () => {
     }
 
     try {
-      const { error } = await supabase.auth.updateUser({
+      const { error } = await supabaseAuth.auth.updateUser({
         password: result.data.password,
       });
 
@@ -95,17 +112,19 @@ const ResetPassword: React.FC = () => {
         setIsError(true);
         toast.error('Erro ao redefinir a senha: ' + error.message);
       } else {
-        // Mostrar modal de sucesso
+        // Mostrar modal de sucesso e autenticar automaticamente
         setShowSuccessModal(true);
         toast.success('Senha redefinida com sucesso!');
-        
-        // Limpar a sessão de recuperação para permitir acesso normal ao app
-        await supabase.auth.signOut();
-        
-        // Redirecionar após 3 segundos
-        setTimeout(() => {
-          navigate('/login');
-        }, 3000);
+
+        const loginResult = await loginUser(recoveryEmail, result.data.password);
+
+        if (loginResult.success) {
+          toast.success('Conta ativada e login realizado com sucesso!');
+          setTimeout(() => navigate('/app'), 1200);
+        } else {
+          toast.warning('Senha atualizada. Faça login para continuar.');
+          setTimeout(() => navigate('/login'), 2200);
+        }
       }
     } catch (err: any) {
       setMessage('Ocorreu um erro inesperado: ' + err.message);
@@ -122,7 +141,7 @@ const ResetPassword: React.FC = () => {
       <div className="absolute inset-0 bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(59,130,246,0.1),transparent_50%)]"></div>
         <div className="absolute top-0 left-0 w-full h-full">
-          <div className="absolute top-1/4 left-1/4 w-72 h-72 sm:w-96 sm:h-96 bg-blue-200/30 rounded-full blur-3xl animate-pulse"></div>
+          <div className="absolute top-1/4 left-1/4 w-72 h-72 sm:w-96 sm:h-96 bg-indigo-200/30 rounded-full blur-3xl animate-pulse"></div>
           <div className="absolute bottom-1/4 right-1/4 w-60 h-60 sm:w-80 sm:h-80 bg-indigo-200/30 rounded-full blur-3xl animate-pulse delay-1000"></div>
         </div>
       </div>

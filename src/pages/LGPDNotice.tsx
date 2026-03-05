@@ -8,47 +8,47 @@ const LGPDNotice: React.FC = () => {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
       {/* Header */}
-      <header className="bg-slate-800/50 backdrop-blur-sm border-b border-slate-700">
-        <div className="max-w-4xl mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <Link to="/" className="flex items-center space-x-2 text-blue-400 hover:text-blue-300 transition-colors">
-              <ArrowLeft className="w-5 h-5" />
-              <span>Voltar ao Início</span>
-            </Link>
-            <div className="flex items-center space-x-2">
-              <Shield className="w-6 h-6 text-green-400" />
-              <span className="text-white font-semibold">FlixPrev I.A.</span>
-            </div>
+      <header className="bg-white/80 backdrop-blur-sm shadow-sm border-b border-gray-100 sticky top-0 z-50">
+        <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
+          <Link to="/" className="flex items-center space-x-2 text-slate-600 hover:text-indigo-600 transition-colors">
+            <ArrowLeft className="w-5 h-5" />
+            <span className="font-medium">Voltar ao Início</span>
+          </Link>
+          <div className="flex items-center space-x-2">
+            <Shield className="w-6 h-6 text-green-600" />
+            <span className="text-slate-900 font-semibold">FlixPrev I.A.</span>
           </div>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="max-w-4xl mx-auto px-6 py-12">
-        <div className="bg-slate-800/30 backdrop-blur-sm rounded-2xl border border-slate-700 p-8 shadow-2xl">
+      <main className="max-w-4xl mx-auto px-4 py-8">
+        <div className="bg-white/90 backdrop-blur-sm rounded-2xl border border-gray-100 p-8 shadow-xl">
           {/* Title */}
           <div className="text-center mb-12">
             <div className="flex items-center justify-center mb-4">
-              <Shield className="w-12 h-12 text-green-400 mr-3" />
-              <h1 className="text-4xl font-bold text-white">Aviso LGPD</h1>
+              <div className="w-16 h-16 bg-green-100 rounded-2xl flex items-center justify-center mr-4 shadow-sm">
+                <Shield className="w-8 h-8 text-green-600" />
+              </div>
+              <h1 className="text-4xl font-bold text-slate-900">Aviso LGPD</h1>
             </div>
-            <p className="text-slate-300 text-lg">
+            <p className="text-slate-600 text-lg">
               Lei Geral de Proteção de Dados Pessoais - Lei nº 13.709/2018
             </p>
-            <p className="text-slate-400 mt-2">
+            <p className="text-slate-500 mt-2 text-sm">
               Última atualização: Janeiro de 2025
             </p>
           </div>
 
           {/* Content */}
-          <div className="space-y-8 text-slate-300">
+          <div className="space-y-8 text-slate-700">
             {/* Introdução */}
             <section>
               <div className="flex items-center mb-4">
-                <AlertCircle className="w-6 h-6 text-blue-400 mr-3" />
-                <h2 className="text-2xl font-semibold text-white">Compromisso com a LGPD</h2>
+                <AlertCircle className="w-6 h-6 text-indigo-600 mr-3" />
+                <h2 className="text-2xl font-semibold text-slate-900">Compromisso com a LGPD</h2>
               </div>
               <p className="leading-relaxed">
                 A FlixPrev I.A. está comprometida com a proteção de dados pessoais e o cumprimento integral da 
@@ -60,42 +60,42 @@ const LGPDNotice: React.FC = () => {
             {/* Seus Direitos */}
             <section>
               <div className="flex items-center mb-4">
-                <User className="w-6 h-6 text-green-400 mr-3" />
-                <h2 className="text-2xl font-semibold text-white">Seus Direitos como Titular</h2>
+                <User className="w-6 h-6 text-green-600 mr-3" />
+                <h2 className="text-2xl font-semibold text-slate-900">Seus Direitos como Titular</h2>
               </div>
               <p className="mb-4">Conforme a LGPD, você possui os seguintes direitos:</p>
               <ul className="space-y-3 ml-6">
                 <li className="flex items-start">
-                  <span className="w-2 h-2 bg-blue-400 rounded-full mt-2 mr-3 flex-shrink-0"></span>
-                  <span><strong>Confirmação da existência de tratamento:</strong> Saber se tratamos seus dados pessoais</span>
+                  <span className="w-2 h-2 bg-indigo-500 rounded-full mt-2 mr-3 flex-shrink-0"></span>
+                  <span><strong className="text-slate-900">Confirmação da existência de tratamento:</strong> Saber se tratamos seus dados pessoais</span>
                 </li>
                 <li className="flex items-start">
-                  <span className="w-2 h-2 bg-blue-400 rounded-full mt-2 mr-3 flex-shrink-0"></span>
-                  <span><strong>Acesso aos dados:</strong> Obter acesso aos seus dados pessoais que tratamos</span>
+                  <span className="w-2 h-2 bg-indigo-500 rounded-full mt-2 mr-3 flex-shrink-0"></span>
+                  <span><strong className="text-slate-900">Acesso aos dados:</strong> Obter acesso aos seus dados pessoais que tratamos</span>
                 </li>
                 <li className="flex items-start">
-                  <span className="w-2 h-2 bg-blue-400 rounded-full mt-2 mr-3 flex-shrink-0"></span>
-                  <span><strong>Correção:</strong> Solicitar a correção de dados incompletos, inexatos ou desatualizados</span>
+                  <span className="w-2 h-2 bg-indigo-500 rounded-full mt-2 mr-3 flex-shrink-0"></span>
+                  <span><strong className="text-slate-900">Correção:</strong> Solicitar a correção de dados incompletos, inexatos ou desatualizados</span>
                 </li>
                 <li className="flex items-start">
-                  <span className="w-2 h-2 bg-blue-400 rounded-full mt-2 mr-3 flex-shrink-0"></span>
-                  <span><strong>Anonimização, bloqueio ou eliminação:</strong> Solicitar a anonimização, bloqueio ou eliminação de dados desnecessários ou excessivos</span>
+                  <span className="w-2 h-2 bg-indigo-500 rounded-full mt-2 mr-3 flex-shrink-0"></span>
+                  <span><strong className="text-slate-900">Anonimização, bloqueio ou eliminação:</strong> Solicitar a anonimização, bloqueio ou eliminação de dados desnecessários ou excessivos</span>
                 </li>
                 <li className="flex items-start">
-                  <span className="w-2 h-2 bg-blue-400 rounded-full mt-2 mr-3 flex-shrink-0"></span>
-                  <span><strong>Portabilidade:</strong> Solicitar a portabilidade dos dados a outro fornecedor</span>
+                  <span className="w-2 h-2 bg-indigo-500 rounded-full mt-2 mr-3 flex-shrink-0"></span>
+                  <span><strong className="text-slate-900">Portabilidade:</strong> Solicitar a portabilidade dos dados a outro fornecedor</span>
                 </li>
                 <li className="flex items-start">
-                  <span className="w-2 h-2 bg-blue-400 rounded-full mt-2 mr-3 flex-shrink-0"></span>
-                  <span><strong>Eliminação:</strong> Solicitar a eliminação dos dados tratados com seu consentimento</span>
+                  <span className="w-2 h-2 bg-indigo-500 rounded-full mt-2 mr-3 flex-shrink-0"></span>
+                  <span><strong className="text-slate-900">Eliminação:</strong> Solicitar a eliminação dos dados tratados com seu consentimento</span>
                 </li>
                 <li className="flex items-start">
-                  <span className="w-2 h-2 bg-blue-400 rounded-full mt-2 mr-3 flex-shrink-0"></span>
-                  <span><strong>Informação sobre compartilhamento:</strong> Obter informações sobre entidades com as quais compartilhamos seus dados</span>
+                  <span className="w-2 h-2 bg-indigo-500 rounded-full mt-2 mr-3 flex-shrink-0"></span>
+                  <span><strong className="text-slate-900">Informação sobre compartilhamento:</strong> Obter informações sobre entidades com as quais compartilhamos seus dados</span>
                 </li>
                 <li className="flex items-start">
-                  <span className="w-2 h-2 bg-blue-400 rounded-full mt-2 mr-3 flex-shrink-0"></span>
-                  <span><strong>Revogação do consentimento:</strong> Revogar o consentimento a qualquer momento</span>
+                  <span className="w-2 h-2 bg-indigo-500 rounded-full mt-2 mr-3 flex-shrink-0"></span>
+                  <span><strong className="text-slate-900">Revogação do consentimento:</strong> Revogar o consentimento a qualquer momento</span>
                 </li>
               </ul>
             </section>
@@ -200,7 +200,7 @@ const LGPDNotice: React.FC = () => {
               <p className="leading-relaxed">
                 Caso não esteja satisfeito com nossas respostas ou práticas de proteção de dados, você tem 
                 o direito de apresentar reclamação à Autoridade Nacional de Proteção de Dados (ANPD) através 
-                do site: <a href="https://www.gov.br/anpd" className="text-blue-400 hover:text-blue-300 underline" target="_blank" rel="noopener noreferrer">www.gov.br/anpd</a>
+                do site: <a href="https://www.gov.br/anpd" className="text-indigo-400 hover:text-indigo-300 underline" target="_blank" rel="noopener noreferrer">www.gov.br/anpd</a>
               </p>
             </section>
 
@@ -222,7 +222,7 @@ const LGPDNotice: React.FC = () => {
             <div className="text-center">
               <p className="text-slate-400 mb-4">
                 Para mais informações, consulte nossa{' '}
-                <Link to="/privacy" className="text-blue-400 hover:text-blue-300 underline">
+                <Link to="/privacy" className="text-indigo-400 hover:text-indigo-300 underline">
                   Política de Privacidade
                 </Link>{' '}
                 completa.

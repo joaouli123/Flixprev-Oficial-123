@@ -20,13 +20,13 @@ const PrivacyPolicy: React.FC = () => {
             variant="ghost"
             size="sm"
             onClick={() => navigate("/")}
-            className="flex items-center gap-2 hover:bg-blue-50"
+            className="flex items-center gap-2 hover:bg-indigo-50"
           >
             <ArrowLeft className="w-4 h-4" />
             Voltar
           </Button>
           <div className="flex items-center gap-3">
-            <Shield className="w-6 h-6 text-blue-600" />
+            <Shield className="w-6 h-6 text-indigo-600" />
             <h1 className="text-xl font-bold text-slate-900">Política de Privacidade</h1>
           </div>
         </div>
@@ -58,7 +58,7 @@ const PrivacyPolicy: React.FC = () => {
             {/* 1. Informações que Coletamos */}
             <section>
               <div className="flex items-center gap-3 mb-4">
-                <Database className="w-5 h-5 text-blue-600" />
+                <Database className="w-5 h-5 text-indigo-600" />
                 <h3 className="text-xl font-semibold text-slate-900">1. Informações que Coletamos</h3>
               </div>
               <div className="space-y-4 text-slate-700">
@@ -95,7 +95,7 @@ const PrivacyPolicy: React.FC = () => {
             {/* 2. Como Usamos suas Informações */}
             <section>
               <div className="flex items-center gap-3 mb-4">
-                <Eye className="w-5 h-5 text-blue-600" />
+                <Eye className="w-5 h-5 text-indigo-600" />
                 <h3 className="text-xl font-semibold text-slate-900">2. Como Usamos suas Informações</h3>
               </div>
               <div className="space-y-3 text-slate-700">
@@ -110,7 +110,7 @@ const PrivacyPolicy: React.FC = () => {
             {/* 3. Compartilhamento de Dados */}
             <section>
               <div className="flex items-center gap-3 mb-4">
-                <Users className="w-5 h-5 text-blue-600" />
+                <Users className="w-5 h-5 text-indigo-600" />
                 <h3 className="text-xl font-semibold text-slate-900">3. Compartilhamento de Dados</h3>
               </div>
               <div className="space-y-3 text-slate-700">
@@ -124,7 +124,7 @@ const PrivacyPolicy: React.FC = () => {
             {/* 4. Segurança dos Dados */}
             <section>
               <div className="flex items-center gap-3 mb-4">
-                <Lock className="w-5 h-5 text-blue-600" />
+                <Lock className="w-5 h-5 text-indigo-600" />
                 <h3 className="text-xl font-semibold text-slate-900">4. Segurança dos Dados</h3>
               </div>
               <div className="space-y-3 text-slate-700">
@@ -139,7 +139,7 @@ const PrivacyPolicy: React.FC = () => {
             {/* 5. Seus Direitos */}
             <section>
               <div className="flex items-center gap-3 mb-4">
-                <FileText className="w-5 h-5 text-blue-600" />
+                <FileText className="w-5 h-5 text-indigo-600" />
                 <h3 className="text-xl font-semibold text-slate-900">5. Seus Direitos (LGPD)</h3>
               </div>
               <div className="space-y-3 text-slate-700">
@@ -170,7 +170,7 @@ const PrivacyPolicy: React.FC = () => {
             <section>
               <h3 className="text-xl font-semibold text-slate-900 mb-4">7. Cookies e Tecnologias Similares</h3>
               <div className="space-y-3 text-slate-700">
-                <p>Utilizamos cookies e tecnologias similares para melhorar sua experiência. Para mais informações, consulte nossa <a href="/cookies" className="text-blue-600 hover:underline">Política de Cookies</a>.</p>
+                <p>Utilizamos cookies e tecnologias similares para melhorar sua experiência. Para mais informações, consulte nossa <a href="/cookies" className="text-indigo-600 hover:underline">Política de Cookies</a>.</p>
               </div>
             </section>
 

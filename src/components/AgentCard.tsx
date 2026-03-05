@@ -7,7 +7,6 @@ import { Agent } from "@/types/app";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { MoreVertical, Trash2, Edit } from "lucide-react";
 import { useSession } from "@/components/SessionContextProvider";
-import { cn } from "@/lib/utils";
 
 interface AgentCardProps {
   agent: Agent;
@@ -19,6 +18,9 @@ interface AgentCardProps {
 const AgentCard: React.FC<AgentCardProps> = ({ agent, onStartAgent, onDeleteAgent, onEditAgent }) => {
   const { isAdmin } = useSession();
   const IconComponent: LucideIcon = (LucideIcons[agent.icon as keyof typeof LucideIcons] as LucideIcon) || LucideIcons.Bot;
+  const BackgroundIconComponent: LucideIcon = (LucideIcons[(agent.background_icon || agent.icon) as keyof typeof LucideIcons] as LucideIcon) || LucideIcons.Bot;
+  const description = agent.description?.trim() || "Sem descrição disponível para este agente.";
+  const isExternalLink = Boolean(agent.link);
 
   const handleButtonClick = () => {
     if (agent.link) {
@@ -29,45 +31,66 @@ const AgentCard: React.FC<AgentCardProps> = ({ agent, onStartAgent, onDeleteAgen
   };
 
   return (
-    <Card className="flex flex-col h-full min-w-[280px]">
-      <CardHeader className="flex-grow">
-        <div className="flex items-center justify-between mb-2">
-          <IconComponent className="h-8 w-8 text-blue-600" />
+    <Card className="group relative flex h-full min-w-[280px] flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-purple-200 hover:shadow-xl hover:shadow-purple-500/10">
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-purple-50/70 via-white to-purple-50/40 opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
+      
+      {/* Ícone de fundo (Marca d'água) */}
+      <div className="pointer-events-none absolute -bottom-6 -right-6 z-0 opacity-[0.03] transition-transform duration-500 group-hover:scale-110 group-hover:opacity-[0.05]">
+        <BackgroundIconComponent className="h-48 w-48 text-purple-900" />
+      </div>
+
+      <CardHeader className="relative z-10 flex-grow pb-2">
+        <div className="mb-4 flex items-start justify-between">
+          <div className="rounded-xl bg-[#434dce] p-3 text-white shadow-sm transition-transform duration-300 group-hover:scale-105">
+            <IconComponent className="h-6 w-6" />
+          </div>
           <div className="flex items-center gap-2">
-            <span className="text-xs font-medium px-3 py-1 rounded-full bg-blue-100 text-blue-700">
-              AGENTE IA
+            <span className="rounded-full bg-purple-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-purple-600">
+              {isExternalLink ? "LINK" : "ESPECIALISTA"}
             </span>
             {isAdmin && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8">
+                  <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full text-slate-500 hover:bg-purple-100 hover:text-purple-700">
                     <MoreVertical className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => onEditAgent(agent)}>
-                    <Edit className="h-4 w-4 mr-2" />
-                    Editar
+                <DropdownMenuContent align="end" className="w-40 rounded-xl border-slate-200 shadow-lg">
+                  <DropdownMenuItem onClick={() => onEditAgent(agent)} className="cursor-pointer hover:bg-purple-50 focus:bg-purple-50">
+                    <Edit className="mr-2 h-4 w-4 text-purple-600" />
+                    <span className="font-medium">Editar</span>
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => onDeleteAgent(agent.id)}>
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    Remover
+                  <DropdownMenuItem onClick={() => onDeleteAgent(agent.id)} className="cursor-pointer text-red-600 hover:bg-red-50 focus:bg-red-50">
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    <span className="font-medium">Remover</span>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             )}
           </div>
         </div>
-        <CardTitle className="text-lg font-semibold">
+        <CardTitle className="line-clamp-1 text-xl font-bold text-slate-900 transition-colors duration-300 group-hover:text-purple-700">
           {agent.title}
         </CardTitle>
-        <CardDescription className="text-sm mt-2 line-clamp-2">
-          {agent.description}
+        {agent.role && (
+          <div className="mt-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+            {agent.role}
+          </div>
+        )}
+        <CardDescription className="mt-2.5 min-h-[44px] text-sm leading-relaxed text-slate-500 line-clamp-2">
+          {description}
         </CardDescription>
       </CardHeader>
-      <CardFooter className="pt-4">
-        <Button className="w-full" onClick={handleButtonClick}>
-          Iniciar agente
+      <CardFooter className="relative z-10 pb-5 pt-4 flex justify-end">
+        <Button 
+          variant="ghost"
+          size="icon"
+          className="h-10 w-10 rounded-full bg-purple-50 text-purple-600 hover:bg-purple-100 hover:text-purple-900 transition-all duration-300" 
+          onClick={handleButtonClick}
+        >
+          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+          </svg>
         </Button>
       </CardFooter>
     </Card>

@@ -116,7 +116,7 @@ const CookieConsent: React.FC<CookieConsentProps> = ({ onAccept, onDecline }) =>
                   <div className="flex gap-2">
                     <button
                       onClick={handleAcceptAll}
-                      className="flex-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-medium transition-colors"
+                      className="flex-1 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-xs font-medium transition-colors"
                     >
                       Aceitar
                     </button>
@@ -139,7 +139,7 @@ const CookieConsent: React.FC<CookieConsentProps> = ({ onAccept, onDecline }) =>
                 </div>
                 
                 <div className="mt-2 text-xs text-slate-400">
-                  <Link to="/cookie-policy" className="text-blue-400 hover:text-blue-300 underline">
+                  <Link to="/cookie-policy" className="text-indigo-400 hover:text-indigo-300 underline">
                     Política de Cookies
                   </Link>
                 </div>
@@ -151,7 +151,7 @@ const CookieConsent: React.FC<CookieConsentProps> = ({ onAccept, onDecline }) =>
           <div className="p-4">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-semibold text-white flex items-center">
-                <Settings className="w-4 h-4 mr-2 text-blue-400" />
+                <Settings className="w-4 h-4 mr-2 text-indigo-400" />
                 Configurações
               </h3>
               <button
@@ -186,7 +186,7 @@ const CookieConsent: React.FC<CookieConsentProps> = ({ onAccept, onDecline }) =>
                   <button
                     onClick={() => handlePreferenceChange('analytics')}
                     className={`w-8 h-4 rounded-full flex items-center transition-colors ${
-                      preferences.analytics ? 'bg-blue-600 justify-end' : 'bg-slate-500 justify-start'
+                      preferences.analytics ? 'bg-indigo-600 justify-end' : 'bg-slate-500 justify-start'
                     } px-0.5`}
                   >
                     <div className="w-3 h-3 bg-white rounded-full"></div>
@@ -204,7 +204,7 @@ const CookieConsent: React.FC<CookieConsentProps> = ({ onAccept, onDecline }) =>
                   <button
                     onClick={() => handlePreferenceChange('marketing')}
                     className={`w-8 h-4 rounded-full flex items-center transition-colors ${
-                      preferences.marketing ? 'bg-blue-600 justify-end' : 'bg-slate-500 justify-start'
+                      preferences.marketing ? 'bg-indigo-600 justify-end' : 'bg-slate-500 justify-start'
                     } px-0.5`}
                   >
                     <div className="w-3 h-3 bg-white rounded-full"></div>
@@ -222,7 +222,7 @@ const CookieConsent: React.FC<CookieConsentProps> = ({ onAccept, onDecline }) =>
                   <button
                     onClick={() => handlePreferenceChange('functional')}
                     className={`w-8 h-4 rounded-full flex items-center transition-colors ${
-                      preferences.functional ? 'bg-blue-600 justify-end' : 'bg-slate-500 justify-start'
+                      preferences.functional ? 'bg-indigo-600 justify-end' : 'bg-slate-500 justify-start'
                     } px-0.5`}
                   >
                     <div className="w-3 h-3 bg-white rounded-full"></div>
@@ -243,7 +243,7 @@ const CookieConsent: React.FC<CookieConsentProps> = ({ onAccept, onDecline }) =>
               <div className="flex gap-2">
                 <button
                   onClick={handleAcceptAll}
-                  className="flex-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-medium transition-colors"
+                  className="flex-1 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-xs font-medium transition-colors"
                 >
                   Aceitar Todos
                 </button>

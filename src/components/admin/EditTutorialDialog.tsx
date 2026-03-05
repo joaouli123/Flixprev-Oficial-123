@@ -56,27 +56,27 @@ const EditTutorialDialog: React.FC<EditTutorialDialogProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[425px]">
-        <DialogHeader>
-          <DialogTitle>Editar Tutorial</DialogTitle>
-          <DialogDescription>
+      <DialogContent className="sm:max-w-[425px] p-0 overflow-hidden bg-white/95 backdrop-blur-xl border-white/20 shadow-2xl">
+        <DialogHeader className="px-6 py-5 border-b border-gray-100/50 bg-white/50">
+          <DialogTitle className="text-xl font-semibold text-gray-800">Editar Tutorial</DialogTitle>
+          <DialogDescription className="text-sm text-gray-500 mt-1">
             Altere os detalhes do tutorial.
           </DialogDescription>
         </DialogHeader>
-        <div className="grid gap-4 py-4">
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="title" className="text-right">
+        <div className="px-6 py-5 space-y-5">
+          <div className="space-y-2">
+            <Label htmlFor="title" className="text-sm font-medium text-gray-700">
               Título
             </Label>
             <Input
               id="title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="col-span-3"
+              className="w-full bg-white/50 border-gray-200 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
             />
           </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="url" className="text-right">
+          <div className="space-y-2">
+            <Label htmlFor="url" className="text-sm font-medium text-gray-700">
               URL do YouTube
             </Label>
             <Input
@@ -84,11 +84,11 @@ const EditTutorialDialog: React.FC<EditTutorialDialogProps> = ({
               value={url}
               onChange={(e) => setUrl(e.target.value)}
               placeholder="Ex: https://www.youtube.com/watch?v=VIDEO_ID"
-              className="col-span-3"
+              className="w-full bg-white/50 border-gray-200 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
             />
           </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="order" className="text-right">
+          <div className="space-y-2">
+            <Label htmlFor="order" className="text-sm font-medium text-gray-700">
               Ordem
             </Label>
             <Input
@@ -96,15 +96,17 @@ const EditTutorialDialog: React.FC<EditTutorialDialogProps> = ({
               type="number"
               value={order}
               onChange={(e) => setOrder(parseInt(e.target.value) || 0)}
-              className="col-span-3"
+              className="w-full bg-white/50 border-gray-200 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
             />
           </div>
         </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
+        <DialogFooter className="px-6 py-4 border-t border-gray-100/50 bg-gray-50/50 sm:justify-end gap-2">
+          <Button variant="outline" onClick={onClose} className="bg-white hover:bg-gray-50 text-gray-700 border-gray-200">
             Cancelar
           </Button>
-          <Button onClick={handleSave}>Salvar Alterações</Button>
+          <Button onClick={handleSave} className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-500/20">
+            Salvar Alterações
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

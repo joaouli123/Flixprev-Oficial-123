@@ -41,16 +41,16 @@ export const SubscriptionExpiredDialog: React.FC<SubscriptionExpiredDialogProps>
         </DialogHeader>
         
         <div className="mt-6 space-y-4">
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
             <div className="flex items-start">
               <div className="flex-shrink-0">
-                <CreditCard className="h-5 w-5 text-blue-600 mt-0.5" />
+                <CreditCard className="h-5 w-5 text-indigo-600 mt-0.5" />
               </div>
               <div className="ml-3">
-                <h3 className="text-sm font-medium text-blue-800">
+                <h3 className="text-sm font-medium text-indigo-800">
                   Mantenha seus dados salvos
                 </h3>
-                <p className="text-sm text-blue-700 mt-1">
+                <p className="text-sm text-indigo-700 mt-1">
                   Para manter todos os seus dados e configurações, use o mesmo email ({userEmail}) ao fazer uma nova compra.
                 </p>
               </div>
@@ -60,7 +60,7 @@ export const SubscriptionExpiredDialog: React.FC<SubscriptionExpiredDialogProps>
           <div className="flex flex-col gap-3">
             <Button 
               onClick={handleBuyAgain}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white"
             >
               <CreditCard className="w-4 h-4 mr-2" />
               Comprar Novamente

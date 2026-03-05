@@ -3,20 +3,31 @@ import { useSession } from "@/components/SessionContextProvider";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { neon } from "@/lib/neon"
+import { neon, supabaseAuth } from "@/lib/neon"
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Lock } from "lucide-react";
 
+const splitFullName = (value: string): { firstName: string | null; lastName: string | null } => {
+  const parts = value.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return { firstName: null, lastName: null };
+  if (parts.length === 1) return { firstName: parts[0], lastName: null };
+  return {
+    firstName: parts[0],
+    lastName: parts.slice(1).join(" "),
+  };
+};
+
 const Settings: React.FC = () => {
   const { session, profile } = useSession();
 
-  const [firstName, setFirstName] = useState(profile?.first_name || "");
-  const [lastName, setLastName] = useState(profile?.last_name || "");
+  const [fullName, setFullName] = useState("");
+  const [billingEmail, setBillingEmail] = useState("");
+  const [documento, setDocumento] = useState("");
+  const [telefone, setTelefone] = useState("");
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreviewUrl, setAvatarPreviewUrl] = useState<string | null>(profile?.avatar_url || null);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
-  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
 
   // Estados para troca de senha
   const [newPassword, setNewPassword] = useState("");
@@ -25,11 +36,43 @@ const Settings: React.FC = () => {
 
   useEffect(() => {
     if (profile) {
-      setFirstName(profile.first_name || "");
-      setLastName(profile.last_name || "");
+      const profileName = [profile.first_name, profile.last_name].filter(Boolean).join(" ").trim();
+      setFullName((prev) => prev || profileName);
       setAvatarPreviewUrl(profile.avatar_url || null);
     }
   }, [profile]);
+
+  useEffect(() => {
+    if (session?.user?.email) {
+      setBillingEmail((prev) => prev || session.user.email || "");
+    }
+  }, [session?.user?.email]);
+
+  useEffect(() => {
+    const fetchBillingInfo = async () => {
+      if (!session?.user?.id) return;
+
+      const { data, error } = await supabaseAuth
+        .from("usuarios")
+        .select("nome_completo, email, documento, telefone")
+        .eq("user_id", session.user.id)
+        .maybeSingle();
+
+      if (error) {
+        console.error("Erro ao carregar dados de faturamento:", error);
+        return;
+      }
+
+      if (data) {
+        setFullName(data.nome_completo || "");
+        setBillingEmail(data.email || session.user.email || "");
+        setDocumento(data.documento || "");
+        setTelefone(data.telefone || "");
+      }
+    };
+
+    fetchBillingInfo();
+  }, [session?.user?.id]);
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -50,24 +93,45 @@ const Settings: React.FC = () => {
       return;
     }
 
+    if (!billingEmail.trim()) {
+      toast.error("Informe um e-mail válido para salvar as configurações.");
+      return;
+    }
+
     setIsSavingProfile(true);
+
+    const trimmedFullName = fullName.trim();
+    const { firstName, lastName } = splitFullName(trimmedFullName);
 
     const { error: updateError } = await neon
       .from('profiles')
       .update({
-        first_name: firstName.trim() || null,
-        last_name: lastName.trim() || null,
+        first_name: firstName,
+        last_name: lastName,
         avatar_url: avatarPreviewUrl,
         updated_at: new Date().toISOString(),
       })
       .eq('id', session.user.id)
       .execute();
 
-    if (updateError) {
-      toast.error("Erro ao salvar perfil: " + updateError.message);
-      console.error("Erro ao salvar perfil:", updateError);
+    const { error: usuariosError } = await supabaseAuth
+      .from('usuarios')
+      .upsert(
+        {
+          user_id: session.user.id,
+          nome_completo: trimmedFullName || null,
+          email: billingEmail.trim().toLowerCase(),
+          documento: documento.trim() || null,
+          telefone: telefone.trim() || null,
+        },
+        { onConflict: 'user_id' }
+      );
+
+    if (updateError || usuariosError) {
+      toast.error("Erro ao salvar perfil: " + (updateError?.message || usuariosError?.message || "falha desconhecida"));
+      console.error("Erro ao salvar perfil:", updateError || usuariosError);
     } else {
-      toast.success("Perfil atualizado com sucesso!");
+      toast.success("Configurações atualizadas com sucesso!");
       setAvatarFile(null);
     }
     setIsSavingProfile(false);
@@ -92,19 +156,12 @@ const Settings: React.FC = () => {
     setIsSavingPassword(true);
 
     try {
-      const response = await fetch('/api/change-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: session.user.id,
-          newPassword: newPassword,
-        }),
+      const { error } = await supabaseAuth.auth.updateUser({
+        password: newPassword
       });
 
-      const data = await response.json();
-      
-      if (!response.ok) {
-        toast.error("Erro ao trocar a senha: " + (data.error || 'Erro desconhecido'));
+      if (error) {
+        toast.error("Erro ao trocar a senha: " + error.message);
       } else {
         toast.success("Senha atualizada com sucesso!");
         setNewPassword("");
@@ -117,111 +174,154 @@ const Settings: React.FC = () => {
   };
 
   return (
-    <div className="bg-background text-foreground p-6 min-h-full">
-      <div className="max-w-4xl mx-auto">
-        <h1 className="text-3xl font-bold mb-6">Configurações</h1>
+    <div className="flex flex-col gap-8 animate-in fade-in duration-500 max-w-4xl mx-auto w-full">
+      <div className="flex flex-col gap-2">
+        <h1 className="text-3xl font-bold tracking-tight text-gray-900">Configurações</h1>
+        <p className="text-gray-500">Gerencie suas preferências e segurança da conta.</p>
+      </div>
 
-        {/* Seção de Configurações do Perfil do Usuário */}
-        <Card className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md mb-8">
-          <CardHeader className="p-0 mb-4">
-            <CardTitle className="text-2xl font-semibold">Gerenciar suas informações</CardTitle>
-            <CardDescription className="text-muted-foreground">
-              Atualize seus detalhes pessoais e preferências.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="grid gap-6 p-0">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="firstName">Primeiro Nome</Label>
-                <Input
-                  id="firstName"
-                  value={firstName}
-                  onChange={(e) => setFirstName(e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="lastName">Sobrenome</Label>
-                <Input
-                  id="lastName"
-                  value={lastName}
-                  onChange={(e) => setLastName(e.target.value)}
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="avatarUpload">Avatar</Label>
-              <div className="flex items-center gap-4">
-                {avatarPreviewUrl && (
-                  <img src={avatarPreviewUrl} alt="Avatar Preview" className="h-20 w-20 rounded-full object-cover border border-border" />
+      {/* Seção de Configurações do Perfil do Usuário */}
+      <Card className="overflow-hidden border-gray-200/60 bg-white/80 backdrop-blur-sm shadow-sm">
+        <CardHeader className="border-b border-gray-100 bg-gray-50/50 px-6 py-4">
+          <CardTitle className="text-xl font-semibold text-gray-900">Informações Pessoais</CardTitle>
+          <CardDescription className="text-gray-500">
+            Atualize seus detalhes pessoais e foto de perfil.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="p-6 space-y-6">
+          <div className="flex flex-col sm:flex-row gap-6 items-start">
+            <div className="flex-shrink-0 flex flex-col items-center gap-3">
+              <div className="relative group">
+                {avatarPreviewUrl ? (
+                  <img src={avatarPreviewUrl} alt="Avatar Preview" className="h-24 w-24 rounded-full object-cover border-4 border-white shadow-md" />
+                ) : (
+                  <div className="h-24 w-24 rounded-full bg-indigo-50 border-4 border-white shadow-md flex items-center justify-center text-indigo-500">
+                    <span className="text-2xl font-semibold">{fullName?.charAt(0) || 'U'}</span>
+                  </div>
                 )}
+                <div className="absolute inset-0 bg-black/40 rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer">
+                  <label htmlFor="avatarUpload" className="cursor-pointer text-white text-xs font-medium">Alterar</label>
+                </div>
+              </div>
+              {avatarPreviewUrl && (
+                <Button variant="ghost" size="sm" onClick={() => { setAvatarFile(null); setAvatarPreviewUrl(null); }} className="text-red-500 hover:text-red-600 hover:bg-red-50 h-8 px-2 text-xs">
+                  Remover foto
+                </Button>
+              )}
+            </div>
+            
+            <div className="flex-grow w-full space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="fullName" className="text-gray-700">Nome Completo</Label>
+                  <Input
+                    id="fullName"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    className="bg-gray-50/50 border-gray-200 focus:bg-white transition-colors"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="billingEmail" className="text-gray-700">E-mail</Label>
+                  <Input
+                    id="billingEmail"
+                    type="email"
+                    value={billingEmail}
+                    onChange={(e) => setBillingEmail(e.target.value)}
+                    className="bg-gray-50/50 border-gray-200 focus:bg-white transition-colors"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="documento" className="text-gray-700">CPF/CNPJ</Label>
+                  <Input
+                    id="documento"
+                    value={documento}
+                    onChange={(e) => setDocumento(e.target.value)}
+                    className="bg-gray-50/50 border-gray-200 focus:bg-white transition-colors"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="telefone" className="text-gray-700">Telefone</Label>
+                  <Input
+                    id="telefone"
+                    value={telefone}
+                    onChange={(e) => setTelefone(e.target.value)}
+                    className="bg-gray-50/50 border-gray-200 focus:bg-white transition-colors"
+                  />
+                </div>
+              </div>
+              <div className="space-y-2 hidden">
                 <Input
                   id="avatarUpload"
                   type="file"
                   accept="image/*"
                   onChange={handleAvatarChange}
-                  className="flex-grow"
                 />
-                {avatarPreviewUrl && (
-                  <Button variant="outline" size="sm" onClick={() => { setAvatarFile(null); setAvatarPreviewUrl(null); }}>
-                    Remover
-                  </Button>
-                )}
               </div>
-              <p className="text-sm text-muted-foreground">Faça upload de uma imagem para seu avatar.</p>
             </div>
-            <Button onClick={handleSaveProfile} disabled={isSavingProfile} className="w-full md:w-auto">
-              {isSavingProfile ? "Salvando..." : "Salvar Alterações do Perfil"}
+          </div>
+          
+          <div className="pt-4 border-t border-gray-100 flex justify-end">
+            <Button onClick={handleSaveProfile} disabled={isSavingProfile} className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm">
+              {isSavingProfile ? "Salvando..." : "Salvar Configurações"}
             </Button>
-          </CardContent>
-        </Card>
+          </div>
+        </CardContent>
+      </Card>
 
-        {/* Seção de Troca de Senha */}
-        <Card className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
-          <CardHeader className="p-0 mb-4 flex flex-row items-center gap-3">
-            <Lock className="h-6 w-6 text-blue-600" />
-            <div>
-              <CardTitle className="text-2xl font-semibold">Trocar Senha</CardTitle>
-              <CardDescription className="text-muted-foreground">
-                Use esta seção para definir uma nova senha para sua conta.
-              </CardDescription>
+      {/* Seção de Troca de Senha */}
+      <Card className="overflow-hidden border-gray-200/60 bg-white/80 backdrop-blur-sm shadow-sm">
+        <CardHeader className="border-b border-gray-100 bg-gray-50/50 px-6 py-4 flex flex-row items-center gap-3">
+          <div className="p-2 bg-indigo-100 text-indigo-600 rounded-lg">
+            <Lock className="h-5 w-5" />
+          </div>
+          <div>
+            <CardTitle className="text-xl font-semibold text-gray-900">Segurança</CardTitle>
+            <CardDescription className="text-gray-500">
+              Altere sua senha de acesso.
+            </CardDescription>
+          </div>
+        </CardHeader>
+        <CardContent className="p-6 space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <Label htmlFor="newPassword" className="text-gray-700">Nova Senha</Label>
+              <Input
+                id="newPassword"
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="Mínimo 6 caracteres"
+                className="bg-gray-50/50 border-gray-200 focus:bg-white transition-colors"
+              />
             </div>
-          </CardHeader>
-          <CardContent className="grid gap-6 p-0">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="newPassword">Nova Senha</Label>
-                <Input
-                  id="newPassword"
-                  type="password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="Mínimo 6 caracteres"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="confirmPassword">Confirmar Nova Senha</Label>
-                <Input
-                  id="confirmPassword"
-                  type="password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="Repita a nova senha"
-                />
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="confirmPassword" className="text-gray-700">Confirmar Nova Senha</Label>
+              <Input
+                id="confirmPassword"
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="Repita a nova senha"
+                className="bg-gray-50/50 border-gray-200 focus:bg-white transition-colors"
+              />
             </div>
+          </div>
+          
+          <div className="pt-4 border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <p className="text-sm text-gray-500 flex-1">
+              <span className="font-medium text-amber-600">Atenção:</span> Após a troca de senha, você precisará fazer login novamente.
+            </p>
             <Button 
               onClick={handleChangePassword} 
               disabled={isSavingPassword || newPassword.length < 6 || newPassword !== confirmPassword} 
-              className="w-full md:w-auto bg-red-600 hover:bg-red-700"
+              className="w-full sm:w-auto bg-gray-900 hover:bg-gray-800 text-white shadow-sm"
             >
-              {isSavingPassword ? "Trocando..." : "Trocar Senha"}
+              {isSavingPassword ? "Atualizando..." : "Atualizar Senha"}
             </Button>
-            <p className="text-sm text-red-500">
-              Atenção: Após a troca de senha, você pode ser desconectado por segurança.
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };

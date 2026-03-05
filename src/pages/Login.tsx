@@ -61,7 +61,7 @@ const Login: React.FC = () => {
       <div className="absolute inset-0 bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(59,130,246,0.1),transparent_50%)]"></div>
         <div className="absolute top-0 left-0 w-full h-full">
-          <div className="absolute top-1/4 left-1/4 w-72 h-72 sm:w-96 sm:h-96 bg-blue-200/30 rounded-full blur-3xl animate-pulse"></div>
+          <div className="absolute top-1/4 left-1/4 w-72 h-72 sm:w-96 sm:h-96 bg-indigo-200/30 rounded-full blur-3xl animate-pulse"></div>
           <div className="absolute bottom-1/4 right-1/4 w-60 h-60 sm:w-80 sm:h-80 bg-indigo-200/30 rounded-full blur-3xl animate-pulse delay-1000"></div>
         </div>
       </div>
@@ -83,7 +83,7 @@ const Login: React.FC = () => {
             {/* Header com ícones decorativos */}
             <CardHeader className="text-center pb-6 sm:pb-8 pt-8 sm:pt-10 px-6 sm:px-8 relative">
               <div className="absolute top-4 right-4 opacity-60 hover:opacity-100 transition-opacity">
-                <Shield className="w-4 h-4 sm:w-5 sm:h-5 text-blue-500" />
+                <Shield className="w-4 h-4 sm:w-5 sm:h-5 text-indigo-500" />
               </div>
               <div className="absolute top-4 left-4 opacity-60 hover:opacity-100 transition-opacity">
                 <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-indigo-500" />
@@ -119,7 +119,7 @@ const Login: React.FC = () => {
                     onChange={(e) => setEmail(e.target.value)}
                     required
                     autoComplete="email"
-                    className="transition-all focus:shadow-lg focus:shadow-blue-500/10 border-slate-200 focus:border-blue-500 hover:border-slate-300"
+                    className="transition-all focus:shadow-lg focus:shadow-blue-500/10 border-slate-200 focus:border-indigo-500 hover:border-slate-300"
                   />
                 </div>
 
@@ -137,12 +137,12 @@ const Login: React.FC = () => {
                       onChange={(e) => setPassword(e.target.value)}
                       required
                       autoComplete="current-password"
-                      className="transition-all focus:shadow-lg focus:shadow-blue-500/10 border-slate-200 focus:border-blue-500 hover:border-slate-300 pr-12"
+                      className="transition-all focus:shadow-lg focus:shadow-blue-500/10 border-slate-200 focus:border-indigo-500 hover:border-slate-300 pr-12"
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-700 transition-colors duration-200 focus:outline-none focus:text-blue-500"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-700 transition-colors duration-200 focus:outline-none focus:text-indigo-500"
                       aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
                     >
                       {showPassword ? (
@@ -157,7 +157,7 @@ const Login: React.FC = () => {
                 <Button
                   type="submit"
                   disabled={loading}
-                  className="w-full font-medium transition-all hover:shadow-lg hover:shadow-blue-500/25 transform hover:-translate-y-0.5 active:scale-95 bg-blue-600 hover:bg-blue-700"
+                  className="w-full font-medium transition-all hover:shadow-lg hover:shadow-blue-500/25 transform hover:-translate-y-0.5 active:scale-95 bg-indigo-600 hover:bg-indigo-700"
                 >
                   {loading ? 'Entrando...' : 'Entrar na conta'}
                 </Button>
@@ -165,8 +165,8 @@ const Login: React.FC = () => {
 
               {/* Link manual para a página de recuperação de senha */}
               <div className="mt-4 text-center">
-                <Link to="/esqueci-senha" className="text-sm text-blue-600 hover:text-blue-700 transition-colors underline font-medium">
-                  <Button variant="link" className="p-0 h-auto text-blue-600 hover:text-blue-700">
+                <Link to="/esqueci-senha" className="text-sm text-indigo-600 hover:text-indigo-700 transition-colors underline font-medium">
+                  <Button variant="link" className="p-0 h-auto text-indigo-600 hover:text-indigo-700">
                     Esqueceu sua senha?
                   </Button>
                 </Link>
@@ -189,11 +189,11 @@ const Login: React.FC = () => {
           <div className="mt-4 sm:mt-6 text-center px-4">
             <p className="text-xs text-slate-500 leading-relaxed">
               Ao fazer login, você concorda com nossos{' '}
-              <Link to="/terms" className="text-blue-600 hover:text-blue-700 transition-colors underline">
+              <Link to="/terms" className="text-indigo-600 hover:text-indigo-700 transition-colors underline">
                 Termos de Uso
               </Link>{' '}
               e{' '}
-              <Link to="/privacy" className="text-blue-600 hover:text-blue-700 transition-colors underline">
+              <Link to="/privacy" className="text-indigo-600 hover:text-indigo-700 transition-colors underline">
                 Política de Privacidade
               </Link>
             </p>

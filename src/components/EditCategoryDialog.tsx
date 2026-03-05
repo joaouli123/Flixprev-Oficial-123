@@ -44,31 +44,41 @@ const EditCategoryDialog: React.FC<EditCategoryDialogProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[425px]">
-        <DialogHeader>
-          <DialogTitle>Editar Categoria</DialogTitle>
-          <DialogDescription>
+      <DialogContent className="sm:max-w-[425px] p-0 overflow-hidden bg-white/95 backdrop-blur-xl border-slate-200/60 shadow-2xl">
+        <DialogHeader className="px-6 pt-6 pb-4 border-b border-slate-100">
+          <DialogTitle className="text-xl font-semibold text-slate-800">Editar Categoria</DialogTitle>
+          <DialogDescription className="text-slate-500 mt-1.5">
             Altere o nome da sua categoria.
           </DialogDescription>
         </DialogHeader>
-        <div className="grid gap-4 py-4">
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="name" className="text-right">
-              Nome
+        
+        <div className="px-6 py-5 space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="name" className="text-sm font-medium text-slate-700">
+              Nome da Categoria <span className="text-red-500">*</span>
             </Label>
             <Input
               id="name"
               value={categoryName}
               onChange={(e) => setCategoryName(e.target.value)}
-              className="col-span-3"
+              placeholder="Ex: Vendas, Suporte, Marketing..."
+              className="w-full transition-all border-slate-200 focus:border-indigo-500 focus:ring-indigo-500/20"
+              autoFocus
             />
           </div>
         </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
+        
+        <DialogFooter className="px-6 py-4 border-t border-slate-100 bg-slate-50/50 flex sm:justify-between items-center">
+          <Button variant="ghost" onClick={onClose} className="text-slate-600 hover:text-slate-800 hover:bg-slate-200/50">
             Cancelar
           </Button>
-          <Button onClick={handleSave}>Salvar Alterações</Button>
+          <Button 
+            onClick={handleSave}
+            disabled={!categoryName.trim()}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm transition-all"
+          >
+            Salvar Alterações
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

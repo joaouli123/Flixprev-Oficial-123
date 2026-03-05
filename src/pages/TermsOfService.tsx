@@ -20,13 +20,13 @@ const TermsOfService: React.FC = () => {
             variant="ghost"
             size="sm"
             onClick={() => navigate("/")}
-            className="flex items-center gap-2 hover:bg-blue-50"
+            className="flex items-center gap-2 hover:bg-indigo-50"
           >
             <ArrowLeft className="w-4 h-4" />
             Voltar
           </Button>
           <div className="flex items-center gap-3">
-            <ScrollText className="w-6 h-6 text-blue-600" />
+            <ScrollText className="w-6 h-6 text-indigo-600" />
             <h1 className="text-xl font-bold text-slate-900">Termos de Uso</h1>
           </div>
         </div>
@@ -58,7 +58,7 @@ const TermsOfService: React.FC = () => {
             {/* 1. Definições */}
             <section>
               <div className="flex items-center gap-3 mb-4">
-                <Scale className="w-5 h-5 text-blue-600" />
+                <Scale className="w-5 h-5 text-indigo-600" />
                 <h3 className="text-xl font-semibold text-slate-900">1. Definições</h3>
               </div>
               <div className="space-y-3 text-slate-700">
@@ -72,7 +72,7 @@ const TermsOfService: React.FC = () => {
             {/* 2. Aceitação dos Termos */}
             <section>
               <div className="flex items-center gap-3 mb-4">
-                <UserCheck className="w-5 h-5 text-blue-600" />
+                <UserCheck className="w-5 h-5 text-indigo-600" />
                 <h3 className="text-xl font-semibold text-slate-900">2. Aceitação dos Termos</h3>
               </div>
               <div className="space-y-3 text-slate-700">
@@ -111,7 +111,7 @@ const TermsOfService: React.FC = () => {
             {/* 4. Obrigações do Usuário */}
             <section>
               <div className="flex items-center gap-3 mb-4">
-                <Gavel className="w-5 h-5 text-blue-600" />
+                <Gavel className="w-5 h-5 text-indigo-600" />
                 <h3 className="text-xl font-semibold text-slate-900">4. Obrigações do Usuário</h3>
               </div>
               <div className="space-y-4 text-slate-700">
@@ -148,7 +148,7 @@ const TermsOfService: React.FC = () => {
             {/* 5. Pagamentos e Assinaturas */}
             <section>
               <div className="flex items-center gap-3 mb-4">
-                <CreditCard className="w-5 h-5 text-blue-600" />
+                <CreditCard className="w-5 h-5 text-indigo-600" />
                 <h3 className="text-xl font-semibold text-slate-900">5. Pagamentos e Assinaturas</h3>
               </div>
               <div className="space-y-3 text-slate-700">
@@ -192,7 +192,7 @@ const TermsOfService: React.FC = () => {
               <h3 className="text-xl font-semibold text-slate-900 mb-4">8. Privacidade e Proteção de Dados</h3>
               <div className="space-y-3 text-slate-700">
                 <p><strong>8.1 LGPD:</strong> Cumprimos integralmente a Lei Geral de Proteção de Dados (LGPD).</p>
-                <p><strong>8.2 Política de Privacidade:</strong> O tratamento de dados pessoais é regido por nossa <a href="/privacidade" className="text-blue-600 hover:underline">Política de Privacidade</a>.</p>
+                <p><strong>8.2 Política de Privacidade:</strong> O tratamento de dados pessoais é regido por nossa <a href="/privacidade" className="text-indigo-600 hover:underline">Política de Privacidade</a>.</p>
                 <p><strong>8.3 Segurança:</strong> Implementamos medidas técnicas e organizacionais para proteger seus dados.</p>
                 <p><strong>8.4 Confidencialidade:</strong> Respeitamos o sigilo profissional e a confidencialidade dos dados processuais.</p>
               </div>

@@ -91,7 +91,7 @@ const FacebookSettingsCard: React.FC<FacebookSettingsCardProps> = ({ initialSett
   return (
     <Card className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
       <CardHeader className="p-0 mb-4 flex flex-row items-center gap-3">
-        <Facebook className="h-6 w-6 text-blue-600" />
+        <Facebook className="h-6 w-6 text-indigo-600" />
         <div>
           <CardTitle className="text-2xl font-semibold">Configurações de Marketing (Facebook)</CardTitle>
           <CardDescription className="text-muted-foreground">

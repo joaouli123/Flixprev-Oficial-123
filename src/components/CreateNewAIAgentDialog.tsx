@@ -64,12 +64,6 @@ const iconOptions = [
   { name: "Code", icon: Code },
 ];
 
-const modelOptions = [
-  { id: "gpt-4o-mini", name: "GPT-4o Mini", description: "Mais rápido e econômico" },
-  { id: "gpt-4o", name: "GPT-4o", description: "Mais inteligente e capaz" },
-  { id: "claude-3-5-sonnet", name: "Claude 3.5 Sonnet", description: "Excelente raciocínio" },
-];
-
 const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
   isOpen,
   onClose,
@@ -81,10 +75,11 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
   const isEditing = !!agentToEdit;
 
   const [title, setTitle] = useState("");
+  const [role, setRole] = useState("");
   const [description, setDescription] = useState("");
   const [instructions, setInstructions] = useState("");
   const [icon, setIcon] = useState("Bot");
-  const [selectedModel, setSelectedModel] = useState("gpt-4o-mini");
+  const [backgroundIcon, setBackgroundIcon] = useState("Bot");
   const [selectedCategory, setSelectedCategory] = useState("");
   const [files, setFiles] = useState<File[]>([]);
   const [savedAttachments, setSavedAttachments] = useState<string[]>([]);
@@ -98,9 +93,11 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
       console.log("Tipo de category_ids:", typeof agentToEdit.category_ids, "Array?", Array.isArray(agentToEdit.category_ids));
       console.log("Primeiro elemento:", agentToEdit.category_ids?.[0]);
       setTitle(agentToEdit.title);
+      setRole(agentToEdit.role || "");
       setDescription(agentToEdit.description);
       setInstructions(agentToEdit.instructions || "");
       setIcon(agentToEdit.icon);
+      setBackgroundIcon(agentToEdit.background_icon || agentToEdit.icon || "Bot");
       // Ensure selectedCategory is set correctly from category_ids
       const catId = agentToEdit.category_ids && agentToEdit.category_ids.length > 0 ? String(agentToEdit.category_ids[0]) : "";
       console.log("Editando agente - IDs de categoria:", agentToEdit.category_ids, "Selecionado:", catId);
@@ -126,10 +123,11 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
       setShortcutInput("");
     } else if (isOpen && !agentToEdit) {
       setTitle("");
+      setRole("");
       setDescription("");
       setInstructions("");
       setIcon("Bot");
-      setSelectedModel("gpt-4o-mini");
+      setBackgroundIcon("Bot");
       setSelectedCategory("");
       setFiles([]);
       setSavedAttachments([]);
@@ -174,6 +172,9 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
           try {
             const formData = new FormData();
             formData.append("file", file);
+            if (isEditing && agentToEdit?.id) {
+              formData.append("agentId", agentToEdit.id);
+            }
             
             const response = await fetch("/api/agents/upload", {
               method: "POST",
@@ -198,8 +199,10 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
       
       const agentData = {
         title: title.trim(),
+        role: role.trim() || undefined,
         description: description.trim(),
         icon,
+        background_icon: backgroundIcon,
         category_ids: categoryArray as string[],
         shortcuts: shortcuts, // Sempre enviar os shortcuts atuais
         instructions: instructions.trim() || undefined,
@@ -212,20 +215,17 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
       if (isEditing && agentToEdit && onEditSave) {
         console.log("Editando agente:", agentToEdit.id, "com category_ids:", agentData.category_ids);
         onEditSave(agentToEdit.id, agentData);
-        // Após salvar as alterações, reprocessar attachments se houver para garantir RAG
-        if (uploadedPaths.length > 0) {
-          fetch('/api/admin/reprocess-attachments', { method: 'POST' }).catch(console.error);
-        }
       } else {
         console.log("Criando agente com categoria:", selectedCategory);
         onSave(agentData);
       }
 
       setTitle("");
+      setRole("");
       setDescription("");
       setInstructions("");
       setIcon("Bot");
-      setSelectedModel("gpt-4o-mini");
+      setBackgroundIcon("Bot");
       setSelectedCategory("");
       setFiles([]);
       setSavedAttachments([]);
@@ -243,127 +243,115 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
     }
   };
 
+  const SelectedIcon = (iconOptions.find(o => o.name === icon)?.icon || Bot) as React.ElementType;
+  const SelectedBackgroundIcon = (iconOptions.find(o => o.name === backgroundIcon)?.icon || Bot) as React.ElementType;
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Bot className="h-5 w-5 text-blue-600" />
-            {isEditing ? "Editar Agente IA" : "Configurar Novo Agente IA"}
+      <DialogContent className="sm:max-w-[900px] p-0 overflow-hidden bg-white/95 backdrop-blur-xl border-slate-200/60 shadow-2xl">
+        <DialogHeader className="px-6 pt-6 pb-4 border-b border-slate-100 flex flex-row items-center gap-3">
+          <DialogTitle className="text-xl font-semibold text-slate-800 flex items-center gap-2">
+            {isEditing ? "Editar Especialista" : "Criar Novo Especialista"}
           </DialogTitle>
-          <DialogDescription>
-            {isEditing 
-              ? "Altere a personalidade e configurações do seu assistente."
-              : "Defina a personalidade e anexe documentos para o seu assistente."}
-          </DialogDescription>
         </DialogHeader>
-        <div className="grid gap-4 py-4">
-          <div className="grid gap-2">
-            <Label htmlFor="title">Nome do Agente</Label>
-            <Input
-              id="title"
-              placeholder="Ex: Consultor Previdenciário"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-            />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="description">Descrição</Label>
-            <Input
-              id="description"
-              placeholder="Uma breve descrição do agente"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-            />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="instructions">Instruções do Sistema (Prompt / Instruções)</Label>
-            <Textarea
-              id="instructions"
-              placeholder="Descreva detalhadamente como o agente deve se comportar e qual sua base de conhecimento..."
-              value={instructions}
-              onChange={(e) => setInstructions(e.target.value)}
-              className="min-h-[120px]"
-            />
-          </div>
-          
-          <div className="grid gap-2">
-            <Label>Arquivos Complementares (PDF, DOCX, Imagens)</Label>
-            <div className="border-2 border-dashed rounded-lg p-4 bg-gray-50/50 hover:bg-gray-100/50 transition-colors cursor-pointer relative">
-              <input
-                type="file"
-                multiple
-                className="absolute inset-0 opacity-0 cursor-pointer"
-                onChange={handleFileChange}
-                accept=".pdf,.docx,.doc,.txt,.jpg,.jpeg,.png"
+        
+        <div className="flex flex-col md:flex-row h-[70vh]">
+          {/* Left Column - Form */}
+          <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-5 border-r border-slate-100">
+            <div className="space-y-2">
+              <Label htmlFor="title" className="text-sm font-medium text-slate-700">Nome do Agente <span className="text-red-500">*</span></Label>
+              <Input
+                id="title"
+                placeholder="Ex: Especialista Atlas Schindler"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                className="w-full transition-all border-slate-200 focus:border-indigo-500 focus:ring-indigo-500/20"
               />
-              <div className="flex flex-col items-center justify-center gap-2 text-gray-500">
-                <Upload className="h-6 w-6" />
-                <span className="text-sm font-medium">Clique ou arraste para anexar</span>
-                <span className="text-[10px]">Suporta PDF, Word, Imagens</span>
-              </div>
             </div>
-            
-            {(savedAttachments.length > 0 || files.length > 0) && (
-              <div className="flex flex-wrap gap-2 mt-2">
-                {savedAttachments.map((path) => (
-                  <div key={path} className="flex items-center gap-1 bg-blue-100 dark:bg-blue-900 text-blue-900 dark:text-blue-100 px-3 py-1 rounded-full text-xs">
-                    <FileText className="h-3 w-3" />
-                    <span className="truncate max-w-[150px]">{path.split("/").pop()}</span>
-                    <button
-                      onClick={() => removeSavedAttachment(path)}
-                      className="ml-1 hover:text-red-600"
+
+            <div className="space-y-2">
+              <Label htmlFor="role" className="text-sm font-medium text-slate-700">Função (Role)</Label>
+              <Input
+                id="role"
+                placeholder="Ex: Tira-dúvidas de Manuais"
+                value={role}
+                onChange={(e) => setRole(e.target.value)}
+                className="w-full transition-all border-slate-200 focus:border-indigo-500 focus:ring-indigo-500/20"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="description" className="text-sm font-medium text-slate-700">Descrição Curta <span className="text-red-500">*</span></Label>
+              <Input
+                id="description"
+                placeholder="Ex: Focado nos manuais da linha 3300 e 5500."
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                className="w-full transition-all border-slate-200 focus:border-indigo-500 focus:ring-indigo-500/20"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-sm font-medium text-slate-700">Ícone Principal <span className="text-red-500">*</span></Label>
+              <div className="flex flex-wrap gap-2 border border-slate-200 rounded-xl p-3 bg-slate-50/50">
+                {iconOptions.slice(0, 10).map((option) => {
+                  const IconComp = option.icon;
+                  return (
+                    <Button
+                      key={option.name}
+                      variant={icon === option.name ? "default" : "outline"}
+                      size="icon"
+                      className={`h-10 w-10 rounded-lg transition-all ${icon === option.name ? 'bg-indigo-100 text-indigo-700 border-indigo-200 hover:bg-indigo-200' : 'bg-white text-slate-500 border-slate-200 hover:border-indigo-200 hover:text-indigo-600'}`}
+                      onClick={() => setIcon(option.name)}
+                      title={option.name}
                       type="button"
                     >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </div>
-                ))}
-                {files.map((file, index) => (
-                  <div key={index} className="flex items-center gap-2 bg-white border rounded-full px-3 py-1 text-xs text-gray-600 group hover:border-blue-300">
-                    <File className="h-3 w-3 text-blue-500" />
-                    <span className="truncate max-w-[120px]">{file.name}</span>
-                    <button onClick={() => removeFile(index)} className="hover:text-red-500">
-                      <X className="h-3 w-3" />
-                    </button>
-                  </div>
-                ))}
+                      <IconComp className="h-5 w-5" />
+                    </Button>
+                  );
+                })}
               </div>
-            )}
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="grid gap-2">
-              <Label>Modelo de IA</Label>
-              <Select value={selectedModel} onValueChange={setSelectedModel}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {modelOptions.map((model) => (
-                    <SelectItem key={model.id} value={model.id}>
-                      <div className="flex flex-col">
-                        <span className="font-medium text-xs">{model.name}</span>
-                        <span className="text-[9px] text-muted-foreground">{model.description}</span>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
             </div>
-            <div className="grid gap-2">
-              <Label>Categoria</Label>
+
+            <div className="space-y-2">
+              <Label className="text-sm font-medium text-slate-700">Ícone de Fundo (Marca d'água) <span className="text-red-500">*</span></Label>
+              <div className="flex flex-wrap gap-2 border border-slate-200 rounded-xl p-3 bg-slate-50/50">
+                {iconOptions.slice(0, 10).map((option) => {
+                  const IconComp = option.icon;
+                  return (
+                    <Button
+                      key={`bg-${option.name}`}
+                      variant={backgroundIcon === option.name ? "default" : "outline"}
+                      size="icon"
+                      className={`h-10 w-10 rounded-lg transition-all ${backgroundIcon === option.name ? 'bg-indigo-100 text-indigo-700 border-indigo-200 hover:bg-indigo-200' : 'bg-white text-slate-500 border-slate-200 hover:border-indigo-200 hover:text-indigo-600'}`}
+                      onClick={() => setBackgroundIcon(option.name)}
+                      title={option.name}
+                      type="button"
+                    >
+                      <IconComp className="h-5 w-5" />
+                    </Button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-sm font-medium text-slate-700 flex items-center gap-2">
+                <Layers className="h-4 w-4 text-indigo-500" />
+                Marca / Base de Conhecimento <span className="text-red-500">*</span>
+              </Label>
+              <p className="text-xs text-slate-500 mb-2">Selecione a marca para que o agente responda APENAS com os documentos dessa marca.</p>
               <Select 
                 value={selectedCategory || "none"} 
                 onValueChange={(val) => setSelectedCategory(val === "none" ? "" : val)}
               >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione uma categoria...">
-                    {categories.find(c => String(c.id) === String(selectedCategory))?.name || "Selecione uma categoria"}
+                <SelectTrigger className="w-full border-slate-200 focus:ring-indigo-500/20 focus:border-indigo-500">
+                  <SelectValue placeholder="Todas as marcas (sem filtro)">
+                    {categories.find(c => String(c.id) === String(selectedCategory))?.name || "Todas as marcas (sem filtro)"}
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">Nenhuma categoria</SelectItem>
+                  <SelectItem value="none">Todas as marcas (sem filtro)</SelectItem>
                   {categories.map((cat) => (
                     <SelectItem key={cat.id} value={String(cat.id)}>
                       {cat.name}
@@ -372,76 +360,133 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
                 </SelectContent>
               </Select>
             </div>
-          </div>
-          <div className="grid gap-2">
-            <Label>Ícone de Identificação</Label>
-            <div className="grid grid-cols-8 gap-2 border rounded-md p-2 max-h-[100px] overflow-y-auto bg-gray-50/50">
-              {iconOptions.map((option) => {
-                const IconComp = option.icon;
-                return (
-                  <Button
-                    key={option.name}
-                    variant={icon === option.name ? "default" : "outline"}
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={() => setIcon(option.name)}
-                    title={option.name}
-                  >
-                    <IconComp className="h-4 w-4" />
-                  </Button>
-                );
-              })}
+
+            <div className="space-y-2 pt-4 border-t border-slate-100">
+              <Label htmlFor="instructions" className="text-sm font-medium text-slate-700">Instrução de Sistema <span className="text-red-500">*</span></Label>
+              <Textarea
+                id="instructions"
+                placeholder="Descreva detalhadamente como o agente deve se comportar..."
+                value={instructions}
+                onChange={(e) => setInstructions(e.target.value)}
+                className="w-full min-h-[100px] resize-none transition-all border-slate-200 focus:border-indigo-500 focus:ring-indigo-500/20"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label className="text-sm font-medium text-slate-700">Arquivos Complementares</Label>
+              <div className="border-2 border-dashed border-slate-200 rounded-xl p-4 bg-slate-50/50 hover:bg-indigo-50/50 hover:border-indigo-300 transition-all cursor-pointer relative group">
+                <input
+                  type="file"
+                  multiple
+                  className="absolute inset-0 opacity-0 cursor-pointer z-10"
+                  onChange={handleFileChange}
+                  accept=".pdf,.docx,.doc,.txt,.jpg,.jpeg,.png"
+                />
+                <div className="flex flex-col items-center justify-center gap-2 text-slate-500 group-hover:text-indigo-600 transition-colors">
+                  <Upload className="h-5 w-5" />
+                  <span className="text-xs font-medium">Clique ou arraste para anexar</span>
+                </div>
+              </div>
+              
+              {(savedAttachments.length > 0 || files.length > 0) && (
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {savedAttachments.map((path) => (
+                    <div key={path} className="flex items-center gap-1.5 bg-indigo-50 text-indigo-700 border border-indigo-100 px-2 py-1 rounded-full text-[10px] font-medium">
+                      <FileText className="h-3 w-3" />
+                      <span className="truncate max-w-[100px]">{path.split("/").pop()}</span>
+                      <button onClick={() => removeSavedAttachment(path)} className="ml-1 hover:text-red-600" type="button"><X className="h-3 w-3" /></button>
+                    </div>
+                  ))}
+                  {files.map((file, index) => (
+                    <div key={index} className="flex items-center gap-1.5 bg-white border border-slate-200 text-slate-600 px-2 py-1 rounded-full text-[10px] font-medium">
+                      <File className="h-3 w-3 text-indigo-500" />
+                      <span className="truncate max-w-[100px]">{file.name}</span>
+                      <button onClick={() => removeFile(index)} className="ml-1 hover:text-red-500" type="button"><X className="h-3 w-3" /></button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-sm font-medium text-slate-700">Atalhos (Máx. 6)</Label>
+              <div className="flex gap-2 mb-2">
+                <Input
+                  placeholder="Ex: Gerar relatório"
+                  value={shortcutInput}
+                  onChange={(e) => setShortcutInput(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addShortcut())}
+                  className="text-sm border-slate-200 focus:ring-indigo-500/20 focus:border-indigo-500"
+                />
+                <Button type="button" variant="outline" onClick={addShortcut} disabled={shortcuts.length >= 6 || !shortcutInput.trim()} className="px-3">
+                  Add
+                </Button>
+              </div>
+              {shortcuts.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {shortcuts.map((shortcut, index) => (
+                    <div key={index} className="flex items-center gap-1 bg-indigo-50 border border-indigo-100 rounded-full px-2 py-1 text-[10px] font-medium text-indigo-700">
+                      <span>{shortcut}</span>
+                      <button type="button" onClick={() => removeShortcut(index)} className="ml-1 hover:text-red-600"><X className="h-3 w-3" /></button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
-          <div className="grid gap-2">
-            <Label>Atalhos Personalizados (Máx. 6)</Label>
-            <div className="flex gap-2 mb-2">
-              <Input
-                placeholder="Ex: Gerar relatório"
-                value={shortcutInput}
-                onChange={(e) => setShortcutInput(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && addShortcut()}
-                className="text-sm"
-              />
-              <Button 
-                type="button"
-                variant="outline" 
-                onClick={addShortcut}
-                disabled={shortcuts.length >= 6 || !shortcutInput.trim()}
-                className="px-3"
-              >
-                Adicionar
-              </Button>
-            </div>
-            {shortcuts.length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                {shortcuts.map((shortcut, index) => (
-                  <div
-                    key={index}
-                    className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-full px-3 py-1 text-xs text-blue-700"
-                  >
-                    <Sparkles className="h-3 w-3" />
-                    <span>{shortcut}</span>
-                    <button
-                      type="button"
-                      onClick={() => removeShortcut(index)}
-                      className="hover:text-blue-900"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
+          {/* Right Column - Preview */}
+          <div className="w-full md:w-[350px] bg-slate-50/50 p-6 flex flex-col gap-6">
+            <div>
+              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">Pré-visualização</h3>
+              
+              {/* Preview Card */}
+              <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5 relative overflow-hidden">
+                <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-indigo-50/70 via-white to-blue-50/40 opacity-100" />
+                
+                {/* Ícone de fundo (Marca d'água) */}
+                <div className="pointer-events-none absolute -bottom-6 -right-6 z-0 opacity-[0.05]">
+                  <SelectedBackgroundIcon className="h-48 w-48 text-slate-900" />
+                </div>
+
+                <div className="relative z-10">
+                  <div className="mb-4">
+                    <div className="inline-flex rounded-xl bg-slate-900 p-3 text-white shadow-sm">
+                      <SelectedIcon className="h-6 w-6" />
+                    </div>
                   </div>
-                ))}
+                  <h4 className="line-clamp-1 text-xl font-bold text-slate-900">
+                    {title || "Nome do Agente"}
+                  </h4>
+                  <div className="mt-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    {role || "FUNÇÃO"}
+                  </div>
+                  <p className="mt-2.5 min-h-[44px] text-sm leading-relaxed text-slate-600 line-clamp-2">
+                    {description || "Descrição breve do especialista..."}
+                  </p>
+                </div>
               </div>
-            )}
+            </div>
+
+            {/* Pro Tip */}
+            <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4">
+              <div className="flex items-center gap-2 text-indigo-700 font-semibold text-sm mb-2">
+                <Sparkles className="h-4 w-4" />
+                Dica Pro
+              </div>
+              <p className="text-xs text-indigo-600/80 leading-relaxed">
+                Quanto mais detalhada a "Instrução de Sistema", melhor o agente se comportará. Você pode colar trechos de manuais técnicos.
+              </p>
+            </div>
           </div>
         </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
+
+        <DialogFooter className="px-6 py-4 border-t border-slate-100 bg-white flex justify-between items-center">
+          <Button variant="ghost" onClick={onClose} className="text-slate-600 hover:text-slate-800 hover:bg-slate-100">
             Cancelar
           </Button>
-          <Button onClick={handleSave} className="bg-blue-600 hover:bg-blue-700 shadow-md shadow-blue-500/20">
-            {isEditing ? "Salvar Alterações" : "Criar Agente"}
+          <Button onClick={handleSave} className="bg-slate-900 hover:bg-slate-800 text-white shadow-sm transition-all px-8">
+            {isEditing ? "Salvar Alterações" : "Salvar Agente"}
           </Button>
         </DialogFooter>
       </DialogContent>

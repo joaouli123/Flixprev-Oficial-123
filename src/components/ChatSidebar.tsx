@@ -12,6 +12,7 @@ import {
 import { Plus, MessageSquare, Trash2, MoreVertical, Pencil, ChevronRight, ChevronLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useSession } from "@/components/SessionContextProvider";
 
 interface Conversation {
   id: number;
@@ -21,10 +22,14 @@ interface Conversation {
 
 interface ChatSidebarProps {
   agentId: string;
+  agentRouteKey: string;
+  agentTitle?: string;
   currentConversationId: number | null;
 }
 
-export const ChatSidebar = ({ agentId, currentConversationId }: ChatSidebarProps) => {
+export const ChatSidebar = ({ agentId, agentRouteKey, agentTitle, currentConversationId }: ChatSidebarProps) => {
+  const { session } = useSession();
+  const userId = session?.user?.id || "";
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -34,36 +39,51 @@ export const ChatSidebar = ({ agentId, currentConversationId }: ChatSidebarProps
   const [showAll, setShowAll] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(isMobile ?? false);
 
+  // Update collapse state when mobile state changes
+  useEffect(() => {
+    if (isMobile !== undefined) {
+      setIsCollapsed(isMobile);
+    }
+  }, [isMobile]);
+
   const loadConversations = async () => {
+    if (!userId) return;
     try {
-      const res = await fetch(`/api/conversations?agentId=${agentId}`);
+      const res = await fetch(`/api/conversations?agentId=${agentId}`, {
+        headers: { "x-user-id": userId }
+      });
       const data = await res.json();
-      setConversations(data || []);
+      setConversations(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error("Erro ao carregar conversas:", error);
+      setConversations([]);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const displayedConversations = showAll ? conversations : conversations.slice(0, 10);
+  const displayedConversations = showAll ? conversations : (Array.isArray(conversations) ? conversations.slice(0, 10) : []);
 
   useEffect(() => {
+    if (!userId || !agentId) return;
     loadConversations();
-  }, [agentId]);
+  }, [agentId, userId]);
 
   const handleNewChat = () => {
-    navigate(`/app/chat/${agentId}`);
+    navigate(`/app/agente/${agentRouteKey}`);
     // Não fazer reload aqui - deixa o ChatPage carregar normalmente
   };
 
   const handleDeleteConversation = async (convId: number) => {
     if (confirm("Tem certeza que quer deletar esta conversa?")) {
       try {
-        await fetch(`/api/conversations/${convId}`, { method: "DELETE" });
+        await fetch(`/api/conversations/${convId}`, { 
+          method: "DELETE",
+          headers: { "x-user-id": userId }
+        });
         await loadConversations();
         if (currentConversationId === convId) {
-          navigate(`/app/chat/${agentId}`);
+          navigate(`/app/agente/${agentRouteKey}`);
         }
       } catch (error) {
         console.error("Erro ao deletar conversa:", error);
@@ -85,7 +105,7 @@ export const ChatSidebar = ({ agentId, currentConversationId }: ChatSidebarProps
       console.log(`[SIDEBAR] Saving new title for conversation ${convId}: ${editingTitle}`);
       const res = await fetch(`/api/conversations/${convId}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "x-user-id": userId },
         body: JSON.stringify({ title: editingTitle }),
       });
       
@@ -124,10 +144,13 @@ export const ChatSidebar = ({ agentId, currentConversationId }: ChatSidebarProps
   const handleClearAll = async () => {
     if (confirm("Tem certeza que deseja apagar TODO o histórico de conversas? Esta ação não pode ser desfeita.")) {
       try {
-        const res = await fetch("/api/conversations/clear-all", { method: "POST" });
+        const res = await fetch("/api/conversations/clear-all", { 
+          method: "POST",
+          headers: { "x-user-id": userId }
+        });
         if (res.ok) {
           setConversations([]);
-          navigate(`/app/chat/${agentId}`);
+          navigate(`/app/agente/${agentRouteKey}`);
         } else {
           alert("Falha ao limpar conversas");
         }
@@ -137,81 +160,95 @@ export const ChatSidebar = ({ agentId, currentConversationId }: ChatSidebarProps
     }
   };
 
-  if (isMobile && isCollapsed) {
+  if (isCollapsed) {
     return (
-      <div className="w-12 bg-white dark:bg-slate-900 border-r border-gray-200 dark:border-slate-700 flex flex-col h-full items-center justify-between py-4">
+      <div className="absolute left-0 top-1/2 -translate-y-1/2 z-40">
         <Button
-          variant="ghost"
+          variant="default"
           size="icon"
           onClick={() => setIsCollapsed(false)}
-          className="h-10 w-10"
+          className="h-8 w-8 rounded-r-full rounded-l-none bg-indigo-600 hover:bg-indigo-700 text-white shadow-md"
           data-testid="button-expand-sidebar"
           title="Expandir conversas"
         >
-          <ChevronRight className="h-5 w-5" />
+          <ChevronRight className="h-4 w-4" />
         </Button>
       </div>
     );
   }
 
   return (
-    <div className={cn(
-      "bg-white dark:bg-slate-900 border-r border-gray-200 dark:border-slate-700 flex flex-col h-full",
-      isMobile ? "fixed left-0 top-0 bottom-0 w-64 z-40 shadow-lg" : "w-64"
-    )}>
-      <div className="p-4 border-b border-gray-200 dark:border-slate-700 flex justify-between items-center gap-2">
-        <Button
-          onClick={handleNewChat}
-          className={isMobile ? "flex-1" : "flex-1 gap-2"}
-          data-testid="button-new-conversation"
-        >
-          {!isMobile && <Plus className="h-4 w-4" />}
-          {isMobile ? <Plus className="h-4 w-4" /> : "Nova Conversa"}
-        </Button>
-        {isMobile && (
+    <>
+      {isCollapsed && (
+        <div className="absolute left-0 top-1/2 -translate-y-1/2 z-40">
           <Button
+            variant="default"
+            size="icon"
+            onClick={() => setIsCollapsed(false)}
+            className="h-8 w-8 rounded-r-full rounded-l-none bg-indigo-600 hover:bg-indigo-700 text-white shadow-md"
+            data-testid="button-expand-sidebar"
+            title="Expandir conversas"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+      )}
+      <div className={cn(
+        "bg-white border-r border-gray-200 flex flex-col h-full z-30 transition-all duration-300 relative",
+        isMobile ? "fixed left-0 top-0 bottom-0 w-72 shadow-2xl" : "w-72",
+        isCollapsed ? "-translate-x-full absolute" : "translate-x-0"
+      )}>
+        {!isCollapsed && (
+          <div className="absolute -right-4 top-1/2 -translate-y-1/2 z-40">
+            <Button
+              variant="default"
+              size="icon"
+              onClick={() => setIsCollapsed(true)}
+              className="h-8 w-8 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white shadow-md"
+              data-testid="button-collapse-sidebar"
+              title="Recolher conversas"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
+        <div className="p-4 border-b border-gray-100 flex justify-between items-center gap-3 bg-white">
+          <div className="flex items-center gap-3 flex-1 min-w-0">
+            <div className="h-8 w-8 rounded-lg bg-[#434dce]/10 flex items-center justify-center flex-shrink-0">
+              <MessageSquare className="h-4 w-4 text-[#434dce]" />
+            </div>
+            <span className="font-semibold text-slate-900 truncate text-[13px] leading-tight" title={agentTitle || "Histórico de Conversas"}>
+              Histórico
+            </span>
+          </div>
+          <Button
+            onClick={handleNewChat}
             variant="ghost"
             size="icon"
-            onClick={() => setIsCollapsed(true)}
-            className="h-9 w-9"
-            data-testid="button-collapse-sidebar"
+            className="h-8 w-8 rounded-lg hover:bg-slate-100 text-slate-600 flex-shrink-0"
+            data-testid="button-new-conversation"
           >
-            <ChevronLeft className="h-4 w-4" />
+            <Plus className="h-5 w-5" />
           </Button>
-        )}
-        {!isMobile && (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-9 w-9" data-testid="button-sidebar-more">
-                <MoreVertical className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem
-                onClick={handleClearAll}
-                className="text-red-600 focus:text-red-600"
-                data-testid="button-clear-all-conversations"
-              >
-                <Trash2 className="h-4 w-4 mr-2" />
-                Limpar Histórico
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
-      </div>
+        </div>
 
       <ScrollArea className="flex-1">
-        <div className="p-3 space-y-2">
+        <div className="p-3 space-y-1.5">
           {isLoading ? (
-            <div className="text-xs text-gray-500 dark:text-gray-400 p-2">Carregando...</div>
+            <div className="flex items-center justify-center py-8">
+              <div className="h-6 w-6 rounded-full border-2 border-indigo-200 border-t-blue-600 animate-spin"></div>
+            </div>
           ) : conversations.length === 0 ? (
-            <div className="text-xs text-gray-500 dark:text-gray-400 p-2">Nenhuma conversa</div>
+            <div className="text-sm text-slate-400 text-center py-8 flex flex-col items-center gap-2">
+              <MessageSquare className="h-8 w-8 opacity-20" />
+              <p>Nenhuma conversa</p>
+            </div>
           ) : (
             displayedConversations.map((conv) => (
-              <div key={conv.id}>
+              <div key={conv.id} className="group/item">
                 {editingId === conv.id ? (
-                  <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-gray-50 dark:bg-slate-800">
-                    <MessageSquare className="h-4 w-4 flex-shrink-0 text-gray-500" />
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-indigo-50 border border-indigo-100 shadow-inner">
+                    <MessageSquare className="h-4 w-4 flex-shrink-0 text-indigo-500" />
                     <Input
                       autoFocus
                       value={editingTitle}
@@ -220,13 +257,13 @@ export const ChatSidebar = ({ agentId, currentConversationId }: ChatSidebarProps
                         if (e.key === "Enter") handleEditSave(conv.id);
                         if (e.key === "Escape") handleEditCancel();
                       }}
-                      className="h-8 text-xs flex-1"
+                      className="h-8 text-sm flex-1 bg-white border-none shadow-sm focus-visible:ring-1 focus-visible:ring-indigo-400"
                       data-testid={`input-edit-conversation-${conv.id}`}
                     />
                     <Button
                       size="sm"
                       variant="ghost"
-                      className="h-8 px-2"
+                      className="h-8 w-8 p-0 rounded-lg hover:bg-indigo-100 text-indigo-600"
                       onClick={() => handleEditSave(conv.id)}
                       data-testid={`button-save-conversation-${conv.id}`}
                     >
@@ -237,53 +274,65 @@ export const ChatSidebar = ({ agentId, currentConversationId }: ChatSidebarProps
                   <div
                     onClick={() => {
                       console.log(`[SIDEBAR] Navigating to conversation ${conv.id}`);
-                      navigate(`/app/chat/${agentId}/${conv.id}`);
+                      navigate(`/app/agente/${agentRouteKey}/${conv.id}`);
                     }}
                     className={cn(
-                      "w-full text-left px-3 py-2 rounded-md text-sm transition-colors flex items-center justify-between group hover-elevate cursor-pointer",
+                      "w-full min-w-0 text-left px-3 py-3 rounded-xl text-sm transition-all duration-200 flex items-center justify-between group cursor-pointer border border-transparent relative overflow-hidden",
                       currentConversationId === conv.id
-                        ? "bg-blue-100 dark:bg-blue-900/30 text-blue-900 dark:text-blue-100"
-                        : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-800"
+                        ? "bg-indigo-50/50 text-indigo-700"
+                        : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
                     )}
                     data-testid={`button-conversation-${conv.id}`}
                   >
-                    <div className="flex items-center gap-2 flex-1 min-w-0">
-                      <MessageSquare className="h-4 w-4 flex-shrink-0" />
-                      <span className="truncate text-xs">
-                        {conv.title.length > 20 ? `${conv.title.substring(0, 20)}...` : conv.title}
+                    {currentConversationId === conv.id && (
+                      <div className="absolute left-0 top-0 bottom-0 w-1 bg-indigo-600 rounded-r-full" />
+                    )}
+                    <div className="flex flex-col flex-1 min-w-0 max-w-[190px] gap-0.5 pl-1 overflow-hidden">
+                      <span className="block max-w-full overflow-hidden text-ellipsis whitespace-nowrap font-medium text-[13px] leading-tight" title={conv.title}>
+                        {conv.title}
+                      </span>
+                      <span className="text-[11px] text-slate-400">
+                        {new Date(conv.created_at).toLocaleDateString('pt-BR')}
                       </span>
                     </div>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <button
                           onClick={(e) => e.stopPropagation()}
-                          className="opacity-0 group-hover:opacity-100 transition-opacity ml-2 flex-shrink-0"
+                          className={cn(
+                            "opacity-100 transition-opacity ml-2 flex-shrink-0 p-1 rounded-md hover:bg-slate-200/50",
+                            currentConversationId === conv.id && "hover:bg-indigo-200/50"
+                          )}
                           data-testid={`button-conversation-menu-${conv.id}`}
                         >
-                          <MoreVertical className="h-4 w-4 text-gray-500 dark:text-gray-400" />
+                          <MoreVertical className={cn(
+                            "h-4 w-4",
+                            currentConversationId === conv.id ? "text-indigo-500" : "text-slate-400"
+                          )} />
                         </button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
+                      <DropdownMenuContent align="end" className="rounded-xl shadow-lg border-gray-100 w-40">
                         <DropdownMenuItem
                           onClick={(e) => {
                             e.stopPropagation();
                             handleEditStart(conv);
                           }}
+                          className="rounded-lg cursor-pointer focus:bg-slate-50"
                           data-testid={`button-edit-conversation-${conv.id}`}
                         >
-                          <Pencil className="h-4 w-4 mr-2" />
-                          Editar
+                          <Pencil className="h-4 w-4 mr-2 text-slate-500" />
+                          Renomear
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           onClick={(e) => {
                             e.stopPropagation();
                             handleDeleteConversation(conv.id);
                           }}
-                          className="text-red-600"
+                          className="text-red-600 focus:text-red-700 focus:bg-red-50 rounded-lg cursor-pointer mt-1"
                           data-testid={`button-delete-conversation-${conv.id}`}
                         >
                           <Trash2 className="h-4 w-4 mr-2" />
-                          Deletar
+                          Excluir
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -296,14 +345,15 @@ export const ChatSidebar = ({ agentId, currentConversationId }: ChatSidebarProps
             <Button
               variant="ghost"
               size="sm"
-              className="w-full text-xs mt-2"
+              className="w-full text-xs mt-4 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-xl h-9"
               onClick={() => setShowAll(!showAll)}
             >
-              {showAll ? "Mostrar menos" : `Ver ${conversations.length - 10} mais`}
+              {showAll ? "Mostrar menos" : `Ver mais ${conversations.length - 10} conversas`}
             </Button>
           )}
         </div>
       </ScrollArea>
     </div>
+    </>
   );
 };

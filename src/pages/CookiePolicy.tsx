@@ -20,13 +20,13 @@ const CookiePolicy: React.FC = () => {
             variant="ghost"
             size="sm"
             onClick={() => navigate("/")}
-            className="flex items-center gap-2 hover:bg-blue-50"
+            className="flex items-center gap-2 hover:bg-indigo-50"
           >
             <ArrowLeft className="w-4 h-4" />
             Voltar
           </Button>
           <div className="flex items-center gap-3">
-            <Cookie className="w-6 h-6 text-blue-600" />
+            <Cookie className="w-6 h-6 text-indigo-600" />
             <h1 className="text-xl font-bold text-slate-900">Política de Cookies</h1>
           </div>
         </div>
@@ -58,7 +58,7 @@ const CookiePolicy: React.FC = () => {
             {/* 1. O que são Cookies */}
             <section>
               <div className="flex items-center gap-3 mb-4">
-                <Cookie className="w-5 h-5 text-blue-600" />
+                <Cookie className="w-5 h-5 text-indigo-600" />
                 <h3 className="text-xl font-semibold text-slate-900">1. O que são Cookies</h3>
               </div>
               <div className="space-y-3 text-slate-700">
@@ -94,12 +94,12 @@ const CookiePolicy: React.FC = () => {
                 </div>
 
                 {/* Cookies de Performance */}
-                <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                <div className="bg-indigo-50 p-4 rounded-lg border border-indigo-200">
                   <div className="flex items-center gap-3 mb-3">
-                    <BarChart3 className="w-5 h-5 text-blue-600" />
-                    <h4 className="font-semibold text-blue-900">2.2 Cookies de Performance e Análise</h4>
+                    <BarChart3 className="w-5 h-5 text-indigo-600" />
+                    <h4 className="font-semibold text-indigo-900">2.2 Cookies de Performance e Análise</h4>
                   </div>
-                  <div className="text-blue-800 space-y-2">
+                  <div className="text-indigo-800 space-y-2">
                     <p><strong>Finalidade:</strong> Coletam informações sobre como você usa a plataforma</p>
                     <p><strong>Exemplos:</strong></p>
                     <ul className="list-disc list-inside ml-4 space-y-1">
@@ -164,15 +164,15 @@ const CookiePolicy: React.FC = () => {
                   <div className="space-y-3">
                     <div>
                       <p><strong>Google Analytics:</strong> Análise de tráfego e comportamento</p>
-                      <p className="text-sm text-slate-600">Política: <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Google Privacy Policy</a></p>
+                      <p className="text-sm text-slate-600">Política: <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline">Google Privacy Policy</a></p>
                     </div>
                     <div>
                       <p><strong>Google Ads:</strong> Publicidade e remarketing</p>
-                      <p className="text-sm text-slate-600">Política: <a href="https://policies.google.com/technologies/ads" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Google Ads Policy</a></p>
+                      <p className="text-sm text-slate-600">Política: <a href="https://policies.google.com/technologies/ads" target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline">Google Ads Policy</a></p>
                     </div>
                     <div>
                       <p><strong>Supabase:</strong> Infraestrutura e autenticação</p>
-                      <p className="text-sm text-slate-600">Política: <a href="https://supabase.com/privacy" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Supabase Privacy</a></p>
+                      <p className="text-sm text-slate-600">Política: <a href="https://supabase.com/privacy" target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline">Supabase Privacy</a></p>
                     </div>
                   </div>
                 </div>
@@ -182,7 +182,7 @@ const CookiePolicy: React.FC = () => {
             {/* 4. Gerenciamento de Cookies */}
             <section>
               <div className="flex items-center gap-3 mb-4">
-                <Settings className="w-5 h-5 text-blue-600" />
+                <Settings className="w-5 h-5 text-indigo-600" />
                 <h3 className="text-xl font-semibold text-slate-900">4. Como Gerenciar Cookies</h3>
               </div>
               <div className="space-y-4 text-slate-700">
@@ -202,8 +202,8 @@ const CookiePolicy: React.FC = () => {
                 <div>
                   <h4 className="font-semibold mb-2">4.3 Ferramentas de Opt-out:</h4>
                   <ul className="list-disc list-inside space-y-1 ml-4">
-                    <li><a href="https://tools.google.com/dlpage/gaoptout" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Google Analytics Opt-out</a></li>
-                    <li><a href="https://www.google.com/settings/ads" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Google Ads Settings</a></li>
+                    <li><a href="https://tools.google.com/dlpage/gaoptout" target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline">Google Analytics Opt-out</a></li>
+                    <li><a href="https://www.google.com/settings/ads" target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline">Google Ads Settings</a></li>
                   </ul>
                 </div>
               </div>
@@ -258,18 +258,18 @@ const CookiePolicy: React.FC = () => {
           </div>
 
           {/* Banner de Consentimento Exemplo */}
-          <div className="mt-12 p-6 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
+          <div className="mt-12 p-6 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-indigo-200">
             <h4 className="font-semibold text-slate-900 mb-3">Exemplo de Banner de Consentimento:</h4>
             <div className="bg-white p-4 rounded-lg shadow-sm border">
               <div className="flex items-start gap-3">
-                <Cookie className="w-5 h-5 text-blue-600 mt-1 flex-shrink-0" />
+                <Cookie className="w-5 h-5 text-indigo-600 mt-1 flex-shrink-0" />
                 <div className="flex-1">
                   <p className="text-sm text-slate-700 mb-3">
                     Utilizamos cookies para melhorar sua experiência, personalizar conteúdo e analisar nosso tráfego. 
                     Ao continuar navegando, você concorda com nossa política de cookies.
                   </p>
                   <div className="flex flex-wrap gap-2">
-                    <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white">
+                    <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white">
                       Aceitar Todos
                     </Button>
                     <Button size="sm" variant="outline">

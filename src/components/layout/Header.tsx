@@ -1,6 +1,6 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
-import { Search, Menu, UserCircle, Settings as SettingsIcon, LogOut } from "lucide-react";
+import { Search, Menu, UserCircle, Settings as SettingsIcon, LogOut, Bell, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useSession } from "@/components/SessionContextProvider";
@@ -24,7 +24,7 @@ interface HeaderProps {
   isSidebarCollapsed: boolean;
   onOpenMobileSidebar: () => void;
   isMobile: boolean;
-  profile: Profile | null; // Adicionar prop de perfil
+  profile: Profile | null;
 }
 
 const Header: React.FC<HeaderProps> = ({
@@ -33,10 +33,43 @@ const Header: React.FC<HeaderProps> = ({
   isSidebarCollapsed,
   onOpenMobileSidebar,
   isMobile,
-  profile, // Usar prop de perfil
+  profile,
 }) => {
   const { session } = useSession();
   const navigate = useNavigate();
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [lastReadTimestamp, setLastReadTimestamp] = useState<number>(0);
+
+  useEffect(() => {
+    // Load local storage last read 
+    const saved = localStorage.getItem("lastUnreadNotifications");
+    if (saved) setLastReadTimestamp(parseInt(saved, 10));
+
+    const fetchNotifications = async () => {
+      try {
+        const res = await fetch('/api/notifications');
+        if (res.ok) {
+          const data = await res.json();
+          setNotifications(data);
+        }
+      } catch (err) {
+        console.error("Erro ao carregar notificações", err);
+      }
+    };
+    fetchNotifications();
+    
+    // Poll every 30 seconds
+    const interval = setInterval(fetchNotifications, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const hasUnread = notifications.some(n => new Date(n.created_at).getTime() > lastReadTimestamp);
+
+  const handleOpenNotifications = () => {
+    const now = Date.now();
+    setLastReadTimestamp(now);
+    localStorage.setItem("lastUnreadNotifications", now.toString());
+  };
 
   const handleLogout = async () => {
     logout();
@@ -55,10 +88,9 @@ const Header: React.FC<HeaderProps> = ({
   return (
     <header
       className={cn(
-        "sticky top-0 z-50",
-        "flex items-center justify-between p-4 md:p-6",
-        "bg-white/95 backdrop-blur-xl border-b border-gray-200/50 shadow-lg",
-        "before:absolute before:inset-0 before:bg-gradient-to-r before:from-blue-50/30 before:via-indigo-50/20 before:to-purple-50/30"
+        "sticky top-0 z-40",
+        "flex items-center justify-between px-6 py-3",
+        "bg-white/80 backdrop-blur-xl border-b border-slate-200/60 shadow-sm"
       )}
     >
       {/* Botão hambúrguer - apenas em mobile */}
@@ -67,112 +99,142 @@ const Header: React.FC<HeaderProps> = ({
           variant="ghost" 
           size="icon" 
           onClick={onOpenMobileSidebar} 
-          className="relative z-10 mr-3 hover:bg-gray-100 text-gray-700 hover:text-gray-900 transition-all duration-300"
+          className="relative z-10 mr-3 hover:bg-slate-100 text-slate-700 hover:text-slate-900 transition-all duration-300 rounded-xl"
         >
-          <Menu className="h-6 w-6" />
+          <Menu className="h-5 w-5" />
         </Button>
       )}
 
-      <div
-        className={cn(
-          "flex items-center gap-4",
-          isMobile ? "flex-grow justify-center" : isSidebarCollapsed ? "justify-center md:justify-start" : ""
-        )}
-      >
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <FlixPrevLogo className="h-12 w-12 drop-shadow-sm" />
-            <div className="absolute inset-0 bg-gradient-to-br from-blue-500/20 to-purple-500/20 rounded-full blur-xl -z-10"></div>
-          </div>
-          {!isMobile && !isSidebarCollapsed && (
-            <div className="flex flex-col">
-              <span className="text-2xl font-bold bg-gradient-to-r from-gray-800 via-blue-700 to-indigo-700 bg-clip-text text-transparent">
-                FlixPrev I.A
-              </span>
-              <span className="text-xs text-gray-500 font-medium tracking-wide">
-                Plataforma de Agentes IA
-              </span>
+      {isMobile ? (
+        <div className="flex-1 flex justify-center items-center gap-2 cursor-pointer" onClick={() => navigate("/app")}>
+          <FlixPrevLogo className="h-6 w-6 drop-shadow-sm" />
+          <span className="text-lg font-bold bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent tracking-tight">
+            FlixPrev I.A
+          </span>
+        </div>
+      ) : (
+        <div className="flex-1"></div>
+      )}
+
+      <div className="flex items-center gap-3">
+        <DropdownMenu onOpenChange={(open) => { if(open) handleOpenNotifications() }}>
+          <DropdownMenuTrigger asChild>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="relative h-10 w-10 rounded-xl hover:bg-slate-100 text-slate-500 hover:text-slate-900 transition-all duration-300"
+            >
+              <Bell className="h-5 w-5" />
+              {hasUnread && (
+                <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white animate-pulse"></span>
+              )}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent 
+            className="w-80 bg-white/95 border-slate-200/60 backdrop-blur-xl shadow-xl shadow-slate-500/10 rounded-2xl p-2 mt-2" 
+            align="end"
+          >
+            <div className="px-3 py-2 border-b border-slate-100 mb-1 flex justify-between items-center bg-white/50 rounded-t-xl">
+              <span className="font-semibold text-slate-800 text-sm">Notificações</span>
             </div>
-          )}
-        </div>
-      </div>
+            <div className="max-h-[300px] overflow-y-auto pr-1 custom-scrollbar">
+              {notifications.length === 0 ? (
+                <div className="px-4 py-8 text-center text-sm text-slate-500">
+                  Nenhuma notificação no momento.
+                </div>
+              ) : (
+                notifications.map((notif) => (
+                  <DropdownMenuItem key={notif.id} className="flex flex-col items-start gap-1 p-3 mb-1 cursor-default hover:bg-slate-50 focus:bg-slate-50 rounded-xl transition-colors outline-none">
+                    <div className="flex items-center gap-2 w-full">
+                      <div className="h-2 w-2 rounded-full bg-[#434dce] flex-shrink-0" />
+                      <span className="font-semibold text-sm text-slate-800">{notif.title}</span>
+                    </div>
+                    <span className="text-xs text-slate-600 line-clamp-2 pl-4">
+                      {notif.message}
+                    </span>
+                    <span className="text-[10px] text-slate-400 pl-4 mt-1">
+                      {new Date(notif.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </DropdownMenuItem>
+                ))
+              )}
+            </div>
+          </DropdownMenuContent>
+        </DropdownMenu>
 
-      <div className="relative flex-grow max-w-lg mx-6">
-        <div className="relative group">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 group-focus-within:text-blue-500 transition-colors duration-300" />
-          <Input
-            type="text"
-            placeholder="Pesquisar agentes..."
+        {/* Menu de Perfil */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button 
+              variant="ghost" 
+              className="relative h-10 w-10 rounded-xl hover:bg-slate-100 transition-all duration-300 ring-2 ring-transparent hover:ring-indigo-100 p-0 overflow-hidden"
+            >
+              <Avatar className="h-10 w-10 border border-slate-200/60">
+                <AvatarImage src={profile?.avatar_url || ""} alt={profile?.first_name || "User"} className="object-cover" />
+                <AvatarFallback className="bg-gradient-to-br from-indigo-50 to-purple-50 text-indigo-600 text-sm font-bold">
+                  {profile?.first_name?.charAt(0) || <UserCircle className="h-5 w-5" />}
+                </AvatarFallback>
+              </Avatar>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent 
             className={cn(
-              "pl-12 pr-4 py-3 rounded-xl w-full text-base",
-              "bg-white border-2 border-gray-200 text-gray-800 placeholder:text-gray-400",
-              "focus:border-blue-400 focus:ring-4 focus:ring-blue-100/50",
-              "shadow-sm hover:shadow-md transition-all duration-300",
-              "group-focus-within:shadow-lg group-focus-within:bg-blue-50/30"
-            )}
-            value={searchTerm}
-            onChange={(e) => onSearchChange(e.target.value)}
-          />
-          <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-blue-500/5 to-purple-500/5 opacity-0 group-focus-within:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
-        </div>
+              "w-72 bg-white/95 border-slate-200/60 backdrop-blur-xl",
+              "shadow-xl shadow-slate-500/10 rounded-2xl p-2 mt-2"
+            )} 
+            align="end" 
+            forceMount
+          >
+            <DropdownMenuItem className="flex flex-col items-start space-y-1.5 text-slate-700 focus:bg-transparent p-3 cursor-default">
+              <div className="flex items-center gap-3 w-full">
+                <Avatar className="h-12 w-12 border border-slate-200/60">
+                  <AvatarImage src={profile?.avatar_url || ""} alt={profile?.first_name || "User"} className="object-cover" />
+                  <AvatarFallback className="bg-gradient-to-br from-indigo-50 to-purple-50 text-indigo-600 text-sm font-bold">
+                    {profile?.first_name?.charAt(0) || <UserCircle className="h-5 w-5" />}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex flex-col">
+                  <p className="text-sm font-bold leading-none text-slate-900">
+                    {profile?.first_name || "Usuário"} {profile?.last_name || ""}
+                  </p>
+                  <p className="text-xs leading-none text-slate-500 mt-1.5">
+                    {session?.user?.email}
+                  </p>
+                </div>
+              </div>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator className="bg-slate-100 my-1" />
+            <DropdownMenuItem 
+              onClick={handleProfile} 
+              className="cursor-pointer text-slate-700 hover:bg-slate-50 focus:bg-slate-50 p-2.5 rounded-xl transition-colors"
+            >
+              <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 mr-3">
+                <UserCircle className="h-4 w-4" />
+              </div>
+              <span className="text-sm font-medium">Meu Perfil</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem 
+              onClick={handleSettings} 
+              className="cursor-pointer text-slate-700 hover:bg-slate-50 focus:bg-slate-50 p-2.5 rounded-xl transition-colors"
+            >
+              <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-slate-100 text-slate-600 mr-3">
+                <SettingsIcon className="h-4 w-4" />
+              </div>
+              <span className="text-sm font-medium">Configurações</span>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator className="bg-slate-100 my-1" />
+            <DropdownMenuItem 
+              onClick={handleLogout} 
+              className="cursor-pointer text-red-600 hover:bg-red-50 focus:bg-red-50 p-2.5 rounded-xl transition-colors"
+            >
+              <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-red-50 text-red-600 mr-3">
+                <LogOut className="h-4 w-4" />
+              </div>
+              <span className="text-sm font-medium">Sair da conta</span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
-
-      {/* Menu de Perfil */}
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button 
-            variant="ghost" 
-            className="relative h-12 w-12 rounded-full hover:bg-gray-100 transition-all duration-300 ring-2 ring-gray-200/50 hover:ring-blue-300/50 shadow-sm hover:shadow-md"
-          >
-            <Avatar className="h-10 w-10">
-              <AvatarImage src={profile?.avatar_url || ""} alt={profile?.first_name || "User"} />
-              <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white text-lg font-semibold">
-                <UserCircle className="h-6 w-6" />
-              </AvatarFallback>
-            </Avatar>
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent 
-          className={cn(
-            "w-64 bg-white/95 border-gray-200/50 backdrop-blur-xl",
-            "shadow-xl shadow-gray-500/20 rounded-xl"
-          )} 
-          align="end" 
-          forceMount
-        >
-          <DropdownMenuItem className="flex flex-col items-start space-y-1 text-gray-700 focus:bg-blue-50 p-4">
-            <p className="text-base font-semibold leading-none text-gray-800">
-              {profile?.first_name || "Usuário"} {profile?.last_name || ""}
-            </p>
-            <p className="text-sm leading-none text-gray-500">
-              {session?.user?.email}
-            </p>
-          </DropdownMenuItem>
-          <DropdownMenuSeparator className="bg-gray-200/50" />
-          <DropdownMenuItem 
-            onClick={handleProfile} 
-            className="cursor-pointer text-gray-700 hover:bg-blue-50 focus:bg-blue-50 p-3"
-          >
-            <UserCircle className="mr-3 h-5 w-5 text-blue-500" />
-            <span className="text-base">Perfil</span>
-          </DropdownMenuItem>
-          <DropdownMenuItem 
-            onClick={handleSettings} 
-            className="cursor-pointer text-gray-700 hover:bg-blue-50 focus:bg-blue-50 p-3"
-          >
-            <SettingsIcon className="mr-3 h-5 w-5 text-blue-500" />
-            <span className="text-base">Configurações</span>
-          </DropdownMenuItem>
-          <DropdownMenuSeparator className="bg-gray-200/50" />
-          <DropdownMenuItem 
-            onClick={handleLogout} 
-            className="cursor-pointer text-red-600 hover:bg-red-50 focus:bg-red-50 p-3"
-          >
-            <LogOut className="mr-3 h-5 w-5" />
-            <span className="text-base">Sair</span>
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
     </header>
   );
 };

@@ -48,38 +48,58 @@ const HowToUse: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
-        <p className="text-foreground">Carregando tutoriais...</p>
+      <div className="min-h-full flex items-center justify-center bg-slate-50/50">
+        <div className="flex flex-col items-center gap-4">
+          <div className="h-12 w-12 rounded-full border-4 border-indigo-200 border-t-blue-600 animate-spin"></div>
+          <p className="text-slate-500 font-medium">Carregando tutoriais...</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="bg-background text-foreground p-6 min-h-full">
-      <div className="max-w-6xl mx-auto">
-        <h1 className="text-3xl font-bold mb-6 flex items-center justify-center gap-2 text-center"> {/* Adicionado justify-center e text-center */}
-          <Youtube className="h-8 w-8 text-red-500" />
-          Como Usar a Plataforma
-        </h1>
+    <div className="min-h-full bg-slate-50/50 p-4 md:p-8">
+      <div className="max-w-4xl mx-auto space-y-8">
+        {/* Header Section */}
+        <div className="text-center space-y-4 mb-12">
+          <div className="inline-flex items-center justify-center p-3 bg-red-100 text-red-600 rounded-2xl mb-2 shadow-sm">
+            <Youtube className="h-8 w-8" />
+          </div>
+          <h1 className="text-3xl md:text-4xl font-bold text-slate-900 tracking-tight">
+            Como Usar a Plataforma
+          </h1>
+          <p className="text-slate-500 text-lg max-w-2xl mx-auto">
+            Aprenda a extrair o máximo de valor dos nossos agentes de IA com estes tutoriais em vídeo.
+          </p>
+        </div>
 
         {tutorials.length === 0 ? (
-          <p className="text-muted-foreground text-center mt-10">
-            Nenhum tutorial disponível no momento.
-          </p>
+          <div className="flex flex-col items-center justify-center py-16 px-4 text-center bg-white/80 backdrop-blur-sm border border-gray-200/60 rounded-2xl shadow-sm">
+            <div className="h-20 w-20 bg-slate-100 rounded-full flex items-center justify-center mb-4">
+              <Youtube className="h-10 w-10 text-slate-400" />
+            </div>
+            <h3 className="text-lg font-medium text-slate-900 mb-1">Nenhum tutorial disponível</h3>
+            <p className="text-slate-500 max-w-sm">
+              Em breve adicionaremos vídeos explicativos para ajudar você a usar a plataforma.
+            </p>
+          </div>
         ) : (
-          <div className="grid grid-cols-1 gap-6">
+          <div className="grid grid-cols-1 gap-8">
             {tutorials.map((tutorial) => {
               const embedUrl = getYouTubeEmbedUrl(tutorial.url);
               return (
-                <Card key={tutorial.id} className="bg-white dark:bg-gray-800 shadow-md w-full max-w-4xl mx-auto">
-                  <CardHeader className="text-center">
-                    <CardTitle className="text-lg">{tutorial.title}</CardTitle>
+                <Card key={tutorial.id} className="bg-white/80 backdrop-blur-sm border-gray-200/60 shadow-sm rounded-2xl overflow-hidden transition-all duration-300 hover:shadow-md hover:-translate-y-1">
+                  <CardHeader className="border-b border-gray-100/50 bg-slate-50/30 px-6 py-4">
+                    <CardTitle className="text-xl font-semibold text-slate-800 flex items-center gap-3">
+                      <div className="h-2 w-2 rounded-full bg-indigo-500"></div>
+                      {tutorial.title}
+                    </CardTitle>
                   </CardHeader>
-                  <CardContent>
+                  <CardContent className="p-6">
                     {embedUrl ? (
-                      <div className="relative w-full" style={{ paddingBottom: '56.25%' /* 16:9 Aspect Ratio */ }}>
+                      <div className="relative w-full rounded-xl overflow-hidden shadow-inner bg-slate-900" style={{ paddingBottom: '56.25%' /* 16:9 Aspect Ratio */ }}>
                         <iframe
-                          className="absolute top-0 left-0 w-full h-full rounded-md"
+                          className="absolute top-0 left-0 w-full h-full"
                           src={embedUrl}
                           title={tutorial.title}
                           frameBorder="0"
@@ -88,8 +108,9 @@ const HowToUse: React.FC = () => {
                         ></iframe>
                       </div>
                     ) : (
-                      <div className="flex items-center justify-center h-40 bg-gray-200 dark:bg-gray-700 rounded-md text-muted-foreground">
-                        URL de vídeo inválida
+                      <div className="flex flex-col items-center justify-center h-48 bg-slate-50 rounded-xl border border-dashed border-slate-200 text-slate-400">
+                        <Youtube className="h-8 w-8 mb-2 opacity-50" />
+                        <span>URL de vídeo inválida</span>
                       </div>
                     )}
                   </CardContent>

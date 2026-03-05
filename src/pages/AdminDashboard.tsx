@@ -111,47 +111,59 @@ const AdminDashboard: React.FC = () => {
   }
 
   return (
-    <div className="bg-background text-foreground p-6 min-h-full">
-      <div className="max-w-6xl mx-auto">
-        <h1 className="text-3xl font-bold mb-6">Painel de Administração</h1>
+    <div className="flex flex-col gap-8 animate-in fade-in duration-500 max-w-6xl mx-auto w-full">
+      <div className="flex flex-col gap-2">
+        <h1 className="text-3xl font-bold tracking-tight text-gray-900">Painel de Administração</h1>
+        <p className="text-gray-500">Visão geral e configurações do sistema.</p>
+      </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total de Usuários</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{totalUsers !== null ? totalUsers : '...'}</div>
-              <p className="text-xs text-muted-foreground">Usuários registrados</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total de Agentes</CardTitle>
-              <BarChart className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{totalAgents !== null ? totalAgents : '...'}</div>
-              <p className="text-xs text-muted-foreground">Agentes criados</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total de Categorias</CardTitle>
-              <BarChart className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{totalCategories !== null ? totalCategories : '...'}</div>
-              <p className="text-xs text-muted-foreground">Categorias criadas</p>
-            </CardContent>
-          </Card>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <Card className="overflow-hidden border-gray-200/60 bg-white/80 backdrop-blur-sm shadow-sm hover:shadow-md transition-all duration-300">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 bg-indigo-50/50 border-b border-indigo-100/50">
+            <CardTitle className="text-sm font-semibold text-indigo-800">Total de Usuários</CardTitle>
+            <div className="p-2 bg-indigo-100 rounded-lg">
+              <Users className="h-4 w-4 text-indigo-600" />
+            </div>
+          </CardHeader>
+          <CardContent className="pt-6">
+            <div className="text-3xl font-bold text-gray-900">{totalUsers !== null ? totalUsers : '...'}</div>
+            <p className="text-sm text-gray-500 mt-1 font-medium">Usuários registrados</p>
+          </CardContent>
+        </Card>
+        <Card className="overflow-hidden border-gray-200/60 bg-white/80 backdrop-blur-sm shadow-sm hover:shadow-md transition-all duration-300">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 bg-indigo-50/50 border-b border-indigo-100/50">
+            <CardTitle className="text-sm font-semibold text-indigo-800">Total de Agentes</CardTitle>
+            <div className="p-2 bg-indigo-100 rounded-lg">
+              <BarChart className="h-4 w-4 text-indigo-600" />
+            </div>
+          </CardHeader>
+          <CardContent className="pt-6">
+            <div className="text-3xl font-bold text-gray-900">{totalAgents !== null ? totalAgents : '...'}</div>
+            <p className="text-sm text-gray-500 mt-1 font-medium">Agentes criados</p>
+          </CardContent>
+        </Card>
+        <Card className="overflow-hidden border-gray-200/60 bg-white/80 backdrop-blur-sm shadow-sm hover:shadow-md transition-all duration-300">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 bg-purple-50/50 border-b border-purple-100/50">
+            <CardTitle className="text-sm font-semibold text-purple-800">Total de Categorias</CardTitle>
+            <div className="p-2 bg-purple-100 rounded-lg">
+              <BarChart className="h-4 w-4 text-purple-600" />
+            </div>
+          </CardHeader>
+          <CardContent className="pt-6">
+            <div className="text-3xl font-bold text-gray-900">{totalCategories !== null ? totalCategories : '...'}</div>
+            <p className="text-sm text-gray-500 mt-1 font-medium">Categorias criadas</p>
+          </CardContent>
+        </Card>
+      </div>
+      
+      {/* Seção de Configurações do Facebook */}
+      <div className="mt-4">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="p-2 bg-gray-100 rounded-lg">
+            <SettingsIcon className="h-5 w-5 text-gray-700" />
+          </div>
+          <h2 className="text-xl font-bold text-gray-900">Configurações do Aplicativo</h2>
         </div>
-        
-        {/* Seção de Configurações do Facebook */}
-        <h2 className="text-2xl font-bold mb-4 flex items-center gap-2 mt-8">
-          <SettingsIcon className="h-6 w-6 text-gray-600" /> Configurações do Aplicativo
-        </h2>
         <FacebookSettingsCard 
           initialSettings={appSettings} 
           onSettingsSaved={fetchAppSettings} 

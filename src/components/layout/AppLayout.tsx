@@ -1,11 +1,11 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
-import { Outlet, useNavigate } from "react-router-dom";
+import { Outlet, useNavigate, useLocation, useParams, useSearchParams } from "react-router-dom";
 import Header from "@/components/layout/Header";
 import Sidebar from "@/components/layout/Sidebar";
 import MobileSidebar from "@/components/layout/MobileSidebar";
 import CreateCategoryDialog from "@/components/CreateCategoryDialog";
 import EditCategoryDialog from "@/components/EditCategoryDialog"; // Reintroduzido
-import CreateAgentDialog from "@/components/CreateAgentDialog";
+
 import CreateNewAIAgentDialog from "@/components/CreateNewAIAgentDialog";
 import CreateCustomLinkDialog from "@/components/CreateCustomLinkDialog"; // Importar novo diálogo
 import EditCustomLinkDialog from "@/components/EditCustomLinkDialog"; // Importar novo diálogo
@@ -29,12 +29,19 @@ import {
 import { neon } from "@/lib/neon";
 import { useSession } from "@/components/SessionContextProvider";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { cn } from "@/lib/utils";
+import { makeAgentRouteKey, toSlug } from "@/lib/slug";
 
 const AppLayout = () => {
   const { session, isAdmin, profile } = useSession();
   const userId = session?.user?.id;
   const navigate = useNavigate();
+  const location = useLocation();
+  const { categorySlug } = useParams<{ categorySlug?: string }>();
+  const [searchParams] = useSearchParams();
   const isMobile = useIsMobile();
+
+  const isChatRoute = location.pathname.includes('/app/chat') || location.pathname.includes('/app/agente');
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [agents, setAgents] = useState<Agent[]>([]);
@@ -45,7 +52,7 @@ const AppLayout = () => {
   const [categoryToEdit, setCategoryToEdit] = useState<Category | null>(null); // Reintroduzido
   const [isDeleteCategoryDialogOpen, setIsDeleteCategoryDialogOpen] = useState(false); // Reintroduzido
   const [categoryToDeleteId, setCategoryToDeleteId] = useState<string | null>(null); // Reintroduzido
-  const [isCreateAgentDialogOpen, setIsCreateAgentDialogOpen] = useState(false);
+
   const [isCreateNewAIAgentDialogOpen, setIsCreateNewAIAgentDialogOpen] = useState(false);
   const [agentToEdit, setAgentToEdit] = useState<Agent | null>(null);
   const [isDeleteAgentDialogOpen, setIsDeleteAgentDialogOpen] = useState(false);
@@ -63,7 +70,10 @@ const AppLayout = () => {
   const fetchCategories = useCallback(async () => {
     if (!userId) return;
     setLoading(true);
-    const { data, error } = await neon.from("categories").select().eq("user_id", userId);
+    const { data, error } = await neon
+      .from("categories")
+      .select()
+      .or(`user_id.is.null,user_id.eq.${userId}`);
     if (error) {
       toast.error("Erro ao carregar categorias: " + error.message);
       setCategories([]);
@@ -76,7 +86,10 @@ const AppLayout = () => {
   const fetchAgents = useCallback(async () => {
     if (!userId) return;
     setLoading(true);
-    const { data, error } = await neon.from("agents").select().eq("user_id", userId);
+    const { data, error } = await neon
+      .from("agents")
+      .select()
+      .or(`user_id.is.null,user_id.eq.${userId}`);
     if (error) {
       toast.error("Erro ao carregar agentes: " + error.message);
       setAgents([]);
@@ -84,6 +97,7 @@ const AppLayout = () => {
       const agents = (data || []).map((agent: any) => ({
         ...agent,
         category_ids: (Array.isArray(agent.category_ids) ? agent.category_ids : []).map((id: any) => String(id)),
+        shortcuts: Array.isArray(agent.shortcuts) ? agent.shortcuts : [],
         attachments: Array.isArray(agent.attachments) ? agent.attachments : [],
       })) as Agent[];
       setAgents(agents);
@@ -114,6 +128,27 @@ const AppLayout = () => {
       fetchCustomLinks();
     }
   }, [userId, fetchCategories, fetchAgents, fetchCustomLinks]);
+
+  useEffect(() => {
+    const slugFromPath = location.pathname.startsWith('/app/categorias/') ? (categorySlug || null) : null;
+    const slugFromQuery = searchParams.get('categoria');
+    const requestedSlug = slugFromPath || slugFromQuery;
+
+    if (!requestedSlug) {
+      if (selectedCategory !== 'all') setSelectedCategory('all');
+      return;
+    }
+
+    const matchedCategory = categories.find((cat) => toSlug(cat.name) === requestedSlug);
+    if (!matchedCategory) {
+      if (selectedCategory !== 'all') setSelectedCategory('all');
+      return;
+    }
+
+    if (selectedCategory !== matchedCategory.id) {
+      setSelectedCategory(matchedCategory.id);
+    }
+  }, [categories, categorySlug, location.pathname, searchParams, selectedCategory]);
 
   const handleAddCategory = async (name: string) => {
     if (!userId) {
@@ -245,10 +280,13 @@ const AppLayout = () => {
         .insert({ 
           id: agentId,
           title: newAgentData.title,
+          role: newAgentData.role,
           description: newAgentData.description,
           icon: newAgentData.icon,
+          background_icon: newAgentData.background_icon,
           category_ids: newAgentData.category_ids || [],
           user_id: userId,
+          shortcuts: (newAgentData as any).shortcuts || [],
           instructions: (newAgentData as any).instructions || null,
           attachments: (newAgentData as any).attachments || [],
         })
@@ -263,9 +301,26 @@ const AppLayout = () => {
           setAgents((prev) => [...prev, {
             ...newAgent,
             category_ids: (Array.isArray(newAgent.category_ids) ? newAgent.category_ids : []).map((id: any) => String(id)),
+            shortcuts: Array.isArray(newAgent.shortcuts) ? newAgent.shortcuts : [],
             attachments: Array.isArray(newAgent.attachments) ? newAgent.attachments : [],
           } as Agent]);
           toast.success(`Agente '${newAgentData.title}' adicionado com sucesso!`);
+
+          const hasAttachments = Array.isArray((newAgentData as any).attachments) && (newAgentData as any).attachments.length > 0;
+          if (hasAttachments && newAgent?.id) {
+            fetch(`/api/admin/reprocess-agent-attachments/${newAgent.id}`, { method: 'POST' }).catch(console.error);
+          }
+          
+          // Emit new notification
+          fetch('/api/notifications', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              title: "Novo Agente Disponível! 🚀",
+              message: `O assistente "${newAgentData.title}" acabou de ser implementado na plataforma.`
+            })
+          }).catch(console.error);
+          
         } else {
           console.error("Nenhum dado retornado ao criar agente");
           toast.error("Erro: Nenhum dado retornado do servidor");
@@ -282,7 +337,7 @@ const AppLayout = () => {
     if (agent?.link) {
       window.open(agent.link, "_blank");
     } else if (agent) {
-      navigate(`/app/chat/${agentId}`);
+      navigate(`/app/agente/${makeAgentRouteKey(agent.title, agent.id)}`);
     }
   };
 
@@ -303,10 +358,13 @@ const AppLayout = () => {
       .from("agents")
       .update({
         title: updatedAgentData.title,
+        role: updatedAgentData.role,
         description: updatedAgentData.description,
         icon: updatedAgentData.icon,
+        background_icon: updatedAgentData.background_icon,
         category_ids: updatedAgentData.category_ids || [],
         link: updatedAgentData.link || null,
+        shortcuts: updatedAgentData.shortcuts || [],
         instructions: updatedAgentData.instructions || null,
         attachments: updatedAgentData.attachments || [],
       })
@@ -323,10 +381,27 @@ const AppLayout = () => {
           prev.map((agent) => agent.id === agentId ? {
             ...updatedAgent,
             category_ids: (Array.isArray(updatedAgent.category_ids) ? updatedAgent.category_ids : []).map((id: any) => String(id)),
+            shortcuts: Array.isArray(updatedAgent.shortcuts) ? updatedAgent.shortcuts : [],
             attachments: Array.isArray(updatedAgent.attachments) ? updatedAgent.attachments : [],
           } as Agent : agent)
         );
         toast.success(`Agente '${updatedAgentData.title}' atualizado com sucesso!`);
+
+        const hasAttachments = Array.isArray(updatedAgentData.attachments) && updatedAgentData.attachments.length > 0;
+        if (hasAttachments) {
+          fetch(`/api/admin/reprocess-agent-attachments/${agentId}`, { method: 'POST' }).catch(console.error);
+        }
+        
+        // Emit new notification
+        fetch('/api/notifications', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: "Agente Atualizado! 🔄",
+            message: `O assistente "${updatedAgentData.title}" recebeu novas atualizações de melhoria na plataforma.`
+          })
+        }).catch(console.error);
+        
       }
     }
   };
@@ -449,7 +524,18 @@ const AppLayout = () => {
 
   const handleSelectCategory = (categoryId: string) => {
     setSelectedCategory(categoryId);
-    navigate("/app");
+    if (categoryId === 'all') {
+      navigate('/app');
+      return;
+    }
+
+    const category = categories.find((c) => c.id === categoryId);
+    if (!category) {
+      navigate('/app');
+      return;
+    }
+
+    navigate(`/app/categorias/${toSlug(category.name)}`);
   };
 
   const handleHowToUse = () => {
@@ -511,77 +597,78 @@ const AppLayout = () => {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
-      <Header
-        searchTerm={searchTerm}
-        onSearchChange={setSearchTerm}
-        isSidebarCollapsed={isSidebarCollapsed}
-        onOpenMobileSidebar={() => setIsMobileSidebarOpen(true)}
-        isMobile={isMobile}
-        profile={profile}
-      />
-
+    <div className="h-screen flex bg-slate-50/50 overflow-hidden">
       {/* MobileSidebar - apenas em mobile */}
       {isMobile && (
         <MobileSidebar
-        categories={categoriesForSidebar} // Usar categorias com "Todos" para o MobileSidebar
-        selectedCategory={selectedCategory}
-        onSelectCategory={handleSelectCategory}
-        onAddCategory={() => setIsCreateCategoryDialogOpen(true)}
-        onAddAgent={() => setIsCreateAgentDialogOpen(true)}
-        onHowToUse={handleHowToUse}
-        onEditCategory={handleOpenEditCategoryDialog} // Reintroduzido
-        onDeleteCategory={confirmDeleteCategory} // Reintroduzido
-        onGoHome={handleGoHome}
-        isOpen={isMobileSidebarOpen}
-        onOpenChange={setIsMobileSidebarOpen}
-        customLinks={customLinks}
-        onAddCustomLink={() => setIsCreateCustomLinkDialogOpen(true)}
-        onEditCustomLink={handleOpenEditCustomLinkDialog}
-        onDeleteCustomLink={confirmDeleteCustomLink}
-      />
+          categories={categoriesForSidebar}
+          selectedCategory={selectedCategory}
+          onSelectCategory={handleSelectCategory}
+          onAddCategory={() => setIsCreateCategoryDialogOpen(true)}
+          onAddAgent={() => setIsCreateNewAIAgentDialogOpen(true)}
+          onHowToUse={handleHowToUse}
+          onEditCategory={handleOpenEditCategoryDialog}
+          onDeleteCategory={confirmDeleteCategory}
+          onGoHome={handleGoHome}
+          isOpen={isMobileSidebarOpen}
+          onOpenChange={setIsMobileSidebarOpen}
+          customLinks={customLinks}
+          onAddCustomLink={() => setIsCreateCustomLinkDialogOpen(true)}
+          onEditCustomLink={handleOpenEditCustomLinkDialog}
+          onDeleteCustomLink={confirmDeleteCustomLink}
+        />
       )}
-      
-      {isMobile ? (
-        <main className="flex-grow flex flex-col min-h-0 container mx-auto p-4 md:p-6 overflow-hidden">
-          <Outlet context={outletContextValue} />
+
+      {/* Sidebar Desktop */}
+      {!isMobile && (
+        <div className={cn(
+          "transition-all duration-300 ease-in-out z-50 border-r border-slate-200/60 bg-white/80 backdrop-blur-xl relative",
+          isSidebarCollapsed ? "w-20" : "w-72"
+        )}>
+          <Sidebar
+            categories={categoriesForSidebar}
+            selectedCategory={selectedCategory}
+            onSelectCategory={handleSelectCategory}
+            onAddCategory={() => setIsCreateCategoryDialogOpen(true)}
+            onAddAgent={() => setIsCreateNewAIAgentDialogOpen(true)}
+            onHowToUse={handleHowToUse}
+            onEditCategory={handleOpenEditCategoryDialog}
+            onDeleteCategory={confirmDeleteCategory}
+            onGoHome={handleGoHome}
+            isCollapsed={isSidebarCollapsed}
+            customLinks={customLinks}
+            onAddCustomLink={() => setIsCreateCustomLinkDialogOpen(true)}
+            onEditCustomLink={handleOpenEditCustomLinkDialog}
+            onDeleteCustomLink={confirmDeleteCustomLink}
+            onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+          />
+        </div>
+      )}
+
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative z-10">
+        <Header
+          searchTerm={searchTerm}
+          onSearchChange={setSearchTerm}
+          isSidebarCollapsed={isSidebarCollapsed}
+          onOpenMobileSidebar={() => setIsMobileSidebarOpen(true)}
+          isMobile={isMobile}
+          profile={profile}
+        />
+        
+        <main className={cn(
+          "flex-1 flex flex-col",
+          isChatRoute ? "overflow-hidden" : "overflow-y-auto",
+          !isChatRoute && "p-4 md:p-6 lg:p-8"
+        )}>
+          <div className={cn(
+            "mx-auto w-full flex-1 flex flex-col min-h-0",
+            isChatRoute && "overflow-hidden",
+            !isChatRoute && "max-w-7xl"
+          )}>
+            <Outlet context={outletContextValue} />
+          </div>
         </main>
-      ) : (
-        <ResizablePanelGroup direction="horizontal" className="flex-grow w-full overflow-hidden">
-          <ResizablePanel
-            defaultSize={15}
-            minSize={4}
-            maxSize={25}
-            collapsible={true}
-            onCollapse={() => setIsSidebarCollapsed(true)}
-            onExpand={() => setIsSidebarCollapsed(false)}
-            className="min-w-[60px]"
-          >
-            <Sidebar
-              categories={categoriesForSidebar} // Usar categorias com "Todos" para o Sidebar
-              selectedCategory={selectedCategory}
-              onSelectCategory={handleSelectCategory}
-              onAddCategory={() => setIsCreateCategoryDialogOpen(true)}
-              onAddAgent={() => setIsCreateNewAIAgentDialogOpen(true)}
-              onHowToUse={handleHowToUse}
-              onEditCategory={handleOpenEditCategoryDialog} // Reintroduzido
-              onDeleteCategory={confirmDeleteCategory} // Reintroduzido
-              onGoHome={handleGoHome}
-              isCollapsed={isSidebarCollapsed}
-              customLinks={customLinks}
-              onAddCustomLink={() => setIsCreateCustomLinkDialogOpen(true)}
-              onEditCustomLink={handleOpenEditCustomLinkDialog}
-              onDeleteCustomLink={confirmDeleteCustomLink}
-            />
-          </ResizablePanel>
-          <ResizableHandle withHandle />
-          <ResizablePanel defaultSize={85}>
-            <main className="flex flex-col h-full min-h-0 container mx-auto p-4 md:p-6 overflow-hidden">
-              <Outlet context={outletContextValue} />
-            </main>
-          </ResizablePanel>
-          </ResizablePanelGroup>
-      )}
+      </div>
 
       <CreateCategoryDialog
         isOpen={isCreateCategoryDialogOpen}
@@ -599,12 +686,7 @@ const AppLayout = () => {
         categoryToEdit={categoryToEdit}
       />
 
-      <CreateAgentDialog
-        isOpen={isCreateAgentDialogOpen}
-        onClose={() => setIsCreateAgentDialogOpen(false)}
-        onSave={handleAddAgent}
-        categories={categories}
-      />
+
 
       <CreateNewAIAgentDialog
         isOpen={isCreateNewAIAgentDialogOpen}

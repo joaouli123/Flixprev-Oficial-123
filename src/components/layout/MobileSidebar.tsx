@@ -42,15 +42,12 @@ const MobileSidebar: React.FC<MobileSidebarProps> = ({
 }) => {
   return (
     <Sheet open={isOpen} onOpenChange={onOpenChange}>
-      <SheetContent side="left" className="p-0 w-64 flex flex-col bg-gradient-to-b from-slate-900/95 via-blue-900/90 to-indigo-900/95 border-blue-500/20">
+      <SheetContent side="left" className="p-0 w-72 flex flex-col bg-slate-50/95 backdrop-blur-xl border-r border-slate-200/60">
         <SheetTitle className="sr-only">Menu Principal</SheetTitle>
         <SheetDescription className="sr-only">Navegação e opções da aplicação.</SheetDescription>
 
-        <div className="flex items-center gap-3 p-4 border-b border-blue-500/20 bg-gradient-to-r from-blue-600/10 to-purple-600/10">
-          <FlixPrevLogo className="h-8 w-8" />
-          <span className="text-xl font-bold bg-gradient-to-r from-blue-200 via-purple-200 to-indigo-200 bg-clip-text text-transparent">FlixPrev I.A</span>
-        </div>
-        <Sidebar
+        <div className="flex-1 overflow-hidden">
+          <Sidebar
           categories={categories}
           selectedCategory={selectedCategory}
           onSelectCategory={(id) => {
@@ -96,6 +93,7 @@ const MobileSidebar: React.FC<MobileSidebarProps> = ({
             onOpenChange(false);
           }}
         />
+        </div>
       </SheetContent>
     </Sheet>
   );
