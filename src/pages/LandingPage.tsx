@@ -21,16 +21,41 @@ import {
   Mail, 
   Phone, 
   Heart,
+  Scale,
+  Landmark,
+  Coins,
+  Cpu,
   type LucideIcon 
 } from "lucide-react";
 import { neon as supabase } from "@/lib/neon"
-import { Agent } from "@/types/app";
+import { Agent, Category } from "@/types/app";
 import { toast } from "sonner";
+
+/* ─── Configuração de cores por categoria ─── */
+const CATEGORY_COLORS: Record<string, { bg: string; border: string; text: string; gradient: string; icon: LucideIcon }> = {
+  "previdenciário": { bg: "bg-blue-50", border: "border-blue-200", text: "text-blue-700", gradient: "from-blue-500 to-indigo-600", icon: Shield },
+  "previdenciario": { bg: "bg-blue-50", border: "border-blue-200", text: "text-blue-700", gradient: "from-blue-500 to-indigo-600", icon: Shield },
+  "trabalhista": { bg: "bg-emerald-50", border: "border-emerald-200", text: "text-emerald-700", gradient: "from-emerald-500 to-green-600", icon: Scale },
+  "tributário": { bg: "bg-amber-50", border: "border-amber-200", text: "text-amber-700", gradient: "from-amber-500 to-orange-600", icon: Coins },
+  "tributario": { bg: "bg-amber-50", border: "border-amber-200", text: "text-amber-700", gradient: "from-amber-500 to-orange-600", icon: Coins },
+  "prompts ia": { bg: "bg-purple-50", border: "border-purple-200", text: "text-purple-700", gradient: "from-purple-500 to-violet-600", icon: Cpu },
+  "stj": { bg: "bg-rose-50", border: "border-rose-200", text: "text-rose-700", gradient: "from-rose-500 to-pink-600", icon: Landmark },
+};
+
+function getCategoryTheme(name: string) {
+  const key = name.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/direito\s*/i, "");
+  for (const [k, v] of Object.entries(CATEGORY_COLORS)) {
+    if (key.includes(k)) return v;
+  }
+  return { bg: "bg-indigo-50", border: "border-indigo-200", text: "text-indigo-700", gradient: "from-indigo-500 to-blue-600", icon: Brain };
+}
 
 const LandingPage = () => {
   const location = useLocation();
   const [agents, setAgents] = useState<Agent[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<string>("all");
 
   const referralCode = useMemo(() => {
     const fromQuery = new URLSearchParams(location.search).get("ref") || "";
@@ -57,48 +82,43 @@ const LandingPage = () => {
   }, [referralCode]);
 
   useEffect(() => {
-    const fetchAgents = async () => {
+    const fetchData = async () => {
       setLoading(true);
-      const { data, error } = await supabase
-        .from("agents")
-        .select("id, title, description, icon");
+      // Buscar agentes e categorias em paralelo
+      const [agentsRes, catsRes] = await Promise.all([
+        supabase.from("agents").select("id, title, description, icon, category_ids"),
+        supabase.from("categories").select("id, name"),
+      ]);
 
-      if (error || !data) {
-        // Fallback: dados mock quando Supabase não está disponível
-        const mockAgents: Agent[] = [
-          {
-            id: "1",
-            title: "Assistente Geral",
-            description: "Um assistente geral para responder suas dúvidas",
-            icon: "Bot"
-          },
-          {
-            id: "2", 
-            title: "Consultor de Negócios",
-            description: "Ajuda com estratégias e consultoria empresarial",
-            icon: "TrendingUp"
-          },
-          {
-            id: "3",
-            title: "Especialista em Tecnologia",
-            description: "Suporte e orientação em questões tecnológicas",
-            icon: "Zap"
-          }
-        ];
-        setAgents(mockAgents);
-      } else {
-        setAgents(data as Agent[]);
-      }
+      if (agentsRes.data) setAgents(agentsRes.data as Agent[]);
+      if (catsRes.data) setCategories(catsRes.data as Category[]);
       setLoading(false);
     };
-
-    fetchAgents();
+    fetchData();
   }, []);
+
+  // Contagem de agentes por categoria
+  const agentsCountByCategory = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const cat of categories) counts.set(cat.id, 0);
+    for (const agent of agents) {
+      for (const cid of agent.category_ids || []) {
+        counts.set(cid, (counts.get(cid) || 0) + 1);
+      }
+    }
+    return counts;
+  }, [agents, categories]);
+
+  // Agentes filtrados pela aba ativa
+  const visibleAgents = useMemo(() => {
+    if (activeTab === "all") return agents;
+    return agents.filter((a) => (a.category_ids || []).includes(activeTab));
+  }, [agents, activeTab]);
 
   // Mapa de ícones para evitar import dinâmico
   const iconMap: Record<string, LucideIcon> = {
     Brain, ArrowRight, Shield, Zap, Users, TrendingUp, Smartphone, 
-    Sparkles, Bot, Rocket, Lock, FileText, ScrollText, Cookie, Mail, Phone, Heart
+    Sparkles, Bot, Rocket, Lock, FileText, ScrollText, Cookie, Mail, Phone, Heart, Scale, Landmark, Coins, Cpu
   };
   
   const getLucideIcon = (iconName: string): LucideIcon => {
@@ -117,35 +137,63 @@ const LandingPage = () => {
       <LandingNavbar />
 
       <main className="flex-grow flex flex-col relative z-10">
-        {/* Hero Section Redesenhada */}
-        <section className="flex-grow flex flex-col items-center justify-center px-4 py-16 sm:py-24">
+        {/* Hero Section Compacta */}
+        <section className="flex flex-col items-center justify-center px-4 py-16 sm:py-20">
           <div className="text-center max-w-4xl mx-auto">
-            {/* Ícone principal com animação */}
-            <div className="mb-8 relative">
-              <div className="w-32 h-32 mx-auto bg-gradient-to-br from-blue-500 via-indigo-600 to-purple-700 rounded-3xl flex items-center justify-center shadow-2xl shadow-blue-500/25 transform transition-all hover:scale-105 animate-in fade-in-0 slide-in-from-bottom-4 duration-1000">
-                <Brain className="h-16 w-16 text-white" />
+            {/* Ícone principal */}
+            <div className="mb-6 relative">
+              <div className="w-24 h-24 mx-auto bg-gradient-to-br from-blue-500 via-indigo-600 to-purple-700 rounded-3xl flex items-center justify-center shadow-2xl shadow-blue-500/25 transform transition-all hover:scale-105 animate-in fade-in-0 slide-in-from-bottom-4 duration-1000">
+                <Brain className="h-12 w-12 text-white" />
               </div>
               <div className="absolute -inset-4 bg-gradient-to-r from-blue-500/20 to-purple-500/20 rounded-full blur-xl animate-pulse"></div>
             </div>
 
-            {/* Título principal */}
-            <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold mb-6 bg-gradient-to-r from-slate-900 via-blue-900 to-indigo-900 bg-clip-text text-transparent leading-tight animate-in fade-in-0 slide-in-from-bottom-6 duration-1000 delay-200">
+            <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold mb-4 bg-gradient-to-r from-slate-900 via-blue-900 to-indigo-900 bg-clip-text text-transparent leading-tight animate-in fade-in-0 slide-in-from-bottom-6 duration-1000 delay-200">
               FlixPrev I.A
             </h1>
 
-            {/* Subtítulo */}
-            <p className="text-xl sm:text-2xl lg:text-3xl mb-4 text-slate-700 font-medium animate-in fade-in-0 slide-in-from-bottom-8 duration-1000 delay-400">
+            <p className="text-xl sm:text-2xl mb-3 text-slate-700 font-medium animate-in fade-in-0 slide-in-from-bottom-8 duration-1000 delay-400">
               Inteligência Artificial para
             </p>
-            <p className="text-2xl sm:text-3xl lg:text-4xl mb-8 bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent font-bold animate-in fade-in-0 slide-in-from-bottom-10 duration-1000 delay-600">
-              Advocacia Previdenciária
+            <p className="text-2xl sm:text-3xl mb-6 bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent font-bold animate-in fade-in-0 slide-in-from-bottom-10 duration-1000 delay-600">
+              Advocacia Inteligente
             </p>
 
-            {/* Descrição */}
-            <p className="text-lg sm:text-xl mb-12 text-slate-600 leading-relaxed max-w-3xl mx-auto animate-in fade-in-0 slide-in-from-bottom-12 duration-1000 delay-800">
-              Revolucione sua prática jurídica com nossa plataforma de IA especializada em direito previdenciário. 
+            <p className="text-lg sm:text-xl mb-8 text-slate-600 leading-relaxed max-w-3xl mx-auto animate-in fade-in-0 slide-in-from-bottom-12 duration-1000 delay-800">
+              Plataforma de IA especializada em Direito Previdenciário, Trabalhista e Tributário. 
               Automatize análises, otimize processos e maximize seus resultados.
             </p>
+
+            {/* Category tabs no Hero */}
+            <div className="flex flex-wrap justify-center gap-3 mb-8 animate-in fade-in-0 slide-in-from-bottom-14 duration-1000 delay-900">
+              {categories.map((cat) => {
+                const theme = getCategoryTheme(cat.name);
+                const count = agentsCountByCategory.get(cat.id) || 0;
+                const CatIcon = theme.icon;
+                return (
+                  <button
+                    key={cat.id}
+                    onClick={() => {
+                      setActiveTab(activeTab === cat.id ? "all" : cat.id);
+                      document.getElementById("agentes-section")?.scrollIntoView({ behavior: "smooth" });
+                    }}
+                    className={`group flex items-center gap-2 px-5 py-3 rounded-2xl border-2 font-semibold text-sm transition-all duration-300 hover:scale-105 hover:-translate-y-0.5 shadow-sm hover:shadow-lg ${
+                      activeTab === cat.id
+                        ? `${theme.bg} ${theme.border} ${theme.text} shadow-md`
+                        : "bg-white/70 border-slate-200/80 text-slate-600 hover:bg-white"
+                    }`}
+                  >
+                    <CatIcon className="w-4 h-4" />
+                    <span>{cat.name}</span>
+                    <span className={`ml-1 text-xs font-bold px-2 py-0.5 rounded-full ${
+                      activeTab === cat.id ? "bg-white/60" : "bg-slate-100"
+                    }`}>
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
 
             {/* CTA Button */}
             <div className="animate-in fade-in-0 slide-in-from-bottom-14 duration-1000 delay-1000">
@@ -160,7 +208,7 @@ const LandingPage = () => {
             </div>
 
             {/* Badges de confiança */}
-            <div className="mt-16 flex flex-wrap justify-center gap-6 animate-in fade-in-0 slide-in-from-bottom-16 duration-1000 delay-1200">
+            <div className="mt-12 flex flex-wrap justify-center gap-6 animate-in fade-in-0 slide-in-from-bottom-16 duration-1000 delay-1200">
               <div className="flex items-center gap-2 bg-white/60 backdrop-blur-sm px-4 py-2 rounded-full shadow-lg">
                 <Shield className="w-5 h-5 text-green-600" />
                 <span className="text-sm font-medium text-slate-700">100% Seguro</span>
@@ -185,7 +233,7 @@ const LandingPage = () => {
                 Por que escolher o FlixPrev I.A?
               </h2>
               <p className="text-xl text-slate-600 max-w-3xl mx-auto">
-                Nossa plataforma combina tecnologia de ponta com expertise jurídica para transformar sua advocacia previdenciária
+                Nossa plataforma combina tecnologia de ponta com expertise jurídica para transformar sua advocacia
               </p>
             </div>
 
@@ -194,7 +242,7 @@ const LandingPage = () => {
                 {
                   icon: Brain,
                   title: "IA Especializada",
-                  description: "Algoritmos treinados especificamente para direito previdenciário com alta precisão",
+                  description: "Algoritmos treinados especificamente para direito previdenciário, trabalhista e tributário",
                   color: "from-blue-500 to-indigo-600"
                 },
                 {
@@ -240,8 +288,8 @@ const LandingPage = () => {
           </div>
         </section>
 
-        {/* Seção de Agentes Redesenhada */}
-        <section className="py-24 px-4 bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/50 relative overflow-hidden">
+        {/* Seção de Agentes com Tabs por Categoria */}
+        <section id="agentes-section" className="py-24 px-4 bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/50 relative overflow-hidden">
           {/* Elementos decorativos de fundo */}
           <div className="absolute inset-0 overflow-hidden">
             <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-blue-400/20 to-indigo-600/20 rounded-full blur-3xl animate-pulse"></div>
@@ -250,42 +298,54 @@ const LandingPage = () => {
           </div>
 
           <div className="max-w-7xl mx-auto relative z-10">
-            {/* Header da seção melhorado */}
-            <div className="text-center mb-20">
+            {/* Header da seção */}
+            <div className="text-center mb-16">
               <div className="inline-flex items-center gap-3 bg-gradient-to-r from-blue-600/10 to-indigo-600/10 backdrop-blur-sm px-6 py-3 rounded-full border border-indigo-200/50 mb-8">
                 <Sparkles className="h-6 w-6 text-indigo-600" />
                 <span className="text-indigo-700 font-semibold text-sm uppercase tracking-wider">Inteligência Artificial</span>
               </div>
               
-              <h2 className="text-5xl sm:text-6xl lg:text-7xl font-bold mb-8 leading-tight">
+              <h2 className="text-4xl sm:text-5xl font-bold mb-6 leading-tight">
                 <span className="bg-gradient-to-r from-slate-900 via-blue-900 to-indigo-900 bg-clip-text text-transparent">
-                  Nossos Assistentes
-                </span>
-                <br />
-                <span className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 bg-clip-text text-transparent">
-                  Inteligentes
+                  Nossos Especialistas
                 </span>
               </h2>
               
-              <p className="text-xl sm:text-2xl text-slate-600 max-w-4xl mx-auto leading-relaxed">
-                Assistentes de IA especializados, treinados com milhares de casos reais para 
-                <span className="text-indigo-600 font-semibold"> revolucionar sua advocacia</span>
+              <p className="text-xl text-slate-600 max-w-4xl mx-auto leading-relaxed mb-10">
+                Assistentes de IA especializados em diversas áreas do Direito
               </p>
 
-              {/* Estatísticas impressionantes */}
-              <div className="flex flex-wrap justify-center gap-8 mt-12">
-                <div className="text-center">
-                  <div className="text-3xl font-bold text-indigo-600">98%</div>
-                  <div className="text-sm text-slate-500 uppercase tracking-wide">Precisão</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-3xl font-bold text-indigo-600">24/7</div>
-                  <div className="text-sm text-slate-500 uppercase tracking-wide">Disponível</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-3xl font-bold text-purple-600">+1000</div>
-                  <div className="text-sm text-slate-500 uppercase tracking-wide">Casos Analisados</div>
-                </div>
+              {/* Tabs de Categoria */}
+              <div className="flex flex-wrap justify-center gap-3">
+                <button
+                  onClick={() => setActiveTab("all")}
+                  className={`px-5 py-2.5 rounded-xl font-semibold text-sm transition-all duration-300 border-2 ${
+                    activeTab === "all"
+                      ? "bg-slate-900 text-white border-slate-900 shadow-lg"
+                      : "bg-white/70 text-slate-600 border-slate-200 hover:bg-white hover:border-slate-300"
+                  }`}
+                >
+                  Todos ({agents.length})
+                </button>
+                {categories.map((cat) => {
+                  const theme = getCategoryTheme(cat.name);
+                  const count = agentsCountByCategory.get(cat.id) || 0;
+                  const CatIcon = theme.icon;
+                  return (
+                    <button
+                      key={cat.id}
+                      onClick={() => setActiveTab(cat.id)}
+                      className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm transition-all duration-300 border-2 ${
+                        activeTab === cat.id
+                          ? `${theme.bg} ${theme.border} ${theme.text} shadow-md`
+                          : "bg-white/70 text-slate-600 border-slate-200 hover:bg-white hover:border-slate-300"
+                      }`}
+                    >
+                      <CatIcon className="w-4 h-4" />
+                      {cat.name} ({count})
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
@@ -296,88 +356,45 @@ const LandingPage = () => {
                   <div className="animate-spin rounded-full h-20 w-20 border-4 border-indigo-600 border-t-transparent absolute top-0 left-0"></div>
                 </div>
               </div>
-            ) : agents.length === 0 ? (
-              <div className="text-center py-20">
-                <div className="relative inline-block mb-8">
-                  <div className="w-32 h-32 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-3xl flex items-center justify-center shadow-2xl">
-                    <Bot className="w-16 h-16 text-white" />
-                  </div>
-                  <div className="absolute -top-2 -right-2 w-8 h-8 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full flex items-center justify-center">
-                    <Zap className="w-4 h-4 text-white" />
-                  </div>
-                </div>
-                <h3 className="text-3xl font-bold text-slate-900 mb-4">Assistentes em Preparação</h3>
-                <p className="text-xl text-slate-600 mb-2">Nossos especialistas estão finalizando o treinamento</p>
-                <p className="text-slate-500 mb-8">Em breve, você terá acesso aos assistentes mais avançados do mercado</p>
-                <Link to="/login" className="inline-block">
-                  <Button className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold px-10 py-4 rounded-2xl shadow-xl transform transition-all hover:scale-105 hover:-translate-y-1 text-lg">
-                    <span className="flex items-center gap-3">
-                      <Rocket className="w-5 h-5" />
-                      Ser Notificado do Lançamento
-                    </span>
-                  </Button>
-                </Link>
+            ) : visibleAgents.length === 0 ? (
+              <div className="text-center py-16">
+                <Bot className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+                <h3 className="text-2xl font-bold text-slate-900 mb-2">Nenhum especialista nesta categoria</h3>
+                <p className="text-slate-500">Selecione outra categoria para ver os agentes disponíveis.</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
-                {agents.map((agent, index) => {
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {visibleAgents.map((agent) => {
                   const IconComponent = getLucideIcon(agent.icon);
-                  const gradients = [
-                    "from-blue-500 to-indigo-600",
-                    "from-purple-500 to-pink-600", 
-                    "from-green-500 to-emerald-600",
-                    "from-orange-500 to-red-600",
-                    "from-cyan-500 to-blue-600",
-                    "from-violet-500 to-purple-600"
-                  ];
-                  const gradient = gradients[index % gradients.length];
+                  // Determinar cor do card pela categoria  
+                  const agentCat = categories.find(c => (agent.category_ids || []).includes(c.id));
+                  const theme = agentCat ? getCategoryTheme(agentCat.name) : { gradient: "from-indigo-500 to-blue-600" };
                   
                   return (
-                    <Card key={agent.id} className="group p-8 bg-white/90 backdrop-blur-sm border-0 shadow-xl hover:shadow-2xl transition-all duration-700 hover:-translate-y-4 rounded-3xl overflow-hidden relative flex flex-col h-full">
-                      {/* Background gradient animado mais sutil */}
-                      <div className={`absolute inset-0 bg-gradient-to-br ${gradient.replace('500', '500/5').replace('600', '600/5')} opacity-0 group-hover:opacity-100 transition-opacity duration-700`}></div>
-                      
-                      {/* Badge de status */}
-                      <div className="absolute top-4 right-4 bg-gradient-to-r from-green-500 to-emerald-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">
-                        <span className="flex items-center gap-1">
-                          <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
-                          ATIVO
-                        </span>
-                      </div>
-                      
+                    <Card key={agent.id} className="group p-6 bg-white/90 backdrop-blur-sm border border-slate-200/80 shadow-md hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 rounded-2xl overflow-hidden relative flex flex-col h-full">
                       <div className="relative z-10 flex flex-col h-full">
-                        {/* Ícone melhorado */}
-                        <div className={`w-24 h-24 bg-gradient-to-br ${gradient} rounded-3xl flex items-center justify-center mb-8 group-hover:scale-110 group-hover:rotate-3 transition-all duration-500 shadow-2xl`}>
-                          <IconComponent className="h-12 w-12 text-white" />
+                        <div className={`w-14 h-14 bg-gradient-to-br ${theme.gradient} rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-all duration-300 shadow-lg`}>
+                          <IconComponent className="h-7 w-7 text-white" />
                         </div>
                         
-                        {/* Título com animação */}
-                        <CardTitle className="text-2xl font-bold mb-4 text-slate-900 group-hover:text-indigo-900 transition-colors duration-300">
+                        <CardTitle className="text-lg font-bold mb-2 text-slate-900 group-hover:text-indigo-900 transition-colors duration-300 line-clamp-1">
                           {agent.title}
                         </CardTitle>
                         
-                        {/* Descrição melhorada - flex-grow para ocupar espaço disponível */}
-                        <CardDescription className="text-slate-600 leading-relaxed text-base mb-8 group-hover:text-slate-700 transition-colors duration-300 flex-grow">
+                        <CardDescription className="text-slate-500 leading-relaxed text-sm mb-4 line-clamp-2 flex-grow">
                           {agent.description}
                         </CardDescription>
-                        
-                        {/* Container fixo no final do card */}
-                        <div className="mt-auto">
-                          {/* Indicadores de capacidade */}
-                          <div className="flex items-center justify-between text-sm text-slate-500 mb-6">
-                            <div className="flex items-center gap-2">
-                              <Zap className="w-4 h-4 text-yellow-500" />
-                              <span>Resposta Instantânea</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <Shield className="w-4 h-4 text-green-500" />
-                              <span>100% Seguro</span>
-                            </div>
-                          </div>
 
-                          {/* Barra de progresso decorativa */}
-                          <div className="w-full bg-slate-200 rounded-full h-2 mb-6 overflow-hidden">
-                            <div className={`h-full bg-gradient-to-r ${gradient} rounded-full transition-all duration-1000 group-hover:w-full`} style={{width: '85%'}}></div>
+                        <div className="mt-auto pt-3 border-t border-slate-100">
+                          <div className="flex items-center justify-between text-xs text-slate-400">
+                            <span className="flex items-center gap-1">
+                              <Zap className="w-3 h-3 text-yellow-500" />
+                              Instantâneo
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                              Ativo
+                            </span>
                           </div>
                         </div>
                       </div>

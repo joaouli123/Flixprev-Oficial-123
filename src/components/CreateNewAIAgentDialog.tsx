@@ -32,7 +32,9 @@ import {
   Code,
   Upload,
   X,
-  File
+  File,
+  Link2,
+  Plus
 } from "lucide-react";
 import { Agent, Category } from "@/types/app";
 
@@ -81,6 +83,10 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
   const [icon, setIcon] = useState("Bot");
   const [backgroundIcon, setBackgroundIcon] = useState("Bot");
   const [selectedCategory, setSelectedCategory] = useState("");
+  const [link, setLink] = useState("");
+  const [extraLinks, setExtraLinks] = useState<{label: string; url: string}[]>([]);
+  const [newLinkLabel, setNewLinkLabel] = useState("");
+  const [newLinkUrl, setNewLinkUrl] = useState("");
   const [files, setFiles] = useState<File[]>([]);
   const [savedAttachments, setSavedAttachments] = useState<string[]>([]);
   const [shortcuts, setShortcuts] = useState<string[]>(["Resumir docs", "Extrair cláusulas", "Analisar risco", "Dúvidas"]);
@@ -98,6 +104,8 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
       setInstructions(agentToEdit.instructions || "");
       setIcon(agentToEdit.icon);
       setBackgroundIcon(agentToEdit.background_icon || agentToEdit.icon || "Bot");
+      setLink(agentToEdit.link || "");
+      setExtraLinks((agentToEdit as any).extra_links || []);
       // Ensure selectedCategory is set correctly from category_ids
       const catId = agentToEdit.category_ids && agentToEdit.category_ids.length > 0 ? String(agentToEdit.category_ids[0]) : "";
       console.log("Editando agente - IDs de categoria:", agentToEdit.category_ids, "Selecionado:", catId);
@@ -129,6 +137,10 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
       setIcon("Bot");
       setBackgroundIcon("Bot");
       setSelectedCategory("");
+      setLink("");
+      setExtraLinks([]);
+      setNewLinkLabel("");
+      setNewLinkUrl("");
       setFiles([]);
       setSavedAttachments([]);
       setShortcuts(["Resumir docs", "Extrair cláusulas", "Analisar risco", "Dúvidas"]);
@@ -204,7 +216,9 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
         icon,
         background_icon: backgroundIcon,
         category_ids: categoryArray as string[],
-        shortcuts: shortcuts, // Sempre enviar os shortcuts atuais
+        link: link.trim() || undefined,
+        extra_links: extraLinks.length > 0 ? extraLinks : undefined,
+        shortcuts: shortcuts,
         instructions: instructions.trim() || undefined,
         attachments: uploadedPaths,
       } as any;
@@ -227,6 +241,10 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
       setIcon("Bot");
       setBackgroundIcon("Bot");
       setSelectedCategory("");
+      setLink("");
+      setExtraLinks([]);
+      setNewLinkLabel("");
+      setNewLinkUrl("");
       setFiles([]);
       setSavedAttachments([]);
       setShortcuts(["Resumir docs", "Extrair cláusulas", "Analisar risco", "Dúvidas"]);
@@ -258,6 +276,33 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
         <div className="flex flex-col md:flex-row h-[70vh]">
           {/* Left Column - Form */}
           <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-5 border-r border-slate-100">
+            {/* CATEGORIA - posição de destaque */}
+            <div className="space-y-2 bg-indigo-50/50 border border-indigo-100 rounded-xl p-4">
+              <Label className="text-sm font-medium text-indigo-700 flex items-center gap-2">
+                <Layers className="h-4 w-4 text-indigo-500" />
+                Categoria <span className="text-red-500">*</span>
+              </Label>
+              <p className="text-xs text-slate-500 mb-2">Selecione a categoria jurídica deste agente.</p>
+              <Select 
+                value={selectedCategory || "none"} 
+                onValueChange={(val) => setSelectedCategory(val === "none" ? "" : val)}
+              >
+                <SelectTrigger className="w-full border-indigo-200 bg-white focus:ring-indigo-500/20 focus:border-indigo-500">
+                  <SelectValue placeholder="Selecione a categoria">
+                    {categories.find(c => String(c.id) === String(selectedCategory))?.name || "Selecione a categoria"}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Sem categoria</SelectItem>
+                  {categories.map((cat) => (
+                    <SelectItem key={cat.id} value={String(cat.id)}>
+                      {cat.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="title" className="text-sm font-medium text-slate-700">Nome do Agente <span className="text-red-500">*</span></Label>
               <Input
@@ -335,30 +380,69 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
               </div>
             </div>
 
+            {/* Link principal */}
+            <div className="space-y-2">
+              <Label htmlFor="link" className="text-sm font-medium text-slate-700 flex items-center gap-2">
+                <Link2 className="h-4 w-4 text-indigo-500" />
+                Link Externo (opcional)
+              </Label>
+              <Input
+                id="link"
+                type="url"
+                placeholder="https://exemplo.com/recurso"
+                value={link}
+                onChange={(e) => setLink(e.target.value)}
+                className="w-full transition-all border-slate-200 focus:border-indigo-500 focus:ring-indigo-500/20"
+              />
+              <p className="text-xs text-slate-400">Se preenchido, o card do agente abrirá este link ao invés do chat.</p>
+            </div>
+
+            {/* Links extras */}
             <div className="space-y-2">
               <Label className="text-sm font-medium text-slate-700 flex items-center gap-2">
-                <Layers className="h-4 w-4 text-indigo-500" />
-                Marca / Base de Conhecimento <span className="text-red-500">*</span>
+                <Globe className="h-4 w-4 text-indigo-500" />
+                Links Adicionais
               </Label>
-              <p className="text-xs text-slate-500 mb-2">Selecione a marca para que o agente responda APENAS com os documentos dessa marca.</p>
-              <Select 
-                value={selectedCategory || "none"} 
-                onValueChange={(val) => setSelectedCategory(val === "none" ? "" : val)}
-              >
-                <SelectTrigger className="w-full border-slate-200 focus:ring-indigo-500/20 focus:border-indigo-500">
-                  <SelectValue placeholder="Todas as marcas (sem filtro)">
-                    {categories.find(c => String(c.id) === String(selectedCategory))?.name || "Todas as marcas (sem filtro)"}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Todas as marcas (sem filtro)</SelectItem>
-                  {categories.map((cat) => (
-                    <SelectItem key={cat.id} value={String(cat.id)}>
-                      {cat.name}
-                    </SelectItem>
+              {extraLinks.length > 0 && (
+                <div className="flex flex-col gap-1.5 mb-2">
+                  {extraLinks.map((el, idx) => (
+                    <div key={idx} className="flex items-center gap-1.5 bg-indigo-50 border border-indigo-100 rounded-lg px-3 py-1.5 text-xs">
+                      <Link2 className="h-3 w-3 text-indigo-500 flex-shrink-0" />
+                      <span className="font-medium text-indigo-800 truncate">{el.label}</span>
+                      <span className="text-indigo-400 truncate flex-1">{el.url}</span>
+                      <button type="button" onClick={() => setExtraLinks(p => p.filter((_, i) => i !== idx))} className="ml-1 hover:text-red-600 text-indigo-400"><X className="h-3 w-3" /></button>
+                    </div>
                   ))}
-                </SelectContent>
-              </Select>
+                </div>
+              )}
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Nome do link"
+                  value={newLinkLabel}
+                  onChange={(e) => setNewLinkLabel(e.target.value)}
+                  className="text-sm flex-1 border-slate-200 focus:ring-indigo-500/20 focus:border-indigo-500"
+                />
+                <Input
+                  placeholder="https://..."
+                  value={newLinkUrl}
+                  onChange={(e) => setNewLinkUrl(e.target.value)}
+                  className="text-sm flex-1 border-slate-200 focus:ring-indigo-500/20 focus:border-indigo-500"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  disabled={!newLinkLabel.trim() || !newLinkUrl.trim()}
+                  onClick={() => {
+                    setExtraLinks(p => [...p, { label: newLinkLabel.trim(), url: newLinkUrl.trim() }]);
+                    setNewLinkLabel("");
+                    setNewLinkUrl("");
+                  }}
+                  className="h-9 w-9 flex-shrink-0"
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
 
             <div className="space-y-2 pt-4 border-t border-slate-100">
