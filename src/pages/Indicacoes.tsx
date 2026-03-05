@@ -37,6 +37,7 @@ const money = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL
 const Indicacoes: React.FC = () => {
   const { session, user } = useSession();
   const navigate = useNavigate();
+  const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || "").trim().replace(/\/$/, "");
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<ReferralResponse | null>(null);
 
@@ -55,7 +56,7 @@ const Indicacoes: React.FC = () => {
 
       setLoading(true);
       try {
-        const response = await fetch("/api/referrals/me", {
+        const response = await fetch(`${apiBaseUrl}/api/referrals/me`, {
           headers: {
             "Content-Type": "application/json",
             "x-user-id": user.id,
@@ -83,7 +84,7 @@ const Indicacoes: React.FC = () => {
     };
 
     load();
-  }, [user?.id]);
+  }, [user?.id, apiBaseUrl]);
 
   const summary = useMemo(() => {
     return (

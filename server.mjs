@@ -1571,6 +1571,149 @@ app.post('/api/login', async (req, res) => {
   return res.status(401).json({ error: 'Email ou senha incorretos' });
 });
 
+function normalizeReferralCode(raw) {
+  return String(raw || '').toUpperCase().replace(/[^A-Z0-9]/g, '').trim();
+}
+
+function makeReferralCode(userId) {
+  const base = normalizeReferralCode(userId).slice(0, 6);
+  const rand = Math.random().toString(36).toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4);
+  return `${base}${rand}`.slice(0, 10) || rand || 'INDICADO';
+}
+
+async function ensureReferralSchema() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS referral_codes (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      user_id TEXT NOT NULL UNIQUE,
+      code TEXT NOT NULL UNIQUE,
+      is_active BOOLEAN NOT NULL DEFAULT true,
+      created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS referral_histories (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      referrer_user_id TEXT NOT NULL,
+      referred_user_id TEXT,
+      referral_code TEXT NOT NULL,
+      referred_email TEXT,
+      plan TEXT,
+      status TEXT NOT NULL DEFAULT 'pendente',
+      credit_units INTEGER NOT NULL DEFAULT 0,
+      valor_compra NUMERIC(12,2) NOT NULL DEFAULT 0,
+      comissao_percent NUMERIC(5,2) NOT NULL DEFAULT 0,
+      comissao_valor NUMERIC(12,2) NOT NULL DEFAULT 0,
+      provider TEXT,
+      event_id TEXT,
+      created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+    )
+  `);
+}
+
+async function ensureReferralCodeForUser(userId) {
+  const existing = await pool.query(
+    'SELECT code FROM referral_codes WHERE user_id = $1 LIMIT 1',
+    [userId]
+  );
+
+  if (existing.rows[0]?.code) {
+    return existing.rows[0].code;
+  }
+
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const generated = makeReferralCode(userId);
+    const inserted = await pool.query(
+      `INSERT INTO referral_codes (user_id, code, is_active)
+       VALUES ($1, $2, true)
+       ON CONFLICT (user_id) DO UPDATE SET updated_at = NOW()
+       RETURNING code`,
+      [userId, generated]
+    );
+    if (inserted.rows[0]?.code) {
+      return inserted.rows[0].code;
+    }
+  }
+
+  const fallback = await pool.query('SELECT code FROM referral_codes WHERE user_id = $1 LIMIT 1', [userId]);
+  return fallback.rows[0]?.code || makeReferralCode(userId);
+}
+
+app.get('/api/referrals/me', async (req, res) => {
+  try {
+    const userId = String(req.header('x-user-id') || '').trim();
+    if (!userId) {
+      return res.status(401).json({ error: 'Usuário não autenticado' });
+    }
+
+    await ensureReferralSchema();
+    const code = await ensureReferralCodeForUser(userId);
+
+    const summaryResult = await pool.query(
+      `
+      SELECT
+        COUNT(*)::int AS total_indicacoes,
+        COALESCE(SUM(credit_units), 0)::int AS total_creditos,
+        COALESCE(SUM(comissao_valor), 0)::numeric(12,2) AS total_comissao
+      FROM referral_histories
+      WHERE referrer_user_id = $1
+        AND status = 'confirmado'
+      `,
+      [userId]
+    );
+
+    const historyResult = await pool.query(
+      `
+      SELECT
+        rh.id,
+        rh.referral_code,
+        rh.referred_user_id,
+        rh.referred_email,
+        rh.plan,
+        rh.status,
+        rh.credit_units,
+        rh.valor_compra,
+        rh.comissao_percent,
+        rh.comissao_valor,
+        rh.created_at,
+        COALESCE(NULLIF(u.nome_completo, ''), NULLIF(u.email, ''), rh.referred_email, 'Usuário indicado') AS indicado_nome
+      FROM referral_histories rh
+      LEFT JOIN usuarios u ON u.user_id = rh.referred_user_id
+      WHERE rh.referrer_user_id = $1
+      ORDER BY rh.created_at DESC
+      LIMIT 200
+      `,
+      [userId]
+    );
+
+    let appUrl = String(process.env.APP_BASE_URL || '').trim();
+    if (!appUrl) {
+      appUrl = `${req.protocol}://${req.get('host')}`;
+    }
+    if (!/^https?:\/\//i.test(appUrl)) {
+      appUrl = `https://${appUrl}`;
+    }
+    const referralUrl = `${appUrl.replace(/\/$/, '')}/?ref=${encodeURIComponent(code)}`;
+
+    return res.json({
+      code,
+      referral_url: referralUrl,
+      summary: summaryResult.rows[0] || {
+        total_indicacoes: 0,
+        total_creditos: 0,
+        total_comissao: 0,
+      },
+      history: historyResult.rows || [],
+    });
+  } catch (error) {
+    console.error('[REFERRALS] /api/referrals/me error:', error);
+    return res.status(500).json({ error: error.message || 'Erro ao carregar indicações' });
+  }
+});
+
 app.get('/api/agents', async (req, res) => {
   try {
     const result = await pool.query('SELECT id, title, description, link, category_ids, created_at, icon, user_id FROM "agents" ORDER BY created_at DESC');

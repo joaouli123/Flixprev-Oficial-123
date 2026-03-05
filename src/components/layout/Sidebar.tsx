@@ -5,7 +5,7 @@ import { Category, CustomLink } from "@/types/app";
 import { cn } from "@/lib/utils";
 import { useSession } from "@/components/SessionContextProvider";
 import { useNavigate, useLocation } from "react-router-dom";
-import { neon as supabase } from '@/lib/neon';
+import { logout } from "@/lib/auth";
 import { toast } from "sonner";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -56,16 +56,11 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   const handleLogout = async () => {
     try {
-      const { error } = await supabase.auth.signOut({ scope: 'local' });
-      if (error) {
-        toast.error("Erro ao sair: " + error.message);
-      } else {
-        toast.success("Você saiu com sucesso!");
-        navigate("/login");
-      }
-    } catch (err) {
+      await logout();
       toast.success("Você saiu com sucesso!");
       navigate("/login");
+    } catch {
+      toast.error("Erro ao sair da conta.");
     }
   };
 

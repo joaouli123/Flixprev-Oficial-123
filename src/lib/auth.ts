@@ -112,7 +112,14 @@ export function getSession() {
   }
 }
 
-export function logout() {
+export async function logout() {
+  try {
+    await supabaseAuth.auth.signOut({ scope: 'local' });
+  } catch {
+    // Ignora falha de signOut remoto e limpa sessão local mesmo assim
+  }
+
   localStorage.removeItem('user');
   localStorage.removeItem('sessionToken');
+  document.dispatchEvent(new Event('localStorageChanged'));
 }

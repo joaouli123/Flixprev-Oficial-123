@@ -3,7 +3,7 @@ import { useSession } from "@/components/SessionContextProvider";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { neon, supabaseAuth } from "@/lib/neon"
+import { supabaseAuth } from "@/lib/neon"
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Lock } from "lucide-react";
@@ -101,18 +101,6 @@ const Settings: React.FC = () => {
     setIsSavingProfile(true);
 
     const trimmedFullName = fullName.trim();
-    const { firstName, lastName } = splitFullName(trimmedFullName);
-
-    const { error: updateError } = await neon
-      .from('profiles')
-      .update({
-        first_name: firstName,
-        last_name: lastName,
-        avatar_url: avatarPreviewUrl,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', session.user.id)
-      .execute();
 
     const { error: usuariosError } = await supabaseAuth
       .from('usuarios')
@@ -127,9 +115,9 @@ const Settings: React.FC = () => {
         { onConflict: 'user_id' }
       );
 
-    if (updateError || usuariosError) {
-      toast.error("Erro ao salvar perfil: " + (updateError?.message || usuariosError?.message || "falha desconhecida"));
-      console.error("Erro ao salvar perfil:", updateError || usuariosError);
+    if (usuariosError) {
+      toast.error("Erro ao salvar perfil: " + (usuariosError?.message || "falha desconhecida"));
+      console.error("Erro ao salvar perfil:", usuariosError);
     } else {
       toast.success("Configurações atualizadas com sucesso!");
       setAvatarFile(null);

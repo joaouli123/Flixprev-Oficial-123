@@ -72,7 +72,7 @@ const Header: React.FC<HeaderProps> = ({
   };
 
   const handleLogout = async () => {
-    logout();
+    await logout();
     toast.success("Você saiu com sucesso!");
     navigate("/login");
   };
