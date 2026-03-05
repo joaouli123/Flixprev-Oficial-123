@@ -98,7 +98,8 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
     }
   }, [user, navigate, location.pathname]);
 
-  const isAdmin = user?.role === 'admin';
+  const userRole = String(user?.role || '').trim().toLowerCase();
+  const isAdmin = userRole === 'admin';
 
   if (loading) {
     return (

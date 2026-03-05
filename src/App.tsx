@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { SessionContextProvider } from "./components/SessionContextProvider";
 import { AppSettingsProvider } from "./components/AppSettingsProvider";
+import AdminRoute from "./components/AdminRoute";
 
 // Lazy load pages for code splitting
 const LandingPage = lazy(() => import("./pages/LandingPage"));
@@ -73,24 +74,24 @@ const App = () => (
                 <Route index element={<AgentsView />} />
                 <Route path="settings" element={<Settings />} />
                 <Route path="profile" element={<ProfilePage />} />
-                <Route path="admin" element={<AdminDashboard />} />
-                <Route path="users" element={<UserManagement />} />
-                <Route path="finance" element={<Financeiro />} />
-                <Route path="ai-logs" element={<AILogs />} />
+                <Route path="admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
+                <Route path="users" element={<AdminRoute><UserManagement /></AdminRoute>} />
+                <Route path="finance" element={<AdminRoute><Financeiro /></AdminRoute>} />
+                <Route path="ai-logs" element={<AdminRoute><AILogs /></AdminRoute>} />
                 <Route path="indications" element={<Indicacoes />} />
-                <Route path="tutorials" element={<TutorialManagement />} />
+                <Route path="tutorials" element={<AdminRoute><TutorialManagement /></AdminRoute>} />
                 <Route path="how-to-use" element={<HowToUse />} />
                 <Route path="chat/:agentId/:conversationId?" element={<ChatPage />} />
                 <Route path="agente/:agentSlug/:conversationId?" element={<ChatPage />} />
                 <Route path="categorias/:categorySlug" element={<AgentsView />} />
                 <Route path="configuracoes" element={<Settings />} />
                 <Route path="perfil" element={<ProfilePage />} />
-                <Route path="administracao" element={<AdminDashboard />} />
-                <Route path="usuarios" element={<UserManagement />} />
-                <Route path="financeiro" element={<Financeiro />} />
-                <Route path="logs-ia" element={<AILogs />} />
+                <Route path="administracao" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
+                <Route path="usuarios" element={<AdminRoute><UserManagement /></AdminRoute>} />
+                <Route path="financeiro" element={<AdminRoute><Financeiro /></AdminRoute>} />
+                <Route path="logs-ia" element={<AdminRoute><AILogs /></AdminRoute>} />
                 <Route path="indicacoes" element={<Indicacoes />} />
-                <Route path="tutoriais" element={<TutorialManagement />} />
+                <Route path="tutoriais" element={<AdminRoute><TutorialManagement /></AdminRoute>} />
                 <Route path="como-usar" element={<HowToUse />} />
               </Route>
 
