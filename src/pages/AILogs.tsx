@@ -166,53 +166,89 @@ const AILogs: React.FC = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card className="overflow-hidden border-gray-200/60 bg-white/80 backdrop-blur-sm shadow-sm">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold text-indigo-800 flex items-center gap-2"><Sigma className="h-4 w-4" />TOKENS HOJE</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 bg-indigo-50/50 border-b border-indigo-100/50">
+            <CardTitle className="text-sm font-semibold text-indigo-800">Tokens Hoje</CardTitle>
+            <div className="p-2 bg-indigo-100 rounded-lg">
+              <Sigma className="h-4 w-4 text-indigo-600" />
+            </div>
           </CardHeader>
-          <CardContent><div className="text-5xl font-bold text-indigo-600">{summary.tokens_today}</div></CardContent>
+          <CardContent className="pt-6">
+            <div className="text-3xl font-bold text-gray-900">{summary.tokens_today}</div>
+            <p className="text-sm text-gray-500 mt-1 font-medium">Consumo no dia</p>
+          </CardContent>
         </Card>
 
         <Card className="overflow-hidden border-gray-200/60 bg-white/80 backdrop-blur-sm shadow-sm">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold text-emerald-800 flex items-center gap-2"><DollarSign className="h-4 w-4" />CUSTO HOJE</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 bg-emerald-50/50 border-b border-emerald-100/50">
+            <CardTitle className="text-sm font-semibold text-emerald-800">Custo Hoje</CardTitle>
+            <div className="p-2 bg-emerald-100 rounded-lg">
+              <DollarSign className="h-4 w-4 text-emerald-600" />
+            </div>
           </CardHeader>
-          <CardContent><div className="text-5xl font-bold text-emerald-600">{formatUsd(summary.cost_today)}</div></CardContent>
+          <CardContent className="pt-6">
+            <div className="text-3xl font-bold text-gray-900">{formatUsd(summary.cost_today)}</div>
+            <p className="text-sm text-gray-500 mt-1 font-medium">Valor no dia</p>
+          </CardContent>
         </Card>
 
         <Card className="overflow-hidden border-gray-200/60 bg-white/80 backdrop-blur-sm shadow-sm">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold text-blue-800 flex items-center gap-2"><Activity className="h-4 w-4" />REQUESTS</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 bg-blue-50/50 border-b border-blue-100/50">
+            <CardTitle className="text-sm font-semibold text-blue-800">Requests</CardTitle>
+            <div className="p-2 bg-blue-100 rounded-lg">
+              <Activity className="h-4 w-4 text-blue-600" />
+            </div>
           </CardHeader>
-          <CardContent><div className="text-5xl font-bold text-blue-600">{summary.requests}</div></CardContent>
+          <CardContent className="pt-6">
+            <div className="text-3xl font-bold text-gray-900">{summary.requests}</div>
+            <p className="text-sm text-gray-500 mt-1 font-medium">No período selecionado</p>
+          </CardContent>
         </Card>
 
         <Card className="overflow-hidden border-gray-200/60 bg-white/80 backdrop-blur-sm shadow-sm">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold text-red-800 flex items-center gap-2"><AlertCircle className="h-4 w-4" />TAXA ERRO</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 bg-red-50/50 border-b border-red-100/50">
+            <CardTitle className="text-sm font-semibold text-red-800">Taxa de Erro</CardTitle>
+            <div className="p-2 bg-red-100 rounded-lg">
+              <AlertCircle className="h-4 w-4 text-red-600" />
+            </div>
           </CardHeader>
-          <CardContent><div className="text-5xl font-bold text-red-600">{summary.error_rate}%</div></CardContent>
+          <CardContent className="pt-6">
+            <div className="text-3xl font-bold text-gray-900">{summary.error_rate}%</div>
+            <p className="text-sm text-gray-500 mt-1 font-medium">Falhas no período</p>
+          </CardContent>
         </Card>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Card className="overflow-hidden border-none bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-sm">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold flex items-center gap-2"><Zap className="h-4 w-4" />TOKENS ESTE MÊS</CardTitle>
+        <Card className="overflow-hidden border-gray-200/60 bg-white/80 backdrop-blur-sm shadow-sm">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 bg-violet-50/50 border-b border-violet-100/50">
+            <CardTitle className="text-sm font-semibold text-violet-800">Tokens Este Mês</CardTitle>
+            <div className="p-2 bg-violet-100 rounded-lg">
+              <Zap className="h-4 w-4 text-violet-600" />
+            </div>
           </CardHeader>
-          <CardContent><div className="text-5xl font-bold">{summary.tokens_month}</div></CardContent>
+          <CardContent className="pt-6">
+            <div className="text-3xl font-bold text-gray-900">{summary.tokens_month}</div>
+            <p className="text-sm text-gray-500 mt-1 font-medium">Acumulado mensal</p>
+          </CardContent>
         </Card>
 
-        <Card className="overflow-hidden border-none bg-gradient-to-r from-emerald-600 to-green-600 text-white shadow-sm">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold flex items-center gap-2"><DollarSign className="h-4 w-4" />CUSTO ESTE MÊS</CardTitle>
+        <Card className="overflow-hidden border-gray-200/60 bg-white/80 backdrop-blur-sm shadow-sm">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 bg-green-50/50 border-b border-green-100/50">
+            <CardTitle className="text-sm font-semibold text-green-800">Custo Este Mês</CardTitle>
+            <div className="p-2 bg-green-100 rounded-lg">
+              <DollarSign className="h-4 w-4 text-green-600" />
+            </div>
           </CardHeader>
-          <CardContent><div className="text-5xl font-bold">{formatUsd(summary.cost_month)}</div></CardContent>
+          <CardContent className="pt-6">
+            <div className="text-3xl font-bold text-gray-900">{formatUsd(summary.cost_month)}</div>
+            <p className="text-sm text-gray-500 mt-1 font-medium">Acumulado mensal</p>
+          </CardContent>
         </Card>
       </div>
 
       <Card className="border-gray-200/60 bg-white/80 backdrop-blur-sm shadow-sm">
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-3xl font-bold text-gray-900">Histórico de Requisições</CardTitle>
+          <CardTitle className="text-xl font-bold text-gray-900">Histórico de Requisições</CardTitle>
           <span className="text-slate-400 text-sm">{data?.requests?.length || 0} logs</span>
         </CardHeader>
         <CardContent>
