@@ -32,6 +32,12 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import { makeAgentRouteKey, toSlug } from "@/lib/slug";
 
+function isVisibleAgent(agent: Agent) {
+  const description = String(agent.description || "").trim();
+
+  return !/gerado a partir do PDF mestre de agentes/i.test(description);
+}
+
 const AppLayout = () => {
   const { session, isAdmin, profile } = useSession();
   const userId = session?.user?.id;
@@ -132,23 +138,32 @@ const AppLayout = () => {
   useEffect(() => {
     const slugFromPath = location.pathname.startsWith('/app/categorias/') ? (categorySlug || null) : null;
     const slugFromQuery = searchParams.get('categoria');
-    const requestedSlug = slugFromPath || slugFromQuery;
+    const requestedSlug = slugFromQuery || slugFromPath;
+    const isAgentsListingRoute = location.pathname === '/app' || location.pathname.startsWith('/app/categorias/');
 
     if (!requestedSlug) {
-      if (selectedCategory !== 'all') setSelectedCategory('all');
+      if (!isAgentsListingRoute && selectedCategory !== 'all') {
+        setSelectedCategory('all');
+      }
       return;
     }
 
     const matchedCategory = categories.find((cat) => toSlug(cat.name) === requestedSlug);
     if (!matchedCategory) {
-      if (selectedCategory !== 'all') setSelectedCategory('all');
+      if (selectedCategory !== 'all') {
+        setSelectedCategory('all');
+      }
       return;
     }
 
     if (selectedCategory !== matchedCategory.id) {
       setSelectedCategory(matchedCategory.id);
     }
-  }, [categories, categorySlug, location.pathname, searchParams, selectedCategory]);
+
+    if (slugFromPath && location.pathname !== '/app') {
+      navigate(`/app?categoria=${encodeURIComponent(requestedSlug)}`, { replace: true });
+    }
+  }, [categories, categorySlug, location.pathname, navigate, searchParams, selectedCategory]);
 
   const handleAddCategory = async (name: string) => {
     if (!userId) {
@@ -524,18 +539,28 @@ const AppLayout = () => {
 
   const handleSelectCategory = (categoryId: string) => {
     setSelectedCategory(categoryId);
+    setSearchTerm("");
+
     if (categoryId === 'all') {
-      navigate('/app');
+      if (location.pathname !== '/app' || searchParams.get('categoria')) {
+        navigate('/app', { replace: true });
+      }
       return;
     }
 
     const category = categories.find((c) => c.id === categoryId);
     if (!category) {
-      navigate('/app');
+      navigate('/app', { replace: true });
       return;
     }
 
-    navigate(`/app/categorias/${toSlug(category.name)}`);
+    const nextSlug = toSlug(category.name);
+    const currentSlug = searchParams.get('categoria');
+    const isLegacyCategoryRoute = location.pathname.startsWith('/app/categorias/');
+
+    if (location.pathname !== '/app' || currentSlug !== nextSlug || isLegacyCategoryRoute) {
+      navigate(`/app?categoria=${encodeURIComponent(nextSlug)}`, { replace: true });
+    }
   };
 
   const handleHowToUse = () => {
@@ -544,7 +569,7 @@ const AppLayout = () => {
 
   const handleGoHome = () => {
     setSelectedCategory("all");
-    navigate("/app");
+    navigate("/app", { replace: true });
   };
 
   // Esta lista inclui "Todos" e é usada para o dropdown da Sidebar
@@ -553,8 +578,13 @@ const AppLayout = () => {
     [categories]
   );
 
+  const visibleAgents = useMemo(
+    () => agents.filter((agent) => isVisibleAgent(agent)),
+    [agents]
+  );
+
   const filteredAgents = useMemo(() => {
-    let currentAgents = agents;
+    let currentAgents = visibleAgents;
     if (selectedCategory !== "all") {
       // Usar comparação flexível (==) para IDs de categoria que podem ser string ou number
       currentAgents = currentAgents.filter((agent) =>
@@ -570,7 +600,7 @@ const AppLayout = () => {
       );
     }
     return currentAgents;
-  }, [agents, selectedCategory, searchTerm]);
+  }, [visibleAgents, selectedCategory, searchTerm]);
 
   const outletContextValue = useMemo(
     () => ({
@@ -579,13 +609,13 @@ const AppLayout = () => {
       onDeleteAgent: confirmDeleteAgent,
       onEditAgent: handleOpenEditAgentDialog,
       categories: categories, // Passar as categorias reais (sem "Todos") para o AgentsView
-      agents,
+      agents: visibleAgents,
       searchTerm,
       onSearchChange: setSearchTerm,
       selectedCategory,
       onSelectCategory: handleSelectCategory,
     }),
-    [filteredAgents, categories, agents, searchTerm, selectedCategory]
+    [filteredAgents, categories, visibleAgents, searchTerm, selectedCategory]
   );
 
   if (loading && userId) {

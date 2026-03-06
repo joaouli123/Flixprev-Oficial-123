@@ -1,0 +1,131 @@
+FONTE: https://www.normaslegais.com.br/legislacao/instrucao-normativa-rfb-2201-2024.htm
+COLETADO_EM: 2026-03-05T20:52:33.207Z
+
+INSTRU��O NORMATIVA RFB N� 2.201, DE 15 DE JULHO DE 2024
+-
+-
+INSTRU��O NORMATIVA RFB N� 2.201, DE 15 DE JULHO DE 2024
+-
+-
+[TABELA]
+|
+|
+[TABELA]
+Tamanho do Texto + | Tamanho do texto -
+INSTRU��O NORMATIVA RFB N� 2.201, DE 15 DE JULHO DE 2024
+DOU 22.07.2024
+Altera a Instru��o Normativa RFB n� 1.700, de 14 de mar�o de 2017, para dispor sobre o tratamento tribut�rio aplic�vel �s perdas no recebimento de cr�ditos decorrentes das atividades das institui��es financeiras e das demais institui��es autorizadas a funcionar pelo Banco Central do Brasil, atualizar as normas de dedutibilidade dos juros sobre o capital pr�prio e dispor sobre a data do Balan�o Patrimonial decorrente de reorganiza��o societ�ria.
+O SECRET�RIO ESPECIAL DA RECEITA FEDERAL DO BRASIL, no uso da atribui��o que lhe confere o art. 350, caput, inciso III, do Regimento Interno da Secretaria Especial da Receita Federal do Brasil, aprovado pela Portaria ME n� 284, de 27 de julho de 2020, e tendo em vista o disposto no art. 9� da Lei n� 9.249, de 26 de dezembro de 1995, e na Lei n� 14.467, de 16 de novembro de 2022, resolve:
+Art. 1� A Instru��o Normativa RFB n� 1.700, de 14 de mar�o de 2017, publicada no DOU de 16 de mar�o de 2017, passa a vigorar com as seguintes altera��es:
+"Art. 74-A. �s perdas incorridas no recebimento de cr�ditos decorrentes das atividades das institui��es financeiras e das demais institui��es autorizadas a funcionar pelo Banco Central do Brasil, aplica-se, a partir de 1� de janeiro de 2025, o disposto nos arts. 74-B a 74-F, hip�tese em que fica afastada a aplica��o dos arts. 71 a 74.
+Par�grafo �nico. O disposto no caput n�o se aplica �s:
+I - administradoras de cons�rcio; e
+II - institui��es de pagamento." (NR)
+"Art. 74-B. A partir de 1� de janeiro de 2025, as institui��es a que se refere o caput do art. 74-A poder�o deduzir, na determina��o do Lucro Real e da base de c�lculo da CSLL , as perdas incorridas no recebimento de cr�ditos decorrentes de atividades relativas a:
+I - opera��es inadimplidas, independentemente da data da sua contrata��o; e
+II - opera��es com pessoa jur�dica em processo falimentar ou em recupera��o judicial, a partir da data da decreta��o da fal�ncia ou da concess�o da recupera��o judicial.
+� 1� Para fins do disposto neste artigo, considera-se inadimplida a opera��o com atraso superior a noventa dias em rela��o ao pagamento do principal ou de encargos.
+� 2� O valor da perda dedut�vel para as opera��es de que trata o inciso I do caput dever� ser apurado mensalmente, limitado ao valor total do cr�dito, com base nas seguintes regras:
+I - aplica��o do fator "A" sobre o valor total do cr�dito a partir do m�s em que a opera��o for considerada inadimplida;
+II - soma ao valor apurado na forma prevista no inciso I deste par�grafo do valor resultante da aplica��o do fator "B" multiplicado pelo n�mero de meses de atraso, contados a partir do m�s em que a opera��o foi considerada inadimplida, sobre o valor total do cr�dito; e
+III - subtra��o do valor apurado na forma prevista no inciso II deste par�grafo dos montantes j� deduzidos em per�odos de apura��o anteriores.
+� 3� O valor da perda dedut�vel para as opera��es de que trata o inciso II do caput ser�:
+I - a parcela do valor do cr�dito que exceder o montante que o devedor tenha se comprometido a pagar no processo de recupera��o judicial; ou
+II - o valor total do cr�dito, na hip�tese de fal�ncia.
+� 4� O tratamento dispensado �s opera��es de que trata o inciso I do caput ser� aplicado �s perdas incorridas no recebimento dos cr�ditos originados ap�s a concess�o da recupera��o judicial e da parcela do cr�dito cujo compromisso de pagar n�o tiver sido cumprido pela pessoa jur�dica em recupera��o judicial.
+� 5� Para fins do disposto neste artigo, entende-se como valor total do cr�dito o valor do principal deduzido das amortiza��es e acrescido dos encargos incidentes reconhecidos contabilmente at� os noventa dias de inadimplemento ou at� a data da decreta��o da fal�ncia ou da concess�o da recupera��o judicial do devedor.
+� 6� A dedu��o de que trata o caput somente poder� ser efetuada no per�odo de apura��o dos tributos correspondentes � apura��o da perda de que tratam os �� 2� e 3�." (NR)
+"Art. 74-C. Ficam estabelecidos os seguintes valores para o fator "A" e para o fator "B" a que se refere o � 2�, incisos I e II, do art. 74-B, respectivamente:
+I - fator "A" igual a 0,055 (cinquenta e cinco mil�simos) e fator "B" igual a 0,045 (quarenta e cinco mil�simos) para:
+a) cr�ditos garantidos por aliena��o fiduci�ria de im�veis; e
+b) cr�ditos com garantia fidejuss�ria da Uni�o, de governos centrais de jurisdi��es estrangeiras, e respectivos bancos centrais, ou de organismos multilaterais e entidades multilaterais de desenvolvimento;
+II - fator "A" igual a 0,30 (trinta cent�simos) e fator "B" igual a 0,034 (trinta e quatro mil�simos) para:
+a) cr�ditos de arrendamento mercantil, nos termos da Lei n� 6.099, de 12 de setembro de 1974;
+b) cr�ditos garantidos por hipoteca de primeiro grau de im�veis residenciais, por penhor de bens m�veis ou im�veis ou por aliena��o fiduci�ria de bens m�veis;
+c) cr�ditos garantidos por dep�sitos � vista, a prazo ou de poupan�a;
+d) cr�ditos decorrentes de ativos financeiros emitidos por ente p�blico federal ou por institui��es autorizadas a funcionar pelo Banco Central do Brasil;
+e) cr�ditos com garantia fidejuss�ria de institui��es autorizadas a funcionar pelo Banco Central do Brasil; e
+f) cr�ditos com cobertura de seguro de cr�dito emitido por entidade que n�o seja parte relacionada da institui��o;
+III - fator "A" igual a 0,45 (quarenta e cinco cent�simos) e fator "B" igual a 0,037 (trinta e sete mil�simos) para:
+a) cr�ditos decorrentes de opera��es de desconto de direitos credit�rios, inclusive receb�veis comerciais adquiridos e opera��es formalizadas como aquisi��o de receb�veis comerciais de pessoa n�o integrante do Sistema Financeiro Nacional, nas quais a mesma pessoa seja devedora solid�ria ou subsidi�ria dos receb�veis;
+b) cr�ditos decorrentes de opera��es garantidas por cess�o fiduci�ria, por cau��o de direitos credit�rios ou por penhor de direitos credit�rios; e
+c) cr�ditos com cobertura de seguro de cr�dito, garantia real ou garantia fidejuss�ria n�o abrangidos pelas hip�teses previstas nos incisos I e II do caput;
+IV - fator "A" igual a 0,35 (trinta e cinco cent�simos) e fator "B" igual a 0,045 (quarenta e cinco mil�simos) para:
+a) cr�ditos para capital de giro, adiantamentos sobre contratos de c�mbio, adiantamentos sobre cambiais entregues, deb�ntures e demais t�tulos emitidos por empresas privadas, sem garantias ou colaterais; e
+b) opera��es de cr�dito rural sem garantias ou colaterais destinadas a investimentos; ou
+V - fator "A" igual a 0,50 (cinquenta cent�simos) e fator "B" igual a 0,034 (trinta e quatro mil�simos) para:
+a) opera��es de cr�dito pessoal, com ou sem consigna��o, cr�dito direto ao consumidor, cr�dito rural n�o abrangido pelas hip�teses previstas no inciso IV do caput e cr�dito na modalidade rotativo sem garantias ou colaterais;
+b) cr�ditos sem garantias ou colaterais n�o abrangidos pelas hip�teses previstas no inciso IV do caput; e
+c) cr�ditos decorrentes de opera��es mercantis e outras opera��es com caracter�sticas de concess�o de cr�dito n�o abrangidos pelas hip�teses previstas nos incisos I, II, III e IV do caput.
+� 1� Na hip�tese de cr�ditos cobertos por mais de uma esp�cie de garantia, ser�o aplicados os valores para os fatores "A" e "B" relativos � garantia que apresentar o menor valor para o fator "A", a que se refere o � 2�, inciso I, do art. 74-B, sem proporcionalidade.
+� 2� N�o ser� admitida a dedu��o de perda no recebimento de cr�ditos nas opera��es realizadas com:
+I - partes relacionadas; ou
+II - residentes ou domiciliados no exterior.
+� 3� Para fins do disposto neste artigo, s�o consideradas partes relacionadas de uma pessoa jur�dica:
+I - os seus controladores, pessoas naturais ou jur�dicas, nos termos do art. 116 da Lei n� 6.404, de 15 de dezembro de 1976;
+II - os seus diretores e membros de �rg�os estatut�rios ou contratuais;
+III - o c�njuge, o companheiro e os parentes, consangu�neos ou afins, at� o segundo grau, das pessoas naturais mencionadas nos incisos I e II deste par�grafo;
+IV - as pessoas naturais com participa��o societ�ria, direta ou indireta, no capital da pessoa jur�dica equivalente a 15% (quinze por cento) ou mais das a��es ou quotas em seu capital; e
+V - as pessoas jur�dicas:
+a) que sejam suas controladas, nos termos do art. 243, � 2�, da Lei n� 6.404, de 15 de dezembro de 1976;
+b) que sejam suas coligadas, nos termos do art. 243, � 1�, da Lei n� 6.404, de 15 de dezembro de 1976;
+c) sobre as quais haja controle operacional efetivo ou preponder�ncia nas delibera��es, independentemente da participa��o societ�ria; e
+d) que possuam diretor ou membro de conselho de administra��o em comum." (NR)
+"Art. 74-D. Na determina��o do Lucro Real e da base de c�lculo da CSLL , dever� ser computado o montante dos cr�ditos deduzidos que tenham sido recuperados, em qualquer �poca ou a qualquer t�tulo, inclusive nos casos de nova��o da d�vida ou do arresto dos bens recebidos em garantia real.
+Par�grafo �nico. Os bens recebidos a t�tulo de quita��o do d�bito ser�o mensurados pela pessoa jur�dica credora pelo valor do cr�dito ou pelo valor estabelecido na decis�o judicial que tenha determinado a sua incorpora��o ao seu patrim�nio." (NR)
+"Art. 74-E. Na determina��o do Lucro Real e da base de c�lculo da CSLL , a pessoa jur�dica credora dever� excluir do lucro l�quido os valores dos encargos financeiros incidentes sobre os cr�ditos de que trata o caput do art. 74-B, reconhecidos contabilmente como receitas de opera��es inadimplidas ou ap�s a data da decreta��o da fal�ncia ou do deferimento da recupera��o judicial do devedor.
+� 1� Na hip�tese de cr�ditos originados ap�s o deferimento da recupera��o judicial do devedor, a pessoa jur�dica credora dever� excluir do lucro l�quido, para a determina��o do Lucro Real e da base de c�lculo da CSLL , os valores dos encargos financeiros reconhecidos contabilmente como receitas somente ap�s o inadimplemento do cr�dito.
+� 2� Os valores exclu�dos na forma prevista no caput e no � 1� dever�o ser adicionados ao per�odo de apura��o em que se tornarem dispon�veis para a pessoa jur�dica credora.
+� 3� A partir da cita��o inicial para o pagamento do d�bito, a pessoa jur�dica devedora dever� adicionar ao lucro l�quido, na determina��o do Lucro Real e da base de c�lculo da CSLL , os encargos incidentes sobre o d�bito vencido e n�o pago que tenham sido contabilizados como despesa ou custo incorridos a partir daquela data.
+� 4� Os encargos adicionados a que se refere o � 3� poder�o ser exclu�dos do lucro l�quido, na determina��o do Lucro Real e da base de c�lculo da CSLL , no per�odo de apura��o em que ocorrer a quita��o do d�bito por qualquer forma.
+� 5� Para fins do disposto neste artigo, o reconhecimento da receita ocorrer� conforme o regime cont�bil aplic�vel, ressalvado tratamento espec�fico expressamente previsto pela legisla��o fiscal." (NR)
+"Art. 74-F. As perdas apuradas em 1� de janeiro de 2025 relativas aos cr�ditos que se encontrarem inadimplidos em 31 de dezembro de 2024, que n�o tenham sido deduzidas at� essa data e que n�o tenham sido recuperadas, somente poder�o ser exclu�das do lucro l�quido, na determina��o do Lucro Real e da base de c�lculo da CSLL , � raz�o de 1/36 (um trinta e seis avos) para cada m�s do per�odo de apura��o, a partir do m�s de abril de 2025." (NR)
+"Art. 75. ............................................................................................................
+I - Capital Social integralizado;
+II - reservas de capital de que tratam o art. 13, � 2�, e o art. 14, par�grafo �nico, da Lei n� 6.404, de 15 de dezembro de 1976;
+III - reservas de lucros, exceto a reserva de incentivo fiscal de que trata o art. 195-A da Lei n� 6.404, de 15 de dezembro de 1976;
+................................................................................................................................
+V - lucros ou preju�zos acumulados.
+� 1� ..........................................................................................................................
+....................................................................................................................................
+III - as contas de reservas de capital previstas no inciso II do caput s�o compostas pela parcela do pre�o de emiss�o de a��es que ultrapassar o seu valor nominal ou, caso n�o haja valor nominal, pela parcela destinada � conta de reserva de capital , nos termos da Lei n� 6.404, de 15 de dezembro de 1976;
+IV - as contas de Capital Social e de reservas de capital previstas nos incisos I e II do caput considerar�o os valores dos atos societ�rios que deram origem �s referidas contas, n�o podendo ser consideradas as diferen�as entre esses valores e aqueles registrados na escritura��o comercial, tais como:
+a) diferen�as entre o valor justo na emiss�o de a��es registrado na Contabilidade e o pre�o de emiss�o das a��es constante do ato societ�rio; e
+b) outros lan�amentos cont�beis efetuados a d�bito ou cr�dito de ativo ou passivo em contrapartida diretamente � conta de Patrim�nio L�quido , sem transitar pelo resultado.
+V - a conta de reserva de lucros de incentivo fiscal prevista no inciso III do caput � composta pela destina��o da parcela do lucro l�quido decorrente de doa��es ou subven��es governamentais para investimentos, nos termos da Lei n� 6.404, de 15 de dezembro de 1976, inclusive as parcelas que tiverem sido destinadas ao Capital Social e � reserva de capital ;
+VI - a conta de lucros acumulados prevista no inciso V do caput � aquela apurada no decorrer do exerc�cio social, antes da destina��o;
+VII - n�o ser�o consideradas, nas contas de Patrim�nio L�quido previstas nos incisos I a V do caput, as varia��es positivas decorrentes dos atos societ�rios com as seguintes caracter�sticas, cumulativamente:
+a) forem praticados entre as partes dependentes previstas no art. 189, caput, incisos I e II; e
+b) n�o envolverem efetivo ingresso de ativos na pessoa jur�dica, com aumento patrimonial em car�ter definitivo, independentemente do disposto nas normas cont�beis.
+VIII - dever�o ser considerados:
+a) eventuais lan�amentos cont�beis redutores, efetuados em rubricas de Patrim�nio L�quido que n�o estiverem previstas no caput, quando decorrerem dos mesmos fatos que deram origem a lan�amentos cont�beis positivos efetuados em rubricas previstas no caput; e
+b) os valores negativos registrados em conta de ajuste de avalia��o patrimonial, decorrentes de atos societ�rios entre as partes dependentes previstas na al�nea "a" do inciso VII.
+� 1�-A. Para fins do disposto no � 1�, os atos societ�rios incluem aqueles relativos ao aumento de capital integralizado em bens e direitos, incorpora��o de a��es, fus�o, cis�o e incorpora��o.
+� 1�-B. N�o se aplica o disposto no inciso VIII do � 1� no caso de o lan�amento cont�bil j� ter sido desconsiderado no c�lculo da remunera��o por for�a do disposto no inciso VII do � 1�.
+........................................................................................................................" (NR)
+"Art. 239. .................................................................................................................
+....................................................................................................................................
+� 7� Considera-se data do evento:
+I - a data da delibera��o que aprovar a incorpora��o, fus�o ou cis�o; ou
+II - a data da publica��o no Di�rio Oficial da Uni�o da autoriza��o de incorpora��o, fus�o ou cis�o, expedida pelo �rg�o regulador e fiscalizador, no caso de pessoas jur�dicas submetidas a essa autoriza��o.
+......................................................................................................................." (NR)
+Art. 2� O Cap�tulo VIII do T�tulo X do Livro I da Instru��o Normativa RFB n� 1.700, de 14 de mar�o de 2017, publicada no DOU de 16 de mar�o de 2017, passa a vigorar acrescido da Se��o V, na qual ser�o inclu�dos os arts. 74-A a 74-F, com o seguinte enunciado, posicionado imediatamente antes do art. 74-A:
+"Se��o V
+Do Tratamento Espec�fico das Institui��es Financeiras e das Demais Institui��es Autorizadas a Funcionar pelo Banco Central do Brasil" (NR)
+Art. 3� Esta Instru��o Normativa entra em vigor na data de sua publica��o no Di�rio Oficial da Uni�o, produzindo efeitos:
+I - a partir de 1� de janeiro de 2025, em rela��o:
+a) � inclus�o dos arts. 74-A a 74-F na Instru��o Normativa RFB n� 1.700, de 14 de mar�o de 2017, publicada no DOU de 16 de mar�o de 2017, promovida pelo art. 1�; e
+b) ao art. 2�; e
+II - imediatamente, em rela��o aos demais dispositivos.
+Normas Legais
+|
+Mapa Jur�dico |
+Portal Tribut�rio
+|
+Guia Trabalhista |
+Portal de Contabilidade |
+Tem�ticas Tribut�rias |
+T�picos Trabalhistas |
+Boletim Fiscal |
+Boletim Trabalhista |
+Modelos de Contratos

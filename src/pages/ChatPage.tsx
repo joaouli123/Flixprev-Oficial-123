@@ -15,6 +15,7 @@ import { ChatSidebar } from "@/components/ChatSidebar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useSession } from "@/components/SessionContextProvider";
 import { extractUuidFromRouteKey, makeAgentRouteKey, toSlug } from "@/lib/slug";
+import { normalizeAgentTitle } from "@/lib/agentText";
 
 interface Message {
   role: "assistant" | "user";
@@ -54,6 +55,7 @@ const ChatPage = () => {
   };
 
   const agent = resolveAgent(agentRouteParam);
+  const displayAgentTitle = normalizeAgentTitle(agent?.title || "", agent?.description);
   const resolvedAgentId = agent?.id || "";
   const resolvedAgentRouteKey = agent ? makeAgentRouteKey(agent.title, agent.id) : agentRouteParam;
   
@@ -327,7 +329,7 @@ const ChatPage = () => {
     
     // Create text content
     const exportText = messages.map(msg => {
-      const role = msg.role === "user" ? "Você" : agent?.title || "Agente";
+      const role = msg.role === "user" ? "Você" : displayAgentTitle || "Agente";
       return `${role}:\n${msg.content}\n\n-------------------\n\n`;
     }).join("");
 
@@ -336,7 +338,7 @@ const ChatPage = () => {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.setAttribute("download", `chat-${agent?.title?.replace(/[^a-z0-9]/gi, '_').toLowerCase() || 'export'}-${new Date().toISOString().split('T')[0]}.txt`);
+    link.setAttribute("download", `chat-${displayAgentTitle.replace(/[^a-z0-9]/gi, '_').toLowerCase() || 'export'}-${new Date().toISOString().split('T')[0]}.txt`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -348,7 +350,7 @@ const ChatPage = () => {
       <ChatSidebar
         agentId={resolvedAgentId}
         agentRouteKey={resolvedAgentRouteKey}
-        agentTitle={agent?.title}
+        agentTitle={displayAgentTitle}
         currentConversationId={conversationId}
       />
       <div className="flex flex-col flex-1 h-full min-h-0 overflow-hidden relative min-w-0 bg-transparent">
@@ -367,7 +369,7 @@ const ChatPage = () => {
               </Button>
               <div className="flex-1 min-w-0 flex items-center gap-2 ml-2">
                 <h1 className="text-base font-semibold text-slate-900 truncate flex items-center gap-2">
-                  {agent?.title || "Chat"}
+                  {displayAgentTitle || "Chat"}
                   <span className="h-1.5 w-1.5 rounded-full bg-purple-600 flex-shrink-0"></span>
                 </h1>
               </div>
@@ -405,7 +407,7 @@ const ChatPage = () => {
                     </div>
                     <div className="space-y-3 max-w-md">
                       <h2 className="text-2xl font-bold text-slate-900">
-                        Olá! Sou seu agente de IA em "{agent?.title}"
+                        Olá! Sou seu assistente jurídico em "{displayAgentTitle}"
                       </h2>
                       <p className="text-slate-500 text-lg">
                         Estou aqui para ajudar. Como posso ser útil hoje?

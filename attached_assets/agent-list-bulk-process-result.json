@@ -1,0 +1,579 @@
+{
+  "startedAt": "2026-03-04T17:37:07.225Z",
+  "source": "C:\\Users\\joao lucas\\Desktop\\Contratos e projetos\\Flixprev - Valdir\\Flixprev-Oficial-1--ATUALIZADO-\\attached_assets\\agent-list-extracted.json",
+  "createdAgents": [],
+  "updatedAgents": [],
+  "skippedUrls": [
+    {
+      "agentTitle": "AGENTE ACNIS- Agente CNIS",
+      "url": "http://www.planalto.gov.br/ccivil_03/leis/l8213cons.htm",
+      "reason": "already-ingested"
+    },
+    {
+      "agentTitle": "AGENTE ACNIS- Agente CNIS",
+      "url": "https://www.planalto.gov.br/ccivil_03/decreto/d3048.htm",
+      "reason": "already-ingested"
+    },
+    {
+      "agentTitle": "AGENTE ACNIS- Agente CNIS",
+      "url": "https://portalin.inss.gov.br/in",
+      "reason": "insufficient-content"
+    },
+    {
+      "agentTitle": "AGENTE ACNIS- Agente CNIS",
+      "url": "https://portalin.inss.gov.br/portaria990",
+      "reason": "insufficient-content"
+    },
+    {
+      "agentTitle": "AGENTE ACNIS- Agente CNIS",
+      "url": "https://www.in.gov.br/web/dou/-/portaria-dirben/inss-n-1.326-de-13-de-janeiro-de-2026-681141180",
+      "reason": "already-ingested"
+    },
+    {
+      "agentTitle": "AGENTE ACNIS- Agente CNIS",
+      "url": "https://www.legisweb.com.br/legislacao/?id=467234",
+      "reason": "already-ingested"
+    },
+    {
+      "agentTitle": "AGENTE ACNIS- Agente CNIS",
+      "url": "https://www.in.gov.br/web/dou/-/portaria-dirben/inss-n-1.251-de-2-de-janeiro-de-2025-605404637",
+      "reason": "already-ingested"
+    },
+    {
+      "agentTitle": "AGENTE ACNIS- Agente CNIS",
+      "url": "https://portalin.inss.gov.br/anexos",
+      "reason": "insufficient-content"
+    },
+    {
+      "agentTitle": "AGENTE ACNIS- Agente CNIS",
+      "url": "https://www.in.gov.br/web/dou/-/portaria-dirben/inss-n-1.321-de-2-de-janeiro-de-2026-679342881",
+      "reason": "already-ingested"
+    },
+    {
+      "agentTitle": "AGENTE ACNIS- Agente CNIS",
+      "url": "https://www.in.gov.br/web/dou/-/portaria-dirben/inss-n-1.323-de-8-de-janeiro-de-2026-680679249",
+      "reason": "already-ingested"
+    },
+    {
+      "agentTitle": "AGENTE ACNIS- Agente CNIS",
+      "url": "https://portalin.inss.gov.br/portaria993",
+      "reason": "insufficient-content"
+    },
+    {
+      "agentTitle": "AGENTE ACNIS- Agente CNIS",
+      "url": "https://www.gov.br/previdencia/pt-br/assuntos/rpps/legislacao-dos-rpps/portarias/portarias_todas/PortariaConjuntaMPSINSSn3de16jan2024.pdf",
+      "reason": "already-ingested"
+    },
+    {
+      "agentTitle": "NORMAS COMUNS PARA TODOS ESTES AGENTES",
+      "url": "https://www.planalto.gov.br/ccivil_03/constituicao/constituicao.htm",
+      "reason": "already-ingested"
+    },
+    {
+      "agentTitle": "NORMAS COMUNS PARA TODOS ESTES AGENTES",
+      "url": "http://www.planalto.gov.br/ccivil_03/leis/l8213cons.htm",
+      "reason": "already-ingested"
+    },
+    {
+      "agentTitle": "NORMAS COMUNS PARA TODOS ESTES AGENTES",
+      "url": "https://www.planalto.gov.br/ccivil_03/leis/l8212cons.htm",
+      "reason": "already-ingested"
+    },
+    {
+      "agentTitle": "NORMAS COMUNS PARA TODOS ESTES AGENTES",
+      "url": "https://www.planalto.gov.br/ccivil_03/decreto/d3048.htm",
+      "reason": "already-ingested"
+    },
+    {
+      "agentTitle": "NORMAS COMUNS PARA TODOS ESTES AGENTES",
+      "url": "https://www.planalto.gov.br/ccivil_03/_ato2019-2022/2020/decreto/d10410.htm",
+      "reason": "already-ingested"
+    },
+    {
+      "agentTitle": "NORMAS COMUNS PARA TODOS ESTES AGENTES",
+      "url": "https://portalin.inss.gov.br/in",
+      "reason": "insufficient-content"
+    },
+    {
+      "agentTitle": "NORMAS COMUNS PARA TODOS ESTES AGENTES",
+      "url": "https://portalin.inss.gov.br/portaria990",
+      "reason": "insufficient-content"
+    },
+    {
+      "agentTitle": "NORMAS COMUNS PARA TODOS ESTES AGENTES",
+      "url": "https://portalin.inss.gov.br/portaria991",
+      "reason": "insufficient-content"
+    },
+    {
+      "agentTitle": "NORMAS COMUNS PARA TODOS ESTES AGENTES",
+      "url": "https://portalin.inss.gov.br/portaria993",
+      "reason": "insufficient-content"
+    },
+    {
+      "agentTitle": "NORMAS COMUNS PARA TODOS ESTES AGENTES",
+      "url": "https://portalin.inss.gov.br/portaria994",
+      "reason": "insufficient-content"
+    },
+    {
+      "agentTitle": "NORMAS COMUNS PARA TODOS ESTES AGENTES",
+      "url": "https://www.in.gov.br/web/dou/-/instrucao-normativa-pres/inss/n-200-de-12-de-fevereiro-de-2026-687366848",
+      "reason": "already-ingested"
+    },
+    {
+      "agentTitle": "NORMAS COMUNS PARA TODOS ESTES AGENTES",
+      "url": "https://www.gov.br/inss/pt-br/centrais-de-conteudo/legislacao/portarias/2026",
+      "reason": "already-ingested"
+    },
+    {
+      "agentTitle": "NORMAS COMUNS PARA TODOS ESTES AGENTES",
+      "url": "https://www.gov.br/inss/pt-br/centrais-de-conteudo/legislacao/portarias/2025",
+      "reason": "already-ingested"
+    },
+    {
+      "agentTitle": "NORMAS COMUNS PARA TODOS ESTES AGENTES",
+      "url": "https://www.gov.br/inss/pt-br/centrais-de-conteudo/legislacao/portarias-conjuntas/2025",
+      "reason": "already-ingested"
+    },
+    {
+      "agentTitle": "file",
+      "url": "https://www.planalto.gov.br/ccivil_03/_ato2023-2026/2025/lei/L15157.htm",
+      "reason": "already-ingested"
+    },
+    {
+      "agentTitle": "file",
+      "url": "https://www.in.gov.br/en/web/dou/-/portaria-conjunta-mps/inss-n-60-de-17-de-junho-de-2025-636848467",
+      "reason": "already-ingested"
+    },
+    {
+      "agentTitle": "AGENTE CQS- Agente Carência & Qualidade de Segurado",
+      "url": "https://portalin.inss.gov.br/in",
+      "reason": "insufficient-content"
+    },
+    {
+      "agentTitle": "AGENTE CQS- Agente Carência & Qualidade de Segurado",
+      "url": "https://portalin.inss.gov.br/portaria991",
+      "reason": "insufficient-content"
+    },
+    {
+      "agentTitle": "AGENTE CQS- Agente Carência & Qualidade de Segurado",
+      "url": "http://www.planalto.gov.br/ccivil_03/leis/l8213cons.htm",
+      "reason": "already-ingested"
+    },
+    {
+      "agentTitle": "AGENTE CQS- Agente Carência & Qualidade de Segurado",
+      "url": "https://www.planalto.gov.br/ccivil_03/decreto/d3048.htm",
+      "reason": "already-ingested"
+    },
+    {
+      "agentTitle": "AGENTE AMB- Agente Manutenção de Benefícios",
+      "url": "https://portalin.inss.gov.br/in",
+      "reason": "insufficient-content"
+    },
+    {
+      "agentTitle": "AGENTE AMB- Agente Manutenção de Benefícios",
+      "url": "https://portalin.inss.gov.br/portaria992",
+      "reason": "insufficient-content"
+    },
+    {
+      "agentTitle": "AGENTE ASoc",
+      "url": "https://portalin.inss.gov.br/portaria1208",
+      "reason": "insufficient-content"
+    },
+    {
+      "agentTitle": "AGENTE ASoc",
+      "url": "https://www.planalto.gov.br/ccivil_03/constituicao/constituicao.htm",
+      "reason": "already-ingested"
+    },
+    {
+      "agentTitle": "AGENTE ASoc",
+      "url": "https://www.planalto.gov.br/ccivil_03/_ato2011-2014/2011/lei/l12435.htm",
+      "reason": "already-ingested"
+    },
+    {
+      "agentTitle": "AGENTE ASoc",
+      "url": "https://www.planalto.gov.br/ccivil_03/_ato2015-2018/2015/lei/l13146.htm",
+      "reason": "already-ingested"
+    },
+    {
+      "agentTitle": "AGENTE ASoc",
+      "url": "https://www.planalto.gov.br/ccivil_03/_ato2019-2022/2021/lei/l14176.htm",
+      "reason": "already-ingested"
+    },
+    {
+      "agentTitle": "AGENTE ASoc",
+      "url": "https://www.planalto.gov.br/ccivil_03/_ato2019-2022/2022/decreto/d11016.htm",
+      "reason": "already-ingested"
+    },
+    {
+      "agentTitle": "AGENTE ASoc",
+      "url": "https://www.planalto.gov.br/ccivil_03/_ato2015-2018/2016/decreto/d8805.htm",
+      "reason": "already-ingested"
+    },
+    {
+      "agentTitle": "AGENTE ASoc",
+      "url": "https://www.planalto.gov.br/ccivil_03/leis/2003/l10.741.htm",
+      "reason": "already-ingested"
+    },
+    {
+      "agentTitle": "AGENTE ASoc",
+      "url": "https://www.planalto.gov.br/ccivil_03/_ato2019-2022/2020/lei/l13982.htm",
+      "reason": "already-ingested"
+    },
+    {
+      "agentTitle": "AGENTE ASoc",
+      "url": "https://portalin.inss.gov.br/in",
+      "reason": "insufficient-content"
+    },
+    {
+      "agentTitle": "AGENTE ASoc",
+      "url": "https://www.in.gov.br/web/dou/-/portaria-dirben/inss-n-1.333-de-9-de-fevereiro-de-2026-687364747",
+      "reason": "already-ingested"
+    },
+    {
+      "agentTitle": "AGENTE BPC",
+      "url": "https://www.planalto.gov.br/ccivil_03/constituicao/constituicao.htm",
+      "reason": "already-ingested"
+    },
+    {
+      "agentTitle": "AGENTE BPC",
+      "url": "https://www.planalto.gov.br/ccivil_03/leis/l8742.htm",
+      "reason": "already-ingested"
+    },
+    {
+      "agentTitle": "AGENTE BPC",
+      "url": "https://www.planalto.gov.br/ccivil_03/_ato2007-2010/2007/decreto/d6214.htm",
+      "reason": "already-ingested"
+    },
+    {
+      "agentTitle": "AGENTE BPC",
+      "url": "https://www.planalto.gov.br/ccivil_03/_ato2023-2026/2025/decreto/d12534.htm",
+      "reason": "already-ingested"
+    },
+    {
+      "agentTitle": "AGENTE BPC",
+      "url": "https://www.planalto.gov.br/ccivil_03/_ato2019-2022/2020/lei/l13982.htm",
+      "reason": "already-ingested"
+    },
+    {
+      "agentTitle": "AGENTE BPC",
+      "url": "https://www.in.gov.br/en/web/dou/-/portaria-conjunta-mds/inss-n-34-de-9-de-outubro-de-2025-661903103",
+      "reason": "already-ingested"
+    },
+    {
+      "agentTitle": "AGENTE BPC",
+      "url": "https://aplicacoes.mds.gov.br/snas/regulacao/visualizar.php?codigo=5255",
+      "reason": "already-ingested"
+    },
+    {
+      "agentTitle": "AGENTE BPC",
+      "url": "https://www.planalto.gov.br/ccivil_03/_ato2019-2022/2022/decreto/d11016.htm",
+      "reason": "already-ingested"
+    },
+    {
+      "agentTitle": "AGENTE BPC",
+      "url": "https://www.planalto.gov.br/ccivil_03/_ato2015-2018/2016/decreto/d8805.htm",
+      "reason": "already-ingested"
+    },
+    {
+      "agentTitle": "AGENTE BPC",
+      "url": "https://portalin.inss.gov.br/in",
+      "reason": "insufficient-content"
+    },
+    {
+      "agentTitle": "AGENTE BPC",
+      "url": "https://www.in.gov.br/en/web/dou/-/portaria-dirben/inss-n-1.249-de-26-de-dezembro-de-2024-604469231",
+      "reason": "already-ingested"
+    },
+    {
+      "agentTitle": "AGENTE BPC",
+      "url": "https://www.in.gov.br/en/web/dou/-/portaria-dirben/inss-n-1.260-de-27-de-janeiro-de-2025-609661711",
+      "reason": "already-ingested"
+    },
+    {
+      "agentTitle": "AGENTE BPC",
+      "url": "https://www.legisweb.com.br/legislacao/?id=489712",
+      "reason": "already-ingested"
+    },
+    {
+      "agentTitle": "AGENTE BPC",
+      "url": "https://www.in.gov.br/web/dou/-/portaria-conjunta-mds/inss-n-36-de-10-de-fevereiro-de-2026-686545425",
+      "reason": "already-ingested"
+    },
+    {
+      "agentTitle": "Previdenciário - Complementares",
+      "url": "https://portalin.inss.gov.br/portaria94",
+      "reason": "insufficient-content"
+    },
+    {
+      "agentTitle": "AGENTE CRPS- Conselho Recursos Previdência Social",
+      "url": "https://www.planalto.gov.br/ccivil_03/leis/l8213cons.htm",
+      "reason": "already-ingested"
+    },
+    {
+      "agentTitle": "AGENTE CRPS- Conselho Recursos Previdência Social",
+      "url": "https://www.gov.br/inss/pt-br/direitos-e-deveres/recurso/recurso-administrativo-de-beneficio-previdenciario",
+      "reason": "already-ingested"
+    },
+    {
+      "agentTitle": "AGENTE CRPS- Conselho Recursos Previdência Social",
+      "url": "https://www.gov.br/previdencia/pt-br/acesso-a-informacao/participacao-social/conselhos-e-orgaos-colegiados/conselho-de-recursos-da-previdencia-social/regimento-interno-instrucao-normativa-portarias",
+      "reason": "already-ingested"
+    },
+    {
+      "agentTitle": "AGENTE CRPS- Conselho Recursos Previdência Social",
+      "url": "https://portalin.inss.gov.br/in",
+      "reason": "insufficient-content"
+    },
+    {
+      "agentTitle": "AGENTE CRPS- Conselho Recursos Previdência Social",
+      "url": "https://portalin.inss.gov.br/portaria993",
+      "reason": "insufficient-content"
+    },
+    {
+      "agentTitle": "AGENTE ReVB- Revisão de Benefícios",
+      "url": "http://www.planalto.gov.br/ccivil_03/leis/l8213cons.htm",
+      "reason": "already-ingested"
+    },
+    {
+      "agentTitle": "AGENTE ReVB- Revisão de Benefícios",
+      "url": "https://www.planalto.gov.br/ccivil_03/leis/l8212cons.htm",
+      "reason": "already-ingested"
+    },
+    {
+      "agentTitle": "AGENTE ReVB- Revisão de Benefícios",
+      "url": "https://www.planalto.gov.br/ccivil_03/decreto/d3048.htm",
+      "reason": "already-ingested"
+    },
+    {
+      "agentTitle": "AGENTE ReVB- Revisão de Benefícios",
+      "url": "https://www.planalto.gov.br/ccivil_03/_ato2019-2022/2020/decreto/d10410.htm",
+      "reason": "already-ingested"
+    },
+    {
+      "agentTitle": "AGENTE ReVB- Revisão de Benefícios",
+      "url": "https://www.in.gov.br/web/dou/-/portaria-dirben/inss-n-1.329-de-21-de-janeiro-de-2026-682790501",
+      "reason": "already-ingested"
+    },
+    {
+      "agentTitle": "AGENTE ReVB- Revisão de Benefícios",
+      "url": "https://portalin.inss.gov.br/in",
+      "reason": "insufficient-content"
+    },
+    {
+      "agentTitle": "AGENTE ReVB- Revisão de Benefícios",
+      "url": "https://portalin.inss.gov.br/portaria990",
+      "reason": "insufficient-content"
+    },
+    {
+      "agentTitle": "AGENTE ReVB- Revisão de Benefícios",
+      "url": "https://portalin.inss.gov.br/portaria991",
+      "reason": "insufficient-content"
+    },
+    {
+      "agentTitle": "AGENTE ReVB- Revisão de Benefícios",
+      "url": "https://portalin.inss.gov.br/portaria993",
+      "reason": "insufficient-content"
+    },
+    {
+      "agentTitle": "AGENTE ReVB- Revisão de Benefícios",
+      "url": "https://portalin.inss.gov.br/portaria994",
+      "reason": "insufficient-content"
+    },
+    {
+      "agentTitle": "AGENTE ReVB- Revisão de Benefícios",
+      "url": "https://portalin.inss.gov.br/portaria997",
+      "reason": "insufficient-content"
+    },
+    {
+      "agentTitle": "AGENTE ReVB- Revisão de Benefícios",
+      "url": "https://portalin.inss.gov.br/portaria996",
+      "reason": "insufficient-content"
+    },
+    {
+      "agentTitle": "AGENTE RPPS- Agente Regime Próprio de Previdencia Social",
+      "url": "https://www.planalto.gov.br/ccivil_03/constituicao/constituicao.htm",
+      "reason": "already-ingested"
+    },
+    {
+      "agentTitle": "AGENTE RPPS- Agente Regime Próprio de Previdencia Social",
+      "url": "http://www.planalto.gov.br/ccivil_03/leis/l8213cons.htm",
+      "reason": "already-ingested"
+    },
+    {
+      "agentTitle": "AGENTE RPPS- Agente Regime Próprio de Previdencia Social",
+      "url": "https://www.planalto.gov.br/ccivil_03/leis/l8212cons.htm",
+      "reason": "already-ingested"
+    },
+    {
+      "agentTitle": "AGENTE RPPS- Agente Regime Próprio de Previdencia Social",
+      "url": "https://www.planalto.gov.br/ccivil_03/decreto/d3048.htm",
+      "reason": "already-ingested"
+    },
+    {
+      "agentTitle": "AGENTE RPPS- Agente Regime Próprio de Previdencia Social",
+      "url": "https://www.planalto.gov.br/ccivil_03/leis/l9717.htm",
+      "reason": "already-ingested"
+    },
+    {
+      "agentTitle": "AGENTE RPPS- Agente Regime Próprio de Previdencia Social",
+      "url": "https://portalin.inss.gov.br/portaria998",
+      "reason": "insufficient-content"
+    },
+    {
+      "agentTitle": "AGENTE RPPS- Agente Regime Próprio de Previdencia Social",
+      "url": "https://www.planalto.gov.br/ccivil_03/leis/lcp/lcp226.htm",
+      "reason": "already-ingested"
+    },
+    {
+      "agentTitle": "AGENTE RPPS- Agente Regime Próprio de Previdencia Social",
+      "url": "https://www.gov.br/previdencia/pt-br/assuntos/rpps/legislacao-dos-rpps/NotaTcnicaSEIn1852022MTP.pdf",
+      "reason": "already-ingested"
+    },
+    {
+      "agentTitle": "AGENTE RPPS- Agente Regime Próprio de Previdencia Social",
+      "url": "https://www.gov.br/previdencia/pt-br/assuntos/rpps/legislacao-dos-rpps/leis-1/copy4_of_27CONSOLIDAOLEGISLAORPPSatualizadaatde29dedezembrode2025.pdf",
+      "reason": "already-ingested"
+    },
+    {
+      "agentTitle": "AGENTE RPPS- Agente Regime Próprio de Previdencia Social",
+      "url": "https://www.gov.br/previdencia/pt-br/assuntos/rpps/legislacao-dos-rpps/portarias/portarias_todas/12PortariaMTPn1.467de02jun2022Atualizadaat29dez2025.pdf",
+      "reason": "already-ingested"
+    },
+    {
+      "agentTitle": "AGENTE RPPS- Agente Regime Próprio de Previdencia Social",
+      "url": "https://www.gov.br/previdencia/pt-br/assuntos/rpps/legislacao-dos-rpps/Decreton10.620de05fev2021.pdf",
+      "reason": "already-ingested"
+    },
+    {
+      "agentTitle": "AGENTE RPPS- Agente Regime Próprio de Previdencia Social",
+      "url": "https://www.gov.br/previdencia/pt-br/assuntos/rpps/legislacao-dos-rpps/portarias/arquivos/2020/decreto-no-10-418_de_7_-de_-julho_-de_-2020_.pdf",
+      "reason": "already-ingested"
+    },
+    {
+      "agentTitle": "AGENTE RPPS- Agente Regime Próprio de Previdencia Social",
+      "url": "https://www.gov.br/previdencia/pt-br/outros/imagens/2016/06/Decreton3.788de11abr2001-1.pdf",
+      "reason": "already-ingested"
+    },
+    {
+      "agentTitle": "AGENTE RPPS- Agente Regime Próprio de Previdencia Social",
+      "url": "https://www.gov.br/previdencia/pt-br/outros/imagens/2016/06/Decreton3.112de06jul1999atualizadoate16jul2009-1.pdf",
+      "reason": "already-ingested"
+    },
+    {
+      "agentTitle": "AGENTE RPPS- Agente Regime Próprio de Previdencia Social",
+      "url": "https://www.gov.br/previdencia/pt-br/assuntos/rpps/legislacao-dos-rpps/emenda-constitucional-rpps",
+      "reason": "already-ingested"
+    },
+    {
+      "agentTitle": "AGENTE RPPS- Agente Regime Próprio de Previdencia Social",
+      "url": "https://www.gov.br/previdencia/pt-br/assuntos/rpps/legislacao-dos-rpps/orientacao-normativa-rpps",
+      "reason": "already-ingested"
+    },
+    {
+      "agentTitle": "AGENTE RPPS- Agente Regime Próprio de Previdencia Social",
+      "url": "https://www.gov.br/previdencia/pt-br/assuntos/rpps/legislacao-dos-rpps/leis",
+      "reason": "already-ingested"
+    },
+    {
+      "agentTitle": "AGENTE RPPS- Agente Regime Próprio de Previdencia Social",
+      "url": "https://www.gov.br/previdencia/pt-br/assuntos/rpps/legislacao-dos-rpps/medida-provisoria",
+      "reason": "already-ingested"
+    },
+    {
+      "agentTitle": "AGENTE RPPS- Agente Regime Próprio de Previdencia Social",
+      "url": "https://www.gov.br/previdencia/pt-br/assuntos/rpps/legislacao-dos-rpps/portarias_secao",
+      "reason": "already-ingested"
+    },
+    {
+      "agentTitle": "AGENTE RPPS- Agente Regime Próprio de Previdencia Social",
+      "url": "https://www.gov.br/previdencia/pt-br/assuntos/rpps/legislacao-dos-rpps/recomedacao/recomendacoes",
+      "reason": "already-ingested"
+    },
+    {
+      "agentTitle": "AGENTE RPPS- Agente Regime Próprio de Previdencia Social",
+      "url": "https://www.gov.br/previdencia/pt-br/assuntos/rpps/legislacao-dos-rpps/resolucoes",
+      "reason": "already-ingested"
+    },
+    {
+      "agentTitle": "AGENTE RPPS- Agente Regime Próprio de Previdencia Social",
+      "url": "https://www.gov.br/previdencia/pt-br/assuntos/rpps/legislacao-dos-rpps/oficios-circulares-conjuntos-cvm-sprev",
+      "reason": "already-ingested"
+    },
+    {
+      "agentTitle": "AGENTE RPPS- Agente Regime Próprio de Previdencia Social",
+      "url": "https://www.gov.br/previdencia/pt-br/assuntos/rpps/comunicados/comunicados",
+      "reason": "already-ingested"
+    },
+    {
+      "agentTitle": "AGENTE RPPS- Agente Regime Próprio de Previdencia Social",
+      "url": "https://www.planalto.gov.br/ccivil_03/_ato2019-2022/2019/lei/l13954.htm",
+      "reason": "already-ingested"
+    },
+    {
+      "agentTitle": "AGENTE RPPS- Agente Regime Próprio de Previdencia Social",
+      "url": "https://www.planalto.gov.br/ccivil_03/_ato2019-2022/2020/decreto/D10418.htm",
+      "reason": "already-ingested"
+    },
+    {
+      "agentTitle": "Agente SúmFed ( Sumúlas Federais",
+      "url": "https://www.trt2.jus.br/geral/tribunal2/Trib_Sup/STJ/SUM_CJF.html",
+      "reason": "already-ingested"
+    }
+  ],
+  "failedUrls": [
+    {
+      "agentTitle": "AGENTE ACNIS- Agente CNIS",
+      "url": "file:///C:/Users/Admin/Desktop/pt1326DIRBEN-INSSanexoI.pdf",
+      "error": "ENOENT: no such file or directory, open 'C:\\Users\\Admin\\Desktop\\pt1326DIRBEN-INSSanexoI.pdf'"
+    },
+    {
+      "agentTitle": "AGENTE ACNIS- Agente CNIS",
+      "url": "file:///G:/DIREITO/MBI-%20MASTER%20INCAPACIDADE/NORMAS-%20ASSISTENTES/ASSISTENTE%20FLIX%20PREV/CNIS-%20Opera%C3%A7%C3%A3o%20Pelo%20INSS-%20Port.%20Conjunta%20N%C2%BA%203.pdf-",
+      "error": "ENOENT: no such file or directory, open 'G:\\DIREITO\\MBI- MASTER INCAPACIDADE\\NORMAS- ASSISTENTES\\ASSISTENTE FLIX PREV\\CNIS- Operação Pelo INSS- Port. Conjunta Nº 3.pdf-'"
+    },
+    {
+      "agentTitle": "Agente AEsp",
+      "url": "file:///G:/DIREITO/MBI-%20MASTER%20INCAPACIDADE/NORMAS-%20ASSISTENTES/ASSISTENTE%20FLIX%20PREV/ATIVIDADE%20ESPECIAL-%20PORTARIA-PRES_INSS-No-1.630-DE-17-DE-NOVEMBRO-DE-2023-DOU-Imprensa-Nacional.pdf",
+      "error": "ENOENT: no such file or directory, open 'G:\\DIREITO\\MBI- MASTER INCAPACIDADE\\NORMAS- ASSISTENTES\\ASSISTENTE FLIX PREV\\ATIVIDADE ESPECIAL- PORTARIA-PRES_INSS-No-1.630-DE-17-DE-NOVEMBRO-DE-2023-DOU-Imprensa-Nacional.pdf'"
+    },
+    {
+      "agentTitle": "file",
+      "url": "file:///G:/DIREITO/MBI-%20MASTER%20INCAPACIDADE/NORMAS-%20ASSISTENTES/ASSISTENTES%20INCAPACIDADES%20(%20TODOS%20OS%20AGENTES%20MBI",
+      "error": "ENOENT: no such file or directory, open 'G:\\DIREITO\\MBI- MASTER INCAPACIDADE\\NORMAS- ASSISTENTES\\ASSISTENTES INCAPACIDADES ( TODOS OS AGENTES MBI'"
+    },
+    {
+      "agentTitle": "AGENTE ReVB- Revisão de Benefícios",
+      "url": "file:///G:/DIREITO/MBI-%20MASTER%20INCAPACIDADE/NORMAS-%20ASSISTENTES/ASSISTENTE%20FLIX%20PREV/Revis%C3%A3o%20Artigo%2029-%20ofcirc6DIRBEN-INSS.pdf",
+      "error": "ENOENT: no such file or directory, open 'G:\\DIREITO\\MBI- MASTER INCAPACIDADE\\NORMAS- ASSISTENTES\\ASSISTENTE FLIX PREV\\Revisão Artigo 29- ofcirc6DIRBEN-INSS.pdf'"
+    },
+    {
+      "agentTitle": "AGENTE RPPS- Agente Regime Próprio de Previdencia Social",
+      "url": "file:///C:/Users/Admin/Desktop/DOC_PARTICIPANTE_EVT_6237_1571141126767_KComissaoPermanenteCDH20191015EXT115_parte11782_RESULTADO_1571141126767.pdf",
+      "error": "ENOENT: no such file or directory, open 'C:\\Users\\Admin\\Desktop\\DOC_PARTICIPANTE_EVT_6237_1571141126767_KComissaoPermanenteCDH20191015EXT115_parte11782_RESULTADO_1571141126767.pdf'"
+    },
+    {
+      "agentTitle": "AGENTE RPPS- Agente Regime Próprio de Previdencia Social",
+      "url": "https://portal.stf.jus.br/constituicao-supremo/artigo.asp?abrirArtigo=40&abrirBase=CF",
+      "error": "fetch failed"
+    },
+    {
+      "agentTitle": "AGENTE RTNU- Agente TNU- Turma Nacional de Uniformização",
+      "url": "file:///G:/DIREITO/MBI-%20MASTER%20INCAPACIDADE/NORMAS-%20ASSISTENTES/ASSISTENTE%20TNU-%20REPOSIT%C3%93RIO/Reposit%C3%B3rio%20TNU%20-%20Vers%C3%A3o%20atualizada%20em%2006.08.2025.pdf",
+      "error": "ENOENT: no such file or directory, open 'G:\\DIREITO\\MBI- MASTER INCAPACIDADE\\NORMAS- ASSISTENTES\\ASSISTENTE TNU- REPOSITÓRIO\\Repositório TNU - Versão atualizada em 06.08.2025.pdf'"
+    }
+  ],
+  "processedUrls": [
+    {
+      "agentTitle": "AGENTE CRPS- Conselho Recursos Previdência Social",
+      "agentId": "ec971882-10c4-456b-b9c9-ddc40dd116b6",
+      "url": "https://www.gov.br/previdencia/pt-br/acesso-a-informacao/participacao-social/conselhos-e-orgaos-colegiados/conselho-de-recursos-da-previdencia-social/regimento-interno-instrucao-normativa-portarias/portaria-mps-no-125-de-26-de-janeiro-de-2026-regimento-interno-do-crps-compilada-ate-04-02-2026.pdf",
+      "chunks": 73
+    }
+  ],
+  "finishedAt": "2026-03-04T17:38:11.413Z",
+  "summary": {
+    "processed": 1,
+    "skipped": 103,
+    "failed": 8
+  }
+}

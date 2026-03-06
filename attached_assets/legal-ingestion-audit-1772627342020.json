@@ -1,0 +1,325 @@
+{
+  "summary": {
+    "generatedAt": "2026-03-04T12:29:02.019Z",
+    "totalAgentsChecked": 9,
+    "ok": 9,
+    "warning": 0,
+    "critical": 0
+  },
+  "reports": [
+    {
+      "id": "f6636a2c-157e-4c2e-8e92-41f68bbabcea",
+      "title": "Agente AcordCore",
+      "hasStrictInstructions": false,
+      "counts": {
+        "attachments": 0,
+        "documents": 0,
+        "chunks": 0,
+        "docsWithoutChunks": 0,
+        "duplicateDocumentTitles": 0,
+        "orphanChunks": 0
+      },
+      "chunkStats": {
+        "min": 0,
+        "max": 0,
+        "avg": 0
+      },
+      "attachmentsAudit": {
+        "filesMissing": 0,
+        "filesLowText": 0,
+        "filesWithoutSourceMarker": 0
+      },
+      "retrievalChecks": [],
+      "status": "ok",
+      "notes": []
+    },
+    {
+      "id": "9c29230d-4d27-46c5-a8d1-ca8478e57773",
+      "title": "Agente AtosTr",
+      "hasStrictInstructions": true,
+      "counts": {
+        "attachments": 11,
+        "documents": 11,
+        "chunks": 33,
+        "docsWithoutChunks": 0,
+        "duplicateDocumentTitles": 0,
+        "orphanChunks": 0
+      },
+      "chunkStats": {
+        "min": 608,
+        "max": 3996,
+        "avg": 3226.7
+      },
+      "attachmentsAudit": {
+        "filesMissing": 0,
+        "filesLowText": 0,
+        "filesWithoutSourceMarker": 0
+      },
+      "retrievalChecks": [
+        {
+          "query": "Ato Conjunto TST",
+          "ok": true,
+          "topSimilarity": 0.787,
+          "topPreview": "Ato Conjunto Ato Conjunto n. 81/TST.CSJT.GP, de 3 de dezembro de 2025 Conselho Superior da Justi&ccedil;a do Trabalho (Brasil) (CSJT) ; Brasil. Tribunal Superior do Trabalho (TST) ",
+          "hits": 3
+        },
+        {
+          "query": "Instrução Normativa TST",
+          "ok": true,
+          "topSimilarity": 0.806,
+          "topPreview": "Tribunal Superior do Trabalho (TST) | 2002-09-27 Disp&otilde;e sobre os procedimentos para o recolhimento de custas e emolumentos devidos &agrave; Uni&atilde;o no &acirc;mbito da J",
+          "hits": 3
+        },
+        {
+          "query": "Gabinete da Presidência TST",
+          "ok": true,
+          "topSimilarity": 0.774,
+          "topPreview": "Tribunal Superior do Trabalho (TST) | 2024-10-10 Convoca o Exmo. Sr. BRUNO ALVES RODRIGUES, Juiz do Trabalho do Tribunal Regional do Trabalho da 3&ordf; Regi&atilde;o, para atuar c",
+          "hits": 3
+        }
+      ],
+      "status": "ok",
+      "notes": []
+    },
+    {
+      "id": "ca732308-78ab-48e3-bd1d-3d3cc7d8d87f",
+      "title": "Agente DirTrab",
+      "hasStrictInstructions": true,
+      "counts": {
+        "attachments": 11,
+        "documents": 11,
+        "chunks": 1139,
+        "docsWithoutChunks": 0,
+        "duplicateDocumentTitles": 0,
+        "orphanChunks": 0
+      },
+      "chunkStats": {
+        "min": 190,
+        "max": 4001,
+        "avg": 3853.3
+      },
+      "attachmentsAudit": {
+        "filesMissing": 0,
+        "filesLowText": 0,
+        "filesWithoutSourceMarker": 0
+      },
+      "retrievalChecks": [
+        {
+          "query": "CLT",
+          "ok": true,
+          "topSimilarity": 0.572,
+          "topPreview": "1946) IX - despachar os recursos interpostos pelas partes; (Reda��o dada pelo Decreto-lei n� 8.737, de 19.1.1946) X - requisitar �s autoridades competentes, nos casos de diss�dio c",
+          "hits": 3
+        },
+        {
+          "query": "Constituição Federal trabalho",
+          "ok": true,
+          "topSimilarity": 0.781,
+          "topPreview": "dependentes; XII - sal�rio-fam�lia pago em raz�o do dependente do trabalhador de baixa renda nos termos da lei; (Reda��o dada pela Emenda Constitucional n� 20, de 1998) XIII - dura",
+          "hits": 3
+        },
+        {
+          "query": "FGTS",
+          "ok": true,
+          "topSimilarity": 0.733,
+          "topPreview": "932, de 2019) IV - elaborar as an�lises jur�dica e econ�mico-financeira dos projetos de habita��o popular, infra-estrutura urbana e saneamento b�sico a serem financiados com recurs",
+          "hits": 3
+        },
+        {
+          "query": "Lei 13.467",
+          "ok": true,
+          "topSimilarity": 0.653,
+          "topPreview": "467, de 2017) III - social, a postula��o, por reclamante-recorrente, de direito social constitucionalmente assegurado; (Inclu�do pela Lei n� 13.467, de 2017) IV - jur�dica, a exist",
+          "hits": 3
+        }
+      ],
+      "status": "ok",
+      "notes": []
+    },
+    {
+      "id": "c31f8202-a598-40e5-840d-8be88ed59463",
+      "title": "Agente JurisPrud",
+      "hasStrictInstructions": false,
+      "counts": {
+        "attachments": 0,
+        "documents": 0,
+        "chunks": 0,
+        "docsWithoutChunks": 0,
+        "duplicateDocumentTitles": 0,
+        "orphanChunks": 0
+      },
+      "chunkStats": {
+        "min": 0,
+        "max": 0,
+        "avg": 0
+      },
+      "attachmentsAudit": {
+        "filesMissing": 0,
+        "filesLowText": 0,
+        "filesWithoutSourceMarker": 0
+      },
+      "retrievalChecks": [],
+      "status": "ok",
+      "notes": []
+    },
+    {
+      "id": "5e5e2dde-e886-4b3f-8b4a-c9293e08b464",
+      "title": "Agente JurisPrud 2",
+      "hasStrictInstructions": false,
+      "counts": {
+        "attachments": 0,
+        "documents": 0,
+        "chunks": 0,
+        "docsWithoutChunks": 0,
+        "duplicateDocumentTitles": 0,
+        "orphanChunks": 0
+      },
+      "chunkStats": {
+        "min": 0,
+        "max": 0,
+        "avg": 0
+      },
+      "attachmentsAudit": {
+        "filesMissing": 0,
+        "filesLowText": 0,
+        "filesWithoutSourceMarker": 0
+      },
+      "retrievalChecks": [],
+      "status": "ok",
+      "notes": []
+    },
+    {
+      "id": "7ac4a472-bc57-4d89-8605-cbc15037fcc8",
+      "title": "Agente NR.sPro",
+      "hasStrictInstructions": true,
+      "counts": {
+        "attachments": 71,
+        "documents": 71,
+        "chunks": 1275,
+        "docsWithoutChunks": 0,
+        "duplicateDocumentTitles": 0,
+        "orphanChunks": 0
+      },
+      "chunkStats": {
+        "min": 112,
+        "max": 4001,
+        "avg": 3765.6
+      },
+      "attachmentsAudit": {
+        "filesMissing": 0,
+        "filesLowText": 4,
+        "filesWithoutSourceMarker": 0
+      },
+      "retrievalChecks": [
+        {
+          "query": "NR-12",
+          "ok": true,
+          "topSimilarity": 0.713,
+          "topPreview": "º 10 - Segurança em Instalações e Serviços em Eletricidade; h) medidas de segurança para injetoras elétricas e hidráulicas de comando manual; e i) demonstração prática dos perigos ",
+          "hits": 3
+        },
+        {
+          "query": "NR-35",
+          "ok": true,
+          "topSimilarity": 0.687,
+          "topPreview": "5 135187-7 3 S 35.5.5.1 135188-5 3 S 35.5.5.1, alínea \"a\" 135189-3 3 S 35.5.5.1, alínea \"b\" 135190-7 3 S 35.5.5.1, alínea \"c\" 135191-5 3 S 35.5.5.1, alínea \"d\" 135192-3 3 S 35.5.5.",
+          "hits": 3
+        },
+        {
+          "query": "NR-17",
+          "ok": true,
+          "topSimilarity": 0.645,
+          "topPreview": "2 Segurança para a zona de injeção: a) proteção fixa e/ou proteção móvel na região de injeção que impeça o acesso ao conjunto de injeção; b) o cilindro de plastificação deve possui",
+          "hits": 3
+        },
+        {
+          "query": "segurança e saúde no trabalho",
+          "ok": true,
+          "topSimilarity": 0.736,
+          "topPreview": "5 Conforto Térmico .......................................................................................... 130 36.10 Equipamentos de Proteção Individual - EPI e Vestimentas de T",
+          "hits": 3
+        }
+      ],
+      "status": "ok",
+      "notes": []
+    },
+    {
+      "id": "16fe2c7a-0cdb-4848-9a3c-c722110a6eb6",
+      "title": "Agente PrecedentX",
+      "hasStrictInstructions": false,
+      "counts": {
+        "attachments": 0,
+        "documents": 0,
+        "chunks": 0,
+        "docsWithoutChunks": 0,
+        "duplicateDocumentTitles": 0,
+        "orphanChunks": 0
+      },
+      "chunkStats": {
+        "min": 0,
+        "max": 0,
+        "avg": 0
+      },
+      "attachmentsAudit": {
+        "filesMissing": 0,
+        "filesLowText": 0,
+        "filesWithoutSourceMarker": 0
+      },
+      "retrievalChecks": [],
+      "status": "ok",
+      "notes": []
+    },
+    {
+      "id": "bb3b91e8-eb7e-4c93-ae71-9188675d226c",
+      "title": "Agente SúmulasCore",
+      "hasStrictInstructions": false,
+      "counts": {
+        "attachments": 0,
+        "documents": 0,
+        "chunks": 0,
+        "docsWithoutChunks": 0,
+        "duplicateDocumentTitles": 0,
+        "orphanChunks": 0
+      },
+      "chunkStats": {
+        "min": 0,
+        "max": 0,
+        "avg": 0
+      },
+      "attachmentsAudit": {
+        "filesMissing": 0,
+        "filesLowText": 0,
+        "filesWithoutSourceMarker": 0
+      },
+      "retrievalChecks": [],
+      "status": "ok",
+      "notes": []
+    },
+    {
+      "id": "d35a16cc-c85a-4ff5-a2de-e16587f6dddf",
+      "title": "Agente SúmulasTr",
+      "hasStrictInstructions": false,
+      "counts": {
+        "attachments": 0,
+        "documents": 0,
+        "chunks": 0,
+        "docsWithoutChunks": 0,
+        "duplicateDocumentTitles": 0,
+        "orphanChunks": 0
+      },
+      "chunkStats": {
+        "min": 0,
+        "max": 0,
+        "avg": 0
+      },
+      "attachmentsAudit": {
+        "filesMissing": 0,
+        "filesLowText": 0,
+        "filesWithoutSourceMarker": 0
+      },
+      "retrievalChecks": [],
+      "status": "ok",
+      "notes": []
+    }
+  ]
+}

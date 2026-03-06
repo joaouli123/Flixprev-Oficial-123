@@ -1,19 +1,18 @@
 import React from "react";
 import AgentCard from "@/components/AgentCard";
 import { Agent, Category } from "@/types/app";
-import { useOutletContext, useParams, useNavigate } from "react-router-dom";
+import { useOutletContext } from "react-router-dom";
 import { useSession } from "@/components/SessionContextProvider";
-import { Shield, Scale, Coins, Cpu, Landmark, Brain, ChevronRight, type LucideIcon } from "lucide-react";
+import { Shield, Scale, Coins, Landmark, Brain, ChevronRight, type LucideIcon } from "lucide-react";
 
 /* ─── Tema de cores por categoria ─── */
 const CATEGORY_COLORS: Record<string, { bg: string; bgLight: string; border: string; text: string; gradient: string; icon: LucideIcon }> = {
-  "previdenciário": { bg: "bg-blue-600", bgLight: "bg-blue-50", border: "border-blue-200", text: "text-blue-700", gradient: "from-blue-500 to-indigo-600", icon: Shield },
-  "previdenciario": { bg: "bg-blue-600", bgLight: "bg-blue-50", border: "border-blue-200", text: "text-blue-700", gradient: "from-blue-500 to-indigo-600", icon: Shield },
-  "trabalhista": { bg: "bg-emerald-600", bgLight: "bg-emerald-50", border: "border-emerald-200", text: "text-emerald-700", gradient: "from-emerald-500 to-green-600", icon: Scale },
-  "tributário": { bg: "bg-amber-600", bgLight: "bg-amber-50", border: "border-amber-200", text: "text-amber-700", gradient: "from-amber-500 to-orange-600", icon: Coins },
-  "tributario": { bg: "bg-amber-600", bgLight: "bg-amber-50", border: "border-amber-200", text: "text-amber-700", gradient: "from-amber-500 to-orange-600", icon: Coins },
-  "prompts ia": { bg: "bg-purple-600", bgLight: "bg-purple-50", border: "border-purple-200", text: "text-purple-700", gradient: "from-purple-500 to-violet-600", icon: Cpu },
-  "stj": { bg: "bg-rose-600", bgLight: "bg-rose-50", border: "border-rose-200", text: "text-rose-700", gradient: "from-rose-500 to-pink-600", icon: Landmark },
+  "previdenciário": { bg: "bg-indigo-600", bgLight: "bg-indigo-50", border: "border-indigo-100", text: "text-indigo-700", gradient: "from-[#434dce] to-indigo-600", icon: Shield },
+  "previdenciario": { bg: "bg-indigo-600", bgLight: "bg-indigo-50", border: "border-indigo-100", text: "text-indigo-700", gradient: "from-[#434dce] to-indigo-600", icon: Shield },
+  "trabalhista": { bg: "bg-indigo-600", bgLight: "bg-indigo-50", border: "border-indigo-100", text: "text-indigo-700", gradient: "from-[#434dce] to-indigo-600", icon: Scale },
+  "tributário": { bg: "bg-indigo-600", bgLight: "bg-indigo-50", border: "border-indigo-100", text: "text-indigo-700", gradient: "from-[#434dce] to-indigo-600", icon: Coins },
+  "tributario": { bg: "bg-indigo-600", bgLight: "bg-indigo-50", border: "border-indigo-100", text: "text-indigo-700", gradient: "from-[#434dce] to-indigo-600", icon: Coins },
+  "stj": { bg: "bg-indigo-700", bgLight: "bg-indigo-50", border: "border-indigo-100", text: "text-indigo-800", gradient: "from-[#434dce] to-indigo-700", icon: Landmark },
 };
 
 function getCategoryTheme(name: string) {
@@ -21,7 +20,43 @@ function getCategoryTheme(name: string) {
   for (const [k, v] of Object.entries(CATEGORY_COLORS)) {
     if (key.includes(k)) return v;
   }
-  return { bg: "bg-indigo-600", bgLight: "bg-indigo-50", border: "border-indigo-200", text: "text-indigo-700", gradient: "from-indigo-500 to-blue-600", icon: Brain };
+  return { bg: "bg-[#434dce]", bgLight: "bg-indigo-50", border: "border-indigo-100", text: "text-[#434dce]", gradient: "from-[#434dce] to-indigo-600", icon: Brain };
+}
+
+function isVisibleCategory(rawName: string) {
+  const normalized = rawName
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
+
+  // Remove categoria Prompt e categorias de teste
+  if (normalized === "prompt" || normalized === "prompts ia") return false;
+  
+  return !/^test(e)?\b/.test(normalized);
+}
+
+function normalizeCategoryName(rawName: string) {
+  return rawName
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/direito\s*/gi, "")
+    .trim();
+}
+
+function sortCategoriesWithPrevidenciarioFirst(categoryList: Category[]) {
+  return [...categoryList].sort((a, b) => {
+    const aName = normalizeCategoryName(a.name);
+    const bName = normalizeCategoryName(b.name);
+    const aIsPrevidenciario = aName.includes("previdenciario");
+    const bIsPrevidenciario = bName.includes("previdenciario");
+
+    if (aIsPrevidenciario && !bIsPrevidenciario) return -1;
+    if (!aIsPrevidenciario && bIsPrevidenciario) return 1;
+
+    return 0;
+  });
 }
 
 interface OutletContextType {
@@ -47,19 +82,25 @@ const AgentsView: React.FC = () => {
     agents,
     searchTerm,
     onSearchChange,
+    selectedCategory,
     onSelectCategory,
   } = useOutletContext<OutletContextType>();
-  const { categorySlug } = useParams<{ categorySlug?: string }>();
-  const isCategoryPage = Boolean(categorySlug);
+  const isCategoryPage = selectedCategory !== "all";
   
   const { profile } = useSession();
   const firstName = profile?.first_name || "Usuário";
 
+  const visibleCategories = React.useMemo(() => {
+    return sortCategoriesWithPrevidenciarioFirst(
+      categories.filter((category) => isVisibleCategory(category.name))
+    );
+  }, [categories]);
+
   const filteredCategories = React.useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
-    if (!term) return categories;
-    return categories.filter((category) => category.name.toLowerCase().includes(term));
-  }, [categories, searchTerm]);
+    if (!term) return visibleCategories;
+    return visibleCategories.filter((category) => category.name.toLowerCase().includes(term));
+  }, [visibleCategories, searchTerm]);
 
   const agentsCountByCategory = React.useMemo(() => {
     const counts = new Map<string, number>();
@@ -67,7 +108,8 @@ const AgentsView: React.FC = () => {
       counts.set(category.id, 0);
     }
     for (const agent of agents) {
-      for (const categoryId of agent.category_ids || []) {
+      const uniqueCategoryIds = [...new Set((agent.category_ids || []).map((categoryId) => String(categoryId)))];
+      for (const categoryId of uniqueCategoryIds) {
         counts.set(categoryId, (counts.get(categoryId) || 0) + 1);
       }
     }
@@ -76,31 +118,26 @@ const AgentsView: React.FC = () => {
 
   // Encontra a categoria atual quando estiver na página de categoria
   const currentCategory = React.useMemo(() => {
-    if (!isCategoryPage || !categorySlug) return null;
-    return categories.find((c) => {
-      const slug = c.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "-");
-      return slug === categorySlug;
-    });
-  }, [categories, categorySlug, isCategoryPage]);
+    if (!isCategoryPage) return null;
+    return visibleCategories.find((category) => String(category.id) === String(selectedCategory)) || null;
+  }, [visibleCategories, selectedCategory, isCategoryPage]);
 
-  // Outras categorias (para atalhos rápidos quando está dentro de uma categoria)
-  const otherCategories = React.useMemo(() => {
-    if (!currentCategory) return categories;
-    return categories.filter((c) => c.id !== currentCategory.id);
-  }, [categories, currentCategory]);
+  const responsiveCategoryTabs = React.useMemo(() => {
+    return visibleCategories.filter((cat) => (agentsCountByCategory.get(cat.id) || 0) > 0);
+  }, [visibleCategories, agentsCountByCategory]);
 
   return (
-    <div className="animate-in fade-in duration-500 flex flex-col gap-6">
+    <div className="animate-in fade-in duration-500 flex flex-col gap-4 sm:gap-6">
       <div className="flex flex-col gap-2">
-        <h1 className="text-3xl font-bold tracking-tight text-slate-900">Bem-vindo, {firstName}</h1>
-        <p className="text-slate-500">
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">Bem-vindo, {firstName}</h1>
+        <p className="text-sm sm:text-base text-slate-500">
           {isCategoryPage
             ? "Selecione o especialista para iniciar o atendimento."
             : "Selecione a categoria para ver os especialistas disponíveis."}
         </p>
       </div>
 
-      <div className="relative max-w-md">
+      <div className="relative w-full max-w-md">
         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
           <svg className="h-4 w-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -116,26 +153,24 @@ const AgentsView: React.FC = () => {
       </div>
 
       {/* Atalhos rápidos para outras categorias (visível quando está dentro de uma categoria) */}
-      {isCategoryPage && otherCategories.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            onClick={() => onSelectCategory("all")}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all border border-slate-200"
-          >
-            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path></svg>
-            Todas
-          </button>
-          {otherCategories.map((cat) => {
+      {isCategoryPage && responsiveCategoryTabs.length > 0 && (
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 pr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {responsiveCategoryTabs.map((cat) => {
             const theme = getCategoryTheme(cat.name);
             const CatIcon = theme.icon;
             const count = agentsCountByCategory.get(cat.id) || 0;
+            const isActiveCategory = currentCategory?.id === cat.id;
             return (
               <button
                 key={cat.id}
                 onClick={() => onSelectCategory(cat.id)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold ${theme.bgLight} ${theme.text} ${theme.border} border hover:shadow-sm transition-all`}
+                className={`flex shrink-0 items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all whitespace-nowrap ${
+                  isActiveCategory
+                    ? "bg-[#434dce] border-[#434dce] text-white shadow-sm"
+                    : `${theme.bgLight} ${theme.text} ${theme.border} hover:bg-white hover:shadow-sm`
+                }`}
               >
-                <CatIcon className="w-3 h-3" />
+                <CatIcon className={`w-3 h-3 ${isActiveCategory ? "text-white" : "text-[#434dce]"}`} />
                 {cat.name}
                 <span className="text-[10px] opacity-70">({count})</span>
               </button>
@@ -164,7 +199,7 @@ const AgentsView: React.FC = () => {
                   </div>
                   
                   <div className="relative z-10">
-                    <div className={`w-12 h-12 ${theme.bg} rounded-xl flex items-center justify-center mb-4 text-white shadow-sm transition-transform duration-300 group-hover:scale-110`}>
+                    <div className="w-12 h-12 bg-gradient-to-br from-[#434dce] to-indigo-600 rounded-xl flex items-center justify-center mb-4 text-white shadow-sm shadow-indigo-500/25 transition-transform duration-300 group-hover:scale-110">
                       <CatIcon className="h-6 w-6" />
                     </div>
                     <h2 className={`line-clamp-2 text-lg font-bold ${theme.text} transition-colors`}>
@@ -188,7 +223,7 @@ const AgentsView: React.FC = () => {
           )}
         </section>
       ) : (
-        <section className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 items-start">
           {filteredAgents.length > 0 ? (
             filteredAgents.map((agent) => (
               <AgentCard

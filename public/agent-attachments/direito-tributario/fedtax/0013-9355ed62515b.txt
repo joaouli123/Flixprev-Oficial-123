@@ -1,0 +1,2125 @@
+FONTE: https://normas.receita.fazenda.gov.br/sijut2consulta/consulta.action?facetsExistentes=&orgaosSelecionados=Codac&tiposAtosSelecionados=&ordemColuna=&ordemDirecao=&tipoAtoFacet=&siglaOrgaoFacet=&anoAtoFacet=&termoBusca=&numero_at=
+COLETADO_EM: 2026-03-05T21:25:30.168Z
+
+Normas
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+NORMAS
+Contraste
+-
+&#xE88A;
+-
+-
+&#xE8AD;
+-
+Busca textual
+help
+Número do ato
+Data
+do ato
+da publica&ccedil;&atilde;o
+a
+Ano
+do ato
+Tipos de ato
+Todos keyboard_arrow_down
+Ato Conjunto
+Ato Declarat&#xF3;rio
+Ato Declarat&#xF3;rio Executivo
+Ato Declarat&#xF3;rio Executivo Conjunto
+Ato Declarat&#xF3;rio Interpretativo
+Ato Declarat&#xF3;rio Normativo
+Comunicado
+Consulta P&#xFA;blica
+Decis&#xE3;o
+Despacho
+Despacho Decis&#xF3;rio
+Edital
+Edital de Intima&#xE7;&#xE3;o
+Edital de Transa&#xE7;&#xE3;o
+Edital de Transa&#xE7;&#xE3;o por Ades&#xE3;o
+Exposi&#xE7;&#xE3;o de Motivos
+Instru&#xE7;&#xE3;o Normativa
+Instru&#xE7;&#xE3;o Normativa Conjunta
+Norma de Execu&#xE7;&#xE3;o
+Norma de Execu&#xE7;&#xE3;o Conjunta
+Nota
+Nota Conjunta
+Nota T&#xE9;cnica
+Nota T&#xE9;cnica Conjunta
+Ordem de Servi&#xE7;o
+Ordem de Servi&#xE7;o Conjunta
+Orienta&#xE7;&#xE3;o Normativa
+Parecer
+Parecer Normativo
+Portaria
+Portaria Conjunta
+Portaria de Pessoal
+Portaria Interministerial
+Portaria Normativa
+Recomenda&#xE7;&#xE3;o
+Resolu&#xE7;&#xE3;o
+Solu&#xE7;&#xE3;o de Consulta
+Solu&#xE7;&#xE3;o de Consulta Interna
+Solu&#xE7;&#xE3;o de Diverg&#xEA;ncia
+Termo de Exclus&#xE3;o do Simples Nacional
+&Oacute;rg&atilde;os e unidades
+Todos keyboard_arrow_down
+RFB - Secretaria da Receita Federal do Brasil
+SRF - Secretaria da Receita Federal
+ALF/AEG - Alf&#xE2;ndega da Receita Federal do Brasil no Aeroporto Internacional Eduardo Gomes
+ALF/AIB - Alf&#xE2;ndega da Receita Federal do Brasil no Aeroporto Internacional de Bel&#xE9;m
+ALF/APM - Alf&#xE2;ndega da Receita Federal do Brasil no Aeroporto Internacional Pinto Martins
+ALF/BEL - Alf&#xE2;ndega da Receita Federal do Brasil no Porto de Bel&#xE9;m
+ALF/BEL - Alf&#xE2;ndega da Receita Federal do Brasil em Bel&#xE9;m
+ALF/BHE - Alf&#xE2;ndega da Receita Federal do Brasil em Belo Horizonte
+ALF/BSB - Alf&#xE2;ndega da Receita Federal do Brasil no Aeroporto Internacional de Bras&#xED;lia
+ALF/COR - Alf&#xE2;ndega da Receita Federal do Brasil em Corumb&#xE1;
+ALF/CTA - Alf&#xE2;ndega da Receita Federal do Brasil em Curitiba
+ALF/DCA - Alf&#xE2;ndega da Receita Federal do Brasil em Dion&#xED;sio Cerqueira
+ALF/FNS - Alf&#xE2;ndega da Receita Federal do Brasil em Florian&#xF3;polis
+ALF/FOR - Alf&#xE2;ndega da Receita Federal do Brasil no Porto de Fortaleza
+ALF/FOR - Alf&#xE2;ndega da Receita Federal do Brasil em Fortaleza
+ALF/FOZ - Alf&#xE2;ndega da Receita Federal do Brasil em Foz do Igua&#xE7;u
+ALF/GIG - Alf&#xE2;ndega da Receita Federal do Brasil no Aeroporto Internacional do Gale&#xE3;o - Ant&#xF4;nio Carlos Jobim
+ALF/GRU - Alf&#xE2;ndega da Receita Federal do Brasil no Aeroporto Internacional de S&#xE3;o Paulo/Guarulhos
+ALF/IGI - Alf&#xE2;ndega da Receita Federal do Brasil no Porto de Itagua&#xED;
+ALF/ITJ - Alf&#xE2;ndega da Receita Federal do Brasil no Porto de Itaja&#xED;
+ALF/MNO - Alf&#xE2;ndega da Receita Federal do Brasil em Mundo Novo
+ALF/MNS - Alf&#xE2;ndega da Receita Federal do Brasil no Porto de Manaus
+ALF/PCE - Alf&#xE2;ndega da Receita Federal do Brasil no Porto de Pec&#xE9;m
+ALF/PGA - Alf&#xE2;ndega da Receita Federal do Brasil no Porto de Paranagu&#xE1;
+ALF/POA - Alf&#xE2;ndega da Receita Federal do Brasil no Aeroporto Internacional Salgado Filho
+ALF/POA - Alf&#xE2;ndega da Receita Federal do Brasil em Porto Alegre
+ALF/PPA - Alf&#xE2;ndega da Receita Federal do Brasil em Ponta Por&#xE3;
+ALF/REC - Alf&#xE2;ndega da Receita Federal do Brasil no Aeroporto Internacional dos Guararapes
+ALF/REC - Alf&#xE2;ndega da Receita Federal do Brasil em Recife
+ALF/RGE - Alf&#xE2;ndega da Receita Federal do Brasil no Porto de Rio Grande
+ALF/RJO - Alf&#xE2;ndega da Receita Federal do Brasil no Porto do Rio de Janeiro
+ALF/SDR - Alf&#xE2;ndega da Receita Federal do Brasil no Porto de Salvador
+ALF/SDR - Alf&#xE2;ndega da Receita Federal do Brasil em Salvador
+ALF/SFS - Alf&#xE2;ndega da Receita Federal do Brasil no Porto de S&#xE3;o Francisco do Sul
+ALF/SLS - Alf&#xE2;ndega da Receita Federal do Brasil no Porto de S&#xE3;o Lu&#xED;s
+ALF/SLV - Alf&#xE2;ndega da Receita Federal do Brasil em Santana do Livramento
+ALF/SPE - Alf&#xE2;ndega da Receita Federal do Brasil no Porto de Suape
+ALF/SPO - Alf&#xE2;ndega da Receita Federal do Brasil em S&#xE3;o Paulo
+ALF/SSA - Alf&#xE2;ndega da Receita Federal do Brasil no Aeroporto Internacional de Salvador
+ALF/STS - Alf&#xE2;ndega da Receita Federal do Brasil no Porto de Santos
+ALF/URA - Alf&#xE2;ndega da Receita Federal do Brasil em Uruguaiana
+ALF/VCP - Alf&#xE2;ndega da Receita Federal do Brasil no Aeroporto Internacional de Viracopos
+ALF/VIT - Alf&#xE2;ndega da Receita Federal do Brasil no Porto de Vit&#xF3;ria
+AN - Arquivo Nacional
+Anac - Ag&#xEA;ncia Nacional de Avia&#xE7;&#xE3;o Civil
+Anvisa - Ag&#xEA;ncia Nacional de Vigil&#xE2;ncia Sanit&#xE1;ria
+ARF/ABA - Ag&#xEA;ncia da Receita Federal do Brasil em Abaetetuba
+ARF/ALM - Ag&#xEA;ncia da Receita Federal do Brasil em Almenara
+ARF/BDO - Ag&#xEA;ncia da Receita Federal do Brasil em Bom Despacho
+ARF/CBO - Ag&#xEA;ncia da Receita Federal do Brasil em Campo Belo
+ARF/COT - Ag&#xEA;ncia da Receita Federal do Brasil em Cotia
+ARF/DCS - Ag&#xEA;ncia da Receita Federal do Brasil em Duque de Caxias
+ARF/IGI - Ag&#xEA;ncia da Receita Federal do Brasil em Itagua&#xED;
+ARF/IUN - Ag&#xEA;ncia da Receita Federal do Brasil em Ita&#xFA;na
+ARF/MCS - Ag&#xEA;ncia da Receita Federal do Brasil em Mogi das Cruzes
+ARF/OVA - Ag&#xEA;ncia da Receita Federal do Brasil em Oliveira
+ARF/PAS - Ag&#xEA;ncia da Receita Federal do Brasil em Passos
+ARF/PET - Ag&#xEA;ncia da Receita Federal do Brasil em Petr&#xF3;polis
+ARF/PRM - Ag&#xEA;ncia da Receita Federal do Brasil em Par&#xE1; de Minas
+ARF/SRA - Ag&#xEA;ncia da Receita Federal do Brasil em Santa Rosa
+ARF/TOI - Ag&#xEA;ncia da Receita Federal do Brasil em Te&#xF3;filo Otoni
+ARF/TOL - Ag&#xEA;ncia da Receita Federal do Brasil em Toledo
+ARF/TSR - Ag&#xEA;ncia da Receita Federal do Brasil em Tabo&#xE3;o da Serra
+Asain - Assessoria de Rela&#xE7;&#xF5;es Internacionais
+Ascif - Assessoria Especial de Coopera&#xE7;&#xE3;o e Integra&#xE7;&#xE3;o Fiscal
+Ascif - Assessoria de Coopera&#xE7;&#xE3;o e Integra&#xE7;&#xE3;o Fiscal
+Ascom - Assessoria de Comunica&#xE7;&#xE3;o Social
+Ascom - Assessoria de Comunica&#xE7;&#xE3;o Institucional
+Asleg - Assessoria Legislativa
+Audit - Coordena&#xE7;&#xE3;o-Geral de Auditoria Interna
+Audit - Coordena&#xE7;&#xE3;o-Geral de Auditoria Interna e Gest&#xE3;o de Riscos
+Bacen - Banco Central do Brasil
+BCB - Banco Central do Brasil
+Carf - Conselho Administrativo de Recursos Fiscais
+CC - Conselho de Contribuintes
+CCA - Coordena&#xE7;&#xE3;o do Sistema Aduaneiro
+CDA - Coordena&#xE7;&#xE3;o-Geral da D&#xED;vida Ativa da Uni&#xE3;o e do FGTS (PGFN)
+CDeSocial - Comit&#xEA; Diretivo do eSocial
+CE-RFB - Comiss&#xE3;o de &#xC9;tica da Secretaria Especial da Receita Federal do Brasil
+Centro OEA - Centro de Certifica&#xE7;&#xE3;o e Monitoramento dos Operadores Econ&#xF4;micos Autorizados
+CEO - Comit&#xEA; de Execu&#xE7;&#xE3;o Or&#xE7;ament&#xE1;ria
+CEP - Comiss&#xE3;o de &#xC9;tica P&#xFA;blica
+Cetad - Centro de Estudos Tribut&#xE1;rios e Aduaneiros
+CG/Confia - Comit&#xEA; Gestor do Programa de Conformidade Cooperativa Fiscal
+CGD - Coordena&#xE7;&#xE3;o-Geral de Grandes Devedores (PGFN)
+CGeS - Comit&#xEA; Gestor do eSocial
+CGI - Comit&#xEA; de Governan&#xE7;a Institucional da Secretaria da Receita Federal do Brasil
+CGI - Comit&#xEA; Gestor da Integridade
+CGIBS - Comit&#xEA; Gestor do Imposto sobre Bens e Servi&#xE7;os
+CGITR - Comit&#xEA; Gestor do Imposto sobre a Propriedade Territorial Rural
+CGNFS-E - Comit&#xEA; Gestor da Nota Fiscal de Servi&#xE7;o Eletr&#xF4;nica de Padr&#xE3;o Nacional
+CGP - Comit&#xEA; de Gest&#xE3;o de Pessoas da Secretaria Especial da Receita Federal do Brasil
+CGPP - Comit&#xEA; Gestor do Programa de Produtividade da Receita Federal do Brasil
+CGR - Coordena&#xE7;&#xE3;o-Geral de Estrat&#xE9;gia de Recupera&#xE7;&#xE3;o de Cr&#xE9;ditos (PGFN)
+CGRCI - Comit&#xEA; de Gest&#xE3;o de Riscos e Controle Interno do Minist&#xE9;rio da Fazenda
+CGREFIS - Comit&#xEA; Gestor do Programa de Recupera&#xE7;&#xE3;o Fiscal
+CGSIM - Comit&#xEA; para Gest&#xE3;o da Rede Nacional para a Simplifica&#xE7;&#xE3;o do Registro e da Legaliza&#xE7;&#xE3;o de Empresas e Neg&#xF3;cios
+CGSN - Comit&#xEA; Gestor do Simples Nacional
+CGSNSE - Secretaria Executiva do Comit&#xEA; Gestor do Simples Nacional
+CGSP - Comit&#xEA; de Governan&#xE7;a Digital, Seguran&#xE7;a da Informa&#xE7;&#xE3;o e Prote&#xE7;&#xE3;o de Dados Pessoais do Minist&#xE9;rio da Fazenda
+CGU - Controladoria-Geral da Uni&#xE3;o
+Cief - Coordena&#xE7;&#xE3;o de Informa&#xE7;&#xF5;es Econ&#xF4;mico-Fiscais
+CMEDI - Comiss&#xE3;o da Mulher, da Equidade, da Diversidade e da Inclus&#xE3;o
+CNGR - Comit&#xEA; Nacional de Gest&#xE3;o de Riscos
+Coaef - Coordena&#xE7;&#xE3;o-Geral de Atendimento e Educa&#xE7;&#xE3;o Fiscal
+Coana - Coordena&#xE7;&#xE3;o-Geral de Administra&#xE7;&#xE3;o Aduaneira
+Coate - Coordena&#xE7;&#xE3;o de Atendimento
+Cocad - Coordena&#xE7;&#xE3;o-Geral de Gest&#xE3;o de Cadastros
+Cocad - Coordena&#xE7;&#xE3;o-Geral de Gest&#xE3;o de Cadastros e Benef&#xED;cios Fiscais
+Cocaj - Coordena&#xE7;&#xE3;o-Geral de Contencioso Administrativo e Judicial
+Cocif - Coordena&#xE7;&#xE3;o-Geral de Coopera&#xE7;&#xE3;o e Integra&#xE7;&#xE3;o Fiscal
+Codac - Coordena&#xE7;&#xE3;o-Geral de Arrecada&#xE7;&#xE3;o e Cobran&#xE7;a
+Codar - Coordena&#xE7;&#xE3;o-Geral de Arrecada&#xE7;&#xE3;o e Direito Credit&#xF3;rio
+Cofis - Coordena&#xE7;&#xE3;o-Geral de Fiscaliza&#xE7;&#xE3;o
+Cogea - Coordena&#xE7;&#xE3;o-Geral de Atendimento
+Cogep - Coordena&#xE7;&#xE3;o-Geral de Gest&#xE3;o de Pessoas
+Coger - Corregedoria da Receita Federal
+Coget - Coordena&#xE7;&#xE3;o-Geral de Estudos Econ&#xF4;mico-Tribut&#xE1;rios
+Colog - Comando Log&#xED;stico do Ex&#xE9;rcito Brasileiro
+Comac - Coordena&#xE7;&#xE3;o Especial de Maiores Contribuintes
+Copat - Coordena&#xE7;&#xE3;o-Geral de Pol&#xED;tica Tribut&#xE1;ria
+Copav - Coordena&#xE7;&#xE3;o-Geral de Planejamento, Organiza&#xE7;&#xE3;o e Avalia&#xE7;&#xE3;o Institucional
+Copei - Coordena&#xE7;&#xE3;o-Geral de Pesquisa e Investiga&#xE7;&#xE3;o
+Copes - Coordena&#xE7;&#xE3;o-Geral de Programa&#xE7;&#xE3;o e Estudos
+Copol - Coordena&#xE7;&#xE3;o-Geral de Programa&#xE7;&#xE3;o e Log&#xED;stica
+Corad - Coordena&#xE7;&#xE3;o Especial de Gest&#xE3;o de Riscos Aduaneiros
+Corat - Coordena&#xE7;&#xE3;o-Geral de Administra&#xE7;&#xE3;o Tribut&#xE1;ria
+Corat - Coordena&#xE7;&#xE3;o-Geral de Administra&#xE7;&#xE3;o do Cr&#xE9;dito Tribut&#xE1;rio
+Corec - Coordena&#xE7;&#xE3;o Especial de Gest&#xE3;o de Cr&#xE9;ditos e de Benef&#xED;cios Fiscais
+Corec - Coordena&#xE7;&#xE3;o Especial de Ressarcimento, Compensa&#xE7;&#xE3;o e Restitui&#xE7;&#xE3;o
+Corep - Coordena&#xE7;&#xE3;o Especial de Vigil&#xE2;ncia e Repress&#xE3;o
+Corep - Coordena&#xE7;&#xE3;o-Geral de Combate ao Contrabando e Descaminho
+Cosaf - Coordena&#xE7;&#xE3;o de Suporte &#xE0; Atividade Fiscal
+Cosar - Coordena&#xE7;&#xE3;o-Geral do Sistema de Arrecada&#xE7;&#xE3;o e Cobran&#xE7;a
+Cosis - Coordena&#xE7;&#xE3;o de Sistemas
+Cosit - Coordena&#xE7;&#xE3;o-Geral de Tributa&#xE7;&#xE3;o
+Cotec - Coordena&#xE7;&#xE3;o-Geral de Tecnologia da Informa&#xE7;&#xE3;o
+Cotec - Coordena&#xE7;&#xE3;o-Geral de Tecnologia e Seguran&#xE7;a da Informa&#xE7;&#xE3;o
+CSAR - Coordena&#xE7;&#xE3;o do Sistema de Arrecada&#xE7;&#xE3;o
+CST - Coordena&#xE7;&#xE3;o do Sistema de Tributa&#xE7;&#xE3;o
+CTI/RFB - Comit&#xEA; de Tecnologia da Informa&#xE7;&#xE3;o da Receita Federal do Brasil
+CTSI/RFB - Comit&#xEA; de Tecnologia e Seguran&#xE7;a da Informa&#xE7;&#xE3;o da Receita Federal do Brasil
+Decex/RJO - Delegacia Especial da Receita Federal do Brasil de Com&#xE9;rcio Exterior no Rio de Janeiro
+Decex/RJO - Delegacia de Fiscaliza&#xE7;&#xE3;o de Com&#xE9;rcio Exterior da Receita Federal do Brasil no Rio de Janeiro
+Decex/SPO - Delegacia de Fiscaliza&#xE7;&#xE3;o de Com&#xE9;rcio Exterior da Receita Federal do Brasil em S&#xE3;o Paulo
+Defis/SPO - Delegacia Especial da Receita Federal do Brasil de Fiscaliza&#xE7;&#xE3;o em S&#xE3;o Paulo
+Defis/SPO - Delegacia de Fiscaliza&#xE7;&#xE3;o da Receita Federal do Brasil em S&#xE3;o Paulo
+Deinf/SPO - Delegacia Especial da Receita Federal do Brasil de Institui&#xE7;&#xF5;es Financeiras em S&#xE3;o Paulo
+Delex/SPO - Delegacia Especial da Receita Federal do Brasil de Fiscaliza&#xE7;&#xE3;o de Com&#xE9;rcio Exterior
+Demac/BHE - Delegacia Especial da Receita Federal do Brasil de Maiores Contribuintes em Belo Horizonte
+Demac/RJO - Delegacia Especial da Receita Federal do Brasil de Maiores Contribuintes no Rio de Janeiro
+Demac/RJO - Delegacia de Maiores Contribuintes da Receita Federal do Brasil no Rio de Janeiro
+Demac/SPO - Delegacia Especial da Receita Federal do Brasil de Maiores Contribuintes em S&#xE3;o Paulo
+Derat/SPO - Delegacia Especial da Receita Federal do Brasil de Administra&#xE7;&#xE3;o Tribut&#xE1;ria em S&#xE3;o Paulo
+Derat/SPO - Delegacia de Administra&#xE7;&#xE3;o Tribut&#xE1;ria da Receita Federal do Brasil em S&#xE3;o Paulo
+Derpf/SPO - Delegacia Especial da Receita Federal do Brasil de Pessoas F&#xED;sicas
+Derpf/SPO - Delegacia de Pessoas F&#xED;sicas da Receita Federal do Brasil em S&#xE3;o Paulo
+Diana/SRRF01 - Divis&#xE3;o de Administra&#xE7;&#xE3;o Aduaneira da 1&#xAA; Regi&#xE3;o Fiscal
+Diana/SRRF02 - Divis&#xE3;o de Administra&#xE7;&#xE3;o Aduaneira da 2&#xAA; Regi&#xE3;o Fiscal
+Diana/SRRF03 - Divis&#xE3;o de Administra&#xE7;&#xE3;o Aduaneira da 3&#xAA; Regi&#xE3;o Fiscal
+Diana/SRRF04 - Divis&#xE3;o de Administra&#xE7;&#xE3;o Aduaneira da 4&#xAA; Regi&#xE3;o Fiscal
+Diana/SRRF05 - Divis&#xE3;o de Administra&#xE7;&#xE3;o Aduaneira da 5&#xAA; Regi&#xE3;o Fiscal
+Diana/SRRF06 - Divis&#xE3;o de Administra&#xE7;&#xE3;o Aduaneira da 6&#xAA; Regi&#xE3;o Fiscal
+Diana/SRRF07 - Divis&#xE3;o de Administra&#xE7;&#xE3;o Aduaneira da 7&#xAA; Regi&#xE3;o Fiscal
+Diana/SRRF08 - Divis&#xE3;o de Administra&#xE7;&#xE3;o Aduaneira da 8&#xAA; Regi&#xE3;o Fiscal
+Diana/SRRF09 - Divis&#xE3;o de Administra&#xE7;&#xE3;o Aduaneira da 9&#xAA; Regi&#xE3;o Fiscal
+Diana/SRRF10 - Divis&#xE3;o de Administra&#xE7;&#xE3;o Aduaneira da 10&#xAA; Regi&#xE3;o Fiscal
+Difis/SRRF03 - Divis&#xE3;o de Fiscaliza&#xE7;&#xE3;o da 3&#xAA; Regi&#xE3;o Fiscal
+Difis/SRRF04 - Divis&#xE3;o de Fiscaliza&#xE7;&#xE3;o da 4&#xAA; Regi&#xE3;o Fiscal
+Difis/SRRF05 - Divis&#xE3;o de Fiscaliza&#xE7;&#xE3;o da 5&#xAA; Regi&#xE3;o Fiscal
+Difis/SRRF06 - Divis&#xE3;o de Fiscaliza&#xE7;&#xE3;o da 6&#xAA; Regi&#xE3;o Fiscal
+Difis/SRRF07 - Divis&#xE3;o de Fiscaliza&#xE7;&#xE3;o da 7&#xAA; Regi&#xE3;o Fiscal
+Difis/SRRF08 - Divis&#xE3;o de Fiscaliza&#xE7;&#xE3;o da 8&#xAA; Regi&#xE3;o Fiscal
+Difis/SRRF09 - Divis&#xE3;o de Fiscaliza&#xE7;&#xE3;o da 9&#xAA; Regi&#xE3;o Fiscal
+Difis/SRRF10 - Divis&#xE3;o de Fiscaliza&#xE7;&#xE3;o da 10&#xAA; Regi&#xE3;o Fiscal
+Dipol/SRRF03 - Divis&#xE3;o de Programa&#xE7;&#xE3;o e Log&#xED;stica da 3&#xAA; Regi&#xE3;o Fiscal
+Dipol/SRRF04 - Divis&#xE3;o de Programa&#xE7;&#xE3;o e Log&#xED;stica da 4&#xAA; Regi&#xE3;o Fiscal
+Dipol/SRRF07 - Divis&#xE3;o de Programa&#xE7;&#xE3;o e Log&#xED;stica da 7&#xAA; Regi&#xE3;o Fiscal
+Dipol/SRRF08 - Divis&#xE3;o de Programa&#xE7;&#xE3;o e Log&#xED;stica da 8&#xAA; Regi&#xE3;o Fiscal
+Dipol/SRRF10 - Divis&#xE3;o de Programa&#xE7;&#xE3;o e Log&#xED;stica da 10&#xAA; Regi&#xE3;o Fiscal
+Dirac/SRRF04 - Divis&#xE3;o Regional de Gest&#xE3;o do Cr&#xE9;dito Tribut&#xE1;rio e do Direito Credit&#xF3;rio da 4&#xAA; Regi&#xE3;o Fiscal
+Dirac/SRRF06 - Divis&#xE3;o de Arrecada&#xE7;&#xE3;o e Cobran&#xE7;a da 6&#xAA; Regi&#xE3;o Fiscal
+Dirac/SRRF07 - Divis&#xE3;o Regional de Gest&#xE3;o do Cr&#xE9;dito Tribut&#xE1;rio e do Direito Credit&#xF3;rio da 7&#xAA; Regi&#xE3;o Fiscal
+Dirac/SRRF09 - Divis&#xE3;o Regional de Gest&#xE3;o do Cr&#xE9;dito Tribut&#xE1;rio e do Direito Credit&#xF3;rio da 9&#xAA; Regi&#xE3;o Fiscal
+Dirac/SRRF10 - Divis&#xE3;o de Arrecada&#xE7;&#xE3;o e Cobran&#xE7;a da 10&#xAA; Regi&#xE3;o Fiscal
+Disit/SRRF01 - Divis&#xE3;o de Tributa&#xE7;&#xE3;o da 1&#xAA; Regi&#xE3;o Fiscal
+Disit/SRRF02 - Divis&#xE3;o de Tributa&#xE7;&#xE3;o da 2&#xAA; Regi&#xE3;o Fiscal
+Disit/SRRF03 - Divis&#xE3;o de Tributa&#xE7;&#xE3;o da 3&#xAA; Regi&#xE3;o Fiscal
+Disit/SRRF04 - Divis&#xE3;o de Tributa&#xE7;&#xE3;o da 4&#xAA; Regi&#xE3;o Fiscal
+Disit/SRRF05 - Divis&#xE3;o de Tributa&#xE7;&#xE3;o da 5&#xAA; Regi&#xE3;o Fiscal
+Disit/SRRF06 - Divis&#xE3;o de Tributa&#xE7;&#xE3;o da 6&#xAA; Regi&#xE3;o Fiscal
+Disit/SRRF07 - Divis&#xE3;o de Tributa&#xE7;&#xE3;o da 7&#xAA; Regi&#xE3;o Fiscal
+Disit/SRRF08 - Divis&#xE3;o de Tributa&#xE7;&#xE3;o da 8&#xAA; Regi&#xE3;o Fiscal
+Disit/SRRF09 - Divis&#xE3;o de Tributa&#xE7;&#xE3;o da 9&#xAA; Regi&#xE3;o Fiscal
+Disit/SRRF10 - Divis&#xE3;o de Tributa&#xE7;&#xE3;o da 10&#xAA; Regi&#xE3;o Fiscal
+Divic/SRRF06 - Divis&#xE3;o de Intera&#xE7;&#xE3;o com o Cidad&#xE3;o da 6&#xAA; Regi&#xE3;o Fiscal
+DMM - Departamento da Marinha Mercante
+DNER - Departamento Nacional de Estradas de Rodagem
+DPRF - Departamento da Receita Federal
+DRF/AJU - Delegacia da Receita Federal do Brasil em Aracaju
+DRF/ANA - Delegacia da Receita Federal do Brasil em An&#xE1;polis
+DRF/AQA - Delegacia da Receita Federal do Brasil em Araraquara
+DRF/ATA - Delegacia da Receita Federal do Brasil em Ara&#xE7;atuba
+DRF/BAU - Delegacia da Receita Federal do Brasil em Bauru
+DRF/BEL - Delegacia da Receita Federal do Brasil em Bel&#xE9;m
+DRF/BHE - Delegacia da Receita Federal do Brasil em Belo Horizonte
+DRF/BLU - Delegacia da Receita Federal do Brasil em Blumenau
+DRF/BRE - Delegacia da Receita Federal do Brasil em Barueri
+DRF/BSB - Delegacia da Receita Federal do Brasil em Bras&#xED;lia
+DRF/BVT - Delegacia da Receita Federal do Brasil em Boa Vista
+DRF/CBA - Delegacia da Receita Federal do Brasil em Cuiab&#xE1;
+DRF/CCI - Delegacia da Receita Federal do Brasil em Cama&#xE7;ari
+DRF/CFN - Delegacia da Receita Federal do Brasil em Coronel Fabriciano
+DRF/CGD - Delegacia da Receita Federal do Brasil em Campina Grande
+DRF/CGE - Delegacia da Receita Federal do Brasil em Campo Grande
+DRF/CGZ - Delegacia da Receita Federal do Brasil em Campos dos Goytacazes
+DRF/CON - Delegacia da Receita Federal do Brasil em Contagem
+DRF/CPS - Delegacia da Receita Federal do Brasil em Campinas
+DRF/CRU - Delegacia da Receita Federal do Brasil em Caruaru
+DRF/CTA - Delegacia da Receita Federal do Brasil em Curitiba
+DRF/CVL - Delegacia da Receita Federal do Brasil em Cascavel
+DRF/CXL - Delegacia da Receita Federal do Brasil em Caxias do Sul
+DRF/DIV - Delegacia da Receita Federal do Brasil em Divin&#xF3;polis
+DRF/DOU - Delegacia da Receita Federal do Brasil em Dourados
+DRF/FCA - Delegacia da Receita Federal do Brasil em Franca
+DRF/FLO - Delegacia da Receita Federal do Brasil em Floriano
+DRF/FNS - Delegacia da Receita Federal do Brasil em Florian&#xF3;polis
+DRF/FOR - Delegacia da Receita Federal do Brasil em Fortaleza
+DRF/FOZ - Delegacia da Receita Federal do Brasil em Foz do Igua&#xE7;u
+DRF/FSA - Delegacia da Receita Federal do Brasil em Feira de Santana
+DRF/GOI - Delegacia da Receita Federal do Brasil em Goi&#xE2;nia
+DRF/GUA - Delegacia da Receita Federal do Brasil em Guarulhos
+DRF/GVS - Delegacia da Receita Federal do Brasil em Governador Valadares
+DRF/IMP - Delegacia da Receita Federal do Brasil em Imperatriz
+DRF/ITA - Delegacia da Receita Federal do Brasil em Itabuna
+DRF/JFA - Delegacia da Receita Federal do Brasil em Juiz de Fora
+DRF/JNE - Delegacia da Receita Federal do Brasil em Juazeiro do Norte
+DRF/JOA - Delegacia da Receita Federal do Brasil em Joa&#xE7;aba
+DRF/JOI - Delegacia da Receita Federal do Brasil em Joinville
+DRF/JPA - Delegacia da Receita Federal do Brasil em Jo&#xE3;o Pessoa
+DRF/JPR - Delegacia da Receita Federal do Brasil em Ji-Paran&#xE1;
+DRF/JUN - Delegacia da Receita Federal do Brasil em Jundia&#xED;
+DRF/LAG - Delegacia da Receita Federal do Brasil em Lages
+DRF/LFS - Delegacia da Receita Federal do Brasil em Lauro de Freitas
+DRF/LIM - Delegacia da Receita Federal do Brasil em Limeira
+DRF/LON - Delegacia da Receita Federal do Brasil em Londrina
+DRF/MAC - Delegacia da Receita Federal do Brasil em Macei&#xF3;
+DRF/MBA - Delegacia da Receita Federal do Brasil em Marab&#xE1;
+DRF/MCA - Delegacia da Receita Federal do Brasil em Macap&#xE1;
+DRF/MCE - Delegacia da Receita Federal do Brasil em Maca&#xE9;
+DRF/MCR - Delegacia da Receita Federal do Brasil em Montes Claros
+DRF/MGA - Delegacia da Receita Federal do Brasil em Maring&#xE1;
+DRF/MNS - Delegacia da Receita Federal do Brasil em Manaus
+DRF/MOS - Delegacia da Receita Federal do Brasil em Mossor&#xF3;
+DRF/MRA - Delegacia da Receita Federal do Brasil em Mar&#xED;lia
+DRF/NAT - Delegacia da Receita Federal do Brasil em Natal
+DRF/NHO - Delegacia da Receita Federal do Brasil em Novo Hamburgo
+DRF/NIT - Delegacia da Receita Federal do Brasil em Niter&#xF3;i
+DRF/NIU - Delegacia da Receita Federal do Brasil em Nova Igua&#xE7;u
+DRF/OSA - Delegacia da Receita Federal do Brasil em Osasco
+DRF/PAL - Delegacia da Receita Federal do Brasil em Palmas
+DRF/PCA - Delegacia da Receita Federal do Brasil em Piracicaba
+DRF/PCS - Delegacia da Receita Federal do Brasil em Po&#xE7;os de Caldas
+DRF/PEL - Delegacia da Receita Federal do Brasil em Pelotas
+DRF/PFO - Delegacia da Receita Federal do Brasil em Passo Fundo
+DRF/PGA - Delegacia da Receita Federal em Paranagu&#xE1;
+DRF/POA - Delegacia da Receita Federal do Brasil em Porto Alegre
+DRF/PPE - Delegacia da Receita Federal do Brasil em Presidente Prudente
+DRF/PTG - Delegacia da Receita Federal do Brasil em Ponta Grossa
+DRF/PVO - Delegacia da Receita Federal do Brasil em Porto Velho
+DRF/RBO - Delegacia da Receita Federal do Brasil em Rio Branco
+DRF/REC - Delegacia da Receita Federal do Brasil em Recife
+DRF/RJ1 - Delegacia da Receita Federal do Brasil no Rio de Janeiro I
+DRF/RJ2 - Delegacia da Receita Federal do Brasil no Rio de Janeiro II
+DRF/RPO - Delegacia da Receita Federal do Brasil em Ribeir&#xE3;o Preto
+DRF/SAE - Delegacia da Receita Federal do Brasil em Santo Andr&#xE9;
+DRF/SAN - Delegacia da Receita Federal do Brasil em Santar&#xE9;m
+DRF/SAO - Delegacia da Receita Federal do Brasil em Santo &#xC2;ngelo
+DRF/SBC - Delegacia da Receita Federal do Brasil em S&#xE3;o Bernardo do Campo
+DRF/SCS - Delegacia da Receita Federal do Brasil em Santa Cruz do Sul
+DRF/SDR - Delegacia da Receita Federal do Brasil em Salvador
+DRF/SJC - Delegacia da Receita Federal do Brasil em S&#xE3;o Jos&#xE9; dos Campos
+DRF/SJR - Delegacia da Receita Federal do Brasil em S&#xE3;o Jos&#xE9; do Rio Preto
+DRF/SLS - Delegacia da Receita Federal do Brasil em S&#xE3;o Lu&#xED;s
+DRF/SOB - Delegacia da Receita Federal do Brasil em Sobral
+DRF/SOR - Delegacia da Receita Federal do Brasil em Sorocaba
+DRF/STL - Delegacia da Receita Federal do Brasil em Sete Lagoas
+DRF/STM - Delegacia da Receita Federal do Brasil em Santa Maria
+DRF/STS - Delegacia da Receita Federal do Brasil em Santos
+DRF/TAU - Delegacia da Receita Federal do Brasil em Taubat&#xE9;
+DRF/TSA - Delegacia da Receita Federal do Brasil em Teresina
+DRF/UBB - Delegacia da Receita Federal do Brasil em Uberaba
+DRF/UBL - Delegacia da Receita Federal do Brasil em Uberl&#xE2;ndia
+DRF/URA - Delegacia da Receita Federal do Brasil em Uruguaiana
+DRF/VAR - Delegacia da Receita Federal do Brasil em Varginha
+DRF/VCA - Delegacia da Receita Federal do Brasil em Vit&#xF3;ria da Conquista
+DRF/VIT - Delegacia da Receita Federal do Brasil em Vit&#xF3;ria
+DRF/VRA - Delegacia da Receita Federal do Brasil em Volta Redonda
+DRJ/BEL - Delegacia da Receita Federal do Brasil de Julgamento em Bel&#xE9;m
+DRJ/BHE - Delegacia da Receita Federal do Brasil de Julgamento em Belo Horizonte
+DRJ/BSB - Delegacia da Receita Federal do Brasil de Julgamento em Bras&#xED;lia
+DRJ/CGE - Delegacia da Receita Federal do Brasil de Julgamento em Campo Grande
+DRJ/CTA - Delegacia da Receita Federal do Brasil de Julgamento em Curitiba
+DRJ/FNS - Delegacia da Receita Federal do Brasil de Julgamento em Florian&#xF3;polis
+DRJ/FOR - Delegacia da Receita Federal do Brasil de Julgamento em Fortaleza
+DRJ/JFA - Delegacia da Receita Federal do Brasil de Julgamento em Juiz de Fora
+DRJ/POA - Delegacia da Receita Federal do Brasil de Julgamento em Porto Alegre
+DRJ/REC - Delegacia da Receita Federal do Brasil de Julgamento em Recife
+DRJ/RJO - Delegacia da Receita Federal do Brasil de Julgamento no Rio de Janeiro
+DRJ/RPO - Delegacia da Receita Federal do Brasil de Julgamento em Ribeir&#xE3;o Preto
+DRJ/SDR - Delegacia da Receita Federal do Brasil de Julgamento em Salvador
+DRJ/SPO - Delegacia da Receita Federal do Brasil de Julgamento em S&#xE3;o Paulo
+DRJ07 - Delegacia de Julgamento da Receita Federal do Brasil 07
+Enat - Encontro Nacional de Administradores Tribut&#xE1;rios
+Escor01 - Escrit&#xF3;rio de Corregedoria na 1&#xAA; Regi&#xE3;o Fiscal
+Escor05 - Escrit&#xF3;rio de Corregedoria na 5&#xAA; Regi&#xE3;o Fiscal
+Escor07 - Escrit&#xF3;rio de Corregedoria na 7&#xAA; Regi&#xE3;o Fiscal
+Escor08 - Escrit&#xF3;rio de Corregedoria na 8&#xAA; Regi&#xE3;o Fiscal
+Escor09 - Escrit&#xF3;rio de Corregedoria na 9&#xAA; Regi&#xE3;o Fiscal
+Escor10 - Escrit&#xF3;rio de Corregedoria na 10&#xAA; Regi&#xE3;o Fiscal
+Espei01 - Escrit&#xF3;rio de Pesquisa e Investiga&#xE7;&#xE3;o na 1&#xAA; Regi&#xE3;o Fiscal
+Espei03 - Escrit&#xF3;rio de Pesquisa e Investiga&#xE7;&#xE3;o na 3&#xAA; Regi&#xE3;o Fiscal
+Espei05 - Escrit&#xF3;rio de Pesquisa e Investiga&#xE7;&#xE3;o na 5&#xAA; Regi&#xE3;o Fiscal
+Espei07 - Escrit&#xF3;rio de Pesquisa e Investiga&#xE7;&#xE3;o na 7&#xAA; Regi&#xE3;o Fiscal
+Espei08 - Escrit&#xF3;rio de Pesquisa e Investiga&#xE7;&#xE3;o na 8&#xAA; Regi&#xE3;o Fiscal
+Espei09 - Escrit&#xF3;rio de Pesquisa e Investiga&#xE7;&#xE3;o na 9&#xAA; Regi&#xE3;o Fiscal
+Incra - Instituto Nacional de Coloniza&#xE7;&#xE3;o e Reforma Agr&#xE1;ria
+Inmetro - Instituto Nacional de Metrologia, Qualidade e Tecnologia
+INSS - Instituto Nacional do Seguro Social
+IRF/APM - Inspetoria da Receita Federal do Brasil no Aeroporto Internacional Pinto Martins
+IRF/ARU - Inspetoria da Receita Federal do Brasil em Aratu
+IRF/BHE - Inspetoria da Receita Federal do Brasil em Belo Horizonte
+IRF/BRA - Inspetoria da Receita Federal do Brasil em Brasil&#xE9;ia
+IRF/CAB - Inspetoria da Receita Federal do Brasil em Cabedelo
+IRF/CAE - Inspetoria da Receita Federal do Brasil em C&#xE1;ceres
+IRF/CAP - Inspetoria da Receita Federal do Brasil em Capanema
+IRF/CGZ - Inspetoria da Receita Federal do Brasil em Campos dos Goytacazes
+IRF/CHU - Inspetoria da Receita Federal do Brasil em Chu&#xED;
+IRF/COR - Inspetoria da Receita Federal do Brasil em Corumb&#xE1;
+IRF/CTA - Inspetoria da Receita Federal do Brasil em Curitiba
+IRF/CZL - Inspetoria da Receita Federal do Brasil em Cruzeiro do Sul
+IRF/DCA - Inspetoria da Receita Federal do Brasil em Dion&#xED;sio Cerqueira
+IRF/EPI - Inspetoria da Receita Federal do Brasil em Epitaciol&#xE2;ndia
+IRF/FNS - Inspetoria da Receita Federal do Brasil em Florian&#xF3;polis
+IRF/GUM - Inspetoria da Receita Federal do Brasil em Guajar&#xE1;-Mirim
+IRF/ILH - Inspetoria da Receita Federal do Brasil em Ilh&#xE9;us
+IRF/JAG - Inspetoria da Receita Federal do Brasil em Jaguar&#xE3;o
+IRF/MAC - Inspetoria da Receita Federal do Brasil em Macei&#xF3;
+IRF/MCE - Inspetoria da Receita Federal do Brasil em Maca&#xE9;
+IRF/MNO - Inspetoria da Receita Federal do Brasil em Mundo Novo
+IRF/MUA - Inspetoria da Receita Federal do Brasil em Porto Mau&#xE1;
+IRF/NAT - Inspetoria da Receita Federal do Brasil em Natal
+IRF/OIA - Inspetoria da Receita Federal do Brasil em Oiapoque
+IRF/PAC - Inspetoria da Receita Federal do Brasil em Pacaraima
+IRF/PAN - Inspetoria da Receita Federal do Brasil em Parnamirim
+IRF/PCE - Inspetoria da Receita Federal do Brasil no Porto de Pec&#xE9;m
+IRF/PLA - Inspetoria da Receita Federal do Brasil em Petrolina
+IRF/POA - Inspetoria da Receita Federal do Brasil em Porto Alegre
+IRF/POA - Inspetoria da Receita Federal do Brasil no Aeroporto Internacional Salgado Filho
+IRF/PPA - Inspetoria da Receita Federal do Brasil em Ponta Por&#xE3;
+IRF/PSO - Inspetoria da Receita Federal do Brasil em Porto Seguro
+IRF/PXR - Inspetoria da Receita Federal do Brasil em Porto Xavier
+IRF/QUA - Inspetoria da Receita Federal do Brasil em Quara&#xED;
+IRF/REC - Inspetoria da Receita Federal do Brasil em Recife
+IRF/RJO - Inspetoria da Receita Federal do Brasil no Rio de Janeiro
+IRF/SBA - Inspetoria da Receita Federal do Brasil em S&#xE3;o Borja
+IRF/SHA - Inspetoria da Receita Federal do Brasil em Santa Helena
+IRF/SLS - Inspetoria da Receita Federal do Brasil no Porto de S&#xE3;o Lu&#xED;s
+IRF/SLV - Inspetoria da Receita Federal do Brasil em Santana do Livramento
+IRF/SPO - Inspetoria da Receita Federal do Brasil em S&#xE3;o Paulo
+IRF/SSA - Inspetoria da Receita Federal do Brasil no Aeroporto Internacional de Salvador
+IRF/SSO - Inspetoria da Receita Federal do Brasil em S&#xE3;o Sebasti&#xE3;o
+IRF/STN - Inspetoria da Receita Federal do Brasil em Santana
+IRF/TAB - Inspetoria da Receita Federal do Brasil em Tabatinga
+IRF/TPS - Inspetoria da Receita Federal do Brasil em Tr&#xEA;s Passos
+IRF/VHA - Inspetoria da Receita Federal do Brasil em Vilhena
+MD - Minist&#xE9;rio da Defesa
+MDIC - Minist&#xE9;rio do Desenvolvimento, Ind&#xFA;stria e Com&#xE9;rcio Exterior
+ME - Minist&#xE9;rio da Economia
+MEFP - Minist&#xE9;rio da Economia, Fazenda e Planejamento
+MF - Minist&#xE9;rio da Fazenda
+MGI - Minist&#xE9;rio da Gest&#xE3;o e da Inova&#xE7;&#xE3;o em Servi&#xE7;os P&#xFA;blicos
+MI - Minist&#xE9;rio da Integra&#xE7;&#xE3;o Nacional
+MICT - Minist&#xE9;rio da Ind&#xFA;stria, do Com&#xE9;rcio e do Turismo
+MinC - Minist&#xE9;rio da Cultura
+MME - Minist&#xE9;rio de Minas e Energia
+MPAS - Minist&#xE9;rio da Previd&#xEA;ncia e Assist&#xEA;ncia Social
+MPOG - Minist&#xE9;rio do Planejamento, Or&#xE7;amento e Gest&#xE3;o
+MPS - Minist&#xE9;rio da Previd&#xEA;ncia Social
+MRE - Minist&#xE9;rio das Rela&#xE7;&#xF5;es Exteriores
+MS - Minist&#xE9;rio da Sa&#xFA;de
+MTB - Minist&#xE9;rio do Trabalho
+MTE - Minist&#xE9;rio do Trabalho e Emprego
+MTP - Minist&#xE9;rio do Trabalho e Previd&#xEA;ncia
+MTPS - Minist&#xE9;rio do Trabalho e Previd&#xEA;ncia Social
+Nupei/CGE - N&#xFA;cleo de Pesquisa e Investiga&#xE7;&#xE3;o em Campo Grande
+Nupei/FOZ - N&#xFA;cleo de Pesquisa e Investiga&#xE7;&#xE3;o em Foz do Igua&#xE7;u
+Nupei/VIT - N&#xFA;cleo de Pesquisa e Investiga&#xE7;&#xE3;o em Vit&#xF3;ria
+Ouvid - Ouvidoria
+PFN-ES - Procuradoria da Fazenda Nacional no Estado do Esp&#xED;rito Santo
+PFN-PR - Procuradoria da Fazenda Nacional no Estado do Paran&#xE1;
+PGF - Procuradoria-Geral Federal
+PGFN - Procuradoria-Geral da Fazenda Nacional
+Previc - Superintend&#xEA;ncia Nacional de Previd&#xEA;ncia Complementar
+PRFN-2&#xAA;R - Procuradoria Regional da Fazenda Nacional na 2&#xAA; Regi&#xE3;o
+PVPAF-Campinas - Posto de Vigil&#xE2;ncia Sanit&#xE1;ria de Portos, Aeroportos, Fronteiras e Recintos Alfandegados de Campinas
+RFB - Secretaria Especial da Receita Federal do Brasil
+SCS - Secretaria de Com&#xE9;rcio e Servi&#xE7;os
+SDA - Secretaria de Defesa Agropecu&#xE1;ria
+SE/ME - Secretaria-Executiva do Minist&#xE9;rio da Economia
+SE/MF - Secretaria-Executiva do Minist&#xE9;rio da Fazenda
+Seadj - Secretaria-Adjunta da Receita Federal do Brasil
+Secex - Secretaria de Com&#xE9;rcio Exterior
+Secint - Secretaria Especial de Com&#xE9;rcio Exterior e Assuntos Internacionais
+Sepec/ME - Secretaria Especial de Produtividade, Emprego e Competitividade do Minist&#xE9;rio da Economia
+SEPRT - Secretaria Especial de Previd&#xEA;ncia e Trabalho
+SFC - Secretaria Federal de Controle
+SGRFB - Subsecretaria-Geral da Receita Federal do Brasil
+SPA - Secretaria de Pr&#xEA;mios e Apostas
+SRP - Secretaria da Receita Previdenci&#xE1;ria
+SRRF01 - Superintend&#xEA;ncia Regional da Receita Federal do Brasil 1&#xAA; Regi&#xE3;o Fiscal
+SRRF02 - Superintend&#xEA;ncia Regional da Receita Federal do Brasil 2&#xAA; Regi&#xE3;o Fiscal
+SRRF03 - Superintend&#xEA;ncia Regional da Receita Federal do Brasil 3&#xAA; Regi&#xE3;o Fiscal
+SRRF04 - Superintend&#xEA;ncia Regional da Receita Federal do Brasil 4&#xAA; Regi&#xE3;o Fiscal
+SRRF05 - Superintend&#xEA;ncia Regional da Receita Federal do Brasil 5&#xAA; Regi&#xE3;o Fiscal
+SRRF06 - Superintend&#xEA;ncia Regional da Receita Federal do Brasil 6&#xAA; Regi&#xE3;o Fiscal
+SRRF07 - Superintend&#xEA;ncia Regional da Receita Federal do Brasil 7&#xAA; Regi&#xE3;o Fiscal
+SRRF08 - Superintend&#xEA;ncia Regional da Receita Federal do Brasil 8&#xAA; Regi&#xE3;o Fiscal
+SRRF09 - Superintend&#xEA;ncia Regional da Receita Federal do Brasil 9&#xAA; Regi&#xE3;o Fiscal
+SRRF10 - Superintend&#xEA;ncia Regional da Receita Federal do Brasil 10&#xAA; Regi&#xE3;o Fiscal
+STN - Secretaria do Tesouro Nacional
+Suana - Subsecretaria de Administra&#xE7;&#xE3;o Aduaneira
+Suara - Subsecretaria de Arrecada&#xE7;&#xE3;o, Cadastros e Atendimento
+Suari - Subsecretaria de Aduana e Rela&#xE7;&#xF5;es Internacionais
+Sucor - Subsecretaria de Gest&#xE3;o Corporativa
+Sufis - Subsecretaria de Fiscaliza&#xE7;&#xE3;o
+Suframa - Superintend&#xEA;ncia da Zona Franca de Manaus
+Susep - Superintend&#xEA;ncia de Seguros Privados
+Sutri - Subsecretaria de Tributa&#xE7;&#xE3;o e Contencioso
+SVA/VCP - Servi&#xE7;o de Vigil&#xE2;ncia Agropecu&#xE1;ria em Viracopos
+TSE - Tribunal Superior Eleitoral
+UT2&#xBA;N-Viracopos - Unidade T&#xE9;cnica do Ibama – 2&#xBA; N&#xED;vel em Viracopos
+VIGI-VCP - Unidade Descentralizada de Defesa Agropecu&#xE1;ria de Campinas
+Vigiagro - Sistema de Vigil&#xE2;ncia Agropecu&#xE1;ria Internacional
+Apenas atos vigentes
+Buscar
+Limpar
+Refine sua pesquisa
+Tipo do ato
+Ato Declarat&#xF3;rio Executivo (639)
+Portaria (15)
+Portaria Conjunta (1)
+&#xD3;rg&#xE3;o / unidade
+Codac (655)
+Cotec (3)
+Ano do ato
+2020 (16)
+2019 (15)
+2018 (10)
+2017 (19)
+2016 (14)
+2015 (21)
+2014 (29)
+2013 (47)
+2012 (80)
+2011 (92)
+2010 (89)
+2009 (100)
+2008 (71)
+2007 (52)
+&#xE5CF; mais
+Total de atos localizados: 655
+(100 por p&aacute;gina)
+P&aacute;gina
+1
+2
+3
+4
+5
+6
+7
+de 7
+keyboard_arrow_right
+[TABELA]
+Resultado da pesquisa
+Resultados ordenados por:
+Ordenação
+Relevância
+Tipo do ato (crescente)
+Tipo do ato (decrescente)
+Nº do ato (crescente)
+Nº do ato (decrescente)
+Órgão (crescente)
+Órgão (decrescente)
+Data da publicação (decrescente) Data da publicação (crescente)
+|
+Tipo do ato |
+N&ordm; do ato |
+&Oacute;rg&atilde;o / unidade |
+Publica&ccedil;&atilde;o |
+Ementa |
+Portaria | -->
+Portaria
+|
+-->
+19
+|
+-->
+Codac
+|
+-->
+24/07/2020
+|
+Publica o resultado alcançado no 2º (segundo) trimestre de 2020 por servidores que atuam na modalidade teletrabalho. -->
+Publica o resultado alcançado no 2º (segundo) trimestre de 2020 por servidores que atuam na modalidade teletrabalho.
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+24
+|
+-->
+Codac
+|
+-->
+24/07/2020
+|
+Aprova o programa multiplataforma para preenchimento da Declaração do Imposto sobre a Propriedade Territorial Rural do exercício de 2020, para uso em computador que possua a máquina virtual Java (JVM), versão 1.7.0 ou superior, instalada. -->
+Aprova o programa multiplataforma para preenchimento da Declaração do Imposto sobre a Propriedade Territorial Rural do exercício de 2020, para uso em computador que possua a máquina virtual Java (JVM), versão 1.7.0 ou superior, instalada.
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+23
+|
+-->
+Codac
+|
+-->
+21/07/2020
+|
+Institui código de receita para o recolhimento de multa por omissão/incorreção/atraso na entrega do Livro Caixa Digital do Produtor Rural, de que trata o art. 23-B da Instrução Normativa SRF nº 83, de 11 de outubro de 2001. -->
+Institui código de receita para o recolhimento de multa por omissão/incorreção/atraso na entrega do Livro Caixa Digital do Produtor Rural, de que trata o art. 23-B da Instrução Normativa SRF nº 83, de 11 de outubro de 2001.
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+21
+|
+-->
+Codac
+|
+-->
+17/06/2020
+|
+Altera os Atos Declaratórios Executivos Codac nº 60, de 10 de dezembro de 2013, nº 38, de 10 de novembro de 2014, e nº 24, de 13 de setembro de 2016, que instituem códigos de receita. -->
+Altera os Atos Declaratórios Executivos Codac nº 60, de 10 de dezembro de 2013, nº 38, de 10 de novembro de 2014, e nº 24, de 13 de setembro de 2016, que instituem códigos de receita.
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+17
+|
+-->
+Codac
+|
+-->
+05/05/2020
+|
+Desliga o Banco Cacique S/A da Rede Arrecadadora de Receitas Federais. -->
+Desliga o Banco Cacique S/A da Rede Arrecadadora de Receitas Federais.
+|
+Portaria | -->
+Portaria
+|
+-->
+11
+|
+-->
+Codac
+|
+-->
+28/04/2020
+|
+Publica o resultado alcançado no 1º (primeiro) trimestre de 2020 por servidores que atuam na modalidade teletrabalho. -->
+Publica o resultado alcançado no 1º (primeiro) trimestre de 2020 por servidores que atuam na modalidade teletrabalho.
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+15
+|
+-->
+Codac
+|
+-->
+22/04/2020
+|
+Altera o Ato Declaratório Executivo Codac nº 14, de 13 de abril de 2020, que dispõe sobre os procedimentos a serem observados para o preenchimento da Guia de Recolhimento do Fundo de Garantia do Tempo de Serviço e Informações à Previdência Social (GFIP) nos casos em que especifica. -->
+Altera o Ato Declaratório Executivo Codac nº 14, de 13 de abril de 2020, que dispõe sobre os procedimentos a serem observados para o preenchimento da Guia de Recolhimento do Fundo de Garantia do Tempo de Serviço e Informações à Previdência Social (GFIP) nos casos em que especifica.
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+14
+|
+-->
+Codac
+|
+-->
+15/04/2020
+|
+Dispõe sobre os procedimentos a serem observados para o preenchimento da Guia de Recolhimento do Fundo de Garantia do Tempo de Serviço e Informações à Previdência Social (GFIP) nos casos em que especifica. -->
+Dispõe sobre os procedimentos a serem observados para o preenchimento da Guia de Recolhimento do Fundo de Garantia do Tempo de Serviço e Informações à Previdência Social (GFIP) nos casos em que especifica.
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+13
+|
+-->
+Codac
+|
+-->
+31/03/2020
+|
+Dispõe sobre o preenchimento da Guia de Recolhimento do Fundo de Garantia do Tempo de Serviço e Informações à Previdência Social (GFIP) referente a trabalhadores com apenas um vínculo empregatício que prestam serviço em mais de um tomador e que devem ser informados em um mesmo movimento do Sistema Empresa de Recolhimento do Fundo de Garantia do Tempo de Serviço e Informações à Previdência Social (Sefip). -->
+Dispõe sobre o preenchimento da Guia de Recolhimento do Fundo de Garantia do Tempo de Serviço e Informações à Previdência Social (GFIP) referente a trabalhadores com apenas um vínculo empregatício que prestam serviço em mais de um tomador e que devem ser informados em um mesmo movimento do Sistema Empresa de Recolhimento do Fundo de Garantia do Tempo de Serviço e Informações à Previdência Social (Sefip).
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+10
+|
+-->
+Codac
+|
+-->
+11/03/2020
+|
+Retificação -->
+Retificação
+Revogado(a) pelo(a) Ato Declaratório Executivo Codar nº 16, de 25 de junho de 2025
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+10
+|
+-->
+Codac
+|
+-->
+06/03/2020
+|
+Institui códigos de receita para o recolhimento a que se refere o art. 14 da Lei nº 13.756, de 12 de dezembro de 2018, referente à participação da União nas receitas das loterias. -->
+Institui códigos de receita para o recolhimento a que se refere o art. 14 da Lei nº 13.756, de 12 de dezembro de 2018, referente à participação da União nas receitas das loterias.
+Revogado(a) pelo(a) Ato Declaratório Executivo Codar nº 16, de 25 de junho de 2025
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+8
+|
+-->
+Codac
+|
+-->
+18/02/2020
+|
+Institui código de receita para o recolhimento da doação de que trata o art. 2º-A da Lei nº 12.213, de 20 de janeiro de 2010, destinada aos fundos controlados pelos Conselhos Municipais, Estaduais e Nacional do Idoso. -->
+Institui código de receita para o recolhimento da doação de que trata o art. 2º-A da Lei nº 12.213, de 20 de janeiro de 2010, destinada aos fundos controlados pelos Conselhos Municipais, Estaduais e Nacional do Idoso.
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+7
+|
+-->
+Codac
+|
+-->
+18/02/2020
+|
+Dispõe sobre o preenchimento da Guia de Recolhimento do Fundo de Garantia do Tempo de Serviço e Informações à Previdência Social (GFIP) referente a trabalhadores cuja modalidade de contratação segue o modelo do Contrato de Trabalho Verde e Amarelo instituído pela Medida Provisória nº 905, de 11 de novembro de 2019. -->
+Dispõe sobre o preenchimento da Guia de Recolhimento do Fundo de Garantia do Tempo de Serviço e Informações à Previdência Social (GFIP) referente a trabalhadores cuja modalidade de contratação segue o modelo do Contrato de Trabalho Verde e Amarelo instituído pela Medida Provisória nº 905, de 11 de novembro de 2019.
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+5
+|
+-->
+Codac
+|
+-->
+07/02/2020
+|
+Institui código de receita para o recolhimento complementar de contribuição previdenciária a que se refere o inciso I do art. 29 da Emenda Constitucional nº 103, de 12 de novembro de 2019. -->
+Institui código de receita para o recolhimento complementar de contribuição previdenciária a que se refere o inciso I do art. 29 da Emenda Constitucional nº 103, de 12 de novembro de 2019.
+|
+Portaria | -->
+Portaria
+|
+-->
+3
+|
+-->
+Codac
+|
+-->
+31/01/2020
+|
+Publica o resultado alcançado no 4º (quarto) trimestre de 2019 por servidores que atuam na modalidade teletrabalho. -->
+Publica o resultado alcançado no 4º (quarto) trimestre de 2019 por servidores que atuam na modalidade teletrabalho.
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+2
+|
+-->
+Codac
+|
+-->
+10/01/2020
+|
+Altera os Atos Declaratórios Executivos Codac nºs. 60/2013, 38/2014 e 24/2016, que instituem códigos de receita. -->
+Altera os Atos Declaratórios Executivos Codac nºs. 60/2013, 38/2014 e 24/2016, que instituem códigos de receita.
+Revogado(a) pelo(a) Ato Declaratório Executivo Codac nº 21, de 16 de junho de 2020
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+23
+|
+-->
+Codac
+|
+-->
+06/12/2019
+|
+Dispõe sobre a instituição de código de receita para o caso que especifica. -->
+Dispõe sobre a instituição de código de receita para o caso que especifica.
+|
+Portaria | -->
+Portaria
+|
+-->
+65
+|
+-->
+Codac
+|
+-->
+31/10/2019
+|
+Dá publicidade ao resultado obtido pelos servidores da Secretaria Especial da Receita Federal do Brasil que atuam na modalidade de Teletrabalho na atividade de "Preparo, análise, decisão e execução de processos de arrecadação, cobrança, cumprimento das obrigações acessórias e garantia do crédito tributário" nas Delegacias da Receita Federal do Brasil e Superintendências Regionais da Receita Federal do Brasil, referente ao 3º trimestre de 2019. -->
+Dá publicidade ao resultado obtido pelos servidores da Secretaria Especial da Receita Federal do Brasil que atuam na modalidade de Teletrabalho na atividade de "Preparo, análise, decisão e execução de processos de arrecadação, cobrança, cumprimento das obrigações acessórias e garantia do crédito tributário" nas Delegacias da Receita Federal do Brasil e Superintendências Regionais da Receita Federal do Brasil, referente ao 3º trimestre de 2019.
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+19
+|
+-->
+Codac
+|
+-->
+12/09/2019
+|
+Dispõe sobre a instituição de código de receita para o caso que especifica. -->
+Dispõe sobre a instituição de código de receita para o caso que especifica.
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+18
+|
+-->
+Codac
+|
+-->
+12/09/2019
+|
+Dispõe sobre a instituição de código de receita para o caso que especifica. -->
+Dispõe sobre a instituição de código de receita para o caso que especifica.
+|
+Portaria | -->
+Portaria
+|
+-->
+53
+|
+-->
+Codac
+|
+-->
+29/07/2019
+|
+Dá publicidade ao resultado obtido pelos servidores da Secretaria Especial da Receita Federal do Brasil que atuam na modalidade de Teletrabalho na atividade de preparo, análise, decisão e execução de processos de arrecadação, cobrança, cumprimento das obrigações acessórias e garantia do crédito tributário nas Delegacias da Receita Federal do Brasil e Superintendências Regionais da Receita Federal do Brasil, referente ao 2º trimestre de 2019. -->
+Dá publicidade ao resultado obtido pelos servidores da Secretaria Especial da Receita Federal do Brasil que atuam na modalidade de Teletrabalho na atividade de preparo, análise, decisão e execução de processos de arrecadação, cobrança, cumprimento das obrigações acessórias e garantia do crédito tributário nas Delegacias da Receita Federal do Brasil e Superintendências Regionais da Receita Federal do Brasil, referente ao 2º trimestre de 2019.
+|
+Portaria | -->
+Portaria
+|
+-->
+52
+|
+-->
+Codac
+|
+-->
+29/07/2019
+|
+Dispõe sobre o acesso ao Sistema de Consulta de Protocolo de Débito do Siscomex Importação (Siscomexdeb), disponível no sítio da Secretaria Especial da Receita Federal do Brasil na Internet. -->
+Dispõe sobre o acesso ao Sistema de Consulta de Protocolo de Débito do Siscomex Importação (Siscomexdeb), disponível no sítio da Secretaria Especial da Receita Federal do Brasil na Internet.
+|
+Portaria | -->
+Portaria
+|
+-->
+51
+|
+-->
+Codac
+|
+-->
+29/07/2019
+|
+Dispõe sobre o acesso ao Módulo de Controle da Prestação de Contas para uso da rede arrecadadora (Ancoraweb), disponível no sítio da Secretaria Especial da Receita Federal do Brasil na Internet. -->
+Dispõe sobre o acesso ao Módulo de Controle da Prestação de Contas para uso da rede arrecadadora (Ancoraweb), disponível no sítio da Secretaria Especial da Receita Federal do Brasil na Internet.
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+15
+|
+-->
+Codac
+|
+-->
+29/07/2019
+|
+Aprova o programa multiplataforma para preenchimento da Declaração do Imposto sobre a Propriedade Territorial Rural do exercício de 2019, para uso em computador que possua a máquina virtual Java (JVM), versão 1.7.0 ou superior, instalada. -->
+Aprova o programa multiplataforma para preenchimento da Declaração do Imposto sobre a Propriedade Territorial Rural do exercício de 2019, para uso em computador que possua a máquina virtual Java (JVM), versão 1.7.0 ou superior, instalada.
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+13
+|
+-->
+Codac
+|
+-->
+21/06/2019
+|
+Institui código de receita e altera o Ato Declaratório Executivo Codac nº 24, de 13 de setembro de 2016, que divulga códigos de receita a serem utilizados no Documento para Depósitos Judiciais ou Extrajudiciais à Ordem e à Disposição da Autoridade Judicial ou Administrativa Competente. -->
+Institui código de receita e altera o Ato Declaratório Executivo Codac nº 24, de 13 de setembro de 2016, que divulga códigos de receita a serem utilizados no Documento para Depósitos Judiciais ou Extrajudiciais à Ordem e à Disposição da Autoridade Judicial ou Administrativa Competente.
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+11
+|
+-->
+Codac
+|
+-->
+15/05/2019
+|
+Altera o Ato Declaratório Executivo Codac nº 24, de 13 de setembro de 2016, que divulga códigos de receita a serem utilizados no Documento para Depósitos Judiciais ou Extrajudiciais à Ordem e à Disposição da Autoridade Judicial ou Administrativa Competente. -->
+Altera o Ato Declaratório Executivo Codac nº 24, de 13 de setembro de 2016, que divulga códigos de receita a serem utilizados no Documento para Depósitos Judiciais ou Extrajudiciais à Ordem e à Disposição da Autoridade Judicial ou Administrativa Competente.
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+10
+|
+-->
+Codac
+|
+-->
+15/05/2019
+|
+Revoga o Ato Declaratório Executivo Codac nº 16, de 16 de maio de 2016, que dispõe sobre os procedimentos a serem observados para o preenchimento da Guia de Recolhimento do Fundo de Garantia do Tempo de Serviço e Informações à Previdência Social (GFIP) pelo Ministério do Esporte em relação à Bolsa-Atleta de que trata a Lei nº 10.891, de 9 de julho de 2004. -->
+Revoga o Ato Declaratório Executivo Codac nº 16, de 16 de maio de 2016, que dispõe sobre os procedimentos a serem observados para o preenchimento da Guia de Recolhimento do Fundo de Garantia do Tempo de Serviço e Informações à Previdência Social (GFIP) pelo Ministério do Esporte em relação à Bolsa-Atleta de que trata a Lei nº 10.891, de 9 de julho de 2004.
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+8
+|
+-->
+Codac
+|
+-->
+25/04/2019
+|
+Altera o Ato Declaratório Executivo Codac nº 24, de 13 de setembro de 2016, que divulga códigos de receita a serem utilizados no Documento para Depósitos Judiciais ou Extrajudiciais à Ordem e à Disposição da Autoridade Judicial ou Administrativa Competente. -->
+Altera o Ato Declaratório Executivo Codac nº 24, de 13 de setembro de 2016, que divulga códigos de receita a serem utilizados no Documento para Depósitos Judiciais ou Extrajudiciais à Ordem e à Disposição da Autoridade Judicial ou Administrativa Competente.
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+4
+|
+-->
+Codac
+|
+-->
+22/02/2019
+|
+Revoga o § 1º do art. 1º do Ato Declaratório Executivo Codac nº 24, de 13 de setembro de 2016, que divulga códigos de receita a serem utilizados no Documento para Depósitos Judiciais ou Extrajudiciais à Ordem e à Disposição da Autoridade Judicial ou Administrativa Competente. -->
+Revoga o § 1º do art. 1º do Ato Declaratório Executivo Codac nº 24, de 13 de setembro de 2016, que divulga códigos de receita a serem utilizados no Documento para Depósitos Judiciais ou Extrajudiciais à Ordem e à Disposição da Autoridade Judicial ou Administrativa Competente.
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+3
+|
+-->
+Codac
+|
+-->
+15/02/2019
+|
+Altera o Ato declaratório Executivo Codac nº 1, de 28 de janeiro de 2019, que dispõe sobre os procedimentos a serem observados para o preenchimento da Guia de Recolhimento do Fundo de Garantia do Tempo de Serviço e Informações à Previdência Social (GFIP) pelos produtores rurais e pelos adquirentes de produção rural de produtor rural pessoa física, no caso de opção por esses produtores de contribuir, a partir de janeiro de 2019, na forma dos incisos I e II do caput do art. 22 da Lei nº 8.212, de 24 de julho de 1991. -->
+Altera o Ato declaratório Executivo Codac nº 1, de 28 de janeiro de 2019, que dispõe sobre os procedimentos a serem observados para o preenchimento da Guia de Recolhimento do Fundo de Garantia do Tempo de Serviço e Informações à Previdência Social (GFIP) pelos produtores rurais e pelos adquirentes de produção rural de produtor rural pessoa física, no caso de opção por esses produtores de contribuir, a partir de janeiro de 2019, na forma dos incisos I e II do caput do art. 22 da Lei nº 8.212, de 24 de julho de 1991.
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+1
+|
+-->
+Codac
+|
+-->
+29/01/2019
+|
+Dispõe sobre os procedimentos a serem observados para o preenchimento da Guia de Recolhimento do Fundo de Garantia do Tempo de Serviço e Informações à Previdência Social (GFIP) pelos produtores rurais e pelos adquirentes de produção rural de produtor rural pessoa física, no caso de opção por esses produtores de contribuir, a partir de janeiro de 2019, na forma dos incisos I e II do caput do art. 22 da Lei nº 8.212, de 24 de julho de 1991. -->
+Dispõe sobre os procedimentos a serem observados para o preenchimento da Guia de Recolhimento do Fundo de Garantia do Tempo de Serviço e Informações à Previdência Social (GFIP) pelos produtores rurais e pelos adquirentes de produção rural de produtor rural pessoa física, no caso de opção por esses produtores de contribuir, a partir de janeiro de 2019, na forma dos incisos I e II do caput do art. 22 da Lei nº 8.212, de 24 de julho de 1991.
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+27
+|
+-->
+Codac
+|
+-->
+07/12/2018
+|
+Dispõe sobre a alteração da denominação de código de receita para o caso que especifica. -->
+Dispõe sobre a alteração da denominação de código de receita para o caso que especifica.
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+24
+|
+-->
+Codac
+|
+-->
+28/11/2018
+|
+Dispõe sobre a instituição de códigos de receita para os casos que especifica. -->
+Dispõe sobre a instituição de códigos de receita para os casos que especifica.
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+20
+|
+-->
+Codac
+|
+-->
+08/10/2018
+|
+Aprova a versão 3.5 do Programa Gerador da Declaração (PGD) de Débitos e Créditos Tributários Federais (DCTF) Mensal. -->
+Aprova a versão 3.5 do Programa Gerador da Declaração (PGD) de Débitos e Créditos Tributários Federais (DCTF) Mensal.
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+15
+|
+-->
+Codac
+|
+-->
+19/09/2018
+|
+Dispõe sobre a instituição de código de receita para o caso que especifica. -->
+Dispõe sobre a instituição de código de receita para o caso que especifica.
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+14
+|
+-->
+Codac
+|
+-->
+19/09/2018
+|
+Dispõe sobre a instituição de código de receita para o caso que especifica. -->
+Dispõe sobre a instituição de código de receita para o caso que especifica.
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+12
+|
+-->
+Codac
+|
+-->
+03/08/2018
+|
+Aprova o programa multiplataforma para preenchimento da Declaração do Imposto sobre a Propriedade Territorial Rural do exercício de 2018, para uso em computador que possua a máquina virtual Java (JVM), versão 1.7.0 ou superior, instalada. -->
+Aprova o programa multiplataforma para preenchimento da Declaração do Imposto sobre a Propriedade Territorial Rural do exercício de 2018, para uso em computador que possua a máquina virtual Java (JVM), versão 1.7.0 ou superior, instalada.
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+10
+|
+-->
+Codac
+|
+-->
+13/07/2018
+|
+Dispõe sobre a instituição de códigos de receita para os casos que especifica. -->
+Dispõe sobre a instituição de códigos de receita para os casos que especifica.
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+9
+|
+-->
+Codac
+|
+-->
+12/07/2018
+|
+Torna fora de uso os códigos de receita para os casos que especifica. -->
+Torna fora de uso os códigos de receita para os casos que especifica.
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+6
+|
+-->
+Codac
+|
+-->
+07/05/2018
+|
+Dispõe sobre os procedimentos a serem observados para o preenchimento da Guia de Recolhimento do Fundo de Garantia do Tempo de Serviço e Informações à Previdência Social (GFIP) no caso em que especifica. -->
+Dispõe sobre os procedimentos a serem observados para o preenchimento da Guia de Recolhimento do Fundo de Garantia do Tempo de Serviço e Informações à Previdência Social (GFIP) no caso em que especifica.
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+1
+|
+-->
+Codac
+|
+-->
+24/01/2018
+|
+Dispõe sobre os procedimentos a serem observados para o preenchimento da Guia de Recolhimento do Fundo de Garantia do Tempo de Serviço e Informações à Previdência Social (GFIP) no caso em que especifica. -->
+Dispõe sobre os procedimentos a serem observados para o preenchimento da Guia de Recolhimento do Fundo de Garantia do Tempo de Serviço e Informações à Previdência Social (GFIP) no caso em que especifica.
+Revogado(a) pelo(a) Ato Declaratório Executivo Codac nº 6, de 04 de maio de 2018
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+38
+|
+-->
+Codac
+|
+-->
+18/12/2017
+|
+Dispõe sobre a instituição de código de receita para o caso que especifica. -->
+Dispõe sobre a instituição de código de receita para o caso que especifica.
+Revogado(a) pelo(a) Ato Declaratório Executivo Codac nº 5, de 06 de fevereiro de 2020
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+35
+|
+-->
+Codac
+|
+-->
+13/10/2017
+|
+Inclui serviço no Centro Virtual de Atendimento (e-CAC) que permite a validação de documentos e assinaturas digitais gerados pelo sistema e-Processo. -->
+Inclui serviço no Centro Virtual de Atendimento (e-CAC) que permite a validação de documentos e assinaturas digitais gerados pelo sistema e-Processo.
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+34
+|
+-->
+Codac
+|
+-->
+02/10/2017
+|
+Credencia o Banco do Estado do Pará S/A para compor a Rede Arrecadadora do Documento de Arrecadação do Simples Nacional (DAS). -->
+Credencia o Banco do Estado do Pará S/A para compor a Rede Arrecadadora do Documento de Arrecadação do Simples Nacional (DAS).
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+32
+|
+-->
+Codac
+|
+-->
+26/09/2017
+|
+Prorroga o prazo para apresentação de Pedido de Revisão de Ordem de Emissão de Incentivos Fiscais (Perc), para os casos que especifica. -->
+Prorroga o prazo para apresentação de Pedido de Revisão de Ordem de Emissão de Incentivos Fiscais (Perc), para os casos que especifica.
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+30
+|
+-->
+Codac
+|
+-->
+12/09/2017
+|
+Credencia o Banco Cooperativo Sicredi S/A para compor a Rede Arrecadadora do Documento de Arrecadação do e-Social (DAE). -->
+Credencia o Banco Cooperativo Sicredi S/A para compor a Rede Arrecadadora do Documento de Arrecadação do e-Social (DAE).
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+27
+|
+-->
+Codac
+|
+-->
+15/08/2017
+|
+Dispõe sobre a instituição de código de receita para o caso que especifica. -->
+Dispõe sobre a instituição de código de receita para o caso que especifica.
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+26
+|
+-->
+Codac
+|
+-->
+01/08/2017
+|
+Aprova o programa multiplataforma para preenchimento da Declaração do Imposto sobre a Propriedade Territorial Rural do exercício de 2017, para uso em computador que possua a máquina virtual Java (JVM), versão 1.7.0 ou superior, instalada. -->
+Aprova o programa multiplataforma para preenchimento da Declaração do Imposto sobre a Propriedade Territorial Rural do exercício de 2017, para uso em computador que possua a máquina virtual Java (JVM), versão 1.7.0 ou superior, instalada.
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+23
+|
+-->
+Codac
+|
+-->
+05/07/2017
+|
+Altera a denominação do código de receita 3914. -->
+Altera a denominação do código de receita 3914.
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+19
+|
+-->
+Codac
+|
+-->
+27/06/2017
+|
+Dispõe sobre a instituição de códigos de receita para os casos que especifica. -->
+Dispõe sobre a instituição de códigos de receita para os casos que especifica.
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+18
+|
+-->
+Codac
+|
+-->
+27/06/2017
+|
+Dispõe sobre a instituição de código de receita para o caso que especifica. -->
+Dispõe sobre a instituição de código de receita para o caso que especifica.
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+16
+|
+-->
+Codac
+|
+-->
+16/06/2017
+|
+Aprova a versão 3.4 do Programa Gerador da Declaração (PGD) de Débitos e Créditos Tributários Federais (DCTF) Mensal. -->
+Aprova a versão 3.4 do Programa Gerador da Declaração (PGD) de Débitos e Créditos Tributários Federais (DCTF) Mensal.
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+17
+|
+-->
+Codac
+|
+-->
+09/06/2017
+|
+Dispõe sobre a instituição de código de receita para o caso que especifica. -->
+Dispõe sobre a instituição de código de receita para o caso que especifica.
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+14
+|
+-->
+Codac
+|
+-->
+29/05/2017
+|
+Dispõe sobre a instituição de código de receita para o caso que especifica. -->
+Dispõe sobre a instituição de código de receita para o caso que especifica.
+|
+Portaria | -->
+Portaria
+|
+-->
+36
+|
+-->
+Codac
+|
+-->
+02/05/2017
+|
+Dispõe sobre o acesso ao Siscomexdeb. -->
+Dispõe sobre o acesso ao Siscomexdeb.
+Revogado(a) pelo(a) Portaria Codac nº 52, de 25 de julho de 2019
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+9
+|
+-->
+Codac
+|
+-->
+30/03/2017
+|
+Altera o Ato Declaratório Executivo Codac nº 25, de 21 de março de 2013, que dispõe sobre a instituição de códigos de receita para os casos que especifica e consolida os Atos Declaratórios Executivos referentes à devolução de restituição indevida não tributário. -->
+Altera o Ato Declaratório Executivo Codac nº 25, de 21 de março de 2013, que dispõe sobre a instituição de códigos de receita para os casos que especifica e consolida os Atos Declaratórios Executivos referentes à devolução de restituição indevida não tributário.
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+7
+|
+-->
+Codac
+|
+-->
+16/02/2017
+|
+Dispõe sobre a instituição de código de receita para o caso que especifica. -->
+Dispõe sobre a instituição de código de receita para o caso que especifica.
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+5
+|
+-->
+Codac
+|
+-->
+09/02/2017
+|
+Altera o Ato Declaratório Executivo Corat nº 56, de 23 de agosto de 2005, que dispõe sobre a instituição e a alteração de códigos de receita que especifica. -->
+Altera o Ato Declaratório Executivo Corat nº 56, de 23 de agosto de 2005, que dispõe sobre a instituição e a alteração de códigos de receita que especifica.
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+4
+|
+-->
+Codac
+|
+-->
+01/02/2017
+|
+Dispõe sobre a instituição de códigos de receita para os casos que especifica. -->
+Dispõe sobre a instituição de códigos de receita para os casos que especifica.
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+1
+|
+-->
+Codac
+|
+-->
+26/01/2017
+|
+Dispõe sobre a instituição de código de receita para o caso que especifica. -->
+Dispõe sobre a instituição de código de receita para o caso que especifica.
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+26
+|
+-->
+Codac
+|
+-->
+15/09/2016
+|
+Inclui serviço no Centro Virtual de Atendimento (e-CAC) que permite a consulta aos Avisos de Cobrança dos saldos devedores de créditos tributários informados em declarações com efeito de confissão e seus anexos ou de multas, inclusive aquelas resultantes do atraso de entrega de declarações, com opção de impressão de documento de arrecadação (Sief-Cobrança - Intimações). -->
+Inclui serviço no Centro Virtual de Atendimento (e-CAC) que permite a consulta aos Avisos de Cobrança dos saldos devedores de créditos tributários informados em declarações com efeito de confissão e seus anexos ou de multas, inclusive aquelas resultantes do atraso de entrega de declarações, com opção de impressão de documento de arrecadação (Sief-Cobrança - Intimações).
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+25
+|
+-->
+Codac
+|
+-->
+14/09/2016
+|
+Dispõe sobre a instituição de códigos de receita para os casos que especifica. -->
+Dispõe sobre a instituição de códigos de receita para os casos que especifica.
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+24
+|
+-->
+Codac
+|
+-->
+14/09/2016
+|
+Divulga códigos de receita a serem utilizados no Documento para Depósitos Judiciais ou Extrajudiciais à Ordem e à Disposição da Autoridade Judicial ou Administrativa Competente. -->
+Divulga códigos de receita a serem utilizados no Documento para Depósitos Judiciais ou Extrajudiciais à Ordem e à Disposição da Autoridade Judicial ou Administrativa Competente.
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+22
+|
+-->
+Codac
+|
+-->
+24/08/2016
+|
+Dispõe sobre a instituição de código de receita para o caso que especifica. -->
+Dispõe sobre a instituição de código de receita para o caso que especifica.
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+21
+|
+-->
+Codac
+|
+-->
+24/08/2016
+|
+Dispõe sobre a instituição de código de receita para o caso que especifica. -->
+Dispõe sobre a instituição de código de receita para o caso que especifica.
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+20
+|
+-->
+Codac
+|
+-->
+10/08/2016
+|
+Aprova o programa multiplataforma para preenchimento da Declaração do Imposto sobre a Propriedade Territorial Rural do exercício de 2016, para uso em computador que possua a máquina virtual Java (JVM), versão 1.7.0 ou superior, instalada. -->
+Aprova o programa multiplataforma para preenchimento da Declaração do Imposto sobre a Propriedade Territorial Rural do exercício de 2016, para uso em computador que possua a máquina virtual Java (JVM), versão 1.7.0 ou superior, instalada.
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+16
+|
+-->
+Codac
+|
+-->
+17/05/2016
+|
+Dispõe sobre os procedimentos a serem observados para o preenchimento da Guia de Recolhimento do Fundo de Garantia do Tempo de Serviço e Informações à Previdência Social (GFIP) pelo Ministério do Esporte em relação à Bolsa-Atleta de que trata a Lei nº 10.891, de 9 de julho de 2004. -->
+Dispõe sobre os procedimentos a serem observados para o preenchimento da Guia de Recolhimento do Fundo de Garantia do Tempo de Serviço e Informações à Previdência Social (GFIP) pelo Ministério do Esporte em relação à Bolsa-Atleta de que trata a Lei nº 10.891, de 9 de julho de 2004.
+Revogado(a) pelo(a) Ato Declaratório Executivo Codac nº 10, de 10 de maio de 2019
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+13
+|
+-->
+Codac
+|
+-->
+13/05/2016
+|
+Altera o Ato Declaratório Executivo Codac nº 38, de 10 de novembro de 2014. -->
+Altera o Ato Declaratório Executivo Codac nº 38, de 10 de novembro de 2014.
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+12
+|
+-->
+Codac
+|
+-->
+13/05/2016
+|
+Divulga códigos de receita a serem utilizados no Documento para Depósitos Judiciais ou Extrajudiciais à Ordem e à Disposição da Autoridade Judicial ou Administrativa Competente. -->
+Divulga códigos de receita a serem utilizados no Documento para Depósitos Judiciais ou Extrajudiciais à Ordem e à Disposição da Autoridade Judicial ou Administrativa Competente.
+Revogado(a) pelo(a) Ato Declaratório Executivo Codac nº 24, de 13 de setembro de 2016
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+11
+|
+-->
+Codac
+|
+-->
+13/05/2016
+|
+Dispõe sobre a instituição de código de receita para o caso que especifica. -->
+Dispõe sobre a instituição de código de receita para o caso que especifica.
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+9
+|
+-->
+Codac
+|
+-->
+28/03/2016
+|
+Divulga códigos de receita a serem utilizados no Documento para Depósitos Judiciais ou Extrajudiciais à Ordem e à Disposição da Autoridade Judicial ou Administrativa Competente. -->
+Divulga códigos de receita a serem utilizados no Documento para Depósitos Judiciais ou Extrajudiciais à Ordem e à Disposição da Autoridade Judicial ou Administrativa Competente.
+Revogado(a) pelo(a) Ato Declaratório Executivo Codac nº 12, de 12 de maio de 2016
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+5
+|
+-->
+Codac
+|
+-->
+12/02/2016
+|
+Aprova a versão 3.3 do Programa Gerador da Declaração (PGD) de Débitos e Créditos Tributários Federais (DCTF) Mensal. -->
+Aprova a versão 3.3 do Programa Gerador da Declaração (PGD) de Débitos e Créditos Tributários Federais (DCTF) Mensal.
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+4
+|
+-->
+Codac
+|
+-->
+05/02/2016
+|
+Dispõe sobre os procedimentos a serem observados para o preenchimento da Guia de Recolhimento do Fundo de Garantia do Tempo de Serviço e Informações à Previdência Social (GFIP) pelas pessoas jurídicas de direito privado, mantenedoras de instituições de ensino superior, sem fins lucrativos, que adotarem as regras de seleção de estudantes bolsistas a que se refere o art. 11 da Lei nº 11.096, de 13 de janeiro de 2005, e que estejam no gozo da isenção da contribuição para a seguridade social de que trata o § 7º do art. 195 da Constituição Federal, que optarem por transformar sua natureza jurídica em sociedade de fins econômicos, na forma facultada pelo art. 7º-A da Lei nº 9.131, de 24 de novembro de 1995. -->
+Dispõe sobre os procedimentos a serem observados para o preenchimento da Guia de Recolhimento do Fundo de Garantia do Tempo de Serviço e Informações à Previdência Social (GFIP) pelas pessoas jurídicas de direito privado, mantenedoras de instituições de ensino superior, sem fins lucrativos, que adotarem as regras de seleção de estudantes bolsistas a que se refere o art. 11 da Lei nº 11.096, de 13 de janeiro de 2005, e que estejam no gozo da isenção da contribuição para a seguridade social de que trata o § 7º do art. 195 da Constituição Federal, que optarem por transformar sua natureza jurídica em sociedade de fins econômicos, na forma facultada pelo art. 7º-A da Lei nº 9.131, de 24 de novembro de 1995.
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+1
+|
+-->
+Codac
+|
+-->
+12/01/2016
+|
+Divulga códigos de receita a serem utilizados no Documento para Depósitos Judiciais ou Extrajudiciais à Ordem e à Disposição da Autoridade Judicial ou Administrativa Competente. -->
+Divulga códigos de receita a serem utilizados no Documento para Depósitos Judiciais ou Extrajudiciais à Ordem e à Disposição da Autoridade Judicial ou Administrativa Competente.
+Revogado(a) pelo(a) Ato Declaratório Executivo Codac nº 9, de 24 de março de 2016
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+36
+|
+-->
+Codac
+|
+-->
+10/11/2015
+|
+Credencia o Banco Original S/A para compor a Rede Arrecadadora de Receitas Federais. -->
+Credencia o Banco Original S/A para compor a Rede Arrecadadora de Receitas Federais.
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+34
+|
+-->
+Codac
+|
+-->
+09/11/2015
+|
+Altera o Ato Declaratório Executivo Codac nº 61, de 10 de dezembro de 2013. -->
+Altera o Ato Declaratório Executivo Codac nº 61, de 10 de dezembro de 2013.
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+32
+|
+-->
+Codac
+|
+-->
+28/10/2015
+|
+Aprova o Manual de Arrecadação do documento único de arrecadação do Simples Doméstico. -->
+Aprova o Manual de Arrecadação do documento único de arrecadação do Simples Doméstico.
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+30
+|
+-->
+Codac
+|
+-->
+07/10/2015
+|
+Credencia as instituições financeiras para comporem a Rede Arrecadadora do Documento Único de Arrecadação do Simples Doméstico -->
+Credencia as instituições financeiras para comporem a Rede Arrecadadora do Documento Único de Arrecadação do Simples Doméstico
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+26
+|
+-->
+Codac
+|
+-->
+25/09/2015
+|
+Altera Atos Declaratórios Executivos Codac. -->
+Altera Atos Declaratórios Executivos Codac.
+Revogado(a) pelo(a) Ato Declaratório Executivo Codac nº 2, de 09 de janeiro de 2020
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+25
+|
+-->
+Codac
+|
+-->
+25/09/2015
+|
+Altera o Ato Declaratório Executivo Codac nº 40, de 10 de junho de 2013. -->
+Altera o Ato Declaratório Executivo Codac nº 40, de 10 de junho de 2013.
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+24
+|
+-->
+Codac
+|
+-->
+23/09/2015
+|
+Dispõe sobre a instituição de código de receita para o caso que especifica. -->
+Dispõe sobre a instituição de código de receita para o caso que especifica.
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+21
+|
+-->
+Codac
+|
+-->
+30/07/2015
+|
+Altera o Anexo Único do Ato Declaratório Executivo Codac nº 70, de 5 de dezembro de 2008, que dispõe sobre a instituição de códigos e receita para os casos que especifica. -->
+Altera o Anexo Único do Ato Declaratório Executivo Codac nº 70, de 5 de dezembro de 2008, que dispõe sobre a instituição de códigos e receita para os casos que especifica.
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+20
+|
+-->
+Codac
+|
+-->
+29/07/2015
+|
+Revoga os incisos III e IV do art. 1º do Ato Declaratório Executivo Codac nº 7, de 24 de fevereiro de 2015, que dispõe sobre os procedimentos a serem observados para o preenchimento da Guia de Recolhimento do Fundo de Garantia do Tempo de Serviço e Informações à Previdência Social (GFIP) pelos entes municipais quando remunerarem os membros do Conselho Tutelar. -->
+Revoga os incisos III e IV do art. 1º do Ato Declaratório Executivo Codac nº 7, de 24 de fevereiro de 2015, que dispõe sobre os procedimentos a serem observados para o preenchimento da Guia de Recolhimento do Fundo de Garantia do Tempo de Serviço e Informações à Previdência Social (GFIP) pelos entes municipais quando remunerarem os membros do Conselho Tutelar.
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+17
+|
+-->
+Codac
+|
+-->
+02/07/2015
+|
+Altera o Ato Declaratório Executivo Codac nº 6, de 23 de fevereiro de 2015, que dispõe sobre os procedimentos a serem observados para o preenchimento da Guia de Recolhimento do Fundo de Garantia do Tempo de Serviço e Informações à Previdência Social (GFIP) pelas empresas adquirentes de produção rural de produtor rural pessoa física impossibilitadas de efetuar a retenção prevista no inciso IV do art. 30 da Lei nº 8.212, de 24 de julho de 1991, devido a liminares ou decisões proferidas em ações judiciais. -->
+Altera o Ato Declaratório Executivo Codac nº 6, de 23 de fevereiro de 2015, que dispõe sobre os procedimentos a serem observados para o preenchimento da Guia de Recolhimento do Fundo de Garantia do Tempo de Serviço e Informações à Previdência Social (GFIP) pelas empresas adquirentes de produção rural de produtor rural pessoa física impossibilitadas de efetuar a retenção prevista no inciso IV do art. 30 da Lei nº 8.212, de 24 de julho de 1991, devido a liminares ou decisões proferidas em ações judiciais.
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+15
+|
+-->
+Codac
+|
+-->
+17/06/2015
+|
+Retificação -->
+Retificação
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+15
+|
+-->
+Codac
+|
+-->
+15/06/2015
+|
+Altera o Ato Declaratório Executivo Codac nº 38, de 10 de novembro de 2014. -->
+Altera o Ato Declaratório Executivo Codac nº 38, de 10 de novembro de 2014.
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+14
+|
+-->
+Codac
+|
+-->
+05/06/2015
+|
+Dispõe sobre os procedimentos a serem observados para o preenchimento da Guia de Recolhimento do Fundo de Garantia do Tempo de Serviço e Informações à Previdência Social (GFIP), pelas cooperativas de trabalho, referente a contribuição previdenciária sobre montante da remuneração recebida em decorrência de serviço prestado a pessoas físicas ou jurídicas. -->
+Dispõe sobre os procedimentos a serem observados para o preenchimento da Guia de Recolhimento do Fundo de Garantia do Tempo de Serviço e Informações à Previdência Social (GFIP), pelas cooperativas de trabalho, referente a contribuição previdenciária sobre montante da remuneração recebida em decorrência de serviço prestado a pessoas físicas ou jurídicas.
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+13
+|
+-->
+Codac
+|
+-->
+22/05/2015
+|
+Dispõe sobre a instituição de códigos de receita para os casos que especifica. -->
+Dispõe sobre a instituição de códigos de receita para os casos que especifica.
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+12
+|
+-->
+Codac
+|
+-->
+22/05/2015
+|
+Dispõe sobre a instituição de código de receita para o caso que especifica. -->
+Dispõe sobre a instituição de código de receita para o caso que especifica.
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+9
+|
+-->
+Codac
+|
+-->
+31/03/2015
+|
+Dispõe sobre a instituição de código de receita para o caso que especifica. -->
+Dispõe sobre a instituição de código de receita para o caso que especifica.
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+7
+|
+-->
+Codac
+|
+-->
+26/02/2015
+|
+Dispõe sobre os procedimentos a serem observados para o preenchimento da Guia de Recolhimento do Fundo de Garantia do Tempo de Serviço e Informações à Previdência Social (GFIP) pelos entes municipais quando remunerarem os membros do Conselho Tutelar. -->
+Dispõe sobre os procedimentos a serem observados para o preenchimento da Guia de Recolhimento do Fundo de Garantia do Tempo de Serviço e Informações à Previdência Social (GFIP) pelos entes municipais quando remunerarem os membros do Conselho Tutelar.
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+6
+|
+-->
+Codac
+|
+-->
+25/02/2015
+|
+Dispõe sobre os procedimentos a serem observados para o preenchimento da Guia de Recolhimento do Fundo de Garantia do Tempo de Serviço e Informações à Previdência Social (GFIP) pelas empresas adquirentes de produção rural de produtor rural pessoa física impossibilitadas de efetuar a retenção prevista no inciso IV do art. 30 da Lei nº 8.212, de 24 de julho de 1991, devido a liminares ou decisões proferidas em ações judiciais. -->
+Dispõe sobre os procedimentos a serem observados para o preenchimento da Guia de Recolhimento do Fundo de Garantia do Tempo de Serviço e Informações à Previdência Social (GFIP) pelas empresas adquirentes de produção rural de produtor rural pessoa física impossibilitadas de efetuar a retenção prevista no inciso IV do art. 30 da Lei nº 8.212, de 24 de julho de 1991, devido a liminares ou decisões proferidas em ações judiciais.
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+4
+|
+-->
+Codac
+|
+-->
+06/02/2015
+|
+Aprova a versão 3.2 do Programa Gerador da Declaração (PGD) de Débitos e Créditos Tributários Federais (DCTF) Mensal. -->
+Aprova a versão 3.2 do Programa Gerador da Declaração (PGD) de Débitos e Créditos Tributários Federais (DCTF) Mensal.
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+3
+|
+-->
+Codac
+|
+-->
+05/02/2015
+|
+Dispõe sobre os procedimentos a serem observados para o preenchimento da Guia de Recolhimento do Fundo de Garantia do Tempo de Serviço e Informações à Previdência Social (GFIP) pelas empresas que concomitantemente sejam optantes pelo Regime Especial Unificado de Arrecadação de Tributos e Contribuições devidos pelas Microempresas e Empresas de Pequeno Porte (Simples Nacional), enquadradas no código 736 do Fundo de Previdência e Assistência Social (FPAS), e que não sejam tributadas na forma do Anexo IV da Lei Complementar nº 123, de 14 de dezembro de 2006. -->
+Dispõe sobre os procedimentos a serem observados para o preenchimento da Guia de Recolhimento do Fundo de Garantia do Tempo de Serviço e Informações à Previdência Social (GFIP) pelas empresas que concomitantemente sejam optantes pelo Regime Especial Unificado de Arrecadação de Tributos e Contribuições devidos pelas Microempresas e Empresas de Pequeno Porte (Simples Nacional), enquadradas no código 736 do Fundo de Previdência e Assistência Social (FPAS), e que não sejam tributadas na forma do Anexo IV da Lei Complementar nº 123, de 14 de dezembro de 2006.
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+1
+|
+-->
+Codac
+|
+-->
+13/01/2015
+|
+Dispõe sobre a instituição de códigos de receita para os casos que especifica. -->
+Dispõe sobre a instituição de códigos de receita para os casos que especifica.
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+47
+|
+-->
+Codac
+|
+-->
+23/12/2014
+|
+Dispõe sobre a instituição de códigos de receitas para os casos que especifica e dá outras providências. -->
+Dispõe sobre a instituição de códigos de receitas para os casos que especifica e dá outras providências.
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+44
+|
+-->
+Codac
+|
+-->
+17/12/2014
+|
+Altera o Ato Declaratório Executivo Codac nº 28, de 18 de setembro de 2014. -->
+Altera o Ato Declaratório Executivo Codac nº 28, de 18 de setembro de 2014.
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+43
+|
+-->
+Codac
+|
+-->
+17/12/2014
+|
+Altera o Ato Declaratório Executivo Codac nº 77, de 27 de outubro de 2010, que dispõe sobre a instituição de códigos de receita para os casos que especifica. -->
+Altera o Ato Declaratório Executivo Codac nº 77, de 27 de outubro de 2010, que dispõe sobre a instituição de códigos de receita para os casos que especifica.
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+42
+|
+-->
+Codac
+|
+-->
+20/11/2014
+|
+Altera o Ato Declaratório Executivo Codac nº 38, de 10 de novembro de 2014. -->
+Altera o Ato Declaratório Executivo Codac nº 38, de 10 de novembro de 2014.
+|
+Ato Declarat&#xF3;rio Executivo | -->
+Ato Declarat&#xF3;rio Executivo
+|
+-->
+40
+|
+-->
+Codac
+|
+-->
+19/11/2014
+|
+Dispõe sobre a instituição de códigos de receita para os casos que especifica. -->
+Dispõe sobre a instituição de códigos de receita para os casos que especifica.
+|
+P&aacute;gina
+1
+2
+3
+4
+5
+6
+7
+de 7
+keyboard_arrow_right
+|
+[TABELA]
+&#xE5CD;
+Utilize um ou mais dos seguintes operadores para aprimorar sua pesquisa
+(combinações são possíveis)
+" " (aspas duplas): os atos encontrados conterão a frase exata. Ex.: a pesquisa por “simples nacional”
+trará apenas os atos que contiverem o termo Simples Nacional exato;
+AND : a pesquisa retornará apenas atos que contenham duas ou mais palavras intercaladas
+por esse operador. Ex.: a pesquisa por parcelamento AND beneficente apresentará apenas os atos que contiverem ambas as palavras ( parcelamento e
+beneficente , não necessariamente nessa ordem);
+NOT : com esse operador, os atos encontrados conterão apenas a palavra não precedida por ele.
+Ex.: a pesquisa por bagagem NOT acompanhada resultará em atos que contiverem a palavra bagagem , mas não a palavra acompanhada ;
+OR : esse operador determina que os atos encontrados contenham uma, algumas ou todas as palavras
+pesquisadas. Ex.: a pesquisa por tributo OR imposto OR contribuição mostrará todos os atos que contiverem pelo menos uma dessas palavras;
+*  (asterisco): esse operador permite que parte de um termo e suas possíveis terminações sejam encontradas na busca.
+Ele deve ser inserido no fim do termo. Ex.: a pesquisa por tribut* mostrará todos os atos que contiverem palavras como tributo, tributação, tributário,
+tributada etc;
+( )  (parênteses): esse operador, quando utilizado com outros operadores, pode agrupar palavras em subexpressões.
+Ex.: a pesquisa por contribuição AND (social OR patronal) apresentará os atos que contiverem as palavras contribuição e social ou contribuição e patronal
+(em qualquer ordem).
+Atenção!
+Por padrão, quando a pesquisa é feita sem a utilização de operadores, o sistema só apresenta atos que contenham todos os termos digitados no campo de
+pesquisa textual.
+A visualização deste sistema é melhor nos navegadores Microsoft Edge Versão 122, Google Chrome Versão 120, Mozilla Firefox Versão 102 ou superiores.

@@ -1,0 +1,6 @@
+FONTE: https://jurisprudencia.jt.jus.br/
+COLETADO_EM: 2026-03-04T20:17:13.357Z
+
+FONTE_OFICIAL_DE_PESQUISA: https://jurisprudencia.jt.jus.br/
+OBS: esta fonte é portal de pesquisa jurisprudencial. Quando a pergunta demandar busca dinâmica, orientar consulta direta neste link.
+USO_RECOMENDADO: indicar caminho de pesquisa e filtros de tribunal/tema/período.
