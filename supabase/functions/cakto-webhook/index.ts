@@ -419,20 +419,28 @@ async function ensureProvisionedUser(
       throw new Error("Link de ativação não retornado pelo Supabase");
     }
 
-    await sendWelcomeEmail({
-      resendApiKey,
-      fromEmail: resendFromEmail,
-      customerEmail: normalizedEmail,
-      customerName: fullName,
-      customerPhone: phone,
-      documento,
-      plan,
-      amount,
-      setPasswordUrl: actionLink,
-      appBaseUrl,
-    });
+    try {
+      await sendWelcomeEmail({
+        resendApiKey,
+        fromEmail: resendFromEmail,
+        customerEmail: normalizedEmail,
+        customerName: fullName,
+        customerPhone: phone,
+        documento,
+        plan,
+        amount,
+        setPasswordUrl: actionLink,
+        appBaseUrl,
+      });
 
-    activationEmailSent = true;
+      activationEmailSent = true;
+    } catch (emailError) {
+      console.error(
+        "[cakto-webhook] Falha ao enviar email de onboarding:",
+        emailError instanceof Error ? emailError.message : emailError,
+      );
+      activationEmailSent = false;
+    }
   }
 
   if (!userId) {

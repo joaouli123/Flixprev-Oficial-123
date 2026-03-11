@@ -434,7 +434,9 @@ const AppLayout = () => {
           setAgents((prev) => [...prev, normalizedAgent]);
           toast.success(`Agente '${newAgentData.title}' adicionado com sucesso!`);
 
-          await fetch(`/api/admin/reprocess-agent-attachments/${normalizedAgent.id}`, { method: 'POST' }).catch(console.error);
+          if (normalizedAgent.extra_links.length === 0) {
+            await fetch(`/api/admin/reprocess-agent-attachments/${normalizedAgent.id}`, { method: 'POST' }).catch(console.error);
+          }
           
           // Emit new notification
           fetch('/api/notifications', {
@@ -536,7 +538,9 @@ const AppLayout = () => {
         );
         toast.success(`Agente '${updatedAgentData.title}' atualizado com sucesso!`);
 
-        await fetch(`/api/admin/reprocess-agent-attachments/${agentId}`, { method: 'POST' }).catch(console.error);
+        if (normalizedAgent.extra_links.length === 0) {
+          await fetch(`/api/admin/reprocess-agent-attachments/${agentId}`, { method: 'POST' }).catch(console.error);
+        }
         
         // Emit new notification
         fetch('/api/notifications', {

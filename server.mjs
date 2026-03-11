@@ -369,15 +369,42 @@ function decodeHtmlEntities(value = '') {
     .replace(/&#x([0-9a-f]+);/gi, (_, code) => String.fromCharCode(parseInt(code, 16)));
 }
 
+function extractPrimaryHtmlContent(html = '') {
+  const source = String(html || '');
+  const mainCandidates = [
+    /<main[^>]*>([\s\S]*?)<\/main>/i,
+    /<article[^>]*>([\s\S]*?)<\/article>/i,
+    /<section[^>]*role=["']main["'][^>]*>([\s\S]*?)<\/section>/i,
+    /<div[^>]*role=["']main["'][^>]*>([\s\S]*?)<\/div>/i,
+    /<body[^>]*>([\s\S]*?)<\/body>/i,
+  ];
+
+  for (const pattern of mainCandidates) {
+    const match = source.match(pattern);
+    const candidate = match?.[1]?.trim();
+    if (candidate && candidate.length > 800) {
+      return candidate;
+    }
+  }
+
+  return source;
+}
+
 function htmlToPlainText(html = '') {
   return decodeHtmlEntities(
-    String(html || '')
+    extractPrimaryHtmlContent(html)
       .replace(/<script[\s\S]*?<\/script>/gi, ' ')
       .replace(/<style[\s\S]*?<\/style>/gi, ' ')
       .replace(/<noscript[\s\S]*?<\/noscript>/gi, ' ')
       .replace(/<svg[\s\S]*?<\/svg>/gi, ' ')
+      .replace(/<header[\s\S]*?<\/header>/gi, ' ')
+      .replace(/<footer[\s\S]*?<\/footer>/gi, ' ')
+      .replace(/<nav[\s\S]*?<\/nav>/gi, ' ')
+      .replace(/<aside[\s\S]*?<\/aside>/gi, ' ')
+      .replace(/<form[\s\S]*?<\/form>/gi, ' ')
       .replace(/<br\s*\/?>/gi, '\n')
       .replace(/<\/(p|div|section|article|li|h1|h2|h3|h4|h5|h6)>/gi, '\n')
+      .replace(/<a[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi, ' $2 ($1) ')
       .replace(/<[^>]+>/g, ' ')
       .replace(/[ \t]+/g, ' ')
       .replace(/\n{3,}/g, '\n\n')
@@ -413,11 +440,17 @@ async function fetchLinkKnowledgeSource(rawUrl) {
 
   const bodyText = await response.text();
   const pageTitle = bodyText.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1]?.trim() || '';
+  const metaDescription = bodyText.match(/<meta[^>]+name=["']description["'][^>]+content=["']([\s\S]*?)["'][^>]*>/i)?.[1]?.trim() || '';
   const extractedText = contentType.includes('text/html')
     ? htmlToPlainText(bodyText)
     : bodyText.trim();
 
-  const normalizedText = `FONTE: ${finalUrl}\n${pageTitle ? `TITULO: ${decodeHtmlEntities(pageTitle)}\n` : ''}\n${extractedText}`.trim();
+  const normalizedText = [
+    `FONTE: ${finalUrl}`,
+    pageTitle ? `TITULO: ${decodeHtmlEntities(pageTitle)}` : '',
+    metaDescription ? `DESCRICAO: ${decodeHtmlEntities(metaDescription)}` : '',
+    extractedText,
+  ].filter(Boolean).join('\n\n').trim();
 
   return {
     extension: 'txt',
@@ -626,6 +659,111 @@ async function getFirstChunks(agentId, limit = 3) {
   }
 }
 
+function normalizeConversationMessage(content = '') {
+  return String(content || '')
+    .replace(/\n\n\[Anexo enviado:[^\]]+\]/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function buildConversationContext(messages = [], maxMessages = 8, maxChars = 3500) {
+  const recentMessages = Array.isArray(messages) ? messages.slice(-maxMessages) : [];
+  const normalized = recentMessages
+    .map((message) => {
+      const roleLabel = message?.role === 'assistant' ? 'Assistente' : 'Usuário';
+      const content = normalizeConversationMessage(message?.content || '');
+      if (!content) return '';
+      return `${roleLabel}: ${content}`;
+    })
+    .filter(Boolean);
+
+  const joined = normalized.join('\n');
+  if (joined.length <= maxChars) {
+    return joined;
+  }
+
+  return joined.slice(joined.length - maxChars);
+}
+
+function buildRetrievalQuery(question = '', conversationContext = '') {
+  const normalizedQuestion = String(question || '').trim();
+  const normalizedConversation = String(conversationContext || '').trim();
+
+  if (!normalizedConversation) {
+    return normalizedQuestion;
+  }
+
+  return [
+    `Pergunta atual: ${normalizedQuestion}`,
+    'Contexto recente da conversa para manter continuidade e evitar repetição:',
+    normalizedConversation,
+  ].join('\n').slice(0, 5000);
+}
+
+async function reindexAgentAttachments(agentId, attachments = []) {
+  const validAttachments = Array.isArray(attachments) ? attachments : [];
+
+  await pool.query('DELETE FROM documents WHERE agent_id = $1', [agentId]);
+
+  let processedCount = 0;
+  let skippedCount = 0;
+  let totalChunks = 0;
+
+  for (const attachment of validAttachments) {
+    try {
+      const filePath = attachment.startsWith('/') ? attachment : `/${attachment}`;
+      const fileName = attachment.split('/').pop() || attachment;
+      const fullPath = path.join(process.cwd(), 'public', filePath);
+
+      if (!fs.existsSync(fullPath)) {
+        skippedCount += 1;
+        continue;
+      }
+
+      const text = await extractAttachmentText(fullPath, fileName);
+      if (!text || text.trim().length < 50) {
+        skippedCount += 1;
+        continue;
+      }
+
+      const docResult = await pool.query(
+        'INSERT INTO documents (agent_id, title) VALUES ($1, $2) RETURNING id',
+        [agentId, fileName]
+      );
+      const documentId = docResult.rows[0].id;
+
+      const chunks = chunkText(text, 4000, 1000);
+      if (chunks.length === 0) {
+        skippedCount += 1;
+        continue;
+      }
+
+      const embeddings = await generateEmbeddings(chunks);
+
+      for (let index = 0; index < chunks.length; index += 1) {
+        const embeddingString = '[' + embeddings[index].join(',') + ']';
+        await pool.query(
+          `INSERT INTO document_chunks (agent_id, document_id, content, embedding, chunk_index)
+           VALUES ($1, $2, $3, $4::vector, $5)`,
+          [agentId, documentId, chunks[index], embeddingString, index]
+        );
+      }
+
+      processedCount += 1;
+      totalChunks += chunks.length;
+    } catch (error) {
+      skippedCount += 1;
+      console.error('[REINDEX] Erro ao processar attachment:', attachment, error?.message || error);
+    }
+  }
+
+  return {
+    processedCount,
+    skippedCount,
+    totalChunks,
+  };
+}
+
 // ============================================
 // 1️⃣ RESPONSE ORCHESTRATOR
 // ============================================
@@ -693,8 +831,12 @@ function buildOfflineAttachmentResponse(attachmentContext, question = '', fileNa
 }
 
 // 5️⃣ Prompt GLOBAL DEFINITIVO (Ajustado para Visão Panorâmica)
-function buildPrompt(context, agentInstructions, question, toneStyle = 'chatgpt') {
+function buildPrompt(context, agentInstructions, question, toneStyle = 'chatgpt', conversationContext = '') {
   const hasContext = Boolean(context && context.trim().length > 0);
+  const hasConversationContext = Boolean(conversationContext && conversationContext.trim().length > 0);
+  const conversationBlock = hasConversationContext
+    ? `\nCONTEXTO RECENTE DA CONVERSA:\n${conversationContext}\n`
+    : '';
 
   if (!hasContext) {
     return `🎯 PERSONA: CONSULTOR SÊNIOR
@@ -707,7 +849,10 @@ REGRAS:
 1. Responda com clareza e objetividade.
 2. Se a pergunta for sobre o tema principal do agente, responda normalmente com base nas instruções acima.
 3. Se não souber, seja transparente e peça mais contexto.
+4. Considere o histórico recente da conversa para não repetir perguntas já respondidas.
+5. Se o usuário estiver retomando um assunto anterior, continue do ponto em que a conversa parou.
 
+${conversationBlock}
 PERGUNTA DO USUÁRIO:
 ${question}
 
@@ -723,11 +868,12 @@ Você é um especialista direto, elegante e organizado.
 
 ### REGRAS CRÍTICAS (MODO VISÃO PANORÂMICA):
 1. **LEITURA COMPLETA**: Você recebeu um volume GRANDE de contexto (aprox. 25 trechos). Você DEVE ler e considerar TODOS os fragmentos antes de responder. A resposta pode estar no fragmento 1 ou no fragmento 25.
-2. **SÍNTESE OBRIGATÓRIA**: Informações complexas (como experimentos de Rohrer & Taylor) podem estar divididas entre vários trechos. Una os pontos.
-3. **FIDELIDADE**: Priorize os trechos abaixo quando a pergunta estiver relacionada aos anexos/documentos.
+2. **SÍNTESE OBRIGATÓRIA**: Informações complexas podem estar divididas entre vários trechos. Una os pontos.
+3. **FIDELIDADE**: Priorize os trechos abaixo quando a pergunta estiver relacionada aos anexos, URLs e documentos.
 4. **LIMPEZA**: Não mencione [Trecho ID] na resposta.
-5. **BUSCA PROFUNDA**: Se o usuário perguntar por um detalhe específico (ex: "Rohrer", "Ansiedade"), vasculhe cada linha do contexto fornecido. Se estiver lá, você deve encontrar.
+5. **BUSCA PROFUNDA**: Se o usuário perguntar por um detalhe específico, vasculhe cada linha do contexto fornecido. Se estiver lá, você deve encontrar.
 6. **MODO HÍBRIDO**: Se a pergunta não estiver relacionada ao conteúdo dos anexos, responda normalmente seguindo as instruções do agente.
+7. **MEMÓRIA DE CONVERSA**: Use o histórico recente para manter continuidade, não repetir respostas e não pedir novamente informações que já foram dadas.
 
 FONTE DE VERDADE:
 Responda baseando-se no [CONTEXTO] abaixo. Use as informações fornecidas para construir uma resposta útil e completa.
@@ -737,7 +883,12 @@ INSTRUÇÕES DO AGENTE:
 ═══════════════════════════════════════════════════════════════════
 ${agentInstructions || "Atue como um assistente técnico."}
 
+${hasConversationContext ? `═══════════════════════════════════════════════════════════════════
+CONTEXTO RECENTE DA CONVERSA:
 ═══════════════════════════════════════════════════════════════════
+${conversationContext}
+
+` : ''}═══════════════════════════════════════════════════════════════════
 CONTEXTO (SUA ÚNICA FONTE):
 ═══════════════════════════════════════════════════════════════════
 ${contextBlock}
@@ -1545,11 +1696,14 @@ app.post('/api/agents/:agentId/sync-links', async (req, res) => {
       [nextAttachments, JSON.stringify(normalizedLinks), agentId]
     );
 
+    const reindexSummary = await reindexAgentAttachments(agentId, nextAttachments);
+
     res.json({
       success: true,
       attachments: nextAttachments,
       extra_links: normalizedLinks,
       failures,
+      reindex: reindexSummary,
     });
   } catch (e) {
     console.error('[LINK-SYNC] Erro fatal:', e?.message || e);
@@ -1566,54 +1720,15 @@ app.post('/api/admin/reprocess-attachments', async (req, res) => {
     );
 
     let totalProcessed = 0;
+    let totalChunks = 0;
     for (const agent of agentsResult.rows) {
       const agentId = agent.id;
-      const attachments = agent.attachments || [];
-
-      console.log(`[REPROCESS] Agente ${agentId}: Limpando chunks antigos...`);
-      await pool.query('DELETE FROM documents WHERE agent_id = $1', [agentId]);
-
-      for (const attachment of attachments) {
-        try {
-          const filePath = attachment.startsWith('/') ? attachment : `/${attachment}`;
-          const fileName = attachment.split('/').pop() || attachment;
-          const fullPath = path.join(process.cwd(), 'public', filePath);
-
-          if (!fs.existsSync(fullPath)) continue;
-
-          let text = await extractAttachmentText(fullPath, fileName);
-
-          if (!text || text.length === 0) continue;
-
-          const docResult = await pool.query(
-            'INSERT INTO documents (agent_id, title) VALUES ($1, $2) RETURNING id',
-            [agentId, fileName]
-          );
-          const documentId = docResult.rows[0].id;
-
-          // 🔥 CHUNKING NUCLEAR AQUI TAMBÉM
-          const chunks = chunkText(text, 4000, 1000);
-          console.log(`[REPROCESS] ${chunks.length} chunks GIGANTES criados`);
-
-          const embeddings = await generateEmbeddings(chunks);
-
-          let savedCount = 0;
-          for (let i = 0; i < chunks.length; i++) {
-            const embeddingString = '[' + embeddings[i].join(',') + ']';
-            await pool.query(
-              `INSERT INTO document_chunks (agent_id, document_id, content, embedding, chunk_index)
-                VALUES ($1, $2, $3, $4::vector, $5)`,
-              [agentId, documentId, chunks[i], embeddingString, i]
-            );
-            savedCount++;
-          }
-          totalProcessed++;
-        } catch (e) {
-          console.error('[REPROCESS] Erro:', e.message);
-        }
-      }
+      console.log(`[REPROCESS] Agente ${agentId}: reindexando knowledge base...`);
+      const summary = await reindexAgentAttachments(agentId, agent.attachments || []);
+      totalProcessed += summary.processedCount;
+      totalChunks += summary.totalChunks;
     }
-    res.json({ success: true, processedCount: totalProcessed });
+    res.json({ success: true, processedCount: totalProcessed, totalChunks });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -1633,47 +1748,9 @@ app.post('/api/admin/reprocess-agent-attachments/:agentId', async (req, res) => 
     const agent = agentResult.rows?.[0];
     if (!agent) return res.status(404).json({ error: 'Agente não encontrado' });
 
-    const attachments = Array.isArray(agent.attachments) ? agent.attachments : [];
+    const summary = await reindexAgentAttachments(agentId, agent.attachments || []);
 
-    await pool.query('DELETE FROM documents WHERE agent_id = $1', [agentId]);
-
-    let processedCount = 0;
-    for (const attachment of attachments) {
-      try {
-        const filePath = attachment.startsWith('/') ? attachment : `/${attachment}`;
-        const fileName = attachment.split('/').pop() || attachment;
-        const fullPath = path.join(process.cwd(), 'public', filePath);
-
-        if (!fs.existsSync(fullPath)) continue;
-
-        const text = await extractAttachmentText(fullPath, fileName);
-        if (!text || text.trim().length < 50) continue;
-
-        const docResult = await pool.query(
-          'INSERT INTO documents (agent_id, title) VALUES ($1, $2) RETURNING id',
-          [agentId, fileName]
-        );
-        const documentId = docResult.rows[0].id;
-
-        const chunks = chunkText(text, 4000, 1000);
-        const embeddings = await generateEmbeddings(chunks);
-
-        for (let i = 0; i < chunks.length; i++) {
-          const embeddingString = '[' + embeddings[i].join(',') + ']';
-          await pool.query(
-            `INSERT INTO document_chunks (agent_id, document_id, content, embedding, chunk_index)
-             VALUES ($1, $2, $3, $4::vector, $5)`,
-            [agentId, documentId, chunks[i], embeddingString, i]
-          );
-        }
-
-        processedCount++;
-      } catch (e) {
-        console.error('[REPROCESS-ONE] Erro ao processar attachment:', e.message);
-      }
-    }
-
-    res.json({ success: true, agentId, processedCount });
+    res.json({ success: true, agentId, ...summary });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -1805,6 +1882,14 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
       [cid, "user", `${userText}${attachment?.filename ? `\n\n[Anexo enviado: ${attachment.filename}]` : ''}`.trim()]
     );
 
+    const hist = await pool.query(
+      'SELECT * FROM messages WHERE conversation_id = $1 ORDER BY created_at ASC',
+      [cid]
+    );
+
+    const conversationContext = buildConversationContext(hist.rows);
+    const retrievalQuery = buildRetrievalQuery(userText, conversationContext);
+
     if (directPdfAnswer && directPdfAnswer.trim().length > 0) {
       await pool.query(
         'INSERT INTO messages (conversation_id, role, content) VALUES ($1, $2, $3) RETURNING *',
@@ -1858,7 +1943,7 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
 
                 const queryEmbedding = await openai.embeddings.create({
                   model: aiCfg.embeddingModel,
-                  input: userText
+                  input: retrievalQuery || userText
                 });
 
                 // 🔥 BUSCA NUCLEAR: TOP-K 25
@@ -1883,7 +1968,7 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
               }
 
               const mergedContext = [attachmentContext, relevantContext].filter(Boolean).join('\n\n---\n\n');
-              prompt = buildPrompt(mergedContext || '', agentInstructions, userText || 'Analise o anexo enviado.');
+              prompt = buildPrompt(mergedContext || '', agentInstructions, userText || 'Analise o anexo enviado.', 'chatgpt', conversationContext);
               hasContext = mergedContext && mergedContext.trim().length > 0;
               contextSize = mergedContext ? mergedContext.length : 0;
               chunksUsed = mergedContext ? mergedContext.split('\n\n---\n\n').length : 0;
@@ -1892,7 +1977,7 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
               console.error('[CHAT] Erro ao buscar contexto:', e.message);
             }
           } else {
-            prompt = buildPrompt(attachmentContext || '', agentInstructions, userText || 'Analise o anexo enviado.');
+            prompt = buildPrompt(attachmentContext || '', agentInstructions, userText || 'Analise o anexo enviado.', 'chatgpt', conversationContext);
             hasContext = Boolean(attachmentContext);
           }
         }
@@ -1900,11 +1985,6 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
         console.error('[CHAT] Erro ao buscar agente:', e.message);
       }
     }
-
-    const hist = await pool.query(
-      'SELECT * FROM messages WHERE conversation_id = $1 ORDER BY created_at ASC',
-      [cid]
-    );
 
     const msgs = [
       { role: "system", content: prompt },

@@ -96,8 +96,6 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
   const isEditing = !!agentToEdit;
 
   const [title, setTitle] = useState("");
-  const [role, setRole] = useState("");
-  const [description, setDescription] = useState("");
   const [instructions, setInstructions] = useState("");
   const [icon, setIcon] = useState("Bot");
   const [backgroundIcon, setBackgroundIcon] = useState("Bot");
@@ -121,8 +119,6 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
       console.log("Tipo de category_ids:", typeof agentToEdit.category_ids, "Array?", Array.isArray(agentToEdit.category_ids));
       console.log("Primeiro elemento:", agentToEdit.category_ids?.[0]);
       setTitle(agentToEdit.title);
-      setRole(agentToEdit.role || "");
-      setDescription(agentToEdit.description);
       setInstructions(agentToEdit.instructions || "");
       setIcon(agentToEdit.icon);
       setBackgroundIcon(agentToEdit.background_icon || agentToEdit.icon || "Bot");
@@ -156,8 +152,6 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
       setShortcutInput("");
     } else if (isOpen && !agentToEdit) {
       setTitle("");
-      setRole("");
-      setDescription("");
       setInstructions("");
       setIcon("Bot");
       setBackgroundIcon("Bot");
@@ -263,7 +257,7 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
   };
 
   const handleSave = async () => {
-    if (title.trim() && description.trim() && instructions.trim() && icon && selectedCategory) {
+    if (title.trim() && instructions.trim() && icon && selectedCategory) {
       // Upload new files first
       let uploadedPaths: string[] = [...savedAttachments];
       
@@ -299,8 +293,8 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
       
       const agentData = {
         title: title.trim(),
-        role: role.trim() || undefined,
-        description: description.trim(),
+        role: isEditing ? agentToEdit?.role || undefined : undefined,
+        description: isEditing ? agentToEdit?.description || "" : "",
         icon,
         background_icon: backgroundIcon,
         category_ids: categoryArray as string[],
@@ -329,8 +323,6 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
       }
 
       setTitle("");
-      setRole("");
-      setDescription("");
       setInstructions("");
       setIcon("Bot");
       setBackgroundIcon("Bot");
@@ -434,29 +426,6 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
                 className="w-full transition-all border-slate-200 focus:border-indigo-500 focus:ring-indigo-500/20"
               />
               <p className="text-xs text-slate-400">Esse será o título principal do card.</p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="role" className="text-sm font-medium text-slate-700">Função (Role)</Label>
-              <Input
-                id="role"
-                placeholder="Ex: ProcAdm."
-                value={role}
-                onChange={(e) => setRole(e.target.value)}
-                className="w-full transition-all border-slate-200 focus:border-indigo-500 focus:ring-indigo-500/20"
-              />
-              <p className="text-xs text-slate-400">Use aqui a sigla curta que deve aparecer no selo roxo.</p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="description" className="text-sm font-medium text-slate-700">Descrição Curta <span className="text-red-500">*</span></Label>
-              <Input
-                id="description"
-                placeholder="Ex: Especialista em rotinas e materiais de apoio previdenciários."
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                className="w-full transition-all border-slate-200 focus:border-indigo-500 focus:ring-indigo-500/20"
-              />
             </div>
 
             <div className="space-y-2">
@@ -677,12 +646,6 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
                   <h4 className="line-clamp-1 text-xl font-bold text-slate-900">
                     {title || "Nome do Agente"}
                   </h4>
-                  <div className="mt-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                    {role || "FUNÇÃO"}
-                  </div>
-                  <p className="mt-2.5 min-h-[44px] text-sm leading-relaxed text-slate-600 line-clamp-2">
-                    {description || "Descrição breve do especialista..."}
-                  </p>
                 </div>
               </div>
             </div>

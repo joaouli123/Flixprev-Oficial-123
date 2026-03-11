@@ -129,7 +129,7 @@ const LandingPage = () => {
       setLoading(true);
       // Buscar agentes e categorias em paralelo
       const [agentsRes, catsRes] = await Promise.all([
-        supabase.from("agents").select("id, title, description, icon, category_ids"),
+        supabase.from("agents").select("id, title, role, description, icon, category_ids"),
         supabase.from("categories").select("id, name"),
       ]);
 
@@ -169,7 +169,7 @@ const LandingPage = () => {
     return visibleAgents
       .filter((a) => (a.category_ids || []).includes(activeTab))
       .sort((a, b) => {
-        const orderDiff = getAgentDisplayOrder(a.title, a.description) - getAgentDisplayOrder(b.title, b.description);
+        const orderDiff = getAgentDisplayOrder(a.title, a.description, a.role) - getAgentDisplayOrder(b.title, b.description, b.role);
         if (orderDiff !== 0) return orderDiff;
         return a.title.localeCompare(b.title, "pt-BR");
       });
@@ -416,7 +416,7 @@ const LandingPage = () => {
                       </div>
                       <div className="min-w-0">
                         <CardTitle className="text-sm font-semibold text-slate-900 group-hover:text-green-700 transition-colors duration-300 line-clamp-2 m-0">
-                          {getAgentPresentation(agent.title, agent.description).title}
+                          {getAgentPresentation(agent.title, agent.description, agent.role).title}
                         </CardTitle>
                       </div>
                     </div>

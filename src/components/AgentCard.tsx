@@ -1,5 +1,5 @@
 import React from "react";
-import { Card, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import * as LucideIcons from "lucide-react";
 import { type LucideIcon } from "lucide-react";
@@ -7,7 +7,7 @@ import { Agent } from "@/types/app";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { MoreVertical, Trash2, Edit } from "lucide-react";
 import { useSession } from "@/components/SessionContextProvider";
-import { getAgentPresentation } from "@/lib/agentText";
+import { normalizeAgentTitle } from "@/lib/agentText";
 
 interface AgentCardProps {
   agent: Agent;
@@ -20,7 +20,7 @@ const AgentCard: React.FC<AgentCardProps> = ({ agent, onStartAgent, onDeleteAgen
   const { isAdmin } = useSession();
   const IconComponent: LucideIcon = (LucideIcons[agent.icon as keyof typeof LucideIcons] as LucideIcon) || LucideIcons.Bot;
   const BackgroundIconComponent: LucideIcon = (LucideIcons[(agent.background_icon || agent.icon) as keyof typeof LucideIcons] as LucideIcon) || LucideIcons.Bot;
-  const presentation = getAgentPresentation(agent.title, agent.description, agent.role);
+  const displayTitle = normalizeAgentTitle(agent.title, agent.description, agent.role);
 
   const handleButtonClick = () => {
     if (agent.link) {
@@ -31,7 +31,7 @@ const AgentCard: React.FC<AgentCardProps> = ({ agent, onStartAgent, onDeleteAgen
   };
 
   return (
-    <Card className="group relative flex min-h-[188px] min-w-[260px] self-start flex-col overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-purple-200 hover:shadow-lg hover:shadow-purple-500/10">
+    <Card className="group relative flex min-h-[116px] min-w-[260px] self-start flex-col overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-purple-200 hover:shadow-lg hover:shadow-purple-500/10">
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-purple-50/70 via-white to-purple-50/40 opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
       
       {/* Ícone de fundo (Marca d'água) */}
@@ -39,8 +39,8 @@ const AgentCard: React.FC<AgentCardProps> = ({ agent, onStartAgent, onDeleteAgen
         <BackgroundIconComponent className="h-28 w-28 text-purple-900" />
       </div>
 
-      <CardHeader className="relative z-10 px-4 pb-1 pt-4">
-        <div className="mb-2 flex items-start justify-between">
+      <CardHeader className="relative z-10 px-4 pb-0 pt-4">
+        <div className="mb-1.5 flex items-start justify-between gap-3">
           <div className="rounded-lg bg-gradient-to-br from-[#434dce] to-indigo-600 p-2 text-white shadow-sm shadow-indigo-500/25 transition-transform duration-300 group-hover:scale-105">
             <IconComponent className="h-4 w-4" />
           </div>
@@ -66,14 +66,11 @@ const AgentCard: React.FC<AgentCardProps> = ({ agent, onStartAgent, onDeleteAgen
             )}
           </div>
         </div>
-        <CardTitle className="line-clamp-2 text-base font-bold text-slate-900 transition-colors duration-300 group-hover:text-purple-700">
-          {presentation.title}
+        <CardTitle className="line-clamp-2 pr-8 text-[15px] font-bold leading-5 text-slate-900 transition-colors duration-300 group-hover:text-purple-700">
+          {displayTitle}
         </CardTitle>
-        <CardDescription className="mt-1 min-h-[24px] text-xs leading-relaxed text-slate-500 line-clamp-2">
-          {presentation.description}
-        </CardDescription>
       </CardHeader>
-      <CardFooter className="relative z-10 flex justify-end px-4 pb-3 pt-1.5">
+      <CardFooter className="relative z-10 mt-auto flex justify-end px-4 pb-3 pt-1">
         <Button 
           variant="ghost"
           size="icon"
