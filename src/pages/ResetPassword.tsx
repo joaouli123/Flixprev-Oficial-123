@@ -10,6 +10,8 @@ import { toast } from 'sonner';
 import { resetPasswordSchema } from '@/lib/validations';
 import { loginUser } from '@/lib/auth';
 
+type RecoveryType = 'recovery' | 'invite';
+
 const ResetPassword: React.FC = () => {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -21,11 +23,26 @@ const ResetPassword: React.FC = () => {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [recoveryEmail, setRecoveryEmail] = useState<string | null>(null);
   const [hasRecoverySession, setHasRecoverySession] = useState(false);
+  const [pendingTokenHash, setPendingTokenHash] = useState<string | null>(null);
+  const [pendingRecoveryType, setPendingRecoveryType] = useState<RecoveryType | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
     const loadRecoverySession = async () => {
       try {
+        const searchParams = new URLSearchParams(window.location.search);
+        const tokenHash = searchParams.get('token_hash');
+        const recoveryType = searchParams.get('type') as RecoveryType | null;
+
+        if (tokenHash && (recoveryType === 'recovery' || recoveryType === 'invite')) {
+          setPendingTokenHash(tokenHash);
+          setPendingRecoveryType(recoveryType);
+          setHasRecoverySession(true);
+          setMessage('Defina sua nova senha para ativar sua conta.');
+          setIsError(false);
+          return;
+        }
+
         const { data, error } = await supabaseAuth.auth.getSession();
         const email = data?.session?.user?.email ?? null;
 
@@ -79,14 +96,6 @@ const ResetPassword: React.FC = () => {
     setMessage('');
     setIsError(false);
 
-    if (!hasRecoverySession || !recoveryEmail) {
-      setMessage('Sessão de recuperação de senha não encontrada ou expirada. Por favor, inicie o processo de recuperação novamente.');
-      setIsError(true);
-      setLoading(false);
-      toast.error('Sessão de recuperação expirada ou inválida.');
-      return;
-    }
-
     // Validar com Zod
     const result = resetPasswordSchema.safeParse({
       password: newPassword,
@@ -103,6 +112,41 @@ const ResetPassword: React.FC = () => {
     }
 
     try {
+      let targetEmail = recoveryEmail;
+
+      if ((!targetEmail || !hasRecoverySession) && pendingTokenHash && pendingRecoveryType) {
+        const verification = await supabaseAuth.auth.verifyOtp({
+          token_hash: pendingTokenHash,
+          type: pendingRecoveryType,
+        });
+
+        if (verification.error) {
+          setHasRecoverySession(false);
+          setMessage('Sessão de recuperação de senha não encontrada ou expirada. Por favor, inicie o processo de recuperação novamente.');
+          setIsError(true);
+          toast.error('Sessão de recuperação expirada ou inválida.');
+          return;
+        }
+
+        const refreshed = await supabaseAuth.auth.getSession();
+        targetEmail = refreshed.data?.session?.user?.email ?? verification.data.user?.email ?? null;
+        setRecoveryEmail(targetEmail);
+        setHasRecoverySession(true);
+        setPendingTokenHash(null);
+        setPendingRecoveryType(null);
+
+        if (window.location.search) {
+          window.history.replaceState({}, document.title, '/reset-password');
+        }
+      }
+
+      if (!targetEmail) {
+        setMessage('Sessão de recuperação de senha não encontrada ou expirada. Por favor, inicie o processo de recuperação novamente.');
+        setIsError(true);
+        toast.error('Sessão de recuperação expirada ou inválida.');
+        return;
+      }
+
       const { error } = await supabaseAuth.auth.updateUser({
         password: result.data.password,
       });
@@ -116,7 +160,7 @@ const ResetPassword: React.FC = () => {
         setShowSuccessModal(true);
         toast.success('Senha redefinida com sucesso!');
 
-        const loginResult = await loginUser(recoveryEmail, result.data.password);
+        const loginResult = await loginUser(targetEmail, result.data.password);
 
         if (loginResult.success) {
           toast.success('Conta ativada e login realizado com sucesso!');

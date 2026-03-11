@@ -81,6 +81,12 @@ function formatCurrency(value: number | null | undefined): string {
   }).format(amount);
 }
 
+function buildAppRecoveryUrl(appBaseUrl: string, tokenHash: string, type: string = "recovery"): string {
+  const normalizedBaseUrl = String(appBaseUrl || "").trim().replace(/\/$/, "");
+  const baseUrl = normalizedBaseUrl || "https://flixprev.uxcodedev.com.br";
+  return `${baseUrl}/reset-password?token_hash=${encodeURIComponent(tokenHash)}&type=${encodeURIComponent(type)}`;
+}
+
 function buildWelcomeEmailHtml(params: {
   customerName: string | null;
   customerEmail: string;
@@ -101,45 +107,30 @@ function buildWelcomeEmailHtml(params: {
   const appBaseUrl = escapeHtml(params.appBaseUrl);
 
   return `
-  <div style="margin:0;padding:0;background:#f6f8fc;font-family:Arial,Helvetica,sans-serif;color:#1f2937;">
-    <div style="max-width:640px;margin:0 auto;padding:32px 16px;">
-      <div style="background:#ffffff;border:1px solid #e5e7eb;border-radius:20px;overflow:hidden;box-shadow:0 10px 30px rgba(15,23,42,0.08);">
-        <div style="background:linear-gradient(135deg,#434dce 0%,#6674ff 100%);padding:28px 24px;color:#ffffff;">
-          <div style="font-size:28px;line-height:1.2;font-weight:700;">🎉 Compra confirmada na FlixPrev</div>
-          <div style="margin-top:8px;font-size:15px;line-height:1.6;opacity:0.95;">✅ Seu pagamento foi aprovado. Agora falta apenas definir sua senha para liberar o acesso ao sistema.</div>
-        </div>
+  <div style="margin:0;padding:24px;background:#f8fafc;font-family:Arial,Helvetica,sans-serif;color:#0f172a;">
+    <div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #e2e8f0;border-radius:16px;padding:32px 28px;">
+      <div style="font-size:12px;letter-spacing:0.14em;text-transform:uppercase;color:#64748b;margin-bottom:16px;">FlixPrev</div>
+      <h1 style="margin:0 0 12px;font-size:30px;line-height:1.2;font-weight:700;color:#0f172a;">Sua compra foi aprovada</h1>
+      <p style="margin:0 0 20px;font-size:16px;line-height:1.7;color:#334155;">Seu acesso já foi criado. Para entrar no sistema, defina sua senha pelo botão abaixo.</p>
 
-        <div style="padding:28px 24px;">
-          <p style="margin:0 0 16px;font-size:16px;line-height:1.7;">Olá, <strong>${name}</strong>! 👋</p>
-          <p style="margin:0 0 20px;font-size:15px;line-height:1.7;">Seja bem-vindo(a) à <strong>FlixPrev</strong>. Sua conta já foi preparada com base na compra realizada. Para entrar no sistema, clique no botão abaixo e defina sua senha de acesso.</p>
+      <div style="margin:28px 0;">
+        <a href="${setPasswordUrl}" style="display:inline-block;background:#434DCE;color:#ffffff;text-decoration:none;font-weight:700;font-size:16px;padding:14px 22px;border-radius:10px;">Definir senha e acessar</a>
+      </div>
 
-          <div style="margin:24px 0;text-align:center;">
-            <a href="${setPasswordUrl}" style="display:inline-block;background:#434dce;color:#ffffff;text-decoration:none;font-weight:700;font-size:16px;padding:14px 24px;border-radius:12px;">🔐 Definir senha e acessar</a>
-          </div>
-
-          <div style="margin:0 0 20px;padding:18px;background:#f8faff;border:1px solid #dbe3ff;border-radius:14px;">
-            <div style="font-size:15px;font-weight:700;color:#1e293b;margin-bottom:12px;">🧾 Dados da compra</div>
-            <div style="font-size:14px;line-height:1.8;color:#334155;">
-              <div><strong>Nome:</strong> ${name}</div>
-              <div><strong>E-mail:</strong> ${email}</div>
-              <div><strong>Telefone:</strong> ${phone}</div>
-              <div><strong>Documento:</strong> ${documento}</div>
-              <div><strong>Plano:</strong> ${plan}</div>
-              <div><strong>Valor:</strong> ${amount}</div>
-            </div>
-          </div>
-
-          <div style="margin:0 0 20px;padding:18px;background:#fff7ed;border:1px solid #fed7aa;border-radius:14px;font-size:14px;line-height:1.7;color:#9a3412;">
-            ✨ Importante: sua conta foi criada, mas o acesso ao sistema só é liberado após a definição da senha.
-          </div>
-
-          <p style="margin:0 0 10px;font-size:14px;line-height:1.7;color:#475569;">Depois de criar sua senha, acesse:</p>
-          <p style="margin:0 0 20px;font-size:14px;line-height:1.7;"><a href="${appBaseUrl}" style="color:#434dce;text-decoration:none;word-break:break-all;">${appBaseUrl}</a></p>
-
-          <p style="margin:0;font-size:13px;line-height:1.7;color:#64748b;">Se o botão não abrir, copie e cole este link no navegador:</p>
-          <p style="margin:8px 0 0;font-size:13px;line-height:1.7;word-break:break-all;"><a href="${setPasswordUrl}" style="color:#434dce;text-decoration:none;">${setPasswordUrl}</a></p>
+      <div style="margin:0 0 24px;padding:18px 20px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;">
+        <div style="font-size:14px;font-weight:700;color:#0f172a;margin-bottom:10px;">Resumo da compra</div>
+        <div style="font-size:14px;line-height:1.8;color:#475569;">
+          <div><strong>Nome:</strong> ${name}</div>
+          <div><strong>E-mail:</strong> ${email}</div>
+          <div><strong>Telefone:</strong> ${phone}</div>
+          <div><strong>Documento:</strong> ${documento}</div>
+          <div><strong>Plano:</strong> ${plan}</div>
+          <div><strong>Valor:</strong> ${amount}</div>
         </div>
       </div>
+
+      <p style="margin:0 0 12px;font-size:14px;line-height:1.7;color:#475569;">Depois de criar sua senha, você entrará na área interna da plataforma.</p>
+      <p style="margin:0;font-size:14px;line-height:1.7;color:#64748b;">Acesse: <a href="${appBaseUrl}" style="color:#434DCE;text-decoration:none;">${appBaseUrl}</a></p>
     </div>
   </div>`;
 }
@@ -412,12 +403,13 @@ async function ensureProvisionedUser(
 
     userId = inviteLinkData?.user?.id ?? await findAuthUserByEmail(supabaseAdmin, normalizedEmail);
 
-    const actionLink = asString((inviteLinkData as unknown as AnyRecord | null)?.properties?.action_link) ??
-      asString((inviteLinkData as unknown as AnyRecord | null)?.action_link);
+    const hashedToken = asString((inviteLinkData as unknown as AnyRecord | null)?.properties?.hashed_token);
 
-    if (!actionLink) {
-      throw new Error("Link de ativação não retornado pelo Supabase");
+    if (!hashedToken) {
+      throw new Error("Token de ativacao nao retornado pelo Supabase");
     }
+
+    const actionLink = buildAppRecoveryUrl(appBaseUrl, hashedToken, "recovery");
 
     try {
       await sendWelcomeEmail({
