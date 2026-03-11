@@ -107,7 +107,9 @@ function createAiClient() {
 
 const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const hasSupabaseAuth = Boolean(supabaseUrl && supabaseAnonKey);
+const hasSupabaseAdmin = Boolean(supabaseUrl && supabaseServiceRoleKey);
 
 const supabaseAuthClient = hasSupabaseAuth
   ? createClient(supabaseUrl, supabaseAnonKey, {
@@ -115,8 +117,22 @@ const supabaseAuthClient = hasSupabaseAuth
     })
   : null;
 
+const supabaseAdminClient = hasSupabaseAdmin
+  ? createClient(supabaseUrl, supabaseServiceRoleKey, {
+      auth: { persistSession: false, autoRefreshToken: false }
+    })
+  : null;
+
+const pgConnectionTimeoutMillis = Number.parseInt(process.env.PG_CONNECTION_TIMEOUT_MS || '4000', 10);
+const pgQueryTimeoutMillis = Number.parseInt(process.env.PG_QUERY_TIMEOUT_MS || '10000', 10);
+
 const pool = hasDatabaseUrl
-  ? new Pool({ connectionString: process.env.DATABASE_URL })
+  ? new Pool({
+      connectionString: process.env.DATABASE_URL,
+      connectionTimeoutMillis: Number.isFinite(pgConnectionTimeoutMillis) ? pgConnectionTimeoutMillis : 4000,
+      query_timeout: Number.isFinite(pgQueryTimeoutMillis) ? pgQueryTimeoutMillis : 10000,
+      idleTimeoutMillis: 30000,
+    })
   : {
       query: async () => {
         const err = new Error('DATABASE_URL não configurado. Configure o arquivo .env para habilitar banco e RAG.');
@@ -131,6 +147,48 @@ const memoryChatStore = {
   conversations: [],
   messages: []
 };
+
+function isPostgresUnavailableError(error) {
+  const code = String(error?.code || '').trim().toUpperCase();
+  const message = String(error?.message || '').toUpperCase();
+
+  return [
+    'DB_NOT_CONFIGURED',
+    'ENETUNREACH',
+    'ECONNREFUSED',
+    'ETIMEDOUT',
+    'EHOSTUNREACH',
+    'EAI_AGAIN',
+    'ECONNRESET'
+  ].includes(code) || [
+    'ENETUNREACH',
+    'ECONNREFUSED',
+    'ETIMEDOUT',
+    'EHOSTUNREACH',
+    'FAILED TO FETCH',
+    'TIMEOUT EXPIRED',
+    'CONNECT'
+  ].some((token) => message.includes(token));
+}
+
+function createSupabaseFallbackError(error, message) {
+  const fallbackError = new Error(message || error?.message || 'Falha ao consultar o Supabase');
+  fallbackError.cause = error;
+  return fallbackError;
+}
+
+async function withDatabaseFallback(label, operation, fallback) {
+  try {
+    return await operation();
+  } catch (error) {
+    if (!supabaseAdminClient || !isPostgresUnavailableError(error)) {
+      throw error;
+    }
+
+    console.warn(`[DB-FALLBACK] ${label}: usando Supabase REST devido a falha no Postgres`, error?.message || error);
+    return fallback(error);
+  }
+}
 
 const TUTORIAL_ADMIN_USER_ID = '07d16581-fca5-4709-b0d3-e09859dbb286';
 
@@ -1046,17 +1104,35 @@ async function isAdminUser(userId) {
   }
 
   try {
-    const result = await pool.query(
-      `
-      SELECT role
-      FROM profiles
-      WHERE id = $1
-      LIMIT 1
-      `,
-      [normalizedUserId]
-    );
+    return await withDatabaseFallback(
+      'isAdminUser',
+      async () => {
+        const result = await pool.query(
+          `
+          SELECT role
+          FROM profiles
+          WHERE id = $1
+          LIMIT 1
+          `,
+          [normalizedUserId]
+        );
 
-    return String(result.rows?.[0]?.role || '').trim().toLowerCase() === 'admin';
+        return String(result.rows?.[0]?.role || '').trim().toLowerCase() === 'admin';
+      },
+      async () => {
+        const response = await supabaseAdminClient
+          .from('profiles')
+          .select('role')
+          .eq('id', normalizedUserId)
+          .maybeSingle();
+
+        if (response.error) {
+          throw createSupabaseFallbackError(response.error, 'Erro ao validar usuário administrador');
+        }
+
+        return String(response.data?.role || '').trim().toLowerCase() === 'admin';
+      }
+    );
   } catch (error) {
     console.warn('[TUTORIALS] Falha ao validar admin em profiles:', error?.message || error);
     return false;
@@ -1097,33 +1173,33 @@ async function ensureAccountProfileSchema() {
   `);
 }
 
-async function readAccountProfile(userId) {
-  await ensureAccountProfileSchema();
-
-  const [profileResult, userResult] = await Promise.all([
-    pool.query(
-      `
-      SELECT id, first_name, last_name, avatar_url, role, updated_at
-      FROM public.profiles
-      WHERE id = $1
-      LIMIT 1
-      `,
-      [userId]
-    ).catch(() => ({ rows: [] })),
-    pool.query(
-      `
-      SELECT user_id, nome_completo, email, documento, telefone, status_da_assinatura, updated_at, created_at
-      FROM public.usuarios
-      WHERE user_id = $1
-      ORDER BY updated_at DESC NULLS LAST, created_at DESC NULLS LAST
-      LIMIT 1
-      `,
-      [userId]
-    ).catch(() => ({ rows: [] }))
+async function readAccountProfileViaSupabase(userId) {
+  const [profileResponse, userResponse] = await Promise.all([
+    supabaseAdminClient
+      .from('profiles')
+      .select('id, first_name, last_name, avatar_url, role, updated_at')
+      .eq('id', userId)
+      .maybeSingle(),
+    supabaseAdminClient
+      .from('usuarios')
+      .select('user_id, nome_completo, email, documento, telefone, status_da_assinatura, updated_at, created_at')
+      .eq('user_id', userId)
+      .order('updated_at', { ascending: false, nullsFirst: false })
+      .order('created_at', { ascending: false, nullsFirst: false })
+      .limit(1)
+      .maybeSingle()
   ]);
 
-  const profileRow = profileResult.rows?.[0] || {};
-  const userRow = userResult.rows?.[0] || {};
+  if (profileResponse.error) {
+    throw createSupabaseFallbackError(profileResponse.error, 'Erro ao carregar perfil em profiles');
+  }
+
+  if (userResponse.error) {
+    throw createSupabaseFallbackError(userResponse.error, 'Erro ao carregar perfil em usuarios');
+  }
+
+  const profileRow = profileResponse.data || {};
+  const userRow = userResponse.data || {};
   const fullName = String(userRow.nome_completo || '').trim();
   const splitName = splitAccountFullName(fullName);
 
@@ -1142,68 +1218,234 @@ async function readAccountProfile(userId) {
   };
 }
 
-async function saveAccountProfile(userId, payload = {}) {
-  await ensureAccountProfileSchema();
-
+async function saveAccountProfileViaSupabase(userId, payload = {}) {
   const normalizedFullName = String(payload.full_name || payload.nome_completo || '').trim();
   const normalizedEmail = String(payload.email || '').trim().toLowerCase();
   const normalizedDocumento = String(payload.documento || '').trim();
   const normalizedTelefone = String(payload.telefone || '').trim();
   const { firstName, lastName } = splitAccountFullName(normalizedFullName);
+  const nowIso = new Date().toISOString();
 
-  const updatedUser = await pool.query(
-    `
-    UPDATE public.usuarios
-    SET nome_completo = $2,
-        email = $3,
-        documento = $4,
-        telefone = $5,
-        updated_at = NOW()
-    WHERE user_id = $1
-    RETURNING user_id
-    `,
-    [
-      userId,
-      normalizedFullName || null,
-      normalizedEmail || null,
-      normalizedDocumento || null,
-      normalizedTelefone || null,
-    ]
+  const usuarioResponse = await supabaseAdminClient
+    .from('usuarios')
+    .upsert(
+      [{
+        user_id: userId,
+        nome_completo: normalizedFullName || null,
+        email: normalizedEmail || null,
+        documento: normalizedDocumento || null,
+        telefone: normalizedTelefone || null,
+        updated_at: nowIso,
+      }],
+      { onConflict: 'user_id' }
+    );
+
+  if (usuarioResponse.error) {
+    throw createSupabaseFallbackError(usuarioResponse.error, 'Erro ao salvar dados do usuário');
+  }
+
+  const profileResponse = await supabaseAdminClient
+    .from('profiles')
+    .upsert(
+      [{
+        id: userId,
+        first_name: firstName,
+        last_name: lastName,
+        updated_at: nowIso,
+      }],
+      { onConflict: 'id' }
+    );
+
+  if (profileResponse.error) {
+    console.warn('[ACCOUNT] Não foi possível atualizar profiles via Supabase REST:', profileResponse.error.message);
+  }
+
+  return readAccountProfileViaSupabase(userId);
+}
+
+async function readAccountProfile(userId) {
+  return withDatabaseFallback(
+    'readAccountProfile',
+    async () => {
+      await ensureAccountProfileSchema();
+
+      const [profileResult, userResult] = await Promise.all([
+        pool.query(
+          `
+          SELECT id, first_name, last_name, avatar_url, role, updated_at
+          FROM public.profiles
+          WHERE id = $1
+          LIMIT 1
+          `,
+          [userId]
+        ).catch(() => ({ rows: [] })),
+        pool.query(
+          `
+          SELECT user_id, nome_completo, email, documento, telefone, status_da_assinatura, updated_at, created_at
+          FROM public.usuarios
+          WHERE user_id = $1
+          ORDER BY updated_at DESC NULLS LAST, created_at DESC NULLS LAST
+          LIMIT 1
+          `,
+          [userId]
+        ).catch(() => ({ rows: [] }))
+      ]);
+
+      const profileRow = profileResult.rows?.[0] || {};
+      const userRow = userResult.rows?.[0] || {};
+      const fullName = String(userRow.nome_completo || '').trim();
+      const splitName = splitAccountFullName(fullName);
+
+      return {
+        id: String(profileRow.id || userId),
+        first_name: profileRow.first_name || splitName.firstName,
+        last_name: profileRow.last_name || splitName.lastName,
+        avatar_url: profileRow.avatar_url || null,
+        role: String(profileRow.role || 'user').trim().toLowerCase() === 'admin' ? 'admin' : 'user',
+        updated_at: profileRow.updated_at || userRow.updated_at || null,
+        nome_completo: fullName || null,
+        email: String(userRow.email || '').trim() || null,
+        documento: String(userRow.documento || '').trim() || null,
+        telefone: String(userRow.telefone || '').trim() || null,
+        status_da_assinatura: String(userRow.status_da_assinatura || '').trim() || null,
+      };
+    },
+    () => readAccountProfileViaSupabase(userId)
   );
+}
 
-  if (!updatedUser.rows.length) {
-    await pool.query(
-      `
-      INSERT INTO public.usuarios (user_id, nome_completo, email, documento, telefone)
-      VALUES ($1, $2, $3, $4, $5)
-      `,
-      [
-        userId,
-        normalizedFullName || null,
-        normalizedEmail || null,
-        normalizedDocumento || null,
-        normalizedTelefone || null,
-      ]
-    );
+async function saveAccountProfile(userId, payload = {}) {
+  return withDatabaseFallback(
+    'saveAccountProfile',
+    async () => {
+      await ensureAccountProfileSchema();
+
+      const normalizedFullName = String(payload.full_name || payload.nome_completo || '').trim();
+      const normalizedEmail = String(payload.email || '').trim().toLowerCase();
+      const normalizedDocumento = String(payload.documento || '').trim();
+      const normalizedTelefone = String(payload.telefone || '').trim();
+      const { firstName, lastName } = splitAccountFullName(normalizedFullName);
+
+      const updatedUser = await pool.query(
+        `
+        UPDATE public.usuarios
+        SET nome_completo = $2,
+            email = $3,
+            documento = $4,
+            telefone = $5,
+            updated_at = NOW()
+        WHERE user_id = $1
+        RETURNING user_id
+        `,
+        [
+          userId,
+          normalizedFullName || null,
+          normalizedEmail || null,
+          normalizedDocumento || null,
+          normalizedTelefone || null,
+        ]
+      );
+
+      if (!updatedUser.rows.length) {
+        await pool.query(
+          `
+          INSERT INTO public.usuarios (user_id, nome_completo, email, documento, telefone)
+          VALUES ($1, $2, $3, $4, $5)
+          `,
+          [
+            userId,
+            normalizedFullName || null,
+            normalizedEmail || null,
+            normalizedDocumento || null,
+            normalizedTelefone || null,
+          ]
+        );
+      }
+
+      try {
+        await pool.query(
+          `
+          INSERT INTO public.profiles (id, first_name, last_name, updated_at)
+          VALUES ($1, $2, $3, NOW())
+          ON CONFLICT (id) DO UPDATE
+          SET first_name = EXCLUDED.first_name,
+              last_name = EXCLUDED.last_name,
+              updated_at = NOW()
+          `,
+          [userId, firstName, lastName]
+        );
+      } catch (error) {
+        console.warn('[ACCOUNT] Não foi possível atualizar public.profiles:', error?.message || error);
+      }
+
+      return readAccountProfile(userId);
+    },
+    () => saveAccountProfileViaSupabase(userId, payload)
+  );
+}
+
+async function listTutorialsViaSupabase() {
+  const response = await supabaseAdminClient
+    .from('tutorials')
+    .select('id, title, description, url, display_order, created_at, updated_at')
+    .order('display_order', { ascending: true })
+    .order('created_at', { ascending: true });
+
+  if (response.error) {
+    throw createSupabaseFallbackError(response.error, 'Erro ao carregar tutoriais');
   }
 
-  try {
-    await pool.query(
-      `
-      INSERT INTO public.profiles (id, first_name, last_name, updated_at)
-      VALUES ($1, $2, $3, NOW())
-      ON CONFLICT (id) DO UPDATE
-      SET first_name = EXCLUDED.first_name,
-          last_name = EXCLUDED.last_name,
-          updated_at = NOW()
-      `,
-      [userId, firstName, lastName]
-    );
-  } catch (error) {
-    console.warn('[ACCOUNT] Não foi possível atualizar public.profiles:', error?.message || error);
+  return response.data || [];
+}
+
+async function createTutorialViaSupabase(tutorial) {
+  const response = await supabaseAdminClient
+    .from('tutorials')
+    .insert([{ title: tutorial.title, description: tutorial.description, url: tutorial.url, display_order: tutorial.displayOrder }])
+    .select('id, title, description, url, display_order, created_at, updated_at')
+    .single();
+
+  if (response.error) {
+    throw createSupabaseFallbackError(response.error, 'Erro ao criar tutorial');
   }
 
-  return readAccountProfile(userId);
+  return response.data;
+}
+
+async function updateTutorialViaSupabase(tutorialId, tutorial) {
+  const response = await supabaseAdminClient
+    .from('tutorials')
+    .update({
+      title: tutorial.title,
+      description: tutorial.description,
+      url: tutorial.url,
+      display_order: tutorial.displayOrder,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', tutorialId)
+    .select('id, title, description, url, display_order, created_at, updated_at')
+    .maybeSingle();
+
+  if (response.error) {
+    throw createSupabaseFallbackError(response.error, 'Erro ao atualizar tutorial');
+  }
+
+  return response.data;
+}
+
+async function deleteTutorialViaSupabase(tutorialId) {
+  const response = await supabaseAdminClient
+    .from('tutorials')
+    .delete()
+    .eq('id', tutorialId)
+    .select('id')
+    .maybeSingle();
+
+  if (response.error) {
+    throw createSupabaseFallbackError(response.error, 'Erro ao remover tutorial');
+  }
+
+  return response.data;
 }
 
 // ============================================
@@ -1212,17 +1454,25 @@ async function saveAccountProfile(userId, payload = {}) {
 
 app.get('/api/tutorials', async (req, res) => {
   try {
-    await ensureTutorialsTable();
+    const tutorials = await withDatabaseFallback(
+      'GET /api/tutorials',
+      async () => {
+        await ensureTutorialsTable();
 
-    const result = await pool.query(
-      `
-      SELECT id, title, description, url, display_order, created_at, updated_at
-      FROM public.tutorials
-      ORDER BY display_order ASC, created_at ASC
-      `
+        const result = await pool.query(
+          `
+          SELECT id, title, description, url, display_order, created_at, updated_at
+          FROM public.tutorials
+          ORDER BY display_order ASC, created_at ASC
+          `
+        );
+
+        return result.rows || [];
+      },
+      () => listTutorialsViaSupabase()
     );
 
-    return res.json(result.rows || []);
+    return res.json(tutorials);
   } catch (error) {
     console.error('[TUTORIALS] GET /api/tutorials error:', error);
     return res.status(500).json({ error: error.message || 'Erro ao carregar tutoriais' });
@@ -1240,23 +1490,31 @@ app.post('/api/admin/tutorials', async (req, res) => {
       return res.status(403).json({ error: 'Apenas administradores podem criar tutoriais' });
     }
 
-    await ensureTutorialsTable();
-
     const tutorial = normalizeTutorialPayload(req.body);
     if (!tutorial.title || !tutorial.url) {
       return res.status(400).json({ error: 'Título e URL são obrigatórios' });
     }
 
-    const result = await pool.query(
-      `
-      INSERT INTO public.tutorials (title, description, url, display_order)
-      VALUES ($1, $2, $3, $4)
-      RETURNING id, title, description, url, display_order, created_at, updated_at
-      `,
-      [tutorial.title, tutorial.description, tutorial.url, tutorial.displayOrder]
+    const created = await withDatabaseFallback(
+      'POST /api/admin/tutorials',
+      async () => {
+        await ensureTutorialsTable();
+
+        const result = await pool.query(
+          `
+          INSERT INTO public.tutorials (title, description, url, display_order)
+          VALUES ($1, $2, $3, $4)
+          RETURNING id, title, description, url, display_order, created_at, updated_at
+          `,
+          [tutorial.title, tutorial.description, tutorial.url, tutorial.displayOrder]
+        );
+
+        return result.rows[0];
+      },
+      () => createTutorialViaSupabase(tutorial)
     );
 
-    return res.status(201).json(result.rows[0]);
+    return res.status(201).json(created);
   } catch (error) {
     console.error('[TUTORIALS] POST /api/admin/tutorials error:', error);
     return res.status(500).json({ error: error.message || 'Erro ao criar tutorial' });
@@ -1278,32 +1536,40 @@ app.put('/api/admin/tutorials/:id', async (req, res) => {
       return res.status(403).json({ error: 'Apenas administradores podem editar tutoriais' });
     }
 
-    await ensureTutorialsTable();
-
     const tutorial = normalizeTutorialPayload(req.body);
     if (!tutorial.title || !tutorial.url) {
       return res.status(400).json({ error: 'Título e URL são obrigatórios' });
     }
 
-    const result = await pool.query(
-      `
-      UPDATE public.tutorials
-      SET title = $2,
-          description = $3,
-          url = $4,
-          display_order = $5,
-          updated_at = NOW()
-      WHERE id = $1
-      RETURNING id, title, description, url, display_order, created_at, updated_at
-      `,
-      [tutorialId, tutorial.title, tutorial.description, tutorial.url, tutorial.displayOrder]
+    const updated = await withDatabaseFallback(
+      'PUT /api/admin/tutorials/:id',
+      async () => {
+        await ensureTutorialsTable();
+
+        const result = await pool.query(
+          `
+          UPDATE public.tutorials
+          SET title = $2,
+              description = $3,
+              url = $4,
+              display_order = $5,
+              updated_at = NOW()
+          WHERE id = $1
+          RETURNING id, title, description, url, display_order, created_at, updated_at
+          `,
+          [tutorialId, tutorial.title, tutorial.description, tutorial.url, tutorial.displayOrder]
+        );
+
+        return result.rows[0] || null;
+      },
+      () => updateTutorialViaSupabase(tutorialId, tutorial)
     );
 
-    if (!result.rows.length) {
+    if (!updated) {
       return res.status(404).json({ error: 'Tutorial não encontrado' });
     }
 
-    return res.json(result.rows[0]);
+    return res.json(updated);
   } catch (error) {
     console.error('[TUTORIALS] PUT /api/admin/tutorials/:id error:', error);
     return res.status(500).json({ error: error.message || 'Erro ao atualizar tutorial' });
@@ -1325,10 +1591,18 @@ app.delete('/api/admin/tutorials/:id', async (req, res) => {
       return res.status(403).json({ error: 'Apenas administradores podem remover tutoriais' });
     }
 
-    await ensureTutorialsTable();
+    const deleted = await withDatabaseFallback(
+      'DELETE /api/admin/tutorials/:id',
+      async () => {
+        await ensureTutorialsTable();
 
-    const result = await pool.query('DELETE FROM public.tutorials WHERE id = $1 RETURNING id', [tutorialId]);
-    if (!result.rows.length) {
+        const result = await pool.query('DELETE FROM public.tutorials WHERE id = $1 RETURNING id', [tutorialId]);
+        return result.rows[0] || null;
+      },
+      () => deleteTutorialViaSupabase(tutorialId)
+    );
+
+    if (!deleted) {
       return res.status(404).json({ error: 'Tutorial não encontrado' });
     }
 
@@ -2121,8 +2395,15 @@ app.post('/api/conversations/clear-all', async (req, res) => {
 app.get('/api/notifications', async (req, res) => {
   try {
     if (!hasDatabaseUrl) return res.json([]);
-    const result = await pool.query('SELECT * FROM notifications ORDER BY created_at DESC LIMIT 50');
-    res.json(result.rows);
+    const notifications = await withDatabaseFallback(
+      'GET /api/notifications',
+      async () => {
+        const result = await pool.query('SELECT * FROM notifications ORDER BY created_at DESC LIMIT 50');
+        return result.rows;
+      },
+      () => listNotificationsViaSupabase()
+    );
+    res.json(notifications);
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -2136,11 +2417,18 @@ app.post('/api/notifications', async (req, res) => {
     
     if (!hasDatabaseUrl) return res.json({ id: Date.now(), title, message, created_at: new Date() });
 
-    const result = await pool.query(
-      'INSERT INTO notifications (title, message) VALUES ($1, $2) RETURNING *',
-      [title, message]
+    const created = await withDatabaseFallback(
+      'POST /api/notifications',
+      async () => {
+        const result = await pool.query(
+          'INSERT INTO notifications (title, message) VALUES ($1, $2) RETURNING *',
+          [title, message]
+        );
+        return result.rows[0];
+      },
+      () => createNotificationViaSupabase(title, message)
     );
-    res.status(201).json(result.rows[0]);
+    res.status(201).json(created);
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -2299,6 +2587,42 @@ async function getReferralUserDetails(userId, fallbackEmail) {
 
   const row = userResult.rows[0] || {};
   const subscription = subscriptionResult.rows?.[0] || {};
+  return {
+    email: String(row.email || fallbackEmail || '').trim() || null,
+    status: String(row.status_da_assinatura || '').trim() || null,
+    plan: normalizePlanName(subscription.plan_type || row.plan_type),
+  };
+}
+
+async function getReferralUserDetailsViaSupabase(userId, fallbackEmail) {
+  const [userResponse, subscriptionResponse] = await Promise.all([
+    supabaseAdminClient
+      .from('usuarios')
+      .select('email, status_da_assinatura, plan_type')
+      .eq('user_id', userId)
+      .order('updated_at', { ascending: false, nullsFirst: false })
+      .order('created_at', { ascending: false, nullsFirst: false })
+      .limit(1)
+      .maybeSingle(),
+    supabaseAdminClient
+      .from('subscriptions')
+      .select('plan_type')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false, nullsFirst: false })
+      .limit(1)
+      .maybeSingle()
+  ]);
+
+  if (userResponse.error) {
+    throw createSupabaseFallbackError(userResponse.error, 'Erro ao consultar usuário indicado');
+  }
+
+  if (subscriptionResponse.error) {
+    throw createSupabaseFallbackError(subscriptionResponse.error, 'Erro ao consultar assinatura do usuário indicado');
+  }
+
+  const row = userResponse.data || {};
+  const subscription = subscriptionResponse.data || {};
   return {
     email: String(row.email || fallbackEmail || '').trim() || null,
     status: String(row.status_da_assinatura || '').trim() || null,
@@ -2508,6 +2832,106 @@ async function upsertReferralHistory({ referralCode, referredUserId, referredEma
   }
 }
 
+async function upsertReferralHistoryViaSupabase({ referralCode, referredUserId, referredEmail }) {
+  const normalizedCode = normalizeReferralCode(referralCode);
+  const normalizedUserId = String(referredUserId || '').trim();
+  const normalizedEmail = String(referredEmail || '').trim().toLowerCase() || null;
+
+  if (!normalizedCode || !normalizedUserId) {
+    return { success: false, reason: 'invalid_payload' };
+  }
+
+  const codeResponse = await supabaseAdminClient
+    .from('referral_codes')
+    .select('user_id, code')
+    .eq('code', normalizedCode)
+    .eq('is_active', true)
+    .limit(1)
+    .maybeSingle();
+
+  if (codeResponse.error) {
+    throw createSupabaseFallbackError(codeResponse.error, 'Erro ao validar código de indicação');
+  }
+
+  const referrerUserId = String(codeResponse.data?.user_id || '').trim();
+  if (!referrerUserId) {
+    return { success: false, reason: 'code_not_found' };
+  }
+
+  if (referrerUserId === normalizedUserId) {
+    return { success: true, ignored: true, reason: 'self_referral' };
+  }
+
+  const referralDetails = await getReferralUserDetailsViaSupabase(normalizedUserId, normalizedEmail);
+  const status = isConfirmedReferralStatus(referralDetails.status) ? 'confirmado' : 'pendente';
+  const plan = referralDetails.plan;
+  const creditUnits = getReferralCreditUnits(referralDetails.status);
+  const comissaoPercent = getReferralCommissionPercent(referralDetails.status);
+
+  const existingResponse = await supabaseAdminClient
+    .from('referral_histories')
+    .select('id, referrer_user_id')
+    .eq('referred_user_id', normalizedUserId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (existingResponse.error) {
+    throw createSupabaseFallbackError(existingResponse.error, 'Erro ao consultar histórico de indicação');
+  }
+
+  const existing = existingResponse.data || null;
+  if (existing && String(existing.referrer_user_id || '').trim() !== referrerUserId) {
+    return { success: true, ignored: true, reason: 'already_attributed' };
+  }
+
+  if (existing?.id) {
+    const updatedResponse = await supabaseAdminClient
+      .from('referral_histories')
+      .update({
+        referral_code: normalizedCode,
+        referred_email: referralDetails.email,
+        plan,
+        status,
+        credit_units: creditUnits,
+        comissao_percent: comissaoPercent,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', existing.id)
+      .select('*')
+      .maybeSingle();
+
+    if (updatedResponse.error) {
+      throw createSupabaseFallbackError(updatedResponse.error, 'Erro ao atualizar histórico de indicação');
+    }
+
+    return { success: true, record: updatedResponse.data, created: false };
+  }
+
+  const insertedResponse = await supabaseAdminClient
+    .from('referral_histories')
+    .insert([{
+      referrer_user_id: referrerUserId,
+      referred_user_id: normalizedUserId,
+      referral_code: normalizedCode,
+      referred_email: referralDetails.email,
+      plan,
+      status,
+      credit_units: creditUnits,
+      comissao_percent: comissaoPercent,
+      provider: 'app_session',
+      event_id: `claim:${normalizedUserId}`,
+    }])
+    .select('*')
+    .maybeSingle();
+
+  if (insertedResponse.error) {
+    throw createSupabaseFallbackError(insertedResponse.error, 'Erro ao registrar histórico de indicação');
+  }
+
+  return { success: true, record: insertedResponse.data, created: true };
+}
+
 async function ensureReferralSchema() {
   await pool.query('CREATE EXTENSION IF NOT EXISTS pgcrypto');
 
@@ -2581,6 +3005,143 @@ async function ensureReferralCodeForUser(userId) {
   return fallback.rows[0]?.code || makeReferralCode(userId);
 }
 
+async function ensureReferralCodeForUserViaSupabase(userId) {
+  const existing = await supabaseAdminClient
+    .from('referral_codes')
+    .select('code')
+    .eq('user_id', userId)
+    .limit(1)
+    .maybeSingle();
+
+  if (existing.error) {
+    throw createSupabaseFallbackError(existing.error, 'Erro ao consultar código de indicação');
+  }
+
+  if (existing.data?.code) {
+    return existing.data.code;
+  }
+
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const generated = makeReferralCode(userId);
+    const inserted = await supabaseAdminClient
+      .from('referral_codes')
+      .insert([{ user_id: userId, code: generated, is_active: true }])
+      .select('code')
+      .maybeSingle();
+
+    if (!inserted.error && inserted.data?.code) {
+      return inserted.data.code;
+    }
+
+    if (inserted.error && /duplicate key value/i.test(inserted.error.message || '')) {
+      continue;
+    }
+
+    if (inserted.error) {
+      throw createSupabaseFallbackError(inserted.error, 'Erro ao criar código de indicação');
+    }
+  }
+
+  return makeReferralCode(userId);
+}
+
+async function buildReferralResponseViaSupabase(userId, req) {
+  const code = await ensureReferralCodeForUserViaSupabase(userId);
+
+  const historyResponse = await supabaseAdminClient
+    .from('referral_histories')
+    .select('id, referral_code, referred_user_id, referred_email, plan, status, credit_units, valor_compra, comissao_percent, comissao_valor, created_at')
+    .eq('referrer_user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(200);
+
+  if (historyResponse.error) {
+    throw createSupabaseFallbackError(historyResponse.error, 'Erro ao carregar histórico de indicações');
+  }
+
+  const historyRows = historyResponse.data || [];
+  const referredUserIds = [...new Set(historyRows.map((row) => String(row.referred_user_id || '').trim()).filter(Boolean))];
+
+  let usersById = new Map();
+  if (referredUserIds.length > 0) {
+    const usersResponse = await supabaseAdminClient
+      .from('usuarios')
+      .select('user_id, nome_completo, email')
+      .in('user_id', referredUserIds);
+
+    if (usersResponse.error) {
+      throw createSupabaseFallbackError(usersResponse.error, 'Erro ao carregar usuários indicados');
+    }
+
+    usersById = new Map((usersResponse.data || []).map((row) => [String(row.user_id || '').trim(), row]));
+  }
+
+  const summary = historyRows.reduce((acc, row) => {
+    if (String(row.status || '').trim() !== 'confirmado') {
+      return acc;
+    }
+
+    acc.total_indicacoes += 1;
+    acc.total_creditos += Number(row.credit_units || 0);
+    acc.total_comissao = Number((acc.total_comissao + toMoneyNumber(row.comissao_valor)).toFixed(2));
+    return acc;
+  }, {
+    total_indicacoes: 0,
+    total_creditos: 0,
+    total_comissao: 0,
+  });
+
+  let appUrl = String(process.env.APP_BASE_URL || '').trim();
+  if (!appUrl) {
+    appUrl = `${req.protocol}://${req.get('host')}`;
+  }
+  if (!/^https?:\/\//i.test(appUrl)) {
+    appUrl = `https://${appUrl}`;
+  }
+
+  return {
+    code,
+    referral_url: `${appUrl.replace(/\/$/, '')}/?ref=${encodeURIComponent(code)}`,
+    summary,
+    history: historyRows.map((row) => {
+      const referredUserId = String(row.referred_user_id || '').trim();
+      const user = usersById.get(referredUserId) || {};
+      return {
+        ...row,
+        indicado_nome: String(user.nome_completo || user.email || row.referred_email || 'Usuário indicado').trim() || 'Usuário indicado',
+      };
+    }),
+  };
+}
+
+async function listNotificationsViaSupabase() {
+  const response = await supabaseAdminClient
+    .from('notifications')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(50);
+
+  if (response.error) {
+    throw createSupabaseFallbackError(response.error, 'Erro ao carregar notificações');
+  }
+
+  return response.data || [];
+}
+
+async function createNotificationViaSupabase(title, message) {
+  const response = await supabaseAdminClient
+    .from('notifications')
+    .insert([{ title, message }])
+    .select('*')
+    .single();
+
+  if (response.error) {
+    throw createSupabaseFallbackError(response.error, 'Erro ao criar notificação');
+  }
+
+  return response.data;
+}
+
 app.get('/api/referrals/me', async (req, res) => {
   try {
     const userId = String(req.header('x-user-id') || '').trim();
@@ -2588,66 +3149,73 @@ app.get('/api/referrals/me', async (req, res) => {
       return res.status(401).json({ error: 'Usuário não autenticado' });
     }
 
-    await ensureReferralSchema();
-    const code = await ensureReferralCodeForUser(userId);
-  await refreshReferralHistoriesForReferrer(userId);
+    const payload = await withDatabaseFallback(
+      'GET /api/referrals/me',
+      async () => {
+        await ensureReferralSchema();
+        const code = await ensureReferralCodeForUser(userId);
+        await refreshReferralHistoriesForReferrer(userId);
 
-    const summaryResult = await pool.query(
-      `
-      SELECT
-        COUNT(*)::int AS total_indicacoes,
-        COALESCE(SUM(credit_units), 0)::int AS total_creditos,
-        COALESCE(SUM(comissao_valor), 0)::numeric(12,2) AS total_comissao
-      FROM referral_histories
-      WHERE referrer_user_id = $1
-        AND status = 'confirmado'
-      `,
-      [userId]
-    );
+        const summaryResult = await pool.query(
+          `
+          SELECT
+            COUNT(*)::int AS total_indicacoes,
+            COALESCE(SUM(credit_units), 0)::int AS total_creditos,
+            COALESCE(SUM(comissao_valor), 0)::numeric(12,2) AS total_comissao
+          FROM referral_histories
+          WHERE referrer_user_id = $1
+            AND status = 'confirmado'
+          `,
+          [userId]
+        );
 
-    const historyResult = await pool.query(
-      `
-      SELECT
-        rh.id,
-        rh.referral_code,
-        rh.referred_user_id,
-        rh.referred_email,
-        rh.plan,
-        rh.status,
-        rh.credit_units,
-        rh.valor_compra,
-        rh.comissao_percent,
-        rh.comissao_valor,
-        rh.created_at,
-        COALESCE(NULLIF(u.nome_completo, ''), NULLIF(u.email, ''), rh.referred_email, 'Usuário indicado') AS indicado_nome
-      FROM referral_histories rh
-      LEFT JOIN usuarios u ON u.user_id = rh.referred_user_id
-      WHERE rh.referrer_user_id = $1
-      ORDER BY rh.created_at DESC
-      LIMIT 200
-      `,
-      [userId]
-    );
+        const historyResult = await pool.query(
+          `
+          SELECT
+            rh.id,
+            rh.referral_code,
+            rh.referred_user_id,
+            rh.referred_email,
+            rh.plan,
+            rh.status,
+            rh.credit_units,
+            rh.valor_compra,
+            rh.comissao_percent,
+            rh.comissao_valor,
+            rh.created_at,
+            COALESCE(NULLIF(u.nome_completo, ''), NULLIF(u.email, ''), rh.referred_email, 'Usuário indicado') AS indicado_nome
+          FROM referral_histories rh
+          LEFT JOIN usuarios u ON u.user_id = rh.referred_user_id
+          WHERE rh.referrer_user_id = $1
+          ORDER BY rh.created_at DESC
+          LIMIT 200
+          `,
+          [userId]
+        );
 
-    let appUrl = String(process.env.APP_BASE_URL || '').trim();
-    if (!appUrl) {
-      appUrl = `${req.protocol}://${req.get('host')}`;
-    }
-    if (!/^https?:\/\//i.test(appUrl)) {
-      appUrl = `https://${appUrl}`;
-    }
-    const referralUrl = `${appUrl.replace(/\/$/, '')}/?ref=${encodeURIComponent(code)}`;
+        let appUrl = String(process.env.APP_BASE_URL || '').trim();
+        if (!appUrl) {
+          appUrl = `${req.protocol}://${req.get('host')}`;
+        }
+        if (!/^https?:\/\//i.test(appUrl)) {
+          appUrl = `https://${appUrl}`;
+        }
 
-    return res.json({
-      code,
-      referral_url: referralUrl,
-      summary: summaryResult.rows[0] || {
-        total_indicacoes: 0,
-        total_creditos: 0,
-        total_comissao: 0,
+        return {
+          code,
+          referral_url: `${appUrl.replace(/\/$/, '')}/?ref=${encodeURIComponent(code)}`,
+          summary: summaryResult.rows[0] || {
+            total_indicacoes: 0,
+            total_creditos: 0,
+            total_comissao: 0,
+          },
+          history: historyResult.rows || [],
+        };
       },
-      history: historyResult.rows || [],
-    });
+      () => buildReferralResponseViaSupabase(userId, req)
+    );
+
+    return res.json(payload);
   } catch (error) {
     console.error('[REFERRALS] /api/referrals/me error:', error);
     return res.status(500).json({ error: error.message || 'Erro ao carregar indicações' });
@@ -2668,12 +3236,22 @@ app.post('/api/referrals/claim', async (req, res) => {
       return res.status(400).json({ error: 'Código de indicação é obrigatório' });
     }
 
-    await ensureReferralSchema();
-    const result = await upsertReferralHistory({
-      referralCode,
-      referredUserId: userId,
-      referredEmail,
-    });
+    const result = await withDatabaseFallback(
+      'POST /api/referrals/claim',
+      async () => {
+        await ensureReferralSchema();
+        return upsertReferralHistory({
+          referralCode,
+          referredUserId: userId,
+          referredEmail,
+        });
+      },
+      () => upsertReferralHistoryViaSupabase({
+        referralCode,
+        referredUserId: userId,
+        referredEmail,
+      })
+    );
 
     if (!result.success && result.reason === 'code_not_found') {
       return res.status(404).json({ error: 'Código de indicação não encontrado' });

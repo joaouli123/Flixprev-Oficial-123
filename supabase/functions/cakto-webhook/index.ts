@@ -81,6 +81,23 @@ function formatCurrency(value: number | null | undefined): string {
   }).format(amount);
 }
 
+function formatDateTime(value: string | null | undefined): string {
+  if (!value) {
+    return "Nao informado";
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "Nao informado";
+  }
+
+  return new Intl.DateTimeFormat("pt-BR", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: "America/Sao_Paulo",
+  }).format(date);
+}
+
 function buildAppRecoveryUrl(appBaseUrl: string, tokenHash: string, type: string = "recovery"): string {
   const normalizedBaseUrl = String(appBaseUrl || "").trim().replace(/\/$/, "");
   const baseUrl = normalizedBaseUrl || "https://flixprev.uxcodedev.com.br";
@@ -93,16 +110,21 @@ function buildWelcomeEmailHtml(params: {
   customerPhone: string | null;
   documento: string | null;
   plan: string | null;
+  productName: string | null;
   amount: number;
+  purchaseDate: string | null;
   setPasswordUrl: string;
   appBaseUrl: string;
 }) {
   const name = escapeHtml(params.customerName || "Cliente");
+  const firstName = escapeHtml((params.customerName || "Cliente").trim().split(/\s+/)[0] || "Cliente");
   const email = escapeHtml(params.customerEmail);
   const phone = escapeHtml(params.customerPhone || "Nao informado");
   const documento = escapeHtml(params.documento || "Nao informado");
   const plan = escapeHtml(params.plan || "Plano FlixPrev");
+  const productName = escapeHtml(params.productName || params.plan || "Acesso FlixPrev");
   const amount = escapeHtml(formatCurrency(params.amount));
+  const purchaseDate = escapeHtml(formatDateTime(params.purchaseDate));
   const setPasswordUrl = escapeHtml(params.setPasswordUrl);
   const appBaseUrl = escapeHtml(params.appBaseUrl);
 
@@ -110,26 +132,44 @@ function buildWelcomeEmailHtml(params: {
   <div style="margin:0;padding:24px;background:#f8fafc;font-family:Arial,Helvetica,sans-serif;color:#0f172a;">
     <div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #e2e8f0;border-radius:16px;padding:32px 28px;">
       <div style="font-size:12px;letter-spacing:0.14em;text-transform:uppercase;color:#64748b;margin-bottom:16px;">FlixPrev</div>
-      <h1 style="margin:0 0 12px;font-size:30px;line-height:1.2;font-weight:700;color:#0f172a;">Sua compra foi aprovada</h1>
-      <p style="margin:0 0 20px;font-size:16px;line-height:1.7;color:#334155;">Seu acesso já foi criado. Para entrar no sistema, defina sua senha pelo botão abaixo.</p>
+      <h1 style="margin:0 0 12px;font-size:30px;line-height:1.2;font-weight:700;color:#0f172a;">Bem-vindo, ${firstName}</h1>
+      <p style="margin:0 0 10px;font-size:16px;line-height:1.7;color:#334155;">Sua compra foi aprovada e o seu acesso à FlixPrev já está liberado.</p>
+      <p style="margin:0 0 24px;font-size:15px;line-height:1.7;color:#475569;">Para entrar na plataforma, basta definir sua senha no botão abaixo e usar o e-mail <strong>${email}</strong> como acesso.</p>
+
+      <div style="margin:0 0 24px;padding:18px 20px;background:linear-gradient(135deg,#eef1ff 0%,#f8fafc 100%);border:1px solid #dbe3ff;border-radius:12px;">
+        <div style="font-size:14px;font-weight:700;color:#434DCE;margin-bottom:10px;">Detalhes da compra</div>
+        <div style="font-size:14px;line-height:1.8;color:#334155;">
+          <div><strong>Produto:</strong> ${productName}</div>
+          <div><strong>Plano:</strong> ${plan}</div>
+          <div><strong>Data da aprovação:</strong> ${purchaseDate}</div>
+          <div><strong>Valor:</strong> ${amount}</div>
+        </div>
+      </div>
 
       <div style="margin:28px 0;">
         <a href="${setPasswordUrl}" style="display:inline-block;background:#434DCE;color:#ffffff;text-decoration:none;font-weight:700;font-size:16px;padding:14px 22px;border-radius:10px;">Definir senha e acessar</a>
       </div>
 
       <div style="margin:0 0 24px;padding:18px 20px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;">
-        <div style="font-size:14px;font-weight:700;color:#0f172a;margin-bottom:10px;">Resumo da compra</div>
+        <div style="font-size:14px;font-weight:700;color:#0f172a;margin-bottom:10px;">Dados de acesso</div>
         <div style="font-size:14px;line-height:1.8;color:#475569;">
           <div><strong>Nome:</strong> ${name}</div>
           <div><strong>E-mail:</strong> ${email}</div>
           <div><strong>Telefone:</strong> ${phone}</div>
           <div><strong>Documento:</strong> ${documento}</div>
-          <div><strong>Plano:</strong> ${plan}</div>
-          <div><strong>Valor:</strong> ${amount}</div>
         </div>
       </div>
 
-      <p style="margin:0 0 12px;font-size:14px;line-height:1.7;color:#475569;">Depois de criar sua senha, você entrará na área interna da plataforma.</p>
+      <div style="margin:0 0 22px;padding:0 2px;">
+        <div style="font-size:14px;font-weight:700;color:#0f172a;margin-bottom:8px;">Como acessar agora</div>
+        <div style="font-size:14px;line-height:1.8;color:#475569;">
+          <div>1. Clique em <strong>Definir senha e acessar</strong>.</div>
+          <div>2. Crie sua senha de acesso.</div>
+          <div>3. Entre na área interna da plataforma com o seu e-mail.</div>
+        </div>
+      </div>
+
+      <p style="margin:0 0 12px;font-size:14px;line-height:1.7;color:#475569;">Se o botão não abrir imediatamente, tente novamente pelo mesmo link em outro navegador ou dispositivo.</p>
       <p style="margin:0;font-size:14px;line-height:1.7;color:#64748b;">Acesse: <a href="${appBaseUrl}" style="color:#434DCE;text-decoration:none;">${appBaseUrl}</a></p>
     </div>
   </div>`;
@@ -143,7 +183,9 @@ async function sendWelcomeEmail(params: {
   customerPhone: string | null;
   documento: string | null;
   plan: string | null;
+  productName: string | null;
   amount: number;
+  purchaseDate: string | null;
   setPasswordUrl: string;
   appBaseUrl: string;
 }) {
@@ -160,14 +202,16 @@ async function sendWelcomeEmail(params: {
     body: JSON.stringify({
       from: params.fromEmail,
       to: [params.customerEmail],
-      subject: "🎉 Compra aprovada! Defina sua senha para acessar a FlixPrev",
+      subject: "Sua compra foi aprovada | FlixPrev",
       html: buildWelcomeEmailHtml({
         customerName: params.customerName,
         customerEmail: params.customerEmail,
         customerPhone: params.customerPhone,
         documento: params.documento,
         plan: params.plan,
+        productName: params.productName,
         amount: params.amount,
+        purchaseDate: params.purchaseDate,
         setPasswordUrl: params.setPasswordUrl,
         appBaseUrl: params.appBaseUrl,
       }),
@@ -328,6 +372,37 @@ function extractPurchaseAmount(payload: AnyRecord): number {
   return Number(firstValid.toFixed(2));
 }
 
+function extractPurchaseDate(payload: AnyRecord): string | null {
+  return (
+    normalizeIsoDate(safeGet(payload, ["paidAt"])) ??
+    normalizeIsoDate(safeGet(payload, ["createdAt"])) ??
+    normalizeIsoDate(safeGet(payload, ["approved_at"])) ??
+    normalizeIsoDate(safeGet(payload, ["created_at"])) ??
+    normalizeIsoDate(safeGet(payload, ["order", "paid_at"])) ??
+    normalizeIsoDate(safeGet(payload, ["order", "created_at"])) ??
+    normalizeIsoDate(safeGet(payload, ["data", "paidAt"])) ??
+    normalizeIsoDate(safeGet(payload, ["data", "createdAt"])) ??
+    normalizeIsoDate(safeGet(payload, ["data", "approved_at"])) ??
+    normalizeIsoDate(safeGet(payload, ["data", "created_at"])) ??
+    normalizeIsoDate(safeGet(payload, ["data", "order", "paid_at"])) ??
+    normalizeIsoDate(safeGet(payload, ["data", "order", "created_at"]))
+  );
+}
+
+function extractProductName(payload: AnyRecord, plan: string | null): string | null {
+  return (
+    asString(safeGet(payload, ["product", "name"])) ??
+    asString(safeGet(payload, ["offer", "name"])) ??
+    asString(safeGet(payload, ["plan", "name"])) ??
+    asString(safeGet(payload, ["subscription", "plan", "name"])) ??
+    asString(safeGet(payload, ["data", "product", "name"])) ??
+    asString(safeGet(payload, ["data", "offer", "name"])) ??
+    asString(safeGet(payload, ["data", "plan", "name"])) ??
+    asString(safeGet(payload, ["data", "subscription", "plan", "name"])) ??
+    plan
+  );
+}
+
 async function findAuthUserByEmail(supabaseAdmin: ReturnType<typeof createClient>, email: string): Promise<string | null> {
   let page = 1;
 
@@ -367,7 +442,9 @@ async function ensureProvisionedUser(
   resendApiKey: string | null,
   resendFromEmail: string,
   plan: string | null,
+  productName: string | null,
   amount: number,
+  purchaseDate: string | null,
   appBaseUrl: string,
 ): Promise<{ userId: string | null; activationEmailSent: boolean }> {
   const normalizedEmail = normalizeEmail(email);
@@ -420,7 +497,9 @@ async function ensureProvisionedUser(
         customerPhone: phone,
         documento,
         plan,
+        productName,
         amount,
+        purchaseDate,
         setPasswordUrl: actionLink,
         appBaseUrl,
       });
@@ -660,6 +739,8 @@ serve(async (req: Request) => {
   const resendApiKey = Deno.env.get("RESEND_API_KEY") ?? null;
   const resendFromEmail = Deno.env.get("RESEND_FROM_EMAIL") ?? "FlixPrev <onboarding@flixprev.uxcodedev.com.br>";
   const purchaseAmount = extractPurchaseAmount(payload);
+  const purchaseDate = extractPurchaseDate(payload);
+  const productName = extractProductName(payload, plan);
 
   let { data, error } = await supabaseAdmin.rpc("upsert_subscription_from_cakto", {
     p_user_id: userId,
@@ -691,7 +772,9 @@ serve(async (req: Request) => {
         resendApiKey,
         resendFromEmail,
         plan,
+        productName,
         purchaseAmount,
+        purchaseDate,
         appBaseUrl,
       );
 
