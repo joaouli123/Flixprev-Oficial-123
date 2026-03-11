@@ -4,7 +4,6 @@ import { useSession } from "@/components/SessionContextProvider";
 import { Button } from "@/components/ui/button";
 import { Plus, Edit, Trash2, BookOpen } from "lucide-react";
 import { toast } from "sonner";
-import { neon as supabase } from "@/lib/neon"
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import {
   Table,
@@ -26,13 +25,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import CreateTutorialDialog from "@/components/admin/CreateTutorialDialog";
 import EditTutorialDialog from "@/components/admin/EditTutorialDialog";
-
-interface Tutorial {
-  id: string;
-  title: string;
-  url: string;
-  display_order: number;
-}
+import { createTutorial, deleteTutorial, fetchTutorials, Tutorial, updateTutorial } from "@/lib/tutorials";
 
 const TutorialManagement: React.FC = () => {
   const { isAdmin, session } = useSession();
@@ -56,61 +49,58 @@ const TutorialManagement: React.FC = () => {
     }
   }, [isAdmin, session, navigate]);
 
-  const fetchTutorials = useCallback(async () => {
+  const loadTutorials = useCallback(async () => {
     setLoading(true);
-    if (!isAdmin) {
+    if (!isAdmin || !user?.id) {
       setLoading(false);
       return;
     }
 
-    const { data: tutorialsData, error: tutorialsError } = await supabase
-      .from('tutorials')
-      .select('*')
-      .order('display_order', { ascending: true });
-
-    if (tutorialsError) {
-      console.error("Erro ao carregar tutoriais:", tutorialsError.message);
-      toast.error("Erro ao carregar tutoriais: " + tutorialsError.message);
-    } else {
-      setTutorials(tutorialsData as Tutorial[]);
+    try {
+      const tutorialsData = await fetchTutorials();
+      setTutorials(tutorialsData);
+    } catch (error: any) {
+      console.error("Erro ao carregar tutoriais:", error);
+      toast.error("Erro ao carregar tutoriais: " + (error?.message || "falha desconhecida"));
     }
     setLoading(false);
-  }, [isAdmin]);
+  }, [isAdmin, user?.id]);
 
   useEffect(() => {
     if (isAdmin) {
-      fetchTutorials();
+      loadTutorials();
     }
-  }, [isAdmin, fetchTutorials]);
+  }, [isAdmin, loadTutorials]);
 
-  const handleCreateTutorial = async (title: string, url: string, order: number) => {
-    const { error } = await supabase
-      .from('tutorials')
-      .insert({ title, url, display_order: order })
-      .select();
+  const handleCreateTutorial = async (title: string, description: string, url: string, order: number) => {
+    if (!user?.id) {
+      toast.error("Usuário administrador não identificado.");
+      return;
+    }
 
-    if (error) {
-      toast.error("Erro ao criar tutorial: " + error.message);
-      console.error("Erro ao criar tutorial:", error);
-    } else {
+    try {
+      await createTutorial(user.id, { title, description, url, display_order: order });
       toast.success(`Tutorial '${title}' criado com sucesso!`);
-      fetchTutorials();
+      loadTutorials();
+    } catch (error: any) {
+      toast.error("Erro ao criar tutorial: " + (error?.message || "falha desconhecida"));
+      console.error("Erro ao criar tutorial:", error);
     }
   };
 
-  const handleEditTutorial = async (tutorialId: string, title: string, url: string, order: number) => {
-    const { error } = await supabase
-      .from('tutorials')
-      .update({ title, url, display_order: order })
-      .eq('id', tutorialId)
-      .select();
+  const handleEditTutorial = async (tutorialId: string, title: string, description: string, url: string, order: number) => {
+    if (!user?.id) {
+      toast.error("Usuário administrador não identificado.");
+      return;
+    }
 
-    if (error) {
-      toast.error("Erro ao atualizar tutorial: " + error.message);
-      console.error("Erro ao atualizar tutorial:", error);
-    } else {
+    try {
+      await updateTutorial(user.id, tutorialId, { title, description, url, display_order: order });
       toast.success(`Tutorial '${title}' atualizado com sucesso!`);
-      fetchTutorials();
+      loadTutorials();
+    } catch (error: any) {
+      toast.error("Erro ao atualizar tutorial: " + (error?.message || "falha desconhecida"));
+      console.error("Erro ao atualizar tutorial:", error);
     }
   };
 
@@ -122,17 +112,18 @@ const TutorialManagement: React.FC = () => {
   const handleDeleteTutorial = async () => {
     if (!tutorialToDeleteId) return;
 
-    const { error } = await supabase
-      .from('tutorials')
-      .delete()
-      .eq('id', tutorialToDeleteId);
+    if (!user?.id) {
+      toast.error("Usuário administrador não identificado.");
+      return;
+    }
 
-    if (error) {
-      toast.error("Erro ao remover tutorial: " + error.message);
-      console.error("Erro ao remover tutorial:", error);
-    } else {
+    try {
+      await deleteTutorial(user.id, tutorialToDeleteId);
       toast.success("Tutorial removido com sucesso!");
-      fetchTutorials();
+      loadTutorials();
+    } catch (error: any) {
+      toast.error("Erro ao remover tutorial: " + (error?.message || "falha desconhecida"));
+      console.error("Erro ao remover tutorial:", error);
     }
     setIsDeleteTutorialDialogOpen(false);
     setTutorialToDeleteId(null);
@@ -206,7 +197,12 @@ const TutorialManagement: React.FC = () => {
                         className="hover:bg-slate-50/50 transition-colors border-b border-gray-50 last:border-0"
                       >
                         <TableCell className="font-medium text-slate-900 py-4">
-                          {tutorial.title}
+                          <div className="space-y-1">
+                            <div>{tutorial.title}</div>
+                            <div className="max-w-xl truncate text-sm font-normal text-slate-500">
+                              {tutorial.description || "Sem descrição cadastrada"}
+                            </div>
+                          </div>
                         </TableCell>
                         <TableCell className="py-4">
                           <a 

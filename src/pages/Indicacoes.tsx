@@ -34,12 +34,23 @@ type ReferralResponse = {
 
 const money = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 
+const getStatusBadgeClassName = (status?: string) => {
+  const normalized = String(status || "").trim().toLowerCase();
+
+  if (normalized === "confirmado") {
+    return "inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700";
+  }
+
+  return "inline-flex items-center rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-700";
+};
+
 const Indicacoes: React.FC = () => {
   const { session, user } = useSession();
   const navigate = useNavigate();
   const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || "").trim().replace(/\/$/, "");
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<ReferralResponse | null>(null);
+  const [loadError, setLoadError] = useState<string>("");
 
   useEffect(() => {
     if (!session) {
@@ -55,6 +66,7 @@ const Indicacoes: React.FC = () => {
       }
 
       setLoading(true);
+      setLoadError("");
       try {
         const response = await fetch(`${apiBaseUrl}/api/referrals/me`, {
           headers: {
@@ -70,14 +82,11 @@ const Indicacoes: React.FC = () => {
 
         const payload = await response.json();
         setData(payload as ReferralResponse);
+        setLoadError("");
       } catch (error: any) {
-        toast.error("Erro ao carregar indicações: " + (error?.message || "falha desconhecida"));
-        setData({
-          code: "",
-          referral_url: "",
-          summary: { total_indicacoes: 0, total_creditos: 0, total_comissao: 0 },
-          history: [],
-        });
+        const message = error?.message || "falha desconhecida";
+        toast.error("Erro ao carregar indicações: " + message);
+        setLoadError(message);
       } finally {
         setLoading(false);
       }
@@ -124,12 +133,17 @@ const Indicacoes: React.FC = () => {
           <CardTitle className="text-slate-800">Seu link de indicação</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
+          {loadError ? (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+              Não foi possível atualizar seu painel agora: {loadError}
+            </div>
+          ) : null}
           <div className="text-sm text-slate-500">Código: <span className="font-semibold text-indigo-600">{data?.code || "—"}</span></div>
           <div className="flex flex-col sm:flex-row gap-2">
             <div className="flex-1 h-11 rounded-lg border border-slate-200 bg-slate-50 px-3 flex items-center text-sm text-slate-700 overflow-hidden text-ellipsis whitespace-nowrap">
-              {data?.referral_url || "Sem link disponível"}
+              {data?.referral_url || (loadError ? "Falha ao carregar o link" : "Sem link disponível")}
             </div>
-            <Button onClick={copyReferralUrl} className="bg-indigo-600 hover:bg-indigo-700 text-white">
+            <Button onClick={copyReferralUrl} className="bg-indigo-600 hover:bg-indigo-700 text-white" disabled={!data?.referral_url}>
               <Copy className="h-4 w-4 mr-2" />
               Copiar link
             </Button>
@@ -195,7 +209,7 @@ const Indicacoes: React.FC = () => {
               {!data?.history?.length ? (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center text-slate-500 py-10">
-                    Nenhuma indicação confirmada até agora.
+                    Nenhuma indicação registrada até agora.
                   </TableCell>
                 </TableRow>
               ) : (
@@ -212,7 +226,7 @@ const Indicacoes: React.FC = () => {
                       <span className="text-xs text-slate-500 ml-2">({Number(row.comissao_percent || 0)}%)</span>
                     </TableCell>
                     <TableCell>
-                      <span className="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700">
+                      <span className={getStatusBadgeClassName(row.status)}>
                         {row.status}
                       </span>
                     </TableCell>

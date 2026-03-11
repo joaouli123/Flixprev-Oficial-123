@@ -31,7 +31,7 @@ import {
 import { neon as supabase } from "@/lib/neon"
 import { Agent, Category } from "@/types/app";
 import { toast } from "sonner";
-import { normalizeAgentDescription, normalizeAgentTitle } from "@/lib/agentText";
+import { getAgentDisplayOrder, getAgentPresentation } from "@/lib/agentText";
 
 /* ─── Configuração de cores por categoria ─── */
 const CATEGORY_COLORS: Record<string, { bg: string; border: string; text: string; gradient: string; icon: LucideIcon }> = {
@@ -166,7 +166,13 @@ const LandingPage = () => {
   // Agentes filtrados pela aba ativa
   const visibleAgentsForTab = useMemo(() => {
     if (!activeTab) return visibleAgents;
-    return visibleAgents.filter((a) => (a.category_ids || []).includes(activeTab));
+    return visibleAgents
+      .filter((a) => (a.category_ids || []).includes(activeTab))
+      .sort((a, b) => {
+        const orderDiff = getAgentDisplayOrder(a.title, a.description) - getAgentDisplayOrder(b.title, b.description);
+        if (orderDiff !== 0) return orderDiff;
+        return a.title.localeCompare(b.title, "pt-BR");
+      });
   }, [visibleAgents, activeTab]);
 
   useEffect(() => {
@@ -403,14 +409,16 @@ const LandingPage = () => {
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
                 {visibleAgentsForTab.map((agent) => (
-                  <Card key={agent.id} className="group p-3 bg-white/90 backdrop-blur-sm border border-slate-200/80 shadow-sm hover:shadow-md transition-all duration-300 rounded-xl overflow-hidden relative">
+                  <Card key={agent.id} className="group relative overflow-hidden rounded-xl border border-slate-200/80 bg-white/90 p-3 shadow-sm backdrop-blur-sm transition-all duration-300 hover:shadow-md">
                     <div className="relative z-10 flex items-center gap-3">
                       <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center transition-all duration-300 shadow-sm shadow-green-500/10 shrink-0">
                         <AgentListIcon className="h-5 w-5 text-green-600" />
                       </div>
-                      <CardTitle className="text-sm font-semibold text-slate-900 group-hover:text-green-700 transition-colors duration-300 line-clamp-1 m-0">
-                        {normalizeAgentTitle(agent.title, agent.description)}
-                      </CardTitle>
+                      <div className="min-w-0">
+                        <CardTitle className="text-sm font-semibold text-slate-900 group-hover:text-green-700 transition-colors duration-300 line-clamp-2 m-0">
+                          {getAgentPresentation(agent.title, agent.description).title}
+                        </CardTitle>
+                      </div>
                     </div>
                   </Card>
                 ))}

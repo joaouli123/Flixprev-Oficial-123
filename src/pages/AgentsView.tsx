@@ -4,6 +4,7 @@ import { Agent, Category } from "@/types/app";
 import { useOutletContext } from "react-router-dom";
 import { useSession } from "@/components/SessionContextProvider";
 import { Shield, Scale, Coins, Landmark, Brain, ChevronRight, type LucideIcon } from "lucide-react";
+import { getAgentDisplayOrder } from "@/lib/agentText";
 
 /* ─── Tema de cores por categoria ─── */
 const CATEGORY_COLORS: Record<string, { bg: string; bgLight: string; border: string; text: string; gradient: string; icon: LucideIcon }> = {
@@ -30,10 +31,10 @@ function isVisibleCategory(rawName: string) {
     .replace(/[\u0300-\u036f]/g, "")
     .trim();
 
-  // Remove categoria Prompt e categorias de teste
+  // Remove apenas a categoria técnica de prompts.
   if (normalized === "prompt" || normalized === "prompts ia") return false;
-  
-  return !/^test(e)?\b/.test(normalized);
+
+  return true;
 }
 
 function normalizeCategoryName(rawName: string) {
@@ -123,8 +124,16 @@ const AgentsView: React.FC = () => {
   }, [visibleCategories, selectedCategory, isCategoryPage]);
 
   const responsiveCategoryTabs = React.useMemo(() => {
-    return visibleCategories.filter((cat) => (agentsCountByCategory.get(cat.id) || 0) > 0);
-  }, [visibleCategories, agentsCountByCategory]);
+    return visibleCategories;
+  }, [visibleCategories]);
+
+  const displayedAgents = React.useMemo(() => {
+    return [...filteredAgents].sort((a, b) => {
+      const orderDiff = getAgentDisplayOrder(a.title, a.description, a.role) - getAgentDisplayOrder(b.title, b.description, b.role);
+      if (orderDiff !== 0) return orderDiff;
+      return a.title.localeCompare(b.title, "pt-BR");
+    });
+  }, [filteredAgents]);
 
   return (
     <div className="animate-in fade-in duration-500 flex flex-col gap-4 sm:gap-6">
@@ -224,8 +233,8 @@ const AgentsView: React.FC = () => {
         </section>
       ) : (
         <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 items-start">
-          {filteredAgents.length > 0 ? (
-            filteredAgents.map((agent) => (
+          {displayedAgents.length > 0 ? (
+            displayedAgents.map((agent) => (
               <AgentCard
                 key={agent.id}
                 agent={agent}

@@ -73,6 +73,93 @@ const AppLayout = () => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
+  const normalizeAgentRecord = useCallback((agent: any) => ({
+    ...agent,
+    category_ids: (Array.isArray(agent.category_ids) ? agent.category_ids : []).map((id: any) => String(id)),
+    extra_links: Array.isArray(agent.extra_links) ? agent.extra_links : [],
+    shortcuts: Array.isArray(agent.shortcuts) ? agent.shortcuts : [],
+    attachments: Array.isArray(agent.attachments) ? agent.attachments : [],
+  }) as Agent, []);
+
+  const extractMissingColumnFromSchemaCacheError = useCallback((error: any) => {
+    const message = String(error?.message || "");
+    const match = message.match(/Could not find the '([^']+)' column/i);
+    return match?.[1] || null;
+  }, []);
+
+  const insertAgentWithSchemaFallback = useCallback(async (payload: Record<string, unknown>) => {
+    const nextPayload = { ...payload };
+    const omittedColumns: string[] = [];
+
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      const result = await neon.from("agents").insert(nextPayload).select();
+      if (!result.error) {
+        return { ...result, omittedColumns };
+      }
+
+      const missingColumn = extractMissingColumnFromSchemaCacheError(result.error);
+      if (!missingColumn || !(missingColumn in nextPayload)) {
+        return { ...result, omittedColumns };
+      }
+
+      delete nextPayload[missingColumn];
+      omittedColumns.push(missingColumn);
+    }
+
+    return {
+      data: null,
+      error: { message: "Falha ao inserir agente após múltiplas tentativas de compatibilidade." },
+      omittedColumns,
+    };
+  }, [extractMissingColumnFromSchemaCacheError]);
+
+  const updateAgentWithSchemaFallback = useCallback(async (agentId: string, payload: Record<string, unknown>) => {
+    const nextPayload = { ...payload };
+    const omittedColumns: string[] = [];
+
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      const result = await neon.from("agents").update(nextPayload).eq("id", agentId).select();
+      if (!result.error) {
+        return { ...result, omittedColumns };
+      }
+
+      const missingColumn = extractMissingColumnFromSchemaCacheError(result.error);
+      if (!missingColumn || !(missingColumn in nextPayload)) {
+        return { ...result, omittedColumns };
+      }
+
+      delete nextPayload[missingColumn];
+      omittedColumns.push(missingColumn);
+    }
+
+    return {
+      data: null,
+      error: { message: "Falha ao atualizar agente após múltiplas tentativas de compatibilidade." },
+      omittedColumns,
+    };
+  }, [extractMissingColumnFromSchemaCacheError]);
+
+  const syncAgentKnowledgeLinks = useCallback(async (agentId: string, links?: { label: string; url: string }[]) => {
+    const response = await fetch(`/api/agents/${agentId}/sync-links`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ links: Array.isArray(links) ? links : [] }),
+    });
+
+    const payload = await response.json().catch(() => null);
+
+    if (!response.ok) {
+      throw new Error(payload?.error || "Falha ao sincronizar links do agente.");
+    }
+
+    return payload as {
+      success: boolean;
+      attachments: string[];
+      extra_links: { label: string; url: string }[];
+      failures?: Array<{ url: string; error: string }>;
+    };
+  }, []);
+
   const fetchCategories = useCallback(async () => {
     if (!userId) return;
     setLoading(true);
@@ -103,6 +190,7 @@ const AppLayout = () => {
       const agents = (data || []).map((agent: any) => ({
         ...agent,
         category_ids: (Array.isArray(agent.category_ids) ? agent.category_ids : []).map((id: any) => String(id)),
+        extra_links: Array.isArray(agent.extra_links) ? agent.extra_links : [],
         shortcuts: Array.isArray(agent.shortcuts) ? agent.shortcuts : [],
         attachments: Array.isArray(agent.attachments) ? agent.attachments : [],
       })) as Agent[];
@@ -168,7 +256,7 @@ const AppLayout = () => {
   const handleAddCategory = async (name: string) => {
     if (!userId) {
       toast.error("Você precisa estar logado para criar categorias.");
-      return;
+      return null;
     }
     
     try {
@@ -187,6 +275,7 @@ const AppLayout = () => {
         if (data && data.length > 0) {
           setCategories((prev) => [...prev, data[0] as Category]);
           toast.success(`Categoria '${name}' criada com sucesso!`);
+          return data[0] as Category;
         } else {
           console.error("Nenhum dado retornado ao criar categoria");
           toast.error("Erro: Nenhum dado retornado do servidor");
@@ -196,6 +285,8 @@ const AppLayout = () => {
       console.error("Erro inesperado ao criar categoria:", err);
       toast.error("Erro inesperado ao criar categoria");
     }
+
+    return null;
   };
 
   const handleOpenEditCategoryDialog = (category: Category) => {
@@ -280,7 +371,7 @@ const AppLayout = () => {
   ) => {
     if (!userId) {
       toast.error("Você precisa estar logado para adicionar agentes.");
-      return;
+      return false;
     }
 
     try {
@@ -288,43 +379,62 @@ const AppLayout = () => {
       
       // Generate a UUID for the agent
       const agentId = crypto.randomUUID();
+      const insertPayload: Record<string, unknown> = {
+        id: agentId,
+        title: newAgentData.title,
+        role: newAgentData.role,
+        description: newAgentData.description,
+        icon: newAgentData.icon,
+        background_icon: newAgentData.background_icon,
+        category_ids: newAgentData.category_ids || [],
+        link: newAgentData.link || null,
+        user_id: userId,
+        shortcuts: (newAgentData as any).shortcuts || [],
+        instructions: (newAgentData as any).instructions || null,
+        attachments: (newAgentData as any).attachments || [],
+      };
+
+      if (Array.isArray(newAgentData.extra_links) && newAgentData.extra_links.length > 0) {
+        insertPayload.extra_links = newAgentData.extra_links;
+      }
       
       // Salvar arrays como arrays nativas do PostgreSQL
-      const { data, error } = await neon
-        .from("agents")
-        .insert({ 
-          id: agentId,
-          title: newAgentData.title,
-          role: newAgentData.role,
-          description: newAgentData.description,
-          icon: newAgentData.icon,
-          background_icon: newAgentData.background_icon,
-          category_ids: newAgentData.category_ids || [],
-          user_id: userId,
-          shortcuts: (newAgentData as any).shortcuts || [],
-          instructions: (newAgentData as any).instructions || null,
-          attachments: (newAgentData as any).attachments || [],
-        })
-        .select();
+      const { data, error, omittedColumns } = await insertAgentWithSchemaFallback(insertPayload);
 
       if (error) {
         console.error("Erro do banco de dados ao criar agente:", error);
         toast.error("Erro ao adicionar agente: " + (error.message || "Erro na query"));
+        return false;
       } else {
         if (data && data.length > 0) {
-          const newAgent = data[0];
-          setAgents((prev) => [...prev, {
-            ...newAgent,
-            category_ids: (Array.isArray(newAgent.category_ids) ? newAgent.category_ids : []).map((id: any) => String(id)),
-            shortcuts: Array.isArray(newAgent.shortcuts) ? newAgent.shortcuts : [],
-            attachments: Array.isArray(newAgent.attachments) ? newAgent.attachments : [],
-          } as Agent]);
+          if (omittedColumns.length > 0) {
+            toast.warning(`Agente salvo com compatibilidade temporária. Colunas ausentes no banco: ${omittedColumns.join(", ")}.`);
+          }
+
+          let normalizedAgent = normalizeAgentRecord(data[0]);
+
+          try {
+            if (normalizedAgent.extra_links.length > 0) {
+            const syncResult = await syncAgentKnowledgeLinks(normalizedAgent.id, normalizedAgent.extra_links);
+            normalizedAgent = {
+              ...normalizedAgent,
+              attachments: Array.isArray(syncResult.attachments) ? syncResult.attachments : normalizedAgent.attachments,
+              extra_links: Array.isArray(syncResult.extra_links) ? syncResult.extra_links : normalizedAgent.extra_links,
+            };
+
+            if (syncResult.failures && syncResult.failures.length > 0) {
+              toast.warning(`Alguns links do agente não puderam ser processados (${syncResult.failures.length}).`);
+            }
+            }
+          } catch (syncError: any) {
+            console.error("Erro ao sincronizar links do agente:", syncError);
+            toast.error(syncError?.message || "Falha ao sincronizar links para a IA.");
+          }
+
+          setAgents((prev) => [...prev, normalizedAgent]);
           toast.success(`Agente '${newAgentData.title}' adicionado com sucesso!`);
 
-          const hasAttachments = Array.isArray((newAgentData as any).attachments) && (newAgentData as any).attachments.length > 0;
-          if (hasAttachments && newAgent?.id) {
-            fetch(`/api/admin/reprocess-agent-attachments/${newAgent.id}`, { method: 'POST' }).catch(console.error);
-          }
+          await fetch(`/api/admin/reprocess-agent-attachments/${normalizedAgent.id}`, { method: 'POST' }).catch(console.error);
           
           // Emit new notification
           fetch('/api/notifications', {
@@ -335,15 +445,18 @@ const AppLayout = () => {
               message: `O assistente "${newAgentData.title}" acabou de ser implementado na plataforma.`
             })
           }).catch(console.error);
-          
+
+          return true;
         } else {
           console.error("Nenhum dado retornado ao criar agente");
           toast.error("Erro: Nenhum dado retornado do servidor");
+          return false;
         }
       }
     } catch (err) {
       console.error("Erro inesperado ao criar agente:", err);
       toast.error("Erro inesperado ao criar agente");
+      return false;
     }
   };
 
@@ -367,45 +480,63 @@ const AppLayout = () => {
   ) => {
     if (!userId) {
       toast.error("Você precisa estar logado para editar agentes.");
-      return;
+      return false;
     }
-    const { data, error } = await neon
-      .from("agents")
-      .update({
-        title: updatedAgentData.title,
-        role: updatedAgentData.role,
-        description: updatedAgentData.description,
-        icon: updatedAgentData.icon,
-        background_icon: updatedAgentData.background_icon,
-        category_ids: updatedAgentData.category_ids || [],
-        link: updatedAgentData.link || null,
-        shortcuts: updatedAgentData.shortcuts || [],
-        instructions: updatedAgentData.instructions || null,
-        attachments: updatedAgentData.attachments || [],
-      })
-      .eq("id", agentId)
-      .select();
+    const updatePayload: Record<string, unknown> = {
+      title: updatedAgentData.title,
+      role: updatedAgentData.role,
+      description: updatedAgentData.description,
+      icon: updatedAgentData.icon,
+      background_icon: updatedAgentData.background_icon,
+      category_ids: updatedAgentData.category_ids || [],
+      link: updatedAgentData.link || null,
+      shortcuts: updatedAgentData.shortcuts || [],
+      instructions: updatedAgentData.instructions || null,
+      attachments: updatedAgentData.attachments || [],
+    };
+
+    if (Array.isArray(updatedAgentData.extra_links) && updatedAgentData.extra_links.length > 0) {
+      updatePayload.extra_links = updatedAgentData.extra_links;
+    }
+
+    const { data, error, omittedColumns } = await updateAgentWithSchemaFallback(agentId, updatePayload);
 
     if (error) {
       console.error("Erro ao editar agente:", error);
       toast.error("Erro ao editar agente: " + error.message);
+      return false;
     } else {
       if (data && data.length > 0) {
-        const updatedAgent = data[0];
+        if (omittedColumns.length > 0) {
+          toast.warning(`Agente atualizado com compatibilidade temporária. Colunas ausentes no banco: ${omittedColumns.join(", ")}.`);
+        }
+
+        let normalizedAgent = normalizeAgentRecord(data[0]);
+
+        try {
+          if (normalizedAgent.extra_links.length > 0) {
+          const syncResult = await syncAgentKnowledgeLinks(agentId, normalizedAgent.extra_links);
+          normalizedAgent = {
+            ...normalizedAgent,
+            attachments: Array.isArray(syncResult.attachments) ? syncResult.attachments : normalizedAgent.attachments,
+            extra_links: Array.isArray(syncResult.extra_links) ? syncResult.extra_links : normalizedAgent.extra_links,
+          };
+
+          if (syncResult.failures && syncResult.failures.length > 0) {
+            toast.warning(`Alguns links do agente não puderam ser processados (${syncResult.failures.length}).`);
+          }
+          }
+        } catch (syncError: any) {
+          console.error("Erro ao sincronizar links do agente:", syncError);
+          toast.error(syncError?.message || "Falha ao sincronizar links para a IA.");
+        }
+
         setAgents((prev) =>
-          prev.map((agent) => agent.id === agentId ? {
-            ...updatedAgent,
-            category_ids: (Array.isArray(updatedAgent.category_ids) ? updatedAgent.category_ids : []).map((id: any) => String(id)),
-            shortcuts: Array.isArray(updatedAgent.shortcuts) ? updatedAgent.shortcuts : [],
-            attachments: Array.isArray(updatedAgent.attachments) ? updatedAgent.attachments : [],
-          } as Agent : agent)
+          prev.map((agent) => agent.id === agentId ? normalizedAgent : agent)
         );
         toast.success(`Agente '${updatedAgentData.title}' atualizado com sucesso!`);
 
-        const hasAttachments = Array.isArray(updatedAgentData.attachments) && updatedAgentData.attachments.length > 0;
-        if (hasAttachments) {
-          fetch(`/api/admin/reprocess-agent-attachments/${agentId}`, { method: 'POST' }).catch(console.error);
-        }
+        await fetch(`/api/admin/reprocess-agent-attachments/${agentId}`, { method: 'POST' }).catch(console.error);
         
         // Emit new notification
         fetch('/api/notifications', {
@@ -416,9 +547,12 @@ const AppLayout = () => {
             message: `O assistente "${updatedAgentData.title}" recebeu novas atualizações de melhoria na plataforma.`
           })
         }).catch(console.error);
-        
+
+        return true;
       }
     }
+
+    return false;
   };
 
   const confirmDeleteAgent = (agentId: string) => {
@@ -726,6 +860,7 @@ const AppLayout = () => {
         }}
         onSave={handleAddAgent}
         onEditSave={handleEditAgent}
+        onCreateCategory={handleAddCategory}
         categories={categories}
         agentToEdit={agentToEdit}
       />

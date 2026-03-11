@@ -1,4 +1,5 @@
 import express from 'express';
+import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -28,7 +29,7 @@ app.use((req, res, next) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
   }
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-user-id');
   if (req.method === 'OPTIONS') return res.sendStatus(204);
   next();
 });
@@ -130,6 +131,8 @@ const memoryChatStore = {
   conversations: [],
   messages: []
 };
+
+const TUTORIAL_ADMIN_USER_ID = '07d16581-fca5-4709-b0d3-e09859dbb286';
 
 // ============================================
 // 🧠 FUNÇÕES RAG PROFISSIONAL
@@ -342,6 +345,86 @@ async function extractAttachmentText(fullPath, originalname = '') {
   }
 
   return '';
+}
+
+function slugifyFilePart(value = '') {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 80);
+}
+
+function decodeHtmlEntities(value = '') {
+  return String(value || '')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, code) => String.fromCharCode(parseInt(code, 16)));
+}
+
+function htmlToPlainText(html = '') {
+  return decodeHtmlEntities(
+    String(html || '')
+      .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+      .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+      .replace(/<noscript[\s\S]*?<\/noscript>/gi, ' ')
+      .replace(/<svg[\s\S]*?<\/svg>/gi, ' ')
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<\/(p|div|section|article|li|h1|h2|h3|h4|h5|h6)>/gi, '\n')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/[ \t]+/g, ' ')
+      .replace(/\n{3,}/g, '\n\n')
+  ).trim();
+}
+
+async function fetchLinkKnowledgeSource(rawUrl) {
+  const response = await fetch(rawUrl, {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (FlixPrev Link Ingestion/1.0)',
+      Accept: 'text/html,application/pdf,text/plain,application/xhtml+xml,*/*;q=0.8',
+    },
+    redirect: 'follow',
+  });
+
+  if (!response.ok) {
+    throw new Error(`Falha ao acessar ${rawUrl}: ${response.status}`);
+  }
+
+  const contentType = (response.headers.get('content-type') || '').toLowerCase();
+  const finalUrl = response.url || rawUrl;
+  const isPdf = contentType.includes('application/pdf') || /\.pdf([?#].*)?$/i.test(finalUrl);
+
+  if (isPdf) {
+    const fileBuffer = Buffer.from(await response.arrayBuffer());
+    return {
+      extension: 'pdf',
+      buffer: fileBuffer,
+      title: '',
+      finalUrl,
+    };
+  }
+
+  const bodyText = await response.text();
+  const pageTitle = bodyText.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1]?.trim() || '';
+  const extractedText = contentType.includes('text/html')
+    ? htmlToPlainText(bodyText)
+    : bodyText.trim();
+
+  const normalizedText = `FONTE: ${finalUrl}\n${pageTitle ? `TITULO: ${decodeHtmlEntities(pageTitle)}\n` : ''}\n${extractedText}`.trim();
+
+  return {
+    extension: 'txt',
+    buffer: Buffer.from(normalizedText, 'utf-8'),
+    title: decodeHtmlEntities(pageTitle),
+    finalUrl,
+  };
 }
 
 async function askGeminiDirectlyFromPdf(fullPath, fileName, question, agentInstructions = '') {
@@ -775,9 +858,370 @@ async function initializeRagTables() {
 
 initializeRagTables();
 
+async function ensureTutorialsTable() {
+  await pool.query(`
+    CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+    CREATE TABLE IF NOT EXISTS public.tutorials (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      title text NOT NULL,
+      description text,
+      url text NOT NULL,
+      display_order integer NOT NULL DEFAULT 0,
+      created_at timestamptz NOT NULL DEFAULT NOW(),
+      updated_at timestamptz NOT NULL DEFAULT NOW()
+    );
+
+    ALTER TABLE public.tutorials
+      ADD COLUMN IF NOT EXISTS description text,
+      ADD COLUMN IF NOT EXISTS display_order integer NOT NULL DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS created_at timestamptz NOT NULL DEFAULT NOW(),
+      ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT NOW();
+
+    UPDATE public.tutorials
+    SET description = COALESCE(description, '')
+    WHERE description IS NULL;
+  `);
+}
+
+async function isAdminUser(userId) {
+  const normalizedUserId = String(userId || '').trim();
+  if (!normalizedUserId) {
+    return false;
+  }
+
+  if (normalizedUserId === TUTORIAL_ADMIN_USER_ID) {
+    return true;
+  }
+
+  try {
+    const result = await pool.query(
+      `
+      SELECT role
+      FROM profiles
+      WHERE id = $1
+      LIMIT 1
+      `,
+      [normalizedUserId]
+    );
+
+    return String(result.rows?.[0]?.role || '').trim().toLowerCase() === 'admin';
+  } catch (error) {
+    console.warn('[TUTORIALS] Falha ao validar admin em profiles:', error?.message || error);
+    return false;
+  }
+}
+
+function normalizeTutorialPayload(payload = {}) {
+  return {
+    title: String(payload.title || '').trim(),
+    description: String(payload.description || '').trim(),
+    url: String(payload.url || '').trim(),
+    displayOrder: Number.parseInt(String(payload.display_order ?? payload.displayOrder ?? 0), 10) || 0,
+  };
+}
+
+function splitAccountFullName(value) {
+  const parts = String(value || '').trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) {
+    return { firstName: null, lastName: null };
+  }
+
+  if (parts.length === 1) {
+    return { firstName: parts[0], lastName: null };
+  }
+
+  return {
+    firstName: parts[0],
+    lastName: parts.slice(1).join(' '),
+  };
+}
+
+async function ensureAccountProfileSchema() {
+  await pool.query(`
+    ALTER TABLE IF EXISTS public.usuarios
+      ADD COLUMN IF NOT EXISTS nome_completo text,
+      ADD COLUMN IF NOT EXISTS documento text,
+      ADD COLUMN IF NOT EXISTS telefone text;
+  `);
+}
+
+async function readAccountProfile(userId) {
+  await ensureAccountProfileSchema();
+
+  const [profileResult, userResult] = await Promise.all([
+    pool.query(
+      `
+      SELECT id, first_name, last_name, avatar_url, role, updated_at
+      FROM public.profiles
+      WHERE id = $1
+      LIMIT 1
+      `,
+      [userId]
+    ).catch(() => ({ rows: [] })),
+    pool.query(
+      `
+      SELECT user_id, nome_completo, email, documento, telefone, status_da_assinatura, updated_at, created_at
+      FROM public.usuarios
+      WHERE user_id = $1
+      ORDER BY updated_at DESC NULLS LAST, created_at DESC NULLS LAST
+      LIMIT 1
+      `,
+      [userId]
+    ).catch(() => ({ rows: [] }))
+  ]);
+
+  const profileRow = profileResult.rows?.[0] || {};
+  const userRow = userResult.rows?.[0] || {};
+  const fullName = String(userRow.nome_completo || '').trim();
+  const splitName = splitAccountFullName(fullName);
+
+  return {
+    id: String(profileRow.id || userId),
+    first_name: profileRow.first_name || splitName.firstName,
+    last_name: profileRow.last_name || splitName.lastName,
+    avatar_url: profileRow.avatar_url || null,
+    role: String(profileRow.role || 'user').trim().toLowerCase() === 'admin' ? 'admin' : 'user',
+    updated_at: profileRow.updated_at || userRow.updated_at || null,
+    nome_completo: fullName || null,
+    email: String(userRow.email || '').trim() || null,
+    documento: String(userRow.documento || '').trim() || null,
+    telefone: String(userRow.telefone || '').trim() || null,
+    status_da_assinatura: String(userRow.status_da_assinatura || '').trim() || null,
+  };
+}
+
+async function saveAccountProfile(userId, payload = {}) {
+  await ensureAccountProfileSchema();
+
+  const normalizedFullName = String(payload.full_name || payload.nome_completo || '').trim();
+  const normalizedEmail = String(payload.email || '').trim().toLowerCase();
+  const normalizedDocumento = String(payload.documento || '').trim();
+  const normalizedTelefone = String(payload.telefone || '').trim();
+  const { firstName, lastName } = splitAccountFullName(normalizedFullName);
+
+  const updatedUser = await pool.query(
+    `
+    UPDATE public.usuarios
+    SET nome_completo = $2,
+        email = $3,
+        documento = $4,
+        telefone = $5,
+        updated_at = NOW()
+    WHERE user_id = $1
+    RETURNING user_id
+    `,
+    [
+      userId,
+      normalizedFullName || null,
+      normalizedEmail || null,
+      normalizedDocumento || null,
+      normalizedTelefone || null,
+    ]
+  );
+
+  if (!updatedUser.rows.length) {
+    await pool.query(
+      `
+      INSERT INTO public.usuarios (user_id, nome_completo, email, documento, telefone)
+      VALUES ($1, $2, $3, $4, $5)
+      `,
+      [
+        userId,
+        normalizedFullName || null,
+        normalizedEmail || null,
+        normalizedDocumento || null,
+        normalizedTelefone || null,
+      ]
+    );
+  }
+
+  try {
+    await pool.query(
+      `
+      INSERT INTO public.profiles (id, first_name, last_name, updated_at)
+      VALUES ($1, $2, $3, NOW())
+      ON CONFLICT (id) DO UPDATE
+      SET first_name = EXCLUDED.first_name,
+          last_name = EXCLUDED.last_name,
+          updated_at = NOW()
+      `,
+      [userId, firstName, lastName]
+    );
+  } catch (error) {
+    console.warn('[ACCOUNT] Não foi possível atualizar public.profiles:', error?.message || error);
+  }
+
+  return readAccountProfile(userId);
+}
+
 // ============================================
 // 🔌 ENDPOINTS
 // ============================================
+
+app.get('/api/tutorials', async (req, res) => {
+  try {
+    await ensureTutorialsTable();
+
+    const result = await pool.query(
+      `
+      SELECT id, title, description, url, display_order, created_at, updated_at
+      FROM public.tutorials
+      ORDER BY display_order ASC, created_at ASC
+      `
+    );
+
+    return res.json(result.rows || []);
+  } catch (error) {
+    console.error('[TUTORIALS] GET /api/tutorials error:', error);
+    return res.status(500).json({ error: error.message || 'Erro ao carregar tutoriais' });
+  }
+});
+
+app.post('/api/admin/tutorials', async (req, res) => {
+  try {
+    const userId = String(req.header('x-user-id') || '').trim();
+    if (!userId) {
+      return res.status(401).json({ error: 'Usuário não autenticado' });
+    }
+
+    if (!(await isAdminUser(userId))) {
+      return res.status(403).json({ error: 'Apenas administradores podem criar tutoriais' });
+    }
+
+    await ensureTutorialsTable();
+
+    const tutorial = normalizeTutorialPayload(req.body);
+    if (!tutorial.title || !tutorial.url) {
+      return res.status(400).json({ error: 'Título e URL são obrigatórios' });
+    }
+
+    const result = await pool.query(
+      `
+      INSERT INTO public.tutorials (title, description, url, display_order)
+      VALUES ($1, $2, $3, $4)
+      RETURNING id, title, description, url, display_order, created_at, updated_at
+      `,
+      [tutorial.title, tutorial.description, tutorial.url, tutorial.displayOrder]
+    );
+
+    return res.status(201).json(result.rows[0]);
+  } catch (error) {
+    console.error('[TUTORIALS] POST /api/admin/tutorials error:', error);
+    return res.status(500).json({ error: error.message || 'Erro ao criar tutorial' });
+  }
+});
+
+app.put('/api/admin/tutorials/:id', async (req, res) => {
+  try {
+    const userId = String(req.header('x-user-id') || '').trim();
+    const tutorialId = String(req.params.id || '').trim();
+    if (!userId) {
+      return res.status(401).json({ error: 'Usuário não autenticado' });
+    }
+    if (!tutorialId) {
+      return res.status(400).json({ error: 'ID do tutorial é obrigatório' });
+    }
+
+    if (!(await isAdminUser(userId))) {
+      return res.status(403).json({ error: 'Apenas administradores podem editar tutoriais' });
+    }
+
+    await ensureTutorialsTable();
+
+    const tutorial = normalizeTutorialPayload(req.body);
+    if (!tutorial.title || !tutorial.url) {
+      return res.status(400).json({ error: 'Título e URL são obrigatórios' });
+    }
+
+    const result = await pool.query(
+      `
+      UPDATE public.tutorials
+      SET title = $2,
+          description = $3,
+          url = $4,
+          display_order = $5,
+          updated_at = NOW()
+      WHERE id = $1
+      RETURNING id, title, description, url, display_order, created_at, updated_at
+      `,
+      [tutorialId, tutorial.title, tutorial.description, tutorial.url, tutorial.displayOrder]
+    );
+
+    if (!result.rows.length) {
+      return res.status(404).json({ error: 'Tutorial não encontrado' });
+    }
+
+    return res.json(result.rows[0]);
+  } catch (error) {
+    console.error('[TUTORIALS] PUT /api/admin/tutorials/:id error:', error);
+    return res.status(500).json({ error: error.message || 'Erro ao atualizar tutorial' });
+  }
+});
+
+app.delete('/api/admin/tutorials/:id', async (req, res) => {
+  try {
+    const userId = String(req.header('x-user-id') || '').trim();
+    const tutorialId = String(req.params.id || '').trim();
+    if (!userId) {
+      return res.status(401).json({ error: 'Usuário não autenticado' });
+    }
+    if (!tutorialId) {
+      return res.status(400).json({ error: 'ID do tutorial é obrigatório' });
+    }
+
+    if (!(await isAdminUser(userId))) {
+      return res.status(403).json({ error: 'Apenas administradores podem remover tutoriais' });
+    }
+
+    await ensureTutorialsTable();
+
+    const result = await pool.query('DELETE FROM public.tutorials WHERE id = $1 RETURNING id', [tutorialId]);
+    if (!result.rows.length) {
+      return res.status(404).json({ error: 'Tutorial não encontrado' });
+    }
+
+    return res.json({ success: true });
+  } catch (error) {
+    console.error('[TUTORIALS] DELETE /api/admin/tutorials/:id error:', error);
+    return res.status(500).json({ error: error.message || 'Erro ao remover tutorial' });
+  }
+});
+
+app.get('/api/account/profile', async (req, res) => {
+  try {
+    const userId = String(req.header('x-user-id') || '').trim();
+    if (!userId) {
+      return res.status(401).json({ error: 'Usuário não autenticado' });
+    }
+
+    const profile = await readAccountProfile(userId);
+    return res.json({ profile });
+  } catch (error) {
+    console.error('[ACCOUNT] GET /api/account/profile error:', error);
+    return res.status(500).json({ error: error.message || 'Erro ao carregar perfil' });
+  }
+});
+
+app.put('/api/account/profile', async (req, res) => {
+  try {
+    const userId = String(req.header('x-user-id') || '').trim();
+    if (!userId) {
+      return res.status(401).json({ error: 'Usuário não autenticado' });
+    }
+
+    const email = String(req.body?.email || '').trim();
+    if (!email) {
+      return res.status(400).json({ error: 'E-mail é obrigatório' });
+    }
+
+    const profile = await saveAccountProfile(userId, req.body || {});
+    return res.json({ profile });
+  } catch (error) {
+    console.error('[ACCOUNT] PUT /api/account/profile error:', error);
+    return res.status(500).json({ error: error.message || 'Erro ao salvar perfil' });
+  }
+});
 
 // GET conversas
 app.get("/api/conversations", async (req, res) => {
@@ -1020,6 +1464,96 @@ app.post('/api/agents/upload', upload.single('file'), async (req, res) => {
   } catch (e) {
     console.error('[UPLOAD] Erro fatal:', e.message);
     res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/agents/:agentId/sync-links', async (req, res) => {
+  const { agentId } = req.params;
+  if (!agentId) {
+    return res.status(400).json({ error: 'agentId é obrigatório' });
+  }
+
+  try {
+    const rawLinks = Array.isArray(req.body?.links) ? req.body.links : [];
+    const normalizedLinks = rawLinks
+      .map((item) => {
+        const url = String(item?.url || '').trim();
+        const label = String(item?.label || '').trim();
+        if (!url) {
+          return null;
+        }
+
+        try {
+          return {
+            url: new URL(url).toString(),
+            label,
+          };
+        } catch {
+          return null;
+        }
+      })
+      .filter(Boolean)
+      .filter((item, index, arr) => arr.findIndex((entry) => entry.url === item.url) === index);
+
+    const agentResult = await pool.query(
+      'SELECT id, attachments FROM "agents" WHERE id = $1 LIMIT 1',
+      [agentId]
+    );
+
+    const agent = agentResult.rows?.[0];
+    if (!agent) {
+      return res.status(404).json({ error: 'Agente não encontrado' });
+    }
+
+    const currentAttachments = Array.isArray(agent.attachments) ? agent.attachments : [];
+    const relativeFolder = `/agent-attachments/link-sources/${agentId}`;
+    const absoluteFolder = path.join(process.cwd(), 'public', 'agent-attachments', 'link-sources', agentId);
+
+    await fs.promises.rm(absoluteFolder, { recursive: true, force: true });
+
+    const keptAttachments = currentAttachments.filter((attachment) => !String(attachment).startsWith(relativeFolder));
+    const generatedAttachments = [];
+    const failures = [];
+
+    if (normalizedLinks.length > 0) {
+      await fs.promises.mkdir(absoluteFolder, { recursive: true });
+    }
+
+    for (let index = 0; index < normalizedLinks.length; index += 1) {
+      const link = normalizedLinks[index];
+
+      try {
+        const source = await fetchLinkKnowledgeSource(link.url);
+        const fileSlug = slugifyFilePart(link.label || source.title || `fonte-${index + 1}`) || `fonte-${index + 1}`;
+        const hash = crypto.createHash('sha1').update(link.url).digest('hex').slice(0, 10);
+        const fileName = `${String(index + 1).padStart(2, '0')}-${fileSlug}-${hash}.${source.extension}`;
+        const absolutePath = path.join(absoluteFolder, fileName);
+        const relativePath = `${relativeFolder}/${fileName}`;
+
+        await fs.promises.writeFile(absolutePath, source.buffer);
+        generatedAttachments.push(relativePath);
+      } catch (error) {
+        console.error('[LINK-SYNC] Erro ao ingerir link:', link.url, error?.message || error);
+        failures.push({ url: link.url, error: error?.message || 'Erro ao processar link' });
+      }
+    }
+
+    const nextAttachments = [...keptAttachments, ...generatedAttachments];
+
+    await pool.query(
+      'UPDATE "agents" SET attachments = $1, extra_links = $2::jsonb WHERE id = $3',
+      [nextAttachments, JSON.stringify(normalizedLinks), agentId]
+    );
+
+    res.json({
+      success: true,
+      attachments: nextAttachments,
+      extra_links: normalizedLinks,
+      failures,
+    });
+  } catch (e) {
+    console.error('[LINK-SYNC] Erro fatal:', e?.message || e);
+    res.status(500).json({ error: e?.message || 'Falha ao sincronizar links do agente.' });
   }
 });
 
@@ -1554,12 +2088,27 @@ app.post('/api/login', async (req, res) => {
         return res.status(401).json({ error: error?.message || 'Email ou senha incorretos' });
       }
 
+      const role = String(data.user.user_metadata?.role || '').trim().toLowerCase() === 'admin' ? 'admin' : 'user';
+
+      if (role !== 'admin') {
+        const accessState = await getUserPlatformAccessState(data.user.id, data.user.email || email);
+
+        if (!accessState.hasActiveAccess) {
+          await supabaseAuthClient.auth.signOut().catch(() => undefined);
+          return res.status(403).json({
+            error: 'Seu acesso ainda não foi liberado. A conta pode ser criada após o pagamento, mas o sistema só fica disponível com pagamento aprovado e senha definida pelo e-mail enviado.',
+            code: 'SUBSCRIPTION_INACTIVE',
+            subscriptionStatus: accessState.status,
+          });
+        }
+      }
+
       return res.status(200).json({
         success: true,
         user: {
           id: data.user.id,
           email: data.user.email,
-          role: data.user.user_metadata?.role || 'user'
+          role
         },
         token: data.session?.access_token || null
       });
@@ -1581,7 +2130,307 @@ function makeReferralCode(userId) {
   return `${base}${rand}`.slice(0, 10) || rand || 'INDICADO';
 }
 
+function normalizeSubscriptionStatus(raw) {
+  return String(raw || '').trim().toLowerCase();
+}
+
+function hasActiveSubscriptionAccess(raw) {
+  return ['ativo', 'active', 'paid', 'premium', 'approved'].includes(normalizeSubscriptionStatus(raw));
+}
+
+async function getUserPlatformAccessState(userId, fallbackEmail) {
+  const [userResult, subscriptionResult] = await Promise.all([
+    pool.query(
+      `
+      SELECT email, status_da_assinatura
+      FROM usuarios
+      WHERE user_id = $1
+      ORDER BY updated_at DESC NULLS LAST, created_at DESC NULLS LAST
+      LIMIT 1
+      `,
+      [userId]
+    ).catch(() => ({ rows: [] })),
+    pool.query(
+      `
+      SELECT status, plan_type
+      FROM subscriptions
+      WHERE user_id = $1
+      ORDER BY updated_at DESC NULLS LAST, created_at DESC NULLS LAST
+      LIMIT 1
+      `,
+      [userId]
+    ).catch(() => ({ rows: [] }))
+  ]);
+
+  const userRow = userResult.rows?.[0] || {};
+  const subscriptionRow = subscriptionResult.rows?.[0] || {};
+  const userStatus = String(userRow.status_da_assinatura || '').trim() || null;
+  const subscriptionStatus = String(subscriptionRow.status || '').trim() || null;
+  const effectiveStatus = userStatus || subscriptionStatus;
+
+  return {
+    email: String(userRow.email || fallbackEmail || '').trim() || null,
+    status: effectiveStatus,
+    plan: normalizePlanName(subscriptionRow.plan_type),
+    hasActiveAccess: hasActiveSubscriptionAccess(effectiveStatus),
+  };
+}
+
+function isConfirmedReferralStatus(raw) {
+  return hasActiveSubscriptionAccess(raw);
+}
+
+function normalizePlanName(raw) {
+  const value = String(raw || '').trim();
+  return value || null;
+}
+
+function getReferralCreditUnits(status) {
+  return isConfirmedReferralStatus(status) ? 1 : 0;
+}
+
+function getReferralCommissionPercent(status) {
+  return isConfirmedReferralStatus(status) ? Number(process.env.REFERRAL_COMMISSION_PERCENT || 0) : 0;
+}
+
+async function getReferralUserDetails(userId, fallbackEmail) {
+  const [userResult, subscriptionResult] = await Promise.all([
+    pool.query(
+      `
+      SELECT email, status_da_assinatura, plan_type
+      FROM usuarios
+      WHERE user_id = $1
+      ORDER BY updated_at DESC NULLS LAST, created_at DESC NULLS LAST
+      LIMIT 1
+      `,
+      [userId]
+    ),
+    pool.query(
+      `
+      SELECT plan_type
+      FROM subscriptions
+      WHERE user_id = $1
+      ORDER BY created_at DESC NULLS LAST
+      LIMIT 1
+      `,
+      [userId]
+    ).catch(() => ({ rows: [] }))
+  ]);
+
+  const row = userResult.rows[0] || {};
+  const subscription = subscriptionResult.rows?.[0] || {};
+  return {
+    email: String(row.email || fallbackEmail || '').trim() || null,
+    status: String(row.status_da_assinatura || '').trim() || null,
+    plan: normalizePlanName(subscription.plan_type || row.plan_type),
+  };
+}
+
+function toMoneyNumber(value) {
+  const parsed = Number(value || 0);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+async function refreshReferralHistoriesForReferrer(referrerUserId) {
+  const result = await pool.query(
+    `
+    SELECT id, referred_user_id, referred_email, plan, status, credit_units, valor_compra, comissao_percent, comissao_valor
+    FROM referral_histories
+    WHERE referrer_user_id = $1
+    ORDER BY created_at DESC
+    `,
+    [referrerUserId]
+  );
+
+  for (const row of result.rows) {
+    const referredUserId = String(row.referred_user_id || '').trim();
+    if (!referredUserId) {
+      continue;
+    }
+
+    const details = await getReferralUserDetails(referredUserId, row.referred_email);
+    const nextStatus = isConfirmedReferralStatus(details.status) ? 'confirmado' : 'pendente';
+    const nextPlan = details.plan;
+    const nextCreditUnits = getReferralCreditUnits(details.status);
+    const nextCommissionPercent = getReferralCommissionPercent(details.status);
+    const valorCompra = toMoneyNumber(row.valor_compra);
+    const nextCommissionValue = nextStatus === 'confirmado'
+      ? Number(((valorCompra * nextCommissionPercent) / 100).toFixed(2))
+      : 0;
+
+    const currentStatus = String(row.status || '').trim();
+    const currentPlan = normalizePlanName(row.plan);
+    const currentCreditUnits = Number(row.credit_units || 0);
+    const currentCommissionPercent = toMoneyNumber(row.comissao_percent);
+    const currentCommissionValue = toMoneyNumber(row.comissao_valor);
+
+    if (
+      currentStatus === nextStatus &&
+      currentPlan === nextPlan &&
+      currentCreditUnits === nextCreditUnits &&
+      currentCommissionPercent === nextCommissionPercent &&
+      currentCommissionValue === nextCommissionValue
+    ) {
+      continue;
+    }
+
+    await pool.query(
+      `
+      UPDATE referral_histories
+      SET referred_email = $2,
+          plan = $3,
+          status = $4,
+          credit_units = $5,
+          comissao_percent = $6,
+          comissao_valor = $7,
+          updated_at = NOW()
+      WHERE id = $1
+      `,
+      [
+        row.id,
+        details.email,
+        nextPlan,
+        nextStatus,
+        nextCreditUnits,
+        nextCommissionPercent,
+        nextCommissionValue,
+      ]
+    );
+  }
+}
+
+async function upsertReferralHistory({ referralCode, referredUserId, referredEmail }) {
+  const normalizedCode = normalizeReferralCode(referralCode);
+  const normalizedUserId = String(referredUserId || '').trim();
+  const normalizedEmail = String(referredEmail || '').trim().toLowerCase() || null;
+
+  if (!normalizedCode || !normalizedUserId) {
+    return { success: false, reason: 'invalid_payload' };
+  }
+
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    const codeResult = await client.query(
+      `
+      SELECT user_id, code
+      FROM referral_codes
+      WHERE code = $1
+        AND is_active = true
+      LIMIT 1
+      `,
+      [normalizedCode]
+    );
+
+    const referrerUserId = String(codeResult.rows[0]?.user_id || '').trim();
+    if (!referrerUserId) {
+      await client.query('ROLLBACK');
+      return { success: false, reason: 'code_not_found' };
+    }
+
+    if (referrerUserId === normalizedUserId) {
+      await client.query('ROLLBACK');
+      return { success: true, ignored: true, reason: 'self_referral' };
+    }
+
+    const referralDetails = await getReferralUserDetails(normalizedUserId, normalizedEmail);
+    const status = isConfirmedReferralStatus(referralDetails.status) ? 'confirmado' : 'pendente';
+    const plan = referralDetails.plan;
+    const creditUnits = getReferralCreditUnits(referralDetails.status);
+    const comissaoPercent = getReferralCommissionPercent(referralDetails.status);
+
+    const existingByUser = await client.query(
+      `
+      SELECT id, referrer_user_id
+      FROM referral_histories
+      WHERE referred_user_id = $1
+      ORDER BY created_at DESC
+      LIMIT 1
+      `,
+      [normalizedUserId]
+    );
+
+    const existing = existingByUser.rows[0] || null;
+
+    if (existing && String(existing.referrer_user_id || '').trim() !== referrerUserId) {
+      await client.query('ROLLBACK');
+      return { success: true, ignored: true, reason: 'already_attributed' };
+    }
+
+    if (existing) {
+      const updated = await client.query(
+        `
+        UPDATE referral_histories
+        SET referral_code = $2,
+            referred_email = $3,
+            plan = $4,
+            status = $5,
+            credit_units = $6,
+            comissao_percent = $7,
+            updated_at = NOW()
+        WHERE id = $1
+        RETURNING *
+        `,
+        [
+          existing.id,
+          normalizedCode,
+          referralDetails.email,
+          plan,
+          status,
+          creditUnits,
+          comissaoPercent,
+        ]
+      );
+
+      await client.query('COMMIT');
+      return { success: true, record: updated.rows[0], created: false };
+    }
+
+    const inserted = await client.query(
+      `
+      INSERT INTO referral_histories (
+        referrer_user_id,
+        referred_user_id,
+        referral_code,
+        referred_email,
+        plan,
+        status,
+        credit_units,
+        comissao_percent,
+        provider,
+        event_id
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'app_session', $9)
+      RETURNING *
+      `,
+      [
+        referrerUserId,
+        normalizedUserId,
+        normalizedCode,
+        referralDetails.email,
+        plan,
+        status,
+        creditUnits,
+        comissaoPercent,
+        `claim:${normalizedUserId}`,
+      ]
+    );
+
+    await client.query('COMMIT');
+    return { success: true, record: inserted.rows[0], created: true };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 async function ensureReferralSchema() {
+  await pool.query('CREATE EXTENSION IF NOT EXISTS pgcrypto');
+
   await pool.query(`
     CREATE TABLE IF NOT EXISTS referral_codes (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -1611,6 +2460,16 @@ async function ensureReferralSchema() {
       created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
     )
+  `);
+
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS referral_histories_referrer_user_id_idx
+    ON referral_histories (referrer_user_id)
+  `);
+
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS referral_histories_referred_user_id_idx
+    ON referral_histories (referred_user_id)
   `);
 }
 
@@ -1651,6 +2510,7 @@ app.get('/api/referrals/me', async (req, res) => {
 
     await ensureReferralSchema();
     const code = await ensureReferralCodeForUser(userId);
+  await refreshReferralHistoriesForReferrer(userId);
 
     const summaryResult = await pool.query(
       `
@@ -1711,6 +2571,44 @@ app.get('/api/referrals/me', async (req, res) => {
   } catch (error) {
     console.error('[REFERRALS] /api/referrals/me error:', error);
     return res.status(500).json({ error: error.message || 'Erro ao carregar indicações' });
+  }
+});
+
+app.post('/api/referrals/claim', async (req, res) => {
+  try {
+    const userId = String(req.header('x-user-id') || req.body?.user_id || '').trim();
+    const referralCode = String(req.body?.referral_code || req.body?.codigo_indicacao || req.body?.ref || '').trim();
+    const referredEmail = String(req.body?.email || '').trim();
+
+    if (!userId) {
+      return res.status(401).json({ error: 'Usuário não autenticado' });
+    }
+
+    if (!referralCode) {
+      return res.status(400).json({ error: 'Código de indicação é obrigatório' });
+    }
+
+    await ensureReferralSchema();
+    const result = await upsertReferralHistory({
+      referralCode,
+      referredUserId: userId,
+      referredEmail,
+    });
+
+    if (!result.success && result.reason === 'code_not_found') {
+      return res.status(404).json({ error: 'Código de indicação não encontrado' });
+    }
+
+    return res.json({
+      success: true,
+      ignored: Boolean(result.ignored),
+      reason: result.reason || null,
+      created: Boolean(result.created),
+      record: result.record || null,
+    });
+  } catch (error) {
+    console.error('[REFERRALS] /api/referrals/claim error:', error);
+    return res.status(500).json({ error: error.message || 'Erro ao registrar indicação' });
   }
 });
 

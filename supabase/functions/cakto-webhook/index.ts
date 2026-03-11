@@ -60,6 +60,137 @@ function normalizeEmail(value: string | null): string | null {
   return normalized.length > 0 ? normalized : null;
 }
 
+function escapeHtml(value: string | null | undefined): string {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function formatCurrency(value: number | null | undefined): string {
+  const amount = Number(value || 0);
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return "Nao informado";
+  }
+
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  }).format(amount);
+}
+
+function buildWelcomeEmailHtml(params: {
+  customerName: string | null;
+  customerEmail: string;
+  customerPhone: string | null;
+  documento: string | null;
+  plan: string | null;
+  amount: number;
+  setPasswordUrl: string;
+  appBaseUrl: string;
+}) {
+  const name = escapeHtml(params.customerName || "Cliente");
+  const email = escapeHtml(params.customerEmail);
+  const phone = escapeHtml(params.customerPhone || "Nao informado");
+  const documento = escapeHtml(params.documento || "Nao informado");
+  const plan = escapeHtml(params.plan || "Plano FlixPrev");
+  const amount = escapeHtml(formatCurrency(params.amount));
+  const setPasswordUrl = escapeHtml(params.setPasswordUrl);
+  const appBaseUrl = escapeHtml(params.appBaseUrl);
+
+  return `
+  <div style="margin:0;padding:0;background:#f6f8fc;font-family:Arial,Helvetica,sans-serif;color:#1f2937;">
+    <div style="max-width:640px;margin:0 auto;padding:32px 16px;">
+      <div style="background:#ffffff;border:1px solid #e5e7eb;border-radius:20px;overflow:hidden;box-shadow:0 10px 30px rgba(15,23,42,0.08);">
+        <div style="background:linear-gradient(135deg,#434dce 0%,#6674ff 100%);padding:28px 24px;color:#ffffff;">
+          <div style="font-size:28px;line-height:1.2;font-weight:700;">🎉 Compra confirmada na FlixPrev</div>
+          <div style="margin-top:8px;font-size:15px;line-height:1.6;opacity:0.95;">✅ Seu pagamento foi aprovado. Agora falta apenas definir sua senha para liberar o acesso ao sistema.</div>
+        </div>
+
+        <div style="padding:28px 24px;">
+          <p style="margin:0 0 16px;font-size:16px;line-height:1.7;">Olá, <strong>${name}</strong>! 👋</p>
+          <p style="margin:0 0 20px;font-size:15px;line-height:1.7;">Seja bem-vindo(a) à <strong>FlixPrev</strong>. Sua conta já foi preparada com base na compra realizada. Para entrar no sistema, clique no botão abaixo e defina sua senha de acesso.</p>
+
+          <div style="margin:24px 0;text-align:center;">
+            <a href="${setPasswordUrl}" style="display:inline-block;background:#434dce;color:#ffffff;text-decoration:none;font-weight:700;font-size:16px;padding:14px 24px;border-radius:12px;">🔐 Definir senha e acessar</a>
+          </div>
+
+          <div style="margin:0 0 20px;padding:18px;background:#f8faff;border:1px solid #dbe3ff;border-radius:14px;">
+            <div style="font-size:15px;font-weight:700;color:#1e293b;margin-bottom:12px;">🧾 Dados da compra</div>
+            <div style="font-size:14px;line-height:1.8;color:#334155;">
+              <div><strong>Nome:</strong> ${name}</div>
+              <div><strong>E-mail:</strong> ${email}</div>
+              <div><strong>Telefone:</strong> ${phone}</div>
+              <div><strong>Documento:</strong> ${documento}</div>
+              <div><strong>Plano:</strong> ${plan}</div>
+              <div><strong>Valor:</strong> ${amount}</div>
+            </div>
+          </div>
+
+          <div style="margin:0 0 20px;padding:18px;background:#fff7ed;border:1px solid #fed7aa;border-radius:14px;font-size:14px;line-height:1.7;color:#9a3412;">
+            ✨ Importante: sua conta foi criada, mas o acesso ao sistema só é liberado após a definição da senha.
+          </div>
+
+          <p style="margin:0 0 10px;font-size:14px;line-height:1.7;color:#475569;">Depois de criar sua senha, acesse:</p>
+          <p style="margin:0 0 20px;font-size:14px;line-height:1.7;"><a href="${appBaseUrl}" style="color:#434dce;text-decoration:none;word-break:break-all;">${appBaseUrl}</a></p>
+
+          <p style="margin:0;font-size:13px;line-height:1.7;color:#64748b;">Se o botão não abrir, copie e cole este link no navegador:</p>
+          <p style="margin:8px 0 0;font-size:13px;line-height:1.7;word-break:break-all;"><a href="${setPasswordUrl}" style="color:#434dce;text-decoration:none;">${setPasswordUrl}</a></p>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+async function sendWelcomeEmail(params: {
+  resendApiKey: string | null;
+  fromEmail: string;
+  customerEmail: string;
+  customerName: string | null;
+  customerPhone: string | null;
+  documento: string | null;
+  plan: string | null;
+  amount: number;
+  setPasswordUrl: string;
+  appBaseUrl: string;
+}) {
+  if (!params.resendApiKey) {
+    throw new Error("Segredo RESEND_API_KEY não configurado");
+  }
+
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${params.resendApiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from: params.fromEmail,
+      to: [params.customerEmail],
+      subject: "🎉 Compra aprovada! Defina sua senha para acessar a FlixPrev",
+      html: buildWelcomeEmailHtml({
+        customerName: params.customerName,
+        customerEmail: params.customerEmail,
+        customerPhone: params.customerPhone,
+        documento: params.documento,
+        plan: params.plan,
+        amount: params.amount,
+        setPasswordUrl: params.setPasswordUrl,
+        appBaseUrl: params.appBaseUrl,
+      }),
+    }),
+  });
+
+  if (!response.ok) {
+    const payload = await response.text();
+    throw new Error(`Erro ao enviar email pelo Resend: ${payload || response.status}`);
+  }
+
+  return response.json().catch(() => null);
+}
+
 function splitName(fullName: string | null): { firstName: string | null; lastName: string | null } {
   if (!fullName) return { firstName: null, lastName: null };
   const parts = fullName.trim().split(/\s+/).filter(Boolean);
@@ -144,11 +275,16 @@ function shouldProvisionUser(eventType: string, status: string): boolean {
     return false;
   }
 
-  if (normalizedEvent === "purchase_approved" || normalizedEvent === "subscription_renewed") {
+  // Regra de negócio: criar conta apenas na primeira compra aprovada.
+  if (normalizedEvent === "subscription_renewed") {
+    return false;
+  }
+
+  if (normalizedEvent === "purchase_approved") {
     return true;
   }
 
-  return ["paid", "approved", "active", "authorized", "completed", "success", "premium"].includes(normalizedStatus);
+  return !normalizedEvent.startsWith("subscription_") && ["paid", "approved", "authorized", "completed", "success"].includes(normalizedStatus);
 }
 
 function normalizeReferralCode(value: string | null): string | null {
@@ -237,6 +373,11 @@ async function ensureProvisionedUser(
   documento: string | null,
   phone: string | null,
   activationRedirectTo: string,
+  resendApiKey: string | null,
+  resendFromEmail: string,
+  plan: string | null,
+  amount: number,
+  appBaseUrl: string,
 ): Promise<{ userId: string | null; activationEmailSent: boolean }> {
   const normalizedEmail = normalizeEmail(email);
   if (!normalizedEmail) {
@@ -256,19 +397,42 @@ async function ensureProvisionedUser(
       source: "cakto-webhook",
     };
 
-    const { data: invited, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(normalizedEmail, {
-      redirectTo: activationRedirectTo,
-      data: invitePayload,
+    const { data: inviteLinkData, error: inviteLinkError } = await supabaseAdmin.auth.admin.generateLink({
+      type: "invite",
+      email: normalizedEmail,
+      options: {
+        redirectTo: activationRedirectTo,
+        data: invitePayload,
+      },
     });
 
-    if (!inviteError && invited?.user?.id) {
-      userId = invited.user.id;
-      activationEmailSent = true;
+    if (inviteLinkError) {
+      throw new Error(`Erro ao gerar link de ativação: ${inviteLinkError.message}`);
     }
 
-    if (!userId) {
-      userId = await findAuthUserByEmail(supabaseAdmin, normalizedEmail);
+    userId = inviteLinkData?.user?.id ?? await findAuthUserByEmail(supabaseAdmin, normalizedEmail);
+
+    const actionLink = asString((inviteLinkData as unknown as AnyRecord | null)?.properties?.action_link) ??
+      asString((inviteLinkData as unknown as AnyRecord | null)?.action_link);
+
+    if (!actionLink) {
+      throw new Error("Link de ativação não retornado pelo Supabase");
     }
+
+    await sendWelcomeEmail({
+      resendApiKey,
+      fromEmail: resendFromEmail,
+      customerEmail: normalizedEmail,
+      customerName: fullName,
+      customerPhone: phone,
+      documento,
+      plan,
+      amount,
+      setPasswordUrl: actionLink,
+      appBaseUrl,
+    });
+
+    activationEmailSent = true;
   }
 
   if (!userId) {
@@ -399,12 +563,16 @@ serve(async (req: Request) => {
 
   const userId =
     asString(safeGet(payload, ["metadata", "user_id"])) ??
-    asString(safeGet(payload, ["customer", "metadata", "user_id"]));
+    asString(safeGet(payload, ["customer", "metadata", "user_id"])) ??
+    asString(safeGet(payload, ["buyer", "metadata", "user_id"])) ??
+    asString(safeGet(payload, ["data", "metadata", "user_id"]));
 
   const email =
     asString(safeGet(payload, ["customer", "email"])) ??
     asString(safeGet(payload, ["buyer", "email"])) ??
-    asString(safeGet(payload, ["data", "customer", "email"]));
+    asString(safeGet(payload, ["data", "customer", "email"])) ??
+    asString(safeGet(payload, ["data", "buyer", "email"])) ??
+    asString(safeGet(payload, ["contact", "email"]));
 
   const documento =
     asString(safeGet(payload, ["customer", "document"])) ??
@@ -412,42 +580,69 @@ serve(async (req: Request) => {
     asString(safeGet(payload, ["customer", "docNumber"])) ??
     asString(safeGet(payload, ["buyer", "document"])) ??
     asString(safeGet(payload, ["buyer", "cpf"])) ??
+    asString(safeGet(payload, ["buyer", "docNumber"])) ??
     asString(safeGet(payload, ["subscription", "customer", "document"])) ??
     asString(safeGet(payload, ["subscription", "customer", "cpf"])) ??
     asString(safeGet(payload, ["subscription", "customer", "docNumber"])) ??
-    asString(safeGet(payload, ["data", "customer", "docNumber"]));
+    asString(safeGet(payload, ["data", "customer", "docNumber"])) ??
+    asString(safeGet(payload, ["data", "customer", "document"])) ??
+    asString(safeGet(payload, ["data", "customer", "cpf"])) ??
+    asString(safeGet(payload, ["data", "buyer", "document"])) ??
+    asString(safeGet(payload, ["data", "buyer", "cpf"]));
 
   const customerName =
     asString(safeGet(payload, ["customer", "name"])) ??
+    asString(safeGet(payload, ["customer", "full_name"])) ??
     asString(safeGet(payload, ["buyer", "name"])) ??
+    asString(safeGet(payload, ["buyer", "full_name"])) ??
     asString(safeGet(payload, ["subscription", "customer", "name"])) ??
-    asString(safeGet(payload, ["data", "customer", "name"]));
+    asString(safeGet(payload, ["subscription", "customer", "full_name"])) ??
+    asString(safeGet(payload, ["data", "customer", "name"])) ??
+    asString(safeGet(payload, ["data", "customer", "full_name"])) ??
+    asString(safeGet(payload, ["data", "buyer", "name"])) ??
+    asString(safeGet(payload, ["data", "buyer", "full_name"]));
 
   const customerPhone =
     asString(safeGet(payload, ["customer", "phone"])) ??
     asString(safeGet(payload, ["customer", "phone_number"])) ??
+    asString(safeGet(payload, ["customer", "mobile_phone"])) ??
     asString(safeGet(payload, ["buyer", "phone"])) ??
     asString(safeGet(payload, ["buyer", "phone_number"])) ??
+    asString(safeGet(payload, ["buyer", "mobile_phone"])) ??
     asString(safeGet(payload, ["subscription", "customer", "phone"])) ??
     asString(safeGet(payload, ["subscription", "customer", "phone_number"])) ??
+    asString(safeGet(payload, ["subscription", "customer", "mobile_phone"])) ??
     asString(safeGet(payload, ["data", "customer", "phone"])) ??
-    asString(safeGet(payload, ["data", "customer", "phone_number"]));
+    asString(safeGet(payload, ["data", "customer", "phone_number"])) ??
+    asString(safeGet(payload, ["data", "customer", "mobile_phone"])) ??
+    asString(safeGet(payload, ["data", "buyer", "phone"])) ??
+    asString(safeGet(payload, ["data", "buyer", "phone_number"])) ??
+    asString(safeGet(payload, ["contact", "phone"]));
 
   const plan =
     asString(safeGet(payload, ["plan", "slug"])) ??
     asString(safeGet(payload, ["plan", "name"])) ??
     asString(safeGet(payload, ["subscription", "plan", "slug"])) ??
-    asString(safeGet(payload, ["subscription", "plan", "name"]));
+    asString(safeGet(payload, ["subscription", "plan", "name"])) ??
+    asString(safeGet(payload, ["data", "subscription", "plan", "slug"])) ??
+    asString(safeGet(payload, ["data", "subscription", "plan", "name"])) ??
+    asString(safeGet(payload, ["offer", "slug"])) ??
+    asString(safeGet(payload, ["offer", "name"]));
 
   const externalCustomerId =
     asString(safeGet(payload, ["customer", "id"])) ??
     asString(safeGet(payload, ["buyer", "id"])) ??
-    asString(safeGet(payload, ["data", "customer", "id"]));
+    asString(safeGet(payload, ["data", "customer", "id"])) ??
+    asString(safeGet(payload, ["data", "buyer", "id"])) ??
+    asString(safeGet(payload, ["customer", "customer_id"])) ??
+    asString(safeGet(payload, ["buyer", "customer_id"]));
 
   const externalSubscriptionId =
     asString(safeGet(payload, ["subscription", "id"])) ??
     asString(safeGet(payload, ["data", "subscription", "id"])) ??
-    asString(safeGet(payload, ["order", "id"]));
+    asString(safeGet(payload, ["order", "id"])) ??
+    asString(safeGet(payload, ["data", "order", "id"])) ??
+    asString(safeGet(payload, ["subscription", "subscription_id"]));
 
   const expiresAt =
     normalizeIsoDate(safeGet(payload, ["subscription", "expires_at"])) ??
@@ -460,7 +655,11 @@ serve(async (req: Request) => {
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
   );
 
-  const activationRedirectTo = Deno.env.get("APP_RESET_PASSWORD_URL") ?? "https://flixprev.com.br/reset-password";
+  const activationRedirectTo = Deno.env.get("APP_RESET_PASSWORD_URL") ?? "https://flixprev.uxcodedev.com.br/reset-password";
+  const appBaseUrl = Deno.env.get("APP_BASE_URL") ?? "https://flixprev.uxcodedev.com.br";
+  const resendApiKey = Deno.env.get("RESEND_API_KEY") ?? null;
+  const resendFromEmail = Deno.env.get("RESEND_FROM_EMAIL") ?? "FlixPrev <onboarding@flixprev.uxcodedev.com.br>";
+  const purchaseAmount = extractPurchaseAmount(payload);
 
   let { data, error } = await supabaseAdmin.rpc("upsert_subscription_from_cakto", {
     p_user_id: userId,
@@ -489,6 +688,11 @@ serve(async (req: Request) => {
         documento,
         customerPhone,
         activationRedirectTo,
+        resendApiKey,
+        resendFromEmail,
+        plan,
+        purchaseAmount,
+        appBaseUrl,
       );
 
       if (provisioned.userId) {

@@ -41,10 +41,28 @@ import { Agent, Category } from "@/types/app";
 interface CreateNewAIAgentDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (agent: Omit<Agent, "id" | "userId" | "created_at">) => void;
-  onEditSave?: (agentId: string, agent: Omit<Agent, "id" | "userId" | "created_at">) => void;
+  onSave: (agent: Omit<Agent, "id" | "userId" | "created_at">) => Promise<boolean> | boolean;
+  onEditSave?: (agentId: string, agent: Omit<Agent, "id" | "userId" | "created_at">) => Promise<boolean> | boolean;
+  onCreateCategory?: (categoryName: string) => Promise<Category | null> | Category | null;
   categories: Category[];
   agentToEdit?: Agent | null;
+}
+
+function buildLinkLabel(rawUrl: string) {
+  try {
+    const parsed = new URL(rawUrl);
+    const pathLabel = parsed.pathname
+      .split("/")
+      .filter(Boolean)
+      .pop()
+      ?.replace(/[-_]+/g, " ")
+      .replace(/\.[a-z0-9]+$/i, "")
+      .trim();
+
+    return pathLabel || parsed.hostname.replace(/^www\./i, "");
+  } catch {
+    return "Fonte externa";
+  }
 }
 
 const iconOptions = [
@@ -71,6 +89,7 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
   onClose,
   onSave,
   onEditSave,
+  onCreateCategory,
   categories,
   agentToEdit,
 }) => {
@@ -87,6 +106,9 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
   const [extraLinks, setExtraLinks] = useState<{label: string; url: string}[]>([]);
   const [newLinkLabel, setNewLinkLabel] = useState("");
   const [newLinkUrl, setNewLinkUrl] = useState("");
+  const [bulkLinksInput, setBulkLinksInput] = useState("");
+  const [isCreatingCategoryInline, setIsCreatingCategoryInline] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
   const [files, setFiles] = useState<File[]>([]);
   const [savedAttachments, setSavedAttachments] = useState<string[]>([]);
   const [shortcuts, setShortcuts] = useState<string[]>(["Resumir docs", "Extrair cláusulas", "Analisar risco", "Dúvidas"]);
@@ -106,6 +128,9 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
       setBackgroundIcon(agentToEdit.background_icon || agentToEdit.icon || "Bot");
       setLink(agentToEdit.link || "");
       setExtraLinks((agentToEdit as any).extra_links || []);
+      setBulkLinksInput("");
+      setIsCreatingCategoryInline(false);
+      setNewCategoryName("");
       // Ensure selectedCategory is set correctly from category_ids
       const catId = agentToEdit.category_ids && agentToEdit.category_ids.length > 0 ? String(agentToEdit.category_ids[0]) : "";
       console.log("Editando agente - IDs de categoria:", agentToEdit.category_ids, "Selecionado:", catId);
@@ -141,6 +166,9 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
       setExtraLinks([]);
       setNewLinkLabel("");
       setNewLinkUrl("");
+      setBulkLinksInput("");
+      setIsCreatingCategoryInline(false);
+      setNewCategoryName("");
       setFiles([]);
       setSavedAttachments([]);
       setShortcuts(["Resumir docs", "Extrair cláusulas", "Analisar risco", "Dúvidas"]);
@@ -172,6 +200,66 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
 
   const removeShortcut = (index: number) => {
     setShortcuts((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const addExtraLink = (urlValue: string, labelValue?: string) => {
+    const trimmedUrl = urlValue.trim();
+    if (!trimmedUrl) {
+      return;
+    }
+
+    try {
+      const normalizedUrl = new URL(trimmedUrl).toString();
+      const normalizedLabel = (labelValue || "").trim() || buildLinkLabel(normalizedUrl);
+
+      setExtraLinks((prev) => {
+        if (prev.some((item) => item.url === normalizedUrl)) {
+          return prev;
+        }
+
+        return [...prev, { label: normalizedLabel, url: normalizedUrl }];
+      });
+    } catch {
+      toast.error(`URL inválida: ${trimmedUrl}`);
+    }
+  };
+
+  const handleAddSingleLink = () => {
+    addExtraLink(newLinkUrl, newLinkLabel);
+    setNewLinkLabel("");
+    setNewLinkUrl("");
+  };
+
+  const handleAddBulkLinks = () => {
+    const urls = bulkLinksInput
+      .split(/\r?\n/)
+      .map((item) => item.trim())
+      .filter(Boolean);
+
+    if (urls.length === 0) {
+      return;
+    }
+
+    urls.forEach((url) => addExtraLink(url));
+    setBulkLinksInput("");
+  };
+
+  const handleCreateCategoryInline = async () => {
+    if (!newCategoryName.trim()) {
+      return;
+    }
+
+    if (!onCreateCategory) {
+      toast.error("A criação de categoria não está disponível neste contexto.");
+      return;
+    }
+
+    const createdCategory = await onCreateCategory(newCategoryName.trim());
+    if (createdCategory) {
+      setSelectedCategory(String(createdCategory.id));
+      setNewCategoryName("");
+      setIsCreatingCategoryInline(false);
+    }
   };
 
   const handleSave = async () => {
@@ -226,12 +314,18 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
       console.log("Dados completos do agente a salvar:", agentData);
       console.log("category_ids no agentData:", agentData.category_ids);
 
+      let savedSuccessfully = false;
+
       if (isEditing && agentToEdit && onEditSave) {
         console.log("Editando agente:", agentToEdit.id, "com category_ids:", agentData.category_ids);
-        onEditSave(agentToEdit.id, agentData);
+        savedSuccessfully = await onEditSave(agentToEdit.id, agentData);
       } else {
         console.log("Criando agente com categoria:", selectedCategory);
-        onSave(agentData);
+        savedSuccessfully = await onSave(agentData);
+      }
+
+      if (!savedSuccessfully) {
+        return;
       }
 
       setTitle("");
@@ -245,6 +339,9 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
       setExtraLinks([]);
       setNewLinkLabel("");
       setNewLinkUrl("");
+      setBulkLinksInput("");
+      setIsCreatingCategoryInline(false);
+      setNewCategoryName("");
       setFiles([]);
       setSavedAttachments([]);
       setShortcuts(["Resumir docs", "Extrair cláusulas", "Analisar risco", "Dúvidas"]);
@@ -271,6 +368,11 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
           <DialogTitle className="text-xl font-semibold text-slate-800 flex items-center gap-2">
             {isEditing ? "Editar Especialista" : "Criar Novo Especialista"}
           </DialogTitle>
+          <DialogDescription className="sr-only">
+            {isEditing
+              ? "Atualize categoria, dados, arquivos e links de conhecimento do especialista."
+              : "Crie um novo especialista, escolha a categoria e adicione arquivos ou links para a base de conhecimento."}
+          </DialogDescription>
         </DialogHeader>
         
         <div className="flex flex-col md:flex-row h-[70vh]">
@@ -282,54 +384,75 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
                 <Layers className="h-4 w-4 text-indigo-500" />
                 Categoria <span className="text-red-500">*</span>
               </Label>
-              <p className="text-xs text-slate-500 mb-2">Selecione a categoria jurídica deste agente.</p>
-              <Select 
-                value={selectedCategory || "none"} 
-                onValueChange={(val) => setSelectedCategory(val === "none" ? "" : val)}
-              >
-                <SelectTrigger className="w-full border-indigo-200 bg-white focus:ring-indigo-500/20 focus:border-indigo-500">
-                  <SelectValue placeholder="Selecione a categoria">
-                    {categories.find(c => String(c.id) === String(selectedCategory))?.name || "Selecione a categoria"}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Sem categoria</SelectItem>
-                  {categories.map((cat) => (
-                    <SelectItem key={cat.id} value={String(cat.id)}>
-                      {cat.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <p className="text-xs text-slate-500 mb-2">Selecione a categoria jurídica e, se precisar, já crie uma nova sem sair deste modal.</p>
+              <div className="flex gap-2">
+                <Select 
+                  value={selectedCategory || "none"} 
+                  onValueChange={(val) => setSelectedCategory(val === "none" ? "" : val)}
+                >
+                  <SelectTrigger className="w-full border-indigo-200 bg-white focus:ring-indigo-500/20 focus:border-indigo-500">
+                    <SelectValue placeholder="Selecione a categoria">
+                      {categories.find(c => String(c.id) === String(selectedCategory))?.name || "Selecione a categoria"}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Sem categoria</SelectItem>
+                    {categories.map((cat) => (
+                      <SelectItem key={cat.id} value={String(cat.id)}>
+                        {cat.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button type="button" variant="outline" className="shrink-0 border-indigo-200 text-indigo-700" onClick={() => setIsCreatingCategoryInline((prev) => !prev)}>
+                  <Plus className="h-4 w-4 mr-1" />
+                  Nova
+                </Button>
+              </div>
+              {isCreatingCategoryInline && (
+                <div className="flex gap-2 pt-2">
+                  <Input
+                    value={newCategoryName}
+                    onChange={(e) => setNewCategoryName(e.target.value)}
+                    placeholder="Ex: Direito de Família"
+                    className="border-indigo-200 bg-white focus:ring-indigo-500/20 focus:border-indigo-500"
+                  />
+                  <Button type="button" onClick={() => void handleCreateCategoryInline()} disabled={!newCategoryName.trim()}>
+                    Criar
+                  </Button>
+                </div>
+              )}
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="title" className="text-sm font-medium text-slate-700">Nome do Agente <span className="text-red-500">*</span></Label>
               <Input
                 id="title"
-                placeholder="Ex: Especialista Atlas Schindler"
+                placeholder="Ex: Processo Adm. Previdenciário"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 className="w-full transition-all border-slate-200 focus:border-indigo-500 focus:ring-indigo-500/20"
               />
+              <p className="text-xs text-slate-400">Esse será o título principal do card.</p>
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="role" className="text-sm font-medium text-slate-700">Função (Role)</Label>
               <Input
                 id="role"
-                placeholder="Ex: Tira-dúvidas de Manuais"
+                placeholder="Ex: ProcAdm."
                 value={role}
                 onChange={(e) => setRole(e.target.value)}
                 className="w-full transition-all border-slate-200 focus:border-indigo-500 focus:ring-indigo-500/20"
               />
+              <p className="text-xs text-slate-400">Use aqui a sigla curta que deve aparecer no selo roxo.</p>
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="description" className="text-sm font-medium text-slate-700">Descrição Curta <span className="text-red-500">*</span></Label>
               <Input
                 id="description"
-                placeholder="Ex: Focado nos manuais da linha 3300 e 5500."
+                placeholder="Ex: Especialista em rotinas e materiais de apoio previdenciários."
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 className="w-full transition-all border-slate-200 focus:border-indigo-500 focus:ring-indigo-500/20"
@@ -381,11 +504,12 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
             </div>
 
             {/* Link principal */}
-            <div className="space-y-2">
+            <div className="space-y-2 pt-4 border-t border-slate-100">
               <Label htmlFor="link" className="text-sm font-medium text-slate-700 flex items-center gap-2">
                 <Link2 className="h-4 w-4 text-indigo-500" />
-                Link Externo (opcional)
+                Link de Abertura Externa
               </Label>
+              <p className="text-xs text-slate-500">Opcional. Se preenchido, o card abre este endereço em vez do chat do agente.</p>
               <Input
                 id="link"
                 type="url"
@@ -394,15 +518,15 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
                 onChange={(e) => setLink(e.target.value)}
                 className="w-full transition-all border-slate-200 focus:border-indigo-500 focus:ring-indigo-500/20"
               />
-              <p className="text-xs text-slate-400">Se preenchido, o card do agente abrirá este link ao invés do chat.</p>
             </div>
 
             {/* Links extras */}
-            <div className="space-y-2">
+            <div className="space-y-3 rounded-xl border border-indigo-100 bg-indigo-50/40 p-4">
               <Label className="text-sm font-medium text-slate-700 flex items-center gap-2">
                 <Globe className="h-4 w-4 text-indigo-500" />
-                Links Adicionais
+                Links para a IA Processar
               </Label>
+              <p className="text-xs text-slate-500">Cole aqui as páginas, PDFs ou fontes web que devem entrar na base de conhecimento do agente.</p>
               {extraLinks.length > 0 && (
                 <div className="flex flex-col gap-1.5 mb-2">
                   {extraLinks.map((el, idx) => (
@@ -415,9 +539,23 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
                   ))}
                 </div>
               )}
+              <div className="space-y-2">
+                <Label className="text-xs font-medium text-slate-600">Colar vários links de uma vez</Label>
+                <Textarea
+                  placeholder="Cole um link por linha"
+                  value={bulkLinksInput}
+                  onChange={(e) => setBulkLinksInput(e.target.value)}
+                  className="min-h-[96px] resize-y border-slate-200 bg-white focus:border-indigo-500 focus:ring-indigo-500/20"
+                />
+                <div className="flex justify-end">
+                  <Button type="button" variant="outline" onClick={handleAddBulkLinks} disabled={!bulkLinksInput.trim()}>
+                    Adicionar lista
+                  </Button>
+                </div>
+              </div>
               <div className="flex gap-2">
                 <Input
-                  placeholder="Nome do link"
+                  placeholder="Nome do link (opcional)"
                   value={newLinkLabel}
                   onChange={(e) => setNewLinkLabel(e.target.value)}
                   className="text-sm flex-1 border-slate-200 focus:ring-indigo-500/20 focus:border-indigo-500"
@@ -432,17 +570,14 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
                   type="button"
                   variant="outline"
                   size="icon"
-                  disabled={!newLinkLabel.trim() || !newLinkUrl.trim()}
-                  onClick={() => {
-                    setExtraLinks(p => [...p, { label: newLinkLabel.trim(), url: newLinkUrl.trim() }]);
-                    setNewLinkLabel("");
-                    setNewLinkUrl("");
-                  }}
+                  disabled={!newLinkUrl.trim()}
+                  onClick={handleAddSingleLink}
                   className="h-9 w-9 flex-shrink-0"
                 >
                   <Plus className="h-4 w-4" />
                 </Button>
               </div>
+              <p className="text-xs text-slate-400">Os links adicionados aqui serão sincronizados com a base do agente no salvamento.</p>
             </div>
 
             <div className="space-y-2 pt-4 border-t border-slate-100">

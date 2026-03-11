@@ -16,6 +16,8 @@ const EsqueciSenha: React.FC = () => {
     e.preventDefault();
     setLoading(true);
 
+    const resetPasswordUrl = `${window.location.origin || 'https://flixprev.uxcodedev.com.br'}/reset-password`;
+
     if (!email.trim()) {
       toast.error("Por favor, insira seu e-mail.");
       setLoading(false);
@@ -24,7 +26,7 @@ const EsqueciSenha: React.FC = () => {
 
     try {
       const { error } = await supabaseAuth.auth.resetPasswordForEmail(email, {
-        redirectTo: `https://flixprev.com.br/reset-password`,
+        redirectTo: resetPasswordUrl,
       });
 
       if (error) {

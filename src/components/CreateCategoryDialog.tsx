@@ -14,7 +14,7 @@ import { Label } from "@/components/ui/label";
 interface CreateCategoryDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (categoryName: string) => void;
+  onSave: (categoryName: string) => Promise<unknown> | unknown;
 }
 
 const CreateCategoryDialog: React.FC<CreateCategoryDialogProps> = ({
@@ -24,11 +24,13 @@ const CreateCategoryDialog: React.FC<CreateCategoryDialogProps> = ({
 }) => {
   const [categoryName, setCategoryName] = useState("");
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (categoryName.trim()) {
-      onSave(categoryName.trim());
-      setCategoryName("");
-      onClose();
+      const result = await onSave(categoryName.trim());
+      if (result) {
+        setCategoryName("");
+        onClose();
+      }
     }
   };
 
@@ -63,7 +65,7 @@ const CreateCategoryDialog: React.FC<CreateCategoryDialogProps> = ({
             Cancelar
           </Button>
           <Button 
-            onClick={handleSave}
+            onClick={() => void handleSave()}
             disabled={!categoryName.trim()}
             className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm transition-all"
           >

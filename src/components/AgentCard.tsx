@@ -7,7 +7,7 @@ import { Agent } from "@/types/app";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { MoreVertical, Trash2, Edit } from "lucide-react";
 import { useSession } from "@/components/SessionContextProvider";
-import { normalizeAgentDescription, normalizeAgentTitle } from "@/lib/agentText";
+import { getAgentPresentation } from "@/lib/agentText";
 
 interface AgentCardProps {
   agent: Agent;
@@ -20,9 +20,7 @@ const AgentCard: React.FC<AgentCardProps> = ({ agent, onStartAgent, onDeleteAgen
   const { isAdmin } = useSession();
   const IconComponent: LucideIcon = (LucideIcons[agent.icon as keyof typeof LucideIcons] as LucideIcon) || LucideIcons.Bot;
   const BackgroundIconComponent: LucideIcon = (LucideIcons[(agent.background_icon || agent.icon) as keyof typeof LucideIcons] as LucideIcon) || LucideIcons.Bot;
-  const displayTitle = normalizeAgentTitle(agent.title, agent.description);
-  const description = normalizeAgentDescription(agent.description);
-  const isExternalLink = Boolean(agent.link);
+  const presentation = getAgentPresentation(agent.title, agent.description, agent.role);
 
   const handleButtonClick = () => {
     if (agent.link) {
@@ -47,9 +45,6 @@ const AgentCard: React.FC<AgentCardProps> = ({ agent, onStartAgent, onDeleteAgen
             <IconComponent className="h-4 w-4" />
           </div>
           <div className="flex items-center gap-2">
-            <span className="rounded-full bg-purple-50 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-purple-600">
-              {isExternalLink ? "LINK" : "ESPECIALISTA"}
-            </span>
             {isAdmin && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -71,16 +66,11 @@ const AgentCard: React.FC<AgentCardProps> = ({ agent, onStartAgent, onDeleteAgen
             )}
           </div>
         </div>
-        <CardTitle className="line-clamp-1 text-base font-bold text-slate-900 transition-colors duration-300 group-hover:text-purple-700">
-          {displayTitle}
+        <CardTitle className="line-clamp-2 text-base font-bold text-slate-900 transition-colors duration-300 group-hover:text-purple-700">
+          {presentation.title}
         </CardTitle>
-        {agent.role && (
-          <div className="mt-0.5 text-[9px] font-bold uppercase tracking-wider text-slate-400 line-clamp-2">
-            {agent.role}
-          </div>
-        )}
         <CardDescription className="mt-1 min-h-[24px] text-xs leading-relaxed text-slate-500 line-clamp-2">
-          {description}
+          {presentation.description}
         </CardDescription>
       </CardHeader>
       <CardFooter className="relative z-10 flex justify-end px-4 pb-3 pt-1.5">

@@ -10,10 +10,12 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 
 interface Tutorial {
   id: string;
   title: string;
+  description: string | null;
   url: string;
   display_order: number;
 }
@@ -21,7 +23,7 @@ interface Tutorial {
 interface EditTutorialDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (tutorialId: string, title: string, url: string, order: number) => void;
+  onSave: (tutorialId: string, title: string, description: string, url: string, order: number) => void;
   tutorialToEdit: Tutorial | null;
 }
 
@@ -32,16 +34,19 @@ const EditTutorialDialog: React.FC<EditTutorialDialogProps> = ({
   tutorialToEdit,
 }) => {
   const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
   const [url, setUrl] = useState("");
   const [order, setOrder] = useState(0);
 
   useEffect(() => {
     if (tutorialToEdit) {
       setTitle(tutorialToEdit.title);
+      setDescription(tutorialToEdit.description || "");
       setUrl(tutorialToEdit.url);
       setOrder(tutorialToEdit.display_order);
     } else {
       setTitle("");
+      setDescription("");
       setUrl("");
       setOrder(0);
     }
@@ -49,7 +54,7 @@ const EditTutorialDialog: React.FC<EditTutorialDialogProps> = ({
 
   const handleSave = () => {
     if (tutorialToEdit && title.trim() && url.trim()) {
-      onSave(tutorialToEdit.id, title.trim(), url.trim(), order);
+      onSave(tutorialToEdit.id, title.trim(), description.trim(), url.trim(), order);
       onClose();
     }
   };
@@ -73,6 +78,18 @@ const EditTutorialDialog: React.FC<EditTutorialDialogProps> = ({
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               className="w-full bg-white/50 border-gray-200 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="url" className="text-sm font-medium text-gray-700">
+              Descrição
+            </Label>
+            <Textarea
+              id="description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Resumo curto do que o usuário vai aprender neste vídeo"
+              className="min-h-28 w-full bg-white/50 border-gray-200 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
             />
           </div>
           <div className="space-y-2">

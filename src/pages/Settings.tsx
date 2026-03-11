@@ -8,18 +8,9 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Lock } from "lucide-react";
 
-const splitFullName = (value: string): { firstName: string | null; lastName: string | null } => {
-  const parts = value.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return { firstName: null, lastName: null };
-  if (parts.length === 1) return { firstName: parts[0], lastName: null };
-  return {
-    firstName: parts[0],
-    lastName: parts.slice(1).join(" "),
-  };
-};
-
 const Settings: React.FC = () => {
-  const { session, profile } = useSession();
+  const { session, profile, refreshProfile } = useSession();
+  const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || "").trim().replace(/\/$/, "");
 
   const [fullName, setFullName] = useState("");
   const [billingEmail, setBillingEmail] = useState("");
@@ -52,27 +43,35 @@ const Settings: React.FC = () => {
     const fetchBillingInfo = async () => {
       if (!session?.user?.id) return;
 
-      const { data, error } = await supabaseAuth
-        .from("usuarios")
-        .select("nome_completo, email, documento, telefone")
-        .eq("user_id", session.user.id)
-        .maybeSingle();
+      try {
+        const response = await fetch(`${apiBaseUrl}/api/account/profile`, {
+          headers: {
+            "Content-Type": "application/json",
+            "x-user-id": session.user.id,
+          },
+        });
 
-      if (error) {
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || `Erro ${response.status}`);
+        }
+
+        const payload = await response.json();
+        const data = payload?.profile;
+
+        if (data) {
+          setFullName(data.nome_completo || "");
+          setBillingEmail(data.email || session.user.email || "");
+          setDocumento(data.documento || "");
+          setTelefone(data.telefone || "");
+        }
+      } catch (error) {
         console.error("Erro ao carregar dados de faturamento:", error);
-        return;
-      }
-
-      if (data) {
-        setFullName(data.nome_completo || "");
-        setBillingEmail(data.email || session.user.email || "");
-        setDocumento(data.documento || "");
-        setTelefone(data.telefone || "");
       }
     };
 
     fetchBillingInfo();
-  }, [session?.user?.id]);
+  }, [apiBaseUrl, session?.user?.id, session?.user?.email]);
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -102,25 +101,42 @@ const Settings: React.FC = () => {
 
     const trimmedFullName = fullName.trim();
 
-    const { error: usuariosError } = await supabaseAuth
-      .from('usuarios')
-      .upsert(
-        {
-          user_id: session.user.id,
-          nome_completo: trimmedFullName || null,
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/account/profile`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "x-user-id": session.user.id,
+        },
+        body: JSON.stringify({
+          full_name: trimmedFullName || null,
           email: billingEmail.trim().toLowerCase(),
           documento: documento.trim() || null,
           telefone: telefone.trim() || null,
-        },
-        { onConflict: 'user_id' }
-      );
+        }),
+      });
 
-    if (usuariosError) {
-      toast.error("Erro ao salvar perfil: " + (usuariosError?.message || "falha desconhecida"));
-      console.error("Erro ao salvar perfil:", usuariosError);
-    } else {
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Erro ${response.status}`);
+      }
+
+      const payload = await response.json();
+      const savedProfile = payload?.profile;
+
+      if (savedProfile) {
+        setFullName(savedProfile.nome_completo || "");
+        setBillingEmail(savedProfile.email || billingEmail.trim().toLowerCase());
+        setDocumento(savedProfile.documento || "");
+        setTelefone(savedProfile.telefone || "");
+      }
+
+      await refreshProfile();
       toast.success("Configurações atualizadas com sucesso!");
       setAvatarFile(null);
+    } catch (error: any) {
+      toast.error("Erro ao salvar perfil: " + (error?.message || "falha desconhecida"));
+      console.error("Erro ao salvar perfil:", error);
     }
     setIsSavingProfile(false);
   };
