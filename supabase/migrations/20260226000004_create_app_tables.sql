@@ -1,4 +1,4 @@
-﻿CREATE TABLE IF NOT EXISTS public.categories (
+CREATE TABLE IF NOT EXISTS public.categories (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   name text NOT NULL,
   user_id uuid,
@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS public.custom_links (
   created_at timestamptz DEFAULT now()
 );
 
--- RLS desabilitado para compatibilidade com autenticação custom via /api/login
+-- RLS desabilitado para compatibilidade com autenticacao custom via /api/login
 ALTER TABLE public.categories DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.agents DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.custom_links DISABLE ROW LEVEL SECURITY;

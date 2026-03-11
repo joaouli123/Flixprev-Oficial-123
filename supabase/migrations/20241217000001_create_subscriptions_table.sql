@@ -28,6 +28,8 @@ END;
 $$ language 'plpgsql';
 
 -- Trigger para atualizar updated_at
+DROP TRIGGER IF EXISTS update_subscriptions_updated_at ON public.subscriptions;
+
 CREATE TRIGGER update_subscriptions_updated_at 
     BEFORE UPDATE ON public.subscriptions 
     FOR EACH ROW 
@@ -46,15 +48,6 @@ BEGIN
     );
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
-
--- Inserir algumas assinaturas de exemplo para teste
--- (Remova esta seção em produção)
-INSERT INTO public.subscriptions (user_id, status, plan_type, expires_at) VALUES
--- Estes UUIDs são exemplos - substitua pelos IDs reais dos usuários de teste
-('00000000-0000-0000-0000-000000000001', 'active', 'premium', NOW() + INTERVAL '30 days'),
-('00000000-0000-0000-0000-000000000002', 'inactive', 'basic', NOW() - INTERVAL '1 day'),
-('00000000-0000-0000-0000-000000000003', 'active', 'enterprise', NOW() + INTERVAL '365 days')
-ON CONFLICT (user_id) DO NOTHING;
 
 -- Comentários para documentação
 COMMENT ON TABLE public.subscriptions IS 'Tabela para gerenciar assinaturas e controlar acesso dos usuários';

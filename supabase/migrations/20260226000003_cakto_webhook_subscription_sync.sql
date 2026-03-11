@@ -38,17 +38,26 @@ CREATE INDEX IF NOT EXISTS idx_subscription_webhook_events_created_at
 ALTER TABLE public.subscription_webhook_events ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Admins podem ler eventos de webhook" ON public.subscription_webhook_events;
-CREATE POLICY "Admins podem ler eventos de webhook"
-  ON public.subscription_webhook_events
-  FOR SELECT
-  USING (
-    EXISTS (
-      SELECT 1
-      FROM public.profiles
-      WHERE profiles.id = auth.uid()
-        AND profiles.role = 'admin'
-    )
-  );
+
+DO $$
+BEGIN
+  IF to_regclass('public.profiles') IS NOT NULL THEN
+    EXECUTE $policy$
+      CREATE POLICY "Admins podem ler eventos de webhook"
+        ON public.subscription_webhook_events
+        FOR SELECT
+        USING (
+          EXISTS (
+            SELECT 1
+            FROM public.profiles
+            WHERE profiles.id = auth.uid()
+              AND profiles.role = 'admin'
+          )
+        )
+    $policy$;
+  END IF;
+END;
+$$;
 
 -- Normalização de status recebidos do gateway
 CREATE OR REPLACE FUNCTION public.normalize_subscription_status(raw_status text)
