@@ -100,8 +100,14 @@ const ChatPage = () => {
   // Initialize conversation on component mount
   useEffect(() => {
     const initConversation = async () => {
-      if (!userId || !resolvedAgentId) return;
+      if (!userId || !resolvedAgentId) {
+        setMessages([]);
+        setIsLoading(false);
+        return;
+      }
+
       setIsLoading(true);
+      setMessages([]);
       try {
         // Se já tem ID na URL, carregar mensagens dessa conversa
         if (conversationId) {
@@ -116,6 +122,10 @@ const ChatPage = () => {
               content: m.content,
             }));
             setMessages(formattedMsgs);
+          } else if (res.status === 403 || res.status === 404) {
+            setMessages([]);
+            setConversationId(null);
+            navigate(`/app/agente/${resolvedAgentRouteKey}`, { replace: true });
           }
         } else {
           // Tentar encontrar a última conversa deste agente antes de criar uma nova
@@ -166,6 +176,14 @@ const ChatPage = () => {
       initConversation();
     }
   }, [agent?.title, resolvedAgentId, resolvedAgentRouteKey, conversationId, userId]);
+
+  useEffect(() => {
+    if (!userId) {
+      setMessages([]);
+      setConversationId(null);
+      setPendingAttachment(null);
+    }
+  }, [userId]);
 
   useEffect(() => {
     if (scrollRef.current) {

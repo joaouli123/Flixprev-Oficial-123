@@ -17,6 +17,7 @@ dotenv.config();
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const isProduction = process.env.NODE_ENV === 'production';
+const allowDevAdminLogin = !isProduction && String(process.env.ALLOW_DEV_ADMIN_LOGIN || '').trim().toLowerCase() === 'true';
 const app = express();
 
 // CORS — permite frontend acessar API de outro domínio
@@ -175,6 +176,23 @@ function createSupabaseFallbackError(error, message) {
   const fallbackError = new Error(message || error?.message || 'Falha ao consultar o Supabase');
   fallbackError.cause = error;
   return fallbackError;
+}
+
+function resolvePublicAppBaseUrl(req) {
+  const origin = String(req?.headers?.origin || '').trim();
+  if (/^https?:\/\//i.test(origin) && !/localhost|127\.0\.0\.1/i.test(origin)) {
+    return origin.replace(/\/$/, '');
+  }
+
+  let appUrl = String(process.env.APP_BASE_URL || '').trim();
+  if (!appUrl) {
+    appUrl = `${req.protocol}://${req.get('host')}`;
+  }
+  if (!/^https?:\/\//i.test(appUrl)) {
+    appUrl = `https://${appUrl}`;
+  }
+
+  return appUrl.replace(/\/$/, '');
 }
 
 async function withDatabaseFallback(label, operation, fallback) {
@@ -1009,6 +1027,8 @@ async function initializeRagTables() {
 
     try { await pool.query(`ALTER TABLE conversations ADD COLUMN agent_id UUID`); } catch (e) {}
     try { await pool.query(`ALTER TABLE conversations ADD COLUMN user_id UUID`); } catch (e) {}
+    await pool.query('CREATE INDEX IF NOT EXISTS conversations_user_agent_created_idx ON conversations (user_id, agent_id, created_at DESC)');
+    await pool.query('CREATE INDEX IF NOT EXISTS conversations_user_created_idx ON conversations (user_id, created_at DESC)');
 
     await pool.query(`
       CREATE TABLE IF NOT EXISTS messages (
@@ -1019,6 +1039,7 @@ async function initializeRagTables() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+    await pool.query('CREATE INDEX IF NOT EXISTS messages_conversation_created_idx ON messages (conversation_id, created_at ASC)');
 
     await pool.query(`
       CREATE TABLE IF NOT EXISTS documents (
@@ -1718,8 +1739,8 @@ app.get("/api/conversations/:id/messages", async (req, res) => {
 
     if (!hasDatabaseUrl) {
       const conv = memoryChatStore.conversations.find((c) => c.id === cid);
-      if (conv && conv.user_id && conv.user_id !== userId) {
-        return res.status(403).json({ error: "Acesso negado" });
+      if (!conv || conv.user_id !== userId) {
+        return res.status(404).json({ error: "Conversa não encontrada" });
       }
 
       const rows = memoryChatStore.messages
@@ -1728,15 +1749,25 @@ app.get("/api/conversations/:id/messages", async (req, res) => {
       return res.json(rows);
     }
 
-    const check = await pool.query('SELECT user_id FROM conversations WHERE id = $1', [cid]);
-    if (check.rows.length === 0) {
+    const conversationResult = await pool.query(
+      'SELECT id FROM conversations WHERE id = $1 AND user_id = $2 LIMIT 1',
+      [cid, userId]
+    );
+    if (conversationResult.rows.length === 0) {
       return res.status(404).json({ error: "Conversa não encontrada" });
     }
-    if (check.rows.length > 0 && check.rows[0].user_id && check.rows[0].user_id !== userId) {
-      return res.status(403).json({ error: "Acesso negado" });
-    }
 
-    const result = await pool.query('SELECT * FROM messages WHERE conversation_id = $1 ORDER BY created_at ASC', [cid]);
+    const result = await pool.query(
+      `
+      SELECT m.*
+      FROM messages m
+      INNER JOIN conversations c ON c.id = m.conversation_id
+      WHERE m.conversation_id = $1
+        AND c.user_id = $2
+      ORDER BY m.created_at ASC
+      `,
+      [cid, userId]
+    );
     res.json(result.rows || []);
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -1753,8 +1784,8 @@ app.delete("/api/conversations/:id", async (req, res) => {
 
     if (!hasDatabaseUrl) {
       const conv = memoryChatStore.conversations.find((c) => c.id === cid);
-      if (conv && conv.user_id && conv.user_id !== userId) {
-        return res.status(403).json({ error: "Acesso negado" });
+      if (!conv || conv.user_id !== userId) {
+        return res.status(404).json({ error: "Conversa não encontrada" });
       }
 
       memoryChatStore.conversations = memoryChatStore.conversations.filter((c) => c.id !== cid);
@@ -1762,15 +1793,13 @@ app.delete("/api/conversations/:id", async (req, res) => {
       return res.json({ success: true });
     }
 
-    const check = await pool.query('SELECT user_id FROM conversations WHERE id = $1', [cid]);
-    if (check.rows.length === 0) {
+    const deleted = await pool.query(
+      'DELETE FROM conversations WHERE id = $1 AND user_id = $2 RETURNING id',
+      [cid, userId]
+    );
+    if (deleted.rows.length === 0) {
       return res.status(404).json({ error: "Conversa não encontrada" });
     }
-    if (check.rows.length > 0 && check.rows[0].user_id && check.rows[0].user_id !== userId) {
-      return res.status(403).json({ error: "Acesso negado" });
-    }
-
-    await pool.query('DELETE FROM conversations WHERE id = $1', [cid]);
     res.json({ success: true });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -1780,11 +1809,15 @@ app.delete("/api/conversations/:id", async (req, res) => {
 // DELETE todas as conversas de um agente
 app.post("/api/delete-agent-conversations", async (req, res) => {
   try {
+    const userId = String(req.header('x-user-id') || '').trim();
     const { agentId } = req.body;
+    if (!userId) return res.status(401).json({ error: 'Usuário não autenticado' });
     if (!agentId) return res.status(400).json({ error: 'agentId é obrigatório' });
+    if (!(await isAdminUser(userId))) {
+      return res.status(403).json({ error: 'Apenas administradores podem limpar conversas de um agente' });
+    }
 
     if (!hasDatabaseUrl) {
-      const before = memoryChatStore.conversations.length;
       const idsToDelete = memoryChatStore.conversations
         .filter((c) => String(c.agent_id) === String(agentId))
         .map((c) => c.id);
@@ -2074,8 +2107,8 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
 
     if (!hasDatabaseUrl) {
       const conv = memoryChatStore.conversations.find((c) => c.id === cid);
-      if (conv && conv.user_id && conv.user_id !== userId) {
-        return res.status(403).json({ error: "Acesso negado" });
+      if (!conv || conv.user_id !== userId) {
+        return res.status(404).json({ error: "Conversa não encontrada" });
       }
 
       const now = new Date().toISOString();
@@ -2143,13 +2176,16 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
       return res.end();
     }
 
-    const check = await pool.query('SELECT user_id FROM conversations WHERE id = $1', [cid]);
-    if (check.rows.length === 0) {
+    const conversationResult = await pool.query(
+      'SELECT id, agent_id FROM conversations WHERE id = $1 AND user_id = $2 LIMIT 1',
+      [cid, userId]
+    );
+    if (conversationResult.rows.length === 0) {
       return res.status(404).json({ error: "Conversa não encontrada" });
     }
-    if (check.rows.length > 0 && check.rows[0].user_id && check.rows[0].user_id !== userId) {
-      return res.status(403).json({ error: "Acesso negado" });
-    }
+
+    const conversationAgentId = conversationResult.rows[0].agent_id || null;
+    const effectiveAgentId = conversationAgentId || agentId || null;
 
     await pool.query(
       'INSERT INTO messages (conversation_id, role, content) VALUES ($1, $2, $3)',
@@ -2191,9 +2227,9 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
     let chunksUsed = 0;
     let relevantContext = "";
 
-    if (agentId) {
+    if (effectiveAgentId) {
       try {
-        const agent = await pool.query('SELECT * FROM "agents" WHERE "id" = $1', [agentId]);
+        const agent = await pool.query('SELECT * FROM "agents" WHERE "id" = $1', [effectiveAgentId]);
         if (agent.rows[0]) {
           const agentData = agent.rows[0];
           const agentInstructions = agentData.instructions || agentData.description || "";
@@ -2201,7 +2237,7 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
 
           const hasDocuments = await pool.query(
             'SELECT COUNT(*) as count FROM document_chunks WHERE agent_id = $1',
-            [agentId]
+            [effectiveAgentId]
           );
           const hasChunks = parseInt(hasDocuments.rows[0].count) > 0;
 
@@ -2210,7 +2246,7 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
               const isLookingForBeginning = userText.match(/primeira frase|título|inicio|começo|autor/i);
 
               if (isLookingForBeginning) {
-                relevantContext = await getFirstChunks(agentId, 5);
+                relevantContext = await getFirstChunks(effectiveAgentId, 5);
               } else {
                 const aiCfg = getAiRuntimeConfig();
                 const openai = createAiClient();
@@ -2223,14 +2259,14 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
                 // 🔥 BUSCA NUCLEAR: TOP-K 25
                 relevantContext = await searchSimilarChunks(
                   queryEmbedding.data[0].embedding,
-                  agentId,
+                  effectiveAgentId,
                   25 
                 );
 
                 // Busca híbrida (keyword)
                 const keywords = userText.match(/[A-ZÁÉÍÓÚ][a-zàéíóúç]+/g) || [];
                 if (keywords.length > 0) {
-                  const keywordContext = await searchKeywordChunks(keywords[0], agentId, 3);
+                  const keywordContext = await searchKeywordChunks(keywords[0], effectiveAgentId, 3);
                   if (keywordContext) {
                     relevantContext = keywordContext + "\n\n---\n\n" + relevantContext;
                   }
@@ -2336,22 +2372,25 @@ app.patch('/api/conversations/:id', async (req, res) => {
       const cid = parseInt(id);
       const conv = memoryChatStore.conversations.find((c) => c.id === cid);
       if (!conv) return res.status(404).json({ error: 'Conversa não encontrada' });
-      if (conv.user_id && conv.user_id !== userId) return res.status(403).json({ error: 'Acesso negado' });
+      if (conv.user_id !== userId) return res.status(404).json({ error: 'Conversa não encontrada' });
       
       conv.title = title.trim();
       conv.updated_at = new Date().toISOString();
       return res.json(conv);
     }
-    
-    // First verify ownership
-    const check = await pool.query('SELECT user_id FROM conversations WHERE id::text = $1', [id]);
-    if (check.rows.length === 0) return res.status(404).json({ error: 'Conversa não encontrada' });
-    if (check.rows[0].user_id && check.rows[0].user_id !== userId) return res.status(403).json({ error: 'Acesso negado' });
 
-    let result = await pool.query('UPDATE conversations SET title = $1, updated_at = CURRENT_TIMESTAMP WHERE id::text = $2 RETURNING *', [title.trim(), id]);
+    let result = await pool.query(
+      'UPDATE conversations SET title = $1, updated_at = CURRENT_TIMESTAMP WHERE id::text = $2 AND user_id = $3 RETURNING *',
+      [title.trim(), id, userId]
+    );
     if (result.rows.length === 0) {
       const numericId = parseInt(id);
-      if (!isNaN(numericId)) result = await pool.query('UPDATE conversations SET title = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING *', [title.trim(), numericId]);
+      if (!isNaN(numericId)) {
+        result = await pool.query(
+          'UPDATE conversations SET title = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 AND user_id = $3 RETURNING *',
+          [title.trim(), numericId, userId]
+        );
+      }
     }
     if (result.rows.length === 0) return res.status(404).json({ error: 'Conversa não encontrada' });
     res.json(result.rows[0]);
@@ -2441,7 +2480,7 @@ app.post('/api/login', async (req, res) => {
     return res.status(400).json({ error: 'Email e senha são obrigatórios' });
   }
 
-  if (email === 'admin@admin.com' && password === 'admin') {
+  if (allowDevAdminLogin && email === 'admin@admin.com' && password === 'admin') {
     return res.status(200).json({ success: true, user: { id: '07d16581-fca5-4709-b0d3-e09859dbb286', email: 'admin@admin.com', role: 'admin' }, token: `token_admin_${Date.now()}` });
   }
 
@@ -3091,17 +3130,11 @@ async function buildReferralResponseViaSupabase(userId, req) {
     total_comissao: 0,
   });
 
-  let appUrl = String(process.env.APP_BASE_URL || '').trim();
-  if (!appUrl) {
-    appUrl = `${req.protocol}://${req.get('host')}`;
-  }
-  if (!/^https?:\/\//i.test(appUrl)) {
-    appUrl = `https://${appUrl}`;
-  }
+  const appUrl = resolvePublicAppBaseUrl(req);
 
   return {
     code,
-    referral_url: `${appUrl.replace(/\/$/, '')}/?ref=${encodeURIComponent(code)}`,
+    referral_url: `${appUrl}/?ref=${encodeURIComponent(code)}`,
     summary,
     history: historyRows.map((row) => {
       const referredUserId = String(row.referred_user_id || '').trim();
@@ -3193,17 +3226,11 @@ app.get('/api/referrals/me', async (req, res) => {
           [userId]
         );
 
-        let appUrl = String(process.env.APP_BASE_URL || '').trim();
-        if (!appUrl) {
-          appUrl = `${req.protocol}://${req.get('host')}`;
-        }
-        if (!/^https?:\/\//i.test(appUrl)) {
-          appUrl = `https://${appUrl}`;
-        }
+        const appUrl = resolvePublicAppBaseUrl(req);
 
         return {
           code,
-          referral_url: `${appUrl.replace(/\/$/, '')}/?ref=${encodeURIComponent(code)}`,
+          referral_url: `${appUrl}/?ref=${encodeURIComponent(code)}`,
           summary: summaryResult.rows[0] || {
             total_indicacoes: 0,
             total_creditos: 0,

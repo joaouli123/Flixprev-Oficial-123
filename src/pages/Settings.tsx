@@ -27,11 +27,14 @@ const Settings: React.FC = () => {
 
   useEffect(() => {
     if (profile) {
-      const profileName = [profile.first_name, profile.last_name].filter(Boolean).join(" ").trim();
+      const profileName = [profile.first_name, profile.last_name].filter(Boolean).join(" ").trim() || profile.nome_completo || "";
       setFullName((prev) => prev || profileName);
+      setBillingEmail((prev) => prev || profile.email || session?.user?.email || "");
+      setDocumento((prev) => prev || profile.documento || "");
+      setTelefone((prev) => prev || profile.telefone || "");
       setAvatarPreviewUrl(profile.avatar_url || null);
     }
-  }, [profile]);
+  }, [profile, session?.user?.email]);
 
   useEffect(() => {
     if (session?.user?.email) {

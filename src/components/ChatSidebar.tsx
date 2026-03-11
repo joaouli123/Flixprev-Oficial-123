@@ -47,8 +47,13 @@ export const ChatSidebar = ({ agentId, agentRouteKey, agentTitle, currentConvers
   }, [isMobile]);
 
   const loadConversations = async () => {
-    if (!userId) return;
+    if (!userId) {
+      setConversations([]);
+      setIsLoading(false);
+      return;
+    }
     try {
+      setIsLoading(true);
       const res = await fetch(`/api/conversations?agentId=${agentId}`, {
         headers: { "x-user-id": userId }
       });
@@ -65,7 +70,11 @@ export const ChatSidebar = ({ agentId, agentRouteKey, agentTitle, currentConvers
   const displayedConversations = showAll ? conversations : (Array.isArray(conversations) ? conversations.slice(0, 10) : []);
 
   useEffect(() => {
-    if (!userId || !agentId) return;
+    if (!userId || !agentId) {
+      setConversations([]);
+      setIsLoading(false);
+      return;
+    }
     loadConversations();
   }, [agentId, userId]);
 

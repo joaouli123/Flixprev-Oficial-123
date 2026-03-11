@@ -1,6 +1,10 @@
 import { toast } from 'sonner';
 import { supabaseAuth } from './supabase-auth';
 
+function isDevAdminSessionAllowed() {
+  return import.meta.env.DEV && String(import.meta.env.VITE_ALLOW_DEV_ADMIN_LOGIN || '').trim().toLowerCase() === 'true';
+}
+
 interface LoginResponse {
   success: boolean;
   user?: {
@@ -103,8 +107,19 @@ export function getSession() {
   if (!userStr || !token) return null;
 
   try {
+    const parsedUser = JSON.parse(userStr);
+    const isMockAdminSession =
+      String(parsedUser?.email || '').trim().toLowerCase() === 'admin@admin.com' &&
+      String(token || '').startsWith('token_admin_');
+
+    if (isMockAdminSession && !isDevAdminSessionAllowed()) {
+      localStorage.removeItem('user');
+      localStorage.removeItem('sessionToken');
+      return null;
+    }
+
     return {
-      user: JSON.parse(userStr),
+      user: parsedUser,
       token,
     };
   } catch {
