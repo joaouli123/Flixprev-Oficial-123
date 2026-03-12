@@ -7,7 +7,7 @@ import { Agent } from "@/types/app";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { MoreVertical, Trash2, Edit } from "lucide-react";
 import { useSession } from "@/components/SessionContextProvider";
-import { normalizeAgentTitle } from "@/lib/agentText";
+import { getAgentPresentation } from "@/lib/agentText";
 
 interface AgentCardProps {
   agent: Agent;
@@ -20,7 +20,7 @@ const AgentCard: React.FC<AgentCardProps> = ({ agent, onStartAgent, onDeleteAgen
   const { isAdmin } = useSession();
   const IconComponent: LucideIcon = (LucideIcons[agent.icon as keyof typeof LucideIcons] as LucideIcon) || LucideIcons.Bot;
   const BackgroundIconComponent: LucideIcon = (LucideIcons[(agent.background_icon || agent.icon) as keyof typeof LucideIcons] as LucideIcon) || LucideIcons.Bot;
-  const displayTitle = normalizeAgentTitle(agent.title, agent.description, agent.role);
+  const presentation = getAgentPresentation(agent.title, agent.description, agent.role);
   const isExternalShortcut = Boolean(agent.link);
 
   const handleButtonClick = () => {
@@ -52,7 +52,7 @@ const AgentCard: React.FC<AgentCardProps> = ({ agent, onStartAgent, onDeleteAgen
 
   return (
     <Card
-      className={`group relative flex min-h-[116px] min-w-[260px] self-start flex-col overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-purple-200 hover:shadow-lg hover:shadow-purple-500/10 ${isExternalShortcut ? "cursor-pointer" : ""}`}
+      className={`group relative flex min-h-[148px] min-w-[260px] self-start flex-col overflow-hidden rounded-xl border bg-white shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-purple-500/10 ${presentation.featured ? "border-purple-300 ring-1 ring-purple-200" : "border-slate-200/80 hover:border-purple-200"} ${isExternalShortcut ? "cursor-pointer" : ""}`}
       onClick={isExternalShortcut ? handleCardClick : undefined}
       onKeyDown={isExternalShortcut ? handleCardKeyDown : undefined}
       role={isExternalShortcut ? "link" : undefined}
@@ -67,8 +67,25 @@ const AgentCard: React.FC<AgentCardProps> = ({ agent, onStartAgent, onDeleteAgen
 
       <CardHeader className="relative z-10 px-4 pb-0 pt-4">
         <div className="mb-1.5 flex items-start justify-between gap-3">
-          <div className="rounded-lg bg-gradient-to-br from-[#434dce] to-indigo-600 p-2 text-white shadow-sm shadow-indigo-500/25 transition-transform duration-300 group-hover:scale-105">
-            <IconComponent className="h-4 w-4" />
+          <div className="flex min-w-0 items-start gap-3">
+            <div className="rounded-lg bg-gradient-to-br from-[#434dce] to-indigo-600 p-2 text-white shadow-sm shadow-indigo-500/25 transition-transform duration-300 group-hover:scale-105">
+              <IconComponent className="h-4 w-4" />
+            </div>
+            <div className="min-w-0">
+              {presentation.badge && (
+                <div className="mb-2 inline-flex max-w-full rounded-full bg-purple-100 px-2.5 py-1 text-[11px] font-semibold tracking-wide text-purple-700">
+                  <span className="truncate">{presentation.badge}</span>
+                </div>
+              )}
+              {presentation.featured && (
+                <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-purple-600">
+                  Destaque
+                </div>
+              )}
+              <CardTitle className="line-clamp-3 text-[15px] font-bold leading-5 text-slate-900 transition-colors duration-300 group-hover:text-purple-700">
+                {presentation.title}
+              </CardTitle>
+            </div>
           </div>
           <div className="flex items-center gap-2">
             {isAdmin && (
@@ -92,11 +109,11 @@ const AgentCard: React.FC<AgentCardProps> = ({ agent, onStartAgent, onDeleteAgen
             )}
           </div>
         </div>
-        <CardTitle className="line-clamp-2 pr-8 text-[15px] font-bold leading-5 text-slate-900 transition-colors duration-300 group-hover:text-purple-700">
-          {displayTitle}
-        </CardTitle>
       </CardHeader>
-      <CardFooter className="relative z-10 mt-auto flex justify-end px-4 pb-3 pt-1">
+      <CardFooter className="relative z-10 mt-auto flex items-center justify-between px-4 pb-3 pt-3">
+        <span className="text-xs font-medium text-slate-500">
+          {isExternalShortcut ? "Abrir fonte oficial" : "Iniciar agente"}
+        </span>
         <Button 
           variant="ghost"
           size="icon"

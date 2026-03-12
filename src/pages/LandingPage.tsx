@@ -415,10 +415,13 @@ const LandingPage = () => {
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-                {visibleAgentsForTab.map((agent) => (
+                {visibleAgentsForTab.map((agent) => {
+                  const presentation = getAgentPresentation(agent.title, agent.description, agent.role);
+
+                  return (
                   <Card
                     key={agent.id}
-                    className="group relative cursor-pointer overflow-hidden rounded-xl border border-slate-200/80 bg-white/90 p-3 shadow-sm backdrop-blur-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md"
+                    className={`group relative cursor-pointer overflow-hidden rounded-xl border bg-white/90 p-4 shadow-sm backdrop-blur-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md ${presentation.featured ? "border-purple-300 ring-1 ring-purple-200" : "border-slate-200/80"}`}
                     onClick={() => openLandingAgent(agent, checkoutUrl)}
                     onKeyDown={(event) => {
                       if (event.key === "Enter" || event.key === " ") {
@@ -429,13 +432,23 @@ const LandingPage = () => {
                     role="link"
                     tabIndex={0}
                   >
-                    <div className="relative z-10 flex items-center gap-3">
+                    <div className="relative z-10 flex items-start gap-3">
                       <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center transition-all duration-300 shadow-sm shadow-green-500/10 shrink-0">
                         <AgentListIcon className="h-5 w-5 text-green-600" />
                       </div>
                       <div className="min-w-0">
+                        {presentation.badge && (
+                          <div className="mb-2 inline-flex max-w-full rounded-full bg-purple-100 px-2.5 py-1 text-[11px] font-semibold tracking-wide text-purple-700">
+                            <span className="truncate">{presentation.badge}</span>
+                          </div>
+                        )}
+                        {presentation.featured && (
+                          <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-purple-600">
+                            Destaque
+                          </div>
+                        )}
                         <CardTitle className="text-sm font-semibold text-slate-900 group-hover:text-green-700 transition-colors duration-300 line-clamp-2 m-0">
-                          {getAgentPresentation(agent.title, agent.description, agent.role).title}
+                          {presentation.title}
                         </CardTitle>
                         <CardDescription className="mt-1 text-xs text-slate-500 line-clamp-2">
                           {agent.link ? "Abrir fonte oficial" : "Abrir apresentação do agente"}
@@ -443,7 +456,7 @@ const LandingPage = () => {
                       </div>
                     </div>
                   </Card>
-                ))}
+                )})}
               </div>
             )}
           </div>
