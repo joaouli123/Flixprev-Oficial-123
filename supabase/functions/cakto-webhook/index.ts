@@ -544,6 +544,7 @@ async function ensureProvisionedUser(
         nome_completo: fullName,
         documento,
         telefone: phone,
+        origem_cadastro: "compra_direta_cakto",
         status_da_assinatura: "inativo",
       },
       { onConflict: "user_id" },

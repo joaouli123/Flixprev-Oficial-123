@@ -1190,8 +1190,108 @@ async function ensureAccountProfileSchema() {
     ALTER TABLE IF EXISTS public.usuarios
       ADD COLUMN IF NOT EXISTS nome_completo text,
       ADD COLUMN IF NOT EXISTS documento text,
-      ADD COLUMN IF NOT EXISTS telefone text;
+      ADD COLUMN IF NOT EXISTS telefone text,
+      ADD COLUMN IF NOT EXISTS ramos_atuacao text[] DEFAULT '{}'::text[],
+      ADD COLUMN IF NOT EXISTS cep text,
+      ADD COLUMN IF NOT EXISTS logradouro text,
+      ADD COLUMN IF NOT EXISTS bairro text,
+      ADD COLUMN IF NOT EXISTS cidade text,
+      ADD COLUMN IF NOT EXISTS estado text,
+      ADD COLUMN IF NOT EXISTS regiao text,
+      ADD COLUMN IF NOT EXISTS sexo text,
+      ADD COLUMN IF NOT EXISTS idade integer,
+      ADD COLUMN IF NOT EXISTS data_nascimento date,
+      ADD COLUMN IF NOT EXISTS origem_cadastro text,
+      ADD COLUMN IF NOT EXISTS cadastro_finalizado_em timestamptz;
   `);
+}
+
+function normalizeAccountTextArray(value) {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item || '').trim()).filter(Boolean);
+  }
+
+  return String(value || '')
+    .split(/[\n,;|]+/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function normalizeAccountDate(value) {
+  const rawValue = String(value || '').trim();
+  if (!rawValue) {
+    return null;
+  }
+
+  const parsed = new Date(`${rawValue}T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+
+  return parsed.toISOString().slice(0, 10);
+}
+
+function normalizeAccountAge(value) {
+  if (value === null || value === undefined || value === '') {
+    return null;
+  }
+
+  const parsed = Number.parseInt(String(value), 10);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+}
+
+function deriveRegionFromStateServer(value) {
+  const state = String(value || '').trim().toUpperCase();
+  const regions = {
+    AC: 'Norte',
+    AL: 'Nordeste',
+    AP: 'Norte',
+    AM: 'Norte',
+    BA: 'Nordeste',
+    CE: 'Nordeste',
+    DF: 'Centro-Oeste',
+    ES: 'Sudeste',
+    GO: 'Centro-Oeste',
+    MA: 'Nordeste',
+    MT: 'Centro-Oeste',
+    MS: 'Centro-Oeste',
+    MG: 'Sudeste',
+    PA: 'Norte',
+    PB: 'Nordeste',
+    PR: 'Sul',
+    PE: 'Nordeste',
+    PI: 'Nordeste',
+    RJ: 'Sudeste',
+    RN: 'Nordeste',
+    RS: 'Sul',
+    RO: 'Norte',
+    RR: 'Norte',
+    SC: 'Sul',
+    SP: 'Sudeste',
+    SE: 'Nordeste',
+    TO: 'Norte',
+  };
+
+  return regions[state] || null;
+}
+
+function calculateAccountAgeFromBirthDate(value) {
+  const normalizedDate = normalizeAccountDate(value);
+  if (!normalizedDate) {
+    return null;
+  }
+
+  const birthDate = new Date(`${normalizedDate}T00:00:00`);
+  const today = new Date();
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const monthDiff = today.getMonth() - birthDate.getMonth();
+  const dayDiff = today.getDate() - birthDate.getDate();
+
+  if (monthDiff < 0 || (monthDiff === 0 && dayDiff < 0)) {
+    age -= 1;
+  }
+
+  return age >= 0 ? age : null;
 }
 
 async function readAccountProfileViaSupabase(userId) {
@@ -1203,7 +1303,7 @@ async function readAccountProfileViaSupabase(userId) {
       .maybeSingle(),
     supabaseAdminClient
       .from('usuarios')
-      .select('user_id, nome_completo, email, documento, telefone, status_da_assinatura, updated_at, created_at')
+      .select('user_id, nome_completo, email, documento, telefone, ramos_atuacao, cep, logradouro, bairro, cidade, estado, regiao, sexo, idade, data_nascimento, origem_cadastro, cadastro_finalizado_em, status_da_assinatura, updated_at, created_at')
       .eq('user_id', userId)
       .order('updated_at', { ascending: false, nullsFirst: false })
       .order('created_at', { ascending: false, nullsFirst: false })
@@ -1235,6 +1335,18 @@ async function readAccountProfileViaSupabase(userId) {
     email: String(userRow.email || '').trim() || null,
     documento: String(userRow.documento || '').trim() || null,
     telefone: String(userRow.telefone || '').trim() || null,
+    ramos_atuacao: Array.isArray(userRow.ramos_atuacao) ? userRow.ramos_atuacao : [],
+    cep: String(userRow.cep || '').trim() || null,
+    logradouro: String(userRow.logradouro || '').trim() || null,
+    bairro: String(userRow.bairro || '').trim() || null,
+    cidade: String(userRow.cidade || '').trim() || null,
+    estado: String(userRow.estado || '').trim() || null,
+    regiao: String(userRow.regiao || '').trim() || null,
+    sexo: String(userRow.sexo || '').trim() || null,
+    idade: Number.isFinite(Number(userRow.idade)) ? Number(userRow.idade) : null,
+    data_nascimento: String(userRow.data_nascimento || '').trim() || null,
+    origem_cadastro: String(userRow.origem_cadastro || '').trim() || null,
+    cadastro_finalizado_em: userRow.cadastro_finalizado_em || null,
     status_da_assinatura: String(userRow.status_da_assinatura || '').trim() || null,
   };
 }
@@ -1244,8 +1356,20 @@ async function saveAccountProfileViaSupabase(userId, payload = {}) {
   const normalizedEmail = String(payload.email || '').trim().toLowerCase();
   const normalizedDocumento = String(payload.documento || '').trim();
   const normalizedTelefone = String(payload.telefone || '').trim();
-  const { firstName, lastName } = splitAccountFullName(normalizedFullName);
+  const normalizedPracticeAreas = normalizeAccountTextArray(payload.practice_areas || payload.ramos_atuacao);
+  const normalizedCep = String(payload.cep || '').trim();
+  const normalizedLogradouro = String(payload.logradouro || '').trim();
+  const normalizedBairro = String(payload.bairro || '').trim();
+  const normalizedCidade = String(payload.cidade || '').trim();
+  const normalizedEstado = String(payload.estado || '').trim().toUpperCase();
+  const normalizedRegiao = String(payload.regiao || '').trim() || deriveRegionFromStateServer(normalizedEstado);
+  const normalizedSexo = String(payload.sexo || '').trim();
+  const normalizedBirthDate = normalizeAccountDate(payload.data_nascimento || payload.dataNascimento);
+  const normalizedAge = calculateAccountAgeFromBirthDate(normalizedBirthDate) ?? normalizeAccountAge(payload.idade);
+  const normalizedOrigin = String(payload.origem_cadastro || '').trim();
   const nowIso = new Date().toISOString();
+  const cadastroFinalizadoEm = payload.cadastro_finalizado_em ? String(payload.cadastro_finalizado_em).trim() : nowIso;
+  const { firstName, lastName } = splitAccountFullName(normalizedFullName);
 
   const usuarioResponse = await supabaseAdminClient
     .from('usuarios')
@@ -1256,6 +1380,18 @@ async function saveAccountProfileViaSupabase(userId, payload = {}) {
         email: normalizedEmail || null,
         documento: normalizedDocumento || null,
         telefone: normalizedTelefone || null,
+        ramos_atuacao: normalizedPracticeAreas,
+        cep: normalizedCep || null,
+        logradouro: normalizedLogradouro || null,
+        bairro: normalizedBairro || null,
+        cidade: normalizedCidade || null,
+        estado: normalizedEstado || null,
+        regiao: normalizedRegiao || null,
+        sexo: normalizedSexo || null,
+        idade: normalizedAge,
+        data_nascimento: normalizedBirthDate,
+        origem_cadastro: normalizedOrigin || undefined,
+        cadastro_finalizado_em: cadastroFinalizadoEm,
         updated_at: nowIso,
       }],
       { onConflict: 'user_id' }
@@ -1303,6 +1439,7 @@ async function readAccountProfile(userId) {
         pool.query(
           `
           SELECT user_id, nome_completo, email, documento, telefone, status_da_assinatura, updated_at, created_at
+          , ramos_atuacao, cep, logradouro, bairro, cidade, estado, regiao, sexo, idade, data_nascimento, origem_cadastro, cadastro_finalizado_em
           FROM public.usuarios
           WHERE user_id = $1
           ORDER BY updated_at DESC NULLS LAST, created_at DESC NULLS LAST
@@ -1328,6 +1465,18 @@ async function readAccountProfile(userId) {
         email: String(userRow.email || '').trim() || null,
         documento: String(userRow.documento || '').trim() || null,
         telefone: String(userRow.telefone || '').trim() || null,
+        ramos_atuacao: Array.isArray(userRow.ramos_atuacao) ? userRow.ramos_atuacao : [],
+        cep: String(userRow.cep || '').trim() || null,
+        logradouro: String(userRow.logradouro || '').trim() || null,
+        bairro: String(userRow.bairro || '').trim() || null,
+        cidade: String(userRow.cidade || '').trim() || null,
+        estado: String(userRow.estado || '').trim() || null,
+        regiao: String(userRow.regiao || '').trim() || null,
+        sexo: String(userRow.sexo || '').trim() || null,
+        idade: Number.isFinite(Number(userRow.idade)) ? Number(userRow.idade) : null,
+        data_nascimento: String(userRow.data_nascimento || '').trim() || null,
+        origem_cadastro: String(userRow.origem_cadastro || '').trim() || null,
+        cadastro_finalizado_em: userRow.cadastro_finalizado_em || null,
         status_da_assinatura: String(userRow.status_da_assinatura || '').trim() || null,
       };
     },
@@ -1345,6 +1494,17 @@ async function saveAccountProfile(userId, payload = {}) {
       const normalizedEmail = String(payload.email || '').trim().toLowerCase();
       const normalizedDocumento = String(payload.documento || '').trim();
       const normalizedTelefone = String(payload.telefone || '').trim();
+      const normalizedPracticeAreas = normalizeAccountTextArray(payload.practice_areas || payload.ramos_atuacao);
+      const normalizedCep = String(payload.cep || '').trim();
+      const normalizedLogradouro = String(payload.logradouro || '').trim();
+      const normalizedBairro = String(payload.bairro || '').trim();
+      const normalizedCidade = String(payload.cidade || '').trim();
+      const normalizedEstado = String(payload.estado || '').trim().toUpperCase();
+      const normalizedRegiao = String(payload.regiao || '').trim() || deriveRegionFromStateServer(normalizedEstado);
+      const normalizedSexo = String(payload.sexo || '').trim();
+      const normalizedBirthDate = normalizeAccountDate(payload.data_nascimento || payload.dataNascimento);
+      const normalizedAge = calculateAccountAgeFromBirthDate(normalizedBirthDate) ?? normalizeAccountAge(payload.idade);
+      const normalizedOrigin = String(payload.origem_cadastro || '').trim();
       const { firstName, lastName } = splitAccountFullName(normalizedFullName);
 
       const updatedUser = await pool.query(
@@ -1354,6 +1514,18 @@ async function saveAccountProfile(userId, payload = {}) {
             email = $3,
             documento = $4,
             telefone = $5,
+            ramos_atuacao = $6,
+            cep = $7,
+            logradouro = $8,
+            bairro = $9,
+            cidade = $10,
+            estado = $11,
+            regiao = $12,
+            sexo = $13,
+            idade = $14,
+            data_nascimento = $15,
+            origem_cadastro = COALESCE(NULLIF($16, ''), origem_cadastro),
+            cadastro_finalizado_em = COALESCE(cadastro_finalizado_em, NOW()),
             updated_at = NOW()
         WHERE user_id = $1
         RETURNING user_id
@@ -1364,14 +1536,25 @@ async function saveAccountProfile(userId, payload = {}) {
           normalizedEmail || null,
           normalizedDocumento || null,
           normalizedTelefone || null,
+          normalizedPracticeAreas,
+          normalizedCep || null,
+          normalizedLogradouro || null,
+          normalizedBairro || null,
+          normalizedCidade || null,
+          normalizedEstado || null,
+          normalizedRegiao || null,
+          normalizedSexo || null,
+          normalizedAge,
+          normalizedBirthDate,
+          normalizedOrigin || null,
         ]
       );
 
       if (!updatedUser.rows.length) {
         await pool.query(
           `
-          INSERT INTO public.usuarios (user_id, nome_completo, email, documento, telefone)
-          VALUES ($1, $2, $3, $4, $5)
+          INSERT INTO public.usuarios (user_id, nome_completo, email, documento, telefone, ramos_atuacao, cep, logradouro, bairro, cidade, estado, regiao, sexo, idade, data_nascimento, origem_cadastro, cadastro_finalizado_em)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, NOW())
           `,
           [
             userId,
@@ -1379,6 +1562,17 @@ async function saveAccountProfile(userId, payload = {}) {
             normalizedEmail || null,
             normalizedDocumento || null,
             normalizedTelefone || null,
+            normalizedPracticeAreas,
+            normalizedCep || null,
+            normalizedLogradouro || null,
+            normalizedBairro || null,
+            normalizedCidade || null,
+            normalizedEstado || null,
+            normalizedRegiao || null,
+            normalizedSexo || null,
+            normalizedAge,
+            normalizedBirthDate,
+            normalizedOrigin || null,
           ]
         );
       }
@@ -1402,6 +1596,700 @@ async function saveAccountProfile(userId, payload = {}) {
       return readAccountProfile(userId);
     },
     () => saveAccountProfileViaSupabase(userId, payload)
+  );
+}
+
+function isPlainObject(value) {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function asCleanString(value) {
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    return trimmed || null;
+  }
+
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+
+  return null;
+}
+
+function asIsoDate(value) {
+  const stringValue = asCleanString(value);
+  if (!stringValue) {
+    return null;
+  }
+
+  const parsed = new Date(stringValue);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+
+  return parsed.toISOString();
+}
+
+function asNumber(value) {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+
+  const stringValue = asCleanString(value);
+  if (!stringValue) {
+    return null;
+  }
+
+  const normalized = stringValue.replace(',', '.');
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function getRecord(value, key) {
+  const nextValue = isPlainObject(value) ? value[key] : null;
+  return isPlainObject(nextValue) ? nextValue : {};
+}
+
+function getFirstText(target, keys = []) {
+  for (const key of keys) {
+    const value = asCleanString(isPlainObject(target) ? target[key] : null);
+    if (value) {
+      return value;
+    }
+  }
+
+  return null;
+}
+
+function getFirstDate(target, keys = []) {
+  for (const key of keys) {
+    const value = asIsoDate(isPlainObject(target) ? target[key] : null);
+    if (value) {
+      return value;
+    }
+  }
+
+  return null;
+}
+
+function getFirstNumber(target, keys = []) {
+  for (const key of keys) {
+    const value = asNumber(isPlainObject(target) ? target[key] : null);
+    if (value !== null) {
+      return value;
+    }
+  }
+
+  return null;
+}
+
+function prettifySubscriptionEvent(eventType) {
+  const normalized = String(eventType || '').trim().toLowerCase();
+  const labels = {
+    purchase_approved: 'Compra aprovada',
+    subscription_renewed: 'Renovação aprovada',
+    subscription_canceled: 'Assinatura cancelada',
+    subscription_cancelled: 'Assinatura cancelada',
+    user_subscription_canceled: 'Cancelamento solicitado no app',
+    refund: 'Reembolso',
+    chargeback: 'Chargeback',
+    purchase_refused: 'Compra recusada',
+    boleto_gerado: 'Boleto gerado',
+    pix_gerado: 'PIX gerado',
+  };
+
+  return labels[normalized] || (normalized ? normalized.replace(/_/g, ' ') : 'Evento');
+}
+
+function readSubscriptionDetails(payload = {}) {
+  const root = isPlainObject(payload) ? payload : {};
+  const data = getRecord(root, 'data');
+  const offer = getRecord(data, 'offer');
+  const product = getRecord(data, 'product');
+  const card = getRecord(data, 'card');
+  const subscription = getRecord(data, 'subscription');
+  const manualCancellation = getRecord(root, 'manual_cancellation');
+  const currentSubscription = getRecord(root, 'current_subscription');
+  const remoteSync = getRecord(manualCancellation, 'provider_sync');
+
+  const amount =
+    getFirstNumber(currentSubscription, ['amount']) ??
+    getFirstNumber(data, ['amount', 'baseAmount', 'charged_fees']) ??
+    getFirstNumber(offer, ['price']);
+
+  return {
+    product_name:
+      getFirstText(currentSubscription, ['product_name']) ??
+      getFirstText(product, ['name']) ??
+      getFirstText(offer, ['name']),
+    offer_name: getFirstText(offer, ['name']),
+    amount,
+    currency:
+      getFirstText(currentSubscription, ['currency']) ??
+      getFirstText(offer, ['currency']) ??
+      'BRL',
+    payment_method:
+      getFirstText(currentSubscription, ['payment_method']) ??
+      getFirstText(data, ['paymentMethodName', 'paymentMethod']),
+    purchase_date:
+      getFirstDate(currentSubscription, ['purchase_date']) ??
+      getFirstDate(data, ['paidAt', 'createdAt']),
+    due_date:
+      getFirstDate(currentSubscription, ['due_date']) ??
+      getFirstDate(data, ['due_date']),
+    next_charge_at:
+      getFirstDate(currentSubscription, ['next_charge_at']) ??
+      getFirstDate(subscription, ['next_charge_at']),
+    expires_at:
+      getFirstDate(currentSubscription, ['expires_at']) ??
+      getFirstDate(subscription, ['expires_at']),
+    subscription_period:
+      getFirstText(currentSubscription, ['subscription_period']) ??
+      getFirstText(data, ['subscription_period']) ??
+      getFirstText(subscription, ['subscription_period']),
+    order_reference: getFirstText(data, ['refId']),
+    status:
+      getFirstText(currentSubscription, ['status']) ??
+      getFirstText(data, ['status']) ??
+      getFirstText(root, ['status']),
+    card_brand:
+      getFirstText(currentSubscription, ['card_brand']) ??
+      getFirstText(card, ['brand']),
+    card_last_digits:
+      getFirstText(currentSubscription, ['card_last_digits']) ??
+      getFirstText(card, ['lastDigits']),
+    external_subscription_id:
+      getFirstText(currentSubscription, ['external_subscription_id']) ??
+      getFirstText(subscription, ['id', 'subscription_id']),
+    canceled_at: getFirstDate(data, ['canceledAt']),
+    refund_at: getFirstDate(data, ['refundedAt']),
+    chargeback_at: getFirstDate(data, ['chargedbackAt']),
+    cancellation_reason: getFirstText(manualCancellation, ['reason']),
+    provider_sync_status: getFirstText(remoteSync, ['status', 'reason']),
+  };
+}
+
+function buildSubscriptionCapability(current) {
+  const endpoint = String(process.env.CAKTO_CANCEL_ENDPOINT || process.env.CAKTO_CANCEL_ENDPOINT_TEMPLATE || '').trim();
+  const token = String(process.env.CAKTO_API_TOKEN || process.env.CAKTO_API_KEY || '').trim();
+  const provider = String(current?.provider || '').trim().toLowerCase();
+  const currentStatus = String(current?.status || '').trim().toLowerCase();
+  const hasRemoteIdentifier = Boolean(current?.external_subscription_id || current?.external_customer_id);
+  const remoteConfigured = Boolean(endpoint && token);
+
+  let remoteReason = null;
+  if (provider !== 'cakto') {
+    remoteReason = 'provider_not_supported';
+  } else if (!remoteConfigured) {
+    remoteReason = 'provider_api_not_configured';
+  } else if (!hasRemoteIdentifier) {
+    remoteReason = 'missing_provider_subscription_id';
+  }
+
+  return {
+    can_cancel: Boolean(current) && !['cancelled', 'inactive', 'expired'].includes(currentStatus),
+    remote_sync_available: provider === 'cakto' && remoteConfigured && hasRemoteIdentifier,
+    remote_sync_reason: remoteReason,
+  };
+}
+
+function buildSubscriptionResponse(subscriptionRow, userRow, eventRows = []) {
+  const details = readSubscriptionDetails(subscriptionRow?.metadata || {});
+  const current = subscriptionRow
+    ? {
+        id: String(subscriptionRow.id || ''),
+        status: asCleanString(subscriptionRow.status),
+        user_status: asCleanString(userRow?.status_da_assinatura),
+        plan_type: asCleanString(subscriptionRow.plan_type),
+        provider: asCleanString(subscriptionRow.provider) || 'manual',
+        starts_at: asIsoDate(subscriptionRow.starts_at),
+        expires_at: asIsoDate(subscriptionRow.expires_at) || details.expires_at,
+        updated_at: asIsoDate(subscriptionRow.updated_at),
+        updated_by_webhook_at: asIsoDate(subscriptionRow.updated_by_webhook_at),
+        external_customer_id: asCleanString(subscriptionRow.external_customer_id),
+        external_subscription_id: asCleanString(subscriptionRow.external_subscription_id) || details.external_subscription_id,
+        product_name: details.product_name,
+        offer_name: details.offer_name,
+        amount: details.amount,
+        currency: details.currency,
+        payment_method: details.payment_method,
+        purchase_date: details.purchase_date,
+        due_date: details.due_date,
+        next_charge_at: details.next_charge_at,
+        subscription_period: details.subscription_period,
+        order_reference: details.order_reference,
+        card_brand: details.card_brand,
+        card_last_digits: details.card_last_digits,
+        cancellation_reason: details.cancellation_reason,
+        provider_sync_status: details.provider_sync_status,
+      }
+    : userRow
+      ? {
+          id: null,
+          status: null,
+          user_status: asCleanString(userRow.status_da_assinatura),
+          plan_type: null,
+          provider: null,
+          starts_at: null,
+          expires_at: null,
+          updated_at: asIsoDate(userRow.updated_at),
+          updated_by_webhook_at: null,
+          external_customer_id: null,
+          external_subscription_id: null,
+          product_name: null,
+          offer_name: null,
+          amount: null,
+          currency: 'BRL',
+          payment_method: null,
+          purchase_date: null,
+          due_date: null,
+          next_charge_at: null,
+          subscription_period: null,
+          order_reference: null,
+          card_brand: null,
+          card_last_digits: null,
+          cancellation_reason: null,
+          provider_sync_status: null,
+        }
+      : null;
+
+  const history = (Array.isArray(eventRows) ? eventRows : []).map((eventRow) => {
+    const eventPayload = isPlainObject(eventRow.payload) ? eventRow.payload : {};
+    const eventDetails = readSubscriptionDetails(eventPayload);
+
+    return {
+      id: String(eventRow.id || eventRow.event_id || crypto.randomUUID()),
+      provider: asCleanString(eventRow.provider) || 'manual',
+      event_id: asCleanString(eventRow.event_id),
+      event_type: asCleanString(eventRow.event_type),
+      label: prettifySubscriptionEvent(eventRow.event_type),
+      processing_status: asCleanString(eventRow.processing_status) || 'processed',
+      occurred_at: asIsoDate(eventRow.processed_at) || asIsoDate(eventRow.created_at),
+      created_at: asIsoDate(eventRow.created_at),
+      status: eventDetails.status,
+      plan_type: current?.plan_type || null,
+      product_name: eventDetails.product_name,
+      offer_name: eventDetails.offer_name,
+      amount: eventDetails.amount,
+      currency: eventDetails.currency,
+      payment_method: eventDetails.payment_method,
+      purchase_date: eventDetails.purchase_date,
+      due_date: eventDetails.due_date,
+      next_charge_at: eventDetails.next_charge_at,
+      expires_at: eventDetails.expires_at,
+      subscription_period: eventDetails.subscription_period,
+      order_reference: eventDetails.order_reference,
+      card_brand: eventDetails.card_brand,
+      card_last_digits: eventDetails.card_last_digits,
+      cancellation_reason: eventDetails.cancellation_reason,
+      provider_sync_status: eventDetails.provider_sync_status,
+    };
+  });
+
+  return {
+    current,
+    history,
+    capabilities: buildSubscriptionCapability(current),
+  };
+}
+
+async function readAccountSubscriptionViaSupabase(userId) {
+  const [subscriptionResponse, userResponse, historyResponse] = await Promise.all([
+    supabaseAdminClient
+      .from('subscriptions')
+      .select('id, user_id, status, plan_type, provider, external_customer_id, external_subscription_id, starts_at, expires_at, metadata, updated_by_webhook_at, created_at, updated_at')
+      .eq('user_id', userId)
+      .maybeSingle(),
+    supabaseAdminClient
+      .from('usuarios')
+      .select('user_id, status_da_assinatura, email, updated_at, created_at')
+      .eq('user_id', userId)
+      .order('updated_at', { ascending: false, nullsFirst: false })
+      .limit(1)
+      .maybeSingle(),
+    supabaseAdminClient
+      .from('subscription_webhook_events')
+      .select('id, provider, event_id, event_type, payload, processing_status, created_at, processed_at')
+      .eq('matched_user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(20)
+  ]);
+
+  if (subscriptionResponse.error) {
+    throw createSupabaseFallbackError(subscriptionResponse.error, 'Erro ao carregar assinatura atual');
+  }
+
+  if (userResponse.error) {
+    throw createSupabaseFallbackError(userResponse.error, 'Erro ao carregar status do usuário');
+  }
+
+  if (historyResponse.error) {
+    throw createSupabaseFallbackError(historyResponse.error, 'Erro ao carregar histórico de assinatura');
+  }
+
+  return buildSubscriptionResponse(subscriptionResponse.data || null, userResponse.data || null, historyResponse.data || []);
+}
+
+async function readAccountSubscription(userId) {
+  return withDatabaseFallback(
+    'readAccountSubscription',
+    async () => {
+      const [subscriptionResult, userResult, historyResult] = await Promise.all([
+        pool.query(
+          `
+          SELECT id, user_id, status, plan_type, provider, external_customer_id, external_subscription_id, starts_at, expires_at, metadata, updated_by_webhook_at, created_at, updated_at
+          FROM public.subscriptions
+          WHERE user_id = $1
+          LIMIT 1
+          `,
+          [userId]
+        ).catch(() => ({ rows: [] })),
+        pool.query(
+          `
+          SELECT user_id, status_da_assinatura, email, updated_at, created_at
+          FROM public.usuarios
+          WHERE user_id = $1
+          ORDER BY updated_at DESC NULLS LAST, created_at DESC NULLS LAST
+          LIMIT 1
+          `,
+          [userId]
+        ).catch(() => ({ rows: [] })),
+        pool.query(
+          `
+          SELECT id, provider, event_id, event_type, payload, processing_status, created_at, processed_at
+          FROM public.subscription_webhook_events
+          WHERE matched_user_id = $1
+          ORDER BY created_at DESC NULLS LAST
+          LIMIT 20
+          `,
+          [userId]
+        ).catch(() => ({ rows: [] }))
+      ]);
+
+      return buildSubscriptionResponse(
+        subscriptionResult.rows?.[0] || null,
+        userResult.rows?.[0] || null,
+        historyResult.rows || []
+      );
+    },
+    () => readAccountSubscriptionViaSupabase(userId)
+  );
+}
+
+async function attemptCaktoRemoteCancellation(current, context = {}) {
+  const provider = String(current?.provider || '').trim().toLowerCase();
+  if (provider !== 'cakto') {
+    return { attempted: false, ok: false, status: 'provider_not_supported' };
+  }
+
+  const externalSubscriptionId = String(current?.external_subscription_id || '').trim();
+  const externalCustomerId = String(current?.external_customer_id || '').trim();
+  const endpointTemplate = String(process.env.CAKTO_CANCEL_ENDPOINT_TEMPLATE || '').trim();
+  const endpointBase = String(process.env.CAKTO_CANCEL_ENDPOINT || '').trim();
+  const apiToken = String(process.env.CAKTO_API_TOKEN || process.env.CAKTO_API_KEY || '').trim();
+
+  if (!apiToken) {
+    return { attempted: false, ok: false, status: 'provider_api_not_configured' };
+  }
+
+  let endpoint = endpointBase;
+  if (endpointTemplate) {
+    endpoint = endpointTemplate
+      .replace('{subscriptionId}', encodeURIComponent(externalSubscriptionId))
+      .replace('{customerId}', encodeURIComponent(externalCustomerId));
+  }
+
+  if (!endpoint) {
+    return { attempted: false, ok: false, status: 'provider_api_not_configured' };
+  }
+
+  if (!externalSubscriptionId && !externalCustomerId) {
+    return { attempted: false, ok: false, status: 'missing_provider_subscription_id' };
+  }
+
+  const method = String(process.env.CAKTO_CANCEL_METHOD || 'POST').trim().toUpperCase();
+
+  try {
+    const response = await fetch(endpoint, {
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiToken}`,
+        'x-api-key': apiToken,
+      },
+      body: JSON.stringify({
+        subscription_id: externalSubscriptionId || null,
+        customer_id: externalCustomerId || null,
+        reason: context.reason || null,
+        user_id: context.userId || null,
+        email: context.email || null,
+      }),
+    });
+
+    const rawText = await response.text();
+    let parsedBody = null;
+    try {
+      parsedBody = rawText ? JSON.parse(rawText) : null;
+    } catch {
+      parsedBody = rawText || null;
+    }
+
+    return {
+      attempted: true,
+      ok: response.ok,
+      status: response.ok ? 'synced' : 'provider_error',
+      http_status: response.status,
+      response: parsedBody,
+    };
+  } catch (error) {
+    return {
+      attempted: true,
+      ok: false,
+      status: 'provider_request_failed',
+      error: error instanceof Error ? error.message : 'Falha ao cancelar no provedor',
+    };
+  }
+}
+
+async function cancelAccountSubscriptionViaSupabase(userId, payload = {}) {
+  const currentState = await readAccountSubscriptionViaSupabase(userId);
+  const current = currentState.current;
+  const existingSubscriptionResponse = await supabaseAdminClient
+    .from('subscriptions')
+    .select('metadata')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (existingSubscriptionResponse.error) {
+    throw createSupabaseFallbackError(existingSubscriptionResponse.error, 'Erro ao ler metadados atuais da assinatura');
+  }
+
+  const userEmail = asCleanString(payload.email) || null;
+  const reason = asCleanString(payload.reason) || 'user_requested_cancellation';
+  const remoteSync = await attemptCaktoRemoteCancellation(current, {
+    userId,
+    email: userEmail,
+    reason,
+  });
+  const nowIso = new Date().toISOString();
+  const metadataPatch = {
+    manual_cancellation: {
+      canceled_at: nowIso,
+      reason,
+      provider_sync: remoteSync,
+    },
+  };
+
+  const currentMetadata = isPlainObject(existingSubscriptionResponse.data?.metadata)
+    ? existingSubscriptionResponse.data.metadata
+    : {};
+  const nextMetadata = {
+    ...currentMetadata,
+    ...metadataPatch,
+  };
+
+  const subscriptionResponse = await supabaseAdminClient
+    .from('subscriptions')
+    .upsert([
+      {
+        user_id: userId,
+        status: 'cancelled',
+        plan_type: current?.plan_type || 'basic',
+        provider: current?.provider || 'manual',
+        external_customer_id: current?.external_customer_id || null,
+        external_subscription_id: current?.external_subscription_id || null,
+        starts_at: current?.starts_at || nowIso,
+        expires_at: nowIso,
+        metadata: nextMetadata,
+        updated_by_webhook_at: nowIso,
+        updated_at: nowIso,
+      }
+    ], { onConflict: 'user_id' });
+
+  if (subscriptionResponse.error) {
+    throw createSupabaseFallbackError(subscriptionResponse.error, 'Erro ao cancelar assinatura');
+  }
+
+  const usuarioResponse = await supabaseAdminClient
+    .from('usuarios')
+    .upsert([
+      {
+        user_id: userId,
+        email: userEmail,
+        status_da_assinatura: 'inativo',
+        updated_at: nowIso,
+      }
+    ], { onConflict: 'user_id' });
+
+  if (usuarioResponse.error) {
+    throw createSupabaseFallbackError(usuarioResponse.error, 'Erro ao atualizar status do usuário');
+  }
+
+  const historyResponse = await supabaseAdminClient
+    .from('subscription_webhook_events')
+    .insert([
+      {
+        provider: current?.provider || 'manual',
+        event_id: crypto.randomUUID(),
+        event_type: 'user_subscription_canceled',
+        payload: {
+          manual_cancellation: {
+            canceled_at: nowIso,
+            reason,
+            provider_sync: remoteSync,
+          },
+          current_subscription: current,
+        },
+        processing_status: 'processed',
+        matched_user_id: userId,
+        processed_at: nowIso,
+      }
+    ]);
+
+  if (historyResponse.error) {
+    throw createSupabaseFallbackError(historyResponse.error, 'Erro ao registrar histórico de cancelamento');
+  }
+
+  const updatedState = await readAccountSubscriptionViaSupabase(userId);
+  return {
+    success: true,
+    current: updatedState.current,
+    history: updatedState.history,
+    capabilities: updatedState.capabilities,
+    cancellation: {
+      executed_at: nowIso,
+      access_revoked: true,
+      remote_sync: remoteSync,
+    },
+  };
+}
+
+async function cancelAccountSubscription(userId, payload = {}) {
+  return withDatabaseFallback(
+    'cancelAccountSubscription',
+    async () => {
+      const currentState = await readAccountSubscription(userId);
+      const current = currentState.current;
+      const reason = asCleanString(payload.reason) || 'user_requested_cancellation';
+      const userEmail = asCleanString(payload.email) || null;
+      const remoteSync = await attemptCaktoRemoteCancellation(current, {
+        userId,
+        email: userEmail,
+        reason,
+      });
+      const nowIso = new Date().toISOString();
+      const metadataPatch = JSON.stringify({
+        manual_cancellation: {
+          canceled_at: nowIso,
+          reason,
+          provider_sync: remoteSync,
+        },
+      });
+
+      await pool.query(
+        `
+        INSERT INTO public.subscriptions (
+          user_id,
+          status,
+          plan_type,
+          provider,
+          external_customer_id,
+          external_subscription_id,
+          starts_at,
+          expires_at,
+          metadata,
+          updated_by_webhook_at,
+          updated_at
+        )
+        VALUES (
+          $1,
+          'cancelled',
+          $2,
+          $3,
+          $4,
+          $5,
+          COALESCE($6::timestamptz, NOW()),
+          NOW(),
+          $7::jsonb,
+          NOW(),
+          NOW()
+        )
+        ON CONFLICT (user_id) DO UPDATE
+        SET status = 'cancelled',
+            plan_type = COALESCE(EXCLUDED.plan_type, public.subscriptions.plan_type),
+            provider = COALESCE(EXCLUDED.provider, public.subscriptions.provider),
+            external_customer_id = COALESCE(EXCLUDED.external_customer_id, public.subscriptions.external_customer_id),
+            external_subscription_id = COALESCE(EXCLUDED.external_subscription_id, public.subscriptions.external_subscription_id),
+            expires_at = NOW(),
+            metadata = COALESCE(public.subscriptions.metadata, '{}'::jsonb) || EXCLUDED.metadata,
+            updated_by_webhook_at = NOW(),
+            updated_at = NOW()
+        `,
+        [
+          userId,
+          current?.plan_type || 'basic',
+          current?.provider || 'manual',
+          current?.external_customer_id || null,
+          current?.external_subscription_id || null,
+          current?.starts_at || null,
+          metadataPatch,
+        ]
+      );
+
+      await pool.query(
+        `
+        INSERT INTO public.usuarios (user_id, email, status_da_assinatura, updated_at)
+        VALUES ($1, $2, 'inativo', NOW())
+        ON CONFLICT (user_id) DO UPDATE
+        SET email = COALESCE(EXCLUDED.email, public.usuarios.email),
+            status_da_assinatura = 'inativo',
+            updated_at = NOW()
+        `,
+        [userId, userEmail]
+      );
+
+      await pool.query(
+        `
+        INSERT INTO public.subscription_webhook_events (
+          provider,
+          event_id,
+          event_type,
+          payload,
+          processing_status,
+          matched_user_id,
+          processed_at
+        )
+        VALUES ($1, $2, 'user_subscription_canceled', $3::jsonb, 'processed', $4, NOW())
+        `,
+        [
+          current?.provider || 'manual',
+          crypto.randomUUID(),
+          JSON.stringify({
+            manual_cancellation: {
+              canceled_at: nowIso,
+              reason,
+              provider_sync: remoteSync,
+            },
+            current_subscription: current,
+          }),
+          userId,
+        ]
+      );
+
+      const updatedState = await readAccountSubscription(userId);
+      return {
+        success: true,
+        current: updatedState.current,
+        history: updatedState.history,
+        capabilities: updatedState.capabilities,
+        cancellation: {
+          executed_at: nowIso,
+          access_revoked: true,
+          remote_sync: remoteSync,
+        },
+      };
+    },
+    () => cancelAccountSubscriptionViaSupabase(userId, payload)
   );
 }
 
@@ -1666,6 +2554,36 @@ app.put('/api/account/profile', async (req, res) => {
   } catch (error) {
     console.error('[ACCOUNT] PUT /api/account/profile error:', error);
     return res.status(500).json({ error: error.message || 'Erro ao salvar perfil' });
+  }
+});
+
+app.get('/api/account/subscription', async (req, res) => {
+  try {
+    const userId = String(req.header('x-user-id') || '').trim();
+    if (!userId) {
+      return res.status(401).json({ error: 'Usuário não autenticado' });
+    }
+
+    const subscription = await readAccountSubscription(userId);
+    return res.json(subscription);
+  } catch (error) {
+    console.error('[ACCOUNT] GET /api/account/subscription error:', error);
+    return res.status(500).json({ error: error.message || 'Erro ao carregar assinatura' });
+  }
+});
+
+app.post('/api/account/subscription/cancel', async (req, res) => {
+  try {
+    const userId = String(req.header('x-user-id') || '').trim();
+    if (!userId) {
+      return res.status(401).json({ error: 'Usuário não autenticado' });
+    }
+
+    const result = await cancelAccountSubscription(userId, req.body || {});
+    return res.json(result);
+  } catch (error) {
+    console.error('[ACCOUNT] POST /api/account/subscription/cancel error:', error);
+    return res.status(500).json({ error: error.message || 'Erro ao cancelar assinatura' });
   }
 });
 

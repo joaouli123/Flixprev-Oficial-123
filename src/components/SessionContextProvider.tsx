@@ -44,6 +44,18 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
     email: sessionUser.email || null,
     documento: null,
     telefone: null,
+    ramos_atuacao: null,
+    cep: null,
+    logradouro: null,
+    bairro: null,
+    cidade: null,
+    estado: null,
+    regiao: null,
+    sexo: null,
+    idade: null,
+    data_nascimento: null,
+    origem_cadastro: null,
+    cadastro_finalizado_em: null,
   });
 
   const loadProfile = async (sessionUser: any) => {

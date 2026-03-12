@@ -34,15 +34,23 @@ import {
   X,
   File,
   Link2,
-  Plus
+  Plus,
+  Loader2,
+  Globe2,
+  Brain
 } from "lucide-react";
 import { Agent, Category } from "@/types/app";
+
+type AgentSaveProgress = {
+  stage: string;
+  detail?: string;
+};
 
 interface CreateNewAIAgentDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (agent: Omit<Agent, "id" | "userId" | "created_at">) => Promise<boolean> | boolean;
-  onEditSave?: (agentId: string, agent: Omit<Agent, "id" | "userId" | "created_at">) => Promise<boolean> | boolean;
+  onSave: (agent: Omit<Agent, "id" | "userId" | "created_at">, options?: { onProgress?: (progress: AgentSaveProgress) => void }) => Promise<boolean> | boolean;
+  onEditSave?: (agentId: string, agent: Omit<Agent, "id" | "userId" | "created_at">, options?: { onProgress?: (progress: AgentSaveProgress) => void }) => Promise<boolean> | boolean;
   onCreateCategory?: (categoryName: string) => Promise<Category | null> | Category | null;
   categories: Category[];
   agentToEdit?: Agent | null;
@@ -111,6 +119,8 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
   const [savedAttachments, setSavedAttachments] = useState<string[]>([]);
   const [shortcuts, setShortcuts] = useState<string[]>(["Resumir docs", "Extrair cláusulas", "Analisar risco", "Dúvidas"]);
   const [shortcutInput, setShortcutInput] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [saveProgress, setSaveProgress] = useState<AgentSaveProgress | null>(null);
 
   // Preencher os campos quando estiver editando
   React.useEffect(() => {
@@ -167,6 +177,8 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
       setSavedAttachments([]);
       setShortcuts(["Resumir docs", "Extrair cláusulas", "Analisar risco", "Dúvidas"]);
       setShortcutInput("");
+      setIsSubmitting(false);
+      setSaveProgress(null);
     }
   }, [agentToEdit, isOpen]);
 
@@ -257,13 +269,27 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
   };
 
   const handleSave = async () => {
+    if (isSubmitting) {
+      return;
+    }
+
     if (title.trim() && instructions.trim() && icon && selectedCategory) {
+      setIsSubmitting(true);
+      setSaveProgress({
+        stage: isEditing ? "Preparando atualização do agente..." : "Preparando criação do agente...",
+        detail: "Validando dados e organizando as fontes de conhecimento.",
+      });
+
       // Upload new files first
       let uploadedPaths: string[] = [...savedAttachments];
       
       if (files.length > 0) {
         for (const file of files) {
           try {
+            setSaveProgress({
+              stage: `Enviando anexo ${uploadedPaths.length - savedAttachments.length + 1} de ${files.length}`,
+              detail: `Fazendo upload de ${file.name} para a base do agente.`,
+            });
             const formData = new FormData();
             formData.append("file", file);
             if (isEditing && agentToEdit?.id) {
@@ -279,12 +305,30 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
               const data = await response.json();
               uploadedPaths.push(data.path);
               console.log("Arquivo carregado:", data.path);
+            } else {
+              const errorData = await response.json().catch(() => ({}));
+              throw new Error(errorData.error || `Falha no upload de ${file.name}`);
             }
           } catch (err) {
             console.error("Erro ao fazer upload do arquivo:", err);
             toast.error(`Erro ao fazer upload de ${file.name}`);
+            setIsSubmitting(false);
+            setSaveProgress(null);
+            return;
           }
         }
+      }
+
+      if (extraLinks.length > 0) {
+        setSaveProgress({
+          stage: "Lendo e processando o conteúdo das URLs...",
+          detail: `${extraLinks.length} fonte(s) externa(s) serão baixadas, convertidas em texto e indexadas no treinamento do agente.`,
+        });
+      } else {
+        setSaveProgress({
+          stage: isEditing ? "Salvando alterações do agente..." : "Salvando agente...",
+          detail: "Persistindo dados principais e preparando a base de conhecimento.",
+        });
       }
 
       const categoryArray = selectedCategory ? [selectedCategory] : [];
@@ -312,15 +356,25 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
 
       if (isEditing && agentToEdit && onEditSave) {
         console.log("Editando agente:", agentToEdit.id, "com category_ids:", agentData.category_ids);
-        savedSuccessfully = await onEditSave(agentToEdit.id, agentData);
+        savedSuccessfully = await onEditSave(agentToEdit.id, agentData, {
+          onProgress: (progress) => setSaveProgress(progress),
+        });
       } else {
         console.log("Criando agente com categoria:", selectedCategory);
-        savedSuccessfully = await onSave(agentData);
+        savedSuccessfully = await onSave(agentData, {
+          onProgress: (progress) => setSaveProgress(progress),
+        });
       }
 
       if (!savedSuccessfully) {
+        setIsSubmitting(false);
         return;
       }
+
+      setSaveProgress({
+        stage: "Finalizando agente...",
+        detail: "Conteúdo salvo e treinamento concluído com sucesso.",
+      });
 
       setTitle("");
       setInstructions("");
@@ -338,8 +392,12 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
       setSavedAttachments([]);
       setShortcuts(["Resumir docs", "Extrair cláusulas", "Analisar risco", "Dúvidas"]);
       setShortcutInput("");
+      setIsSubmitting(false);
+      setSaveProgress(null);
       onClose();
     } else {
+      setIsSubmitting(false);
+      setSaveProgress(null);
       if (!selectedCategory) {
         toast.error("Por favor, selecione uma categoria para o agente.");
       } else if (!instructions.trim()) {
@@ -354,8 +412,48 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
   const SelectedBackgroundIcon = (iconOptions.find(o => o.name === backgroundIcon)?.icon || Bot) as React.ElementType;
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={(open) => {
+      if (!open && isSubmitting) {
+        return;
+      }
+      onClose();
+    }}>
       <DialogContent className="sm:max-w-[900px] p-0 overflow-hidden bg-white/95 backdrop-blur-xl border-slate-200/60 shadow-2xl">
+        {isSubmitting && (
+          <div className="absolute inset-0 z-50 flex items-center justify-center bg-white/88 backdrop-blur-sm">
+            <div className="mx-6 w-full max-w-lg rounded-3xl border border-slate-200 bg-white shadow-2xl p-6">
+              <div className="flex items-start gap-4">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
+                  <Loader2 className="h-6 w-6 animate-spin" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-semibold text-slate-900">Treinando o agente com as fontes informadas</h3>
+                  <p className="mt-1 text-sm text-slate-500">O agente só será salvo quando todos os anexos e URLs terminarem de ser lidos, convertidos e indexados.</p>
+                </div>
+              </div>
+
+              <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <div className="text-sm font-semibold text-slate-900">{saveProgress?.stage || "Processando..."}</div>
+                <div className="mt-1 text-sm text-slate-600">{saveProgress?.detail || "Aguarde enquanto a base de conhecimento é montada."}</div>
+              </div>
+
+              <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                <div className="rounded-2xl border border-slate-200 p-3 bg-white">
+                  <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500"><Upload className="h-4 w-4" /> Anexos</div>
+                  <div className="mt-2 text-sm text-slate-700">Upload e extração textual</div>
+                </div>
+                <div className="rounded-2xl border border-slate-200 p-3 bg-white">
+                  <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500"><Globe2 className="h-4 w-4" /> URLs</div>
+                  <div className="mt-2 text-sm text-slate-700">Leitura completa do conteúdo web</div>
+                </div>
+                <div className="rounded-2xl border border-slate-200 p-3 bg-white">
+                  <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500"><Brain className="h-4 w-4" /> Treino</div>
+                  <div className="mt-2 text-sm text-slate-700">Chunking, embeddings e indexação</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
         <DialogHeader className="px-6 pt-6 pb-4 border-b border-slate-100 flex flex-row items-center gap-3">
           <DialogTitle className="text-xl font-semibold text-slate-800 flex items-center gap-2">
             {isEditing ? "Editar Especialista" : "Criar Novo Especialista"}
@@ -664,11 +762,16 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
         </div>
 
         <DialogFooter className="px-6 py-4 border-t border-slate-100 bg-white flex justify-between items-center">
-          <Button variant="ghost" onClick={onClose} className="text-slate-600 hover:text-slate-800 hover:bg-slate-100">
+          <Button variant="ghost" onClick={onClose} disabled={isSubmitting} className="text-slate-600 hover:text-slate-800 hover:bg-slate-100">
             Cancelar
           </Button>
-          <Button onClick={handleSave} className="bg-slate-900 hover:bg-slate-800 text-white shadow-sm transition-all px-8">
-            {isEditing ? "Salvar Alterações" : "Salvar Agente"}
+          <Button onClick={handleSave} disabled={isSubmitting} className="bg-slate-900 hover:bg-slate-800 text-white shadow-sm transition-all px-8">
+            {isSubmitting ? (
+              <span className="inline-flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Processando conteúdo...
+              </span>
+            ) : isEditing ? "Salvar Alterações" : "Salvar Agente"}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -33,6 +33,18 @@ export type Profile = {
   email?: string | null;
   documento?: string | null;
   telefone?: string | null;
+  ramos_atuacao?: string[] | null;
+  cep?: string | null;
+  logradouro?: string | null;
+  bairro?: string | null;
+  cidade?: string | null;
+  estado?: string | null;
+  regiao?: string | null;
+  sexo?: string | null;
+  idade?: number | null;
+  data_nascimento?: string | null;
+  origem_cadastro?: string | null;
+  cadastro_finalizado_em?: string | null;
   status_da_assinatura?: string | null;
 };
 
@@ -48,6 +60,18 @@ export type AdminUser = {
   status_da_assinatura: string | null;
   documento: string | null;
   telefone: string | null;
+  ramos_atuacao: string[] | null;
+  cep: string | null;
+  logradouro: string | null;
+  bairro: string | null;
+  cidade: string | null;
+  estado: string | null;
+  regiao: string | null;
+  sexo: string | null;
+  idade: number | null;
+  data_nascimento: string | null;
+  origem_cadastro: string | null;
+  cadastro_finalizado_em: string | null;
   plan_type: string | null;
   nome_completo: string | null;
 };

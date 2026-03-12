@@ -31,6 +31,21 @@ import { AdminUser } from "@/types/app";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import type { CreateUserInput } from "@/lib/validations";
+import { formatPracticeAreas } from "@/lib/userProfile";
+
+function formatOriginLabel(value: string | null | undefined) {
+  const normalized = String(value || "").trim().toLowerCase();
+  if (normalized === "compra_direta_cakto") {
+    return "Compra direta Cakto";
+  }
+
+  if (normalized === "cadastro_admin") {
+    return "Cadastro administrativo";
+  }
+
+  return normalized ? normalized : "Não informado";
+}
 
 const UserManagement: React.FC = () => {
   const { isAdmin, session } = useSession();
@@ -96,7 +111,7 @@ const UserManagement: React.FC = () => {
     }
   }, [isAdmin, fetchUsers]);
 
-  const handleCreateUser = async (email: string, firstName: string, lastName: string, role: "user" | "admin", password: string) => {
+  const handleCreateUser = async (payload: CreateUserInput) => {
     try {
       const response = await fetch(`${SUPABASE_URL}/functions/v1/admin-create-user`, {
         method: "POST",
@@ -104,7 +119,24 @@ const UserManagement: React.FC = () => {
           "Content-Type": "application/json",
           Authorization: `Bearer ${session?.access_token}`,
         },
-        body: JSON.stringify({ email, first_name: firstName, last_name: lastName, role, password }),
+        body: JSON.stringify({
+          email: payload.email,
+          full_name: payload.fullName,
+          role: payload.role,
+          password: payload.password,
+          documento: payload.documento,
+          telefone: payload.telefone,
+          practice_areas: payload.practiceAreas,
+          cep: payload.cep,
+          logradouro: payload.logradouro,
+          bairro: payload.bairro,
+          cidade: payload.cidade,
+          estado: payload.estado,
+          regiao: payload.regiao,
+          sexo: payload.sexo,
+          data_nascimento: payload.dataNascimento,
+          idade: payload.idade,
+        }),
       });
 
       if (!response.ok) {
@@ -115,9 +147,11 @@ const UserManagement: React.FC = () => {
       const responseData = await response.json();
       toast.success(responseData.message || "Usuário criado com sucesso!");
       fetchUsers();
+      return true;
     } catch (error: any) {
       toast.error("Erro ao criar usuário: " + error.message);
       logger.error("Erro ao criar usuário via Edge Function:", error);
+      return false;
     }
   };
 
@@ -224,6 +258,11 @@ const UserManagement: React.FC = () => {
       const email = (user.email || "").toLowerCase();
       const documento = (user.documento || "").toLowerCase();
       const telefone = (user.telefone || "").toLowerCase();
+      const cidade = (user.cidade || "").toLowerCase();
+      const estado = (user.estado || "").toLowerCase();
+      const regiao = (user.regiao || "").toLowerCase();
+      const origem = (user.origem_cadastro || "").toLowerCase();
+      const ramos = formatPracticeAreas(user.ramos_atuacao).toLowerCase();
       const status = (user.status_da_assinatura || "").toLowerCase();
       const plano = (user.plan_type || "").toLowerCase();
 
@@ -233,7 +272,12 @@ const UserManagement: React.FC = () => {
         nomeCompleto.includes(query) ||
         email.includes(query) ||
         documento.includes(query) ||
-        telefone.includes(query);
+        telefone.includes(query) ||
+        cidade.includes(query) ||
+        estado.includes(query) ||
+        regiao.includes(query) ||
+        origem.includes(query) ||
+        ramos.includes(query);
 
       const matchStatus = statusFilter === "todos" || status === statusFilter;
       const matchPlan = planFilter === "todos" || plano === planFilter;
@@ -251,8 +295,10 @@ const UserManagement: React.FC = () => {
   }, [users]);
 
   const exportToCsv = () => {
-    const headers = ["nome", "email", "cpf", "telefone", "status", "plano", "cadastro"];
-    const lines = filteredUsers.map((user) => {
+    const headers = ["nome", "email", "cpf", "whatsapp", "ramos_atuacao", "cep", "endereco", "bairro", "cidade", "estado", "regiao", "sexo", "idade", "data_nascimento", "origem", "status", "plano", "cadastro"];
+    const escapeCsvCell = (value: unknown) => `"${String(value ?? "").replace(/"/g, '""')}"`;
+
+    const lines = users.map((user) => {
       const nome = user.nome_completo || `${user.first_name || ""} ${user.last_name || ""}`.trim() || "Sem nome";
       const cadastro = user.created_at ? new Date(user.created_at).toLocaleDateString("pt-BR") : "-";
       return [
@@ -260,15 +306,26 @@ const UserManagement: React.FC = () => {
         user.email || "",
         user.documento || "",
         user.telefone || "",
+        formatPracticeAreas(user.ramos_atuacao),
+        user.cep || "",
+        user.logradouro || "",
+        user.bairro || "",
+        user.cidade || "",
+        user.estado || "",
+        user.regiao || "",
+        user.sexo || "",
+        user.idade ?? "",
+        user.data_nascimento ? new Date(`${user.data_nascimento}T00:00:00`).toLocaleDateString("pt-BR") : "",
+        formatOriginLabel(user.origem_cadastro),
         user.status_da_assinatura || "",
         user.plan_type || "",
         cadastro,
       ]
-        .map((value) => `"${String(value).replace(/"/g, '""')}"`)
-        .join(",");
+        .map(escapeCsvCell)
+        .join(";");
     });
 
-    const csv = [headers.join(","), ...lines].join("\n");
+    const csv = `\uFEFF${[headers.join(";"), ...lines].join("\r\n")}`;
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -354,7 +411,7 @@ const UserManagement: React.FC = () => {
             <Input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Buscar por nome, email ou CPF..."
+              placeholder="Buscar por nome, email, CPF, origem, ramo ou região..."
               className="pl-10"
             />
           </div>
@@ -384,15 +441,17 @@ const UserManagement: React.FC = () => {
       </Card>
 
       <Card className="border-gray-200/80 bg-white overflow-hidden">
+        <div className="overflow-x-auto">
         <Table>
           <TableHeader className="bg-slate-50/80">
             <TableRow>
               <TableHead>USUÁRIO</TableHead>
-              <TableHead>CPF</TableHead>
-              <TableHead>TELEFONE</TableHead>
+              <TableHead>CONTATO</TableHead>
+              <TableHead>RAMOS / REGIÃO</TableHead>
+              <TableHead>PERFIL</TableHead>
+              <TableHead>ORIGEM / CADASTRO</TableHead>
               <TableHead>STATUS</TableHead>
               <TableHead>PLANO</TableHead>
-              <TableHead>CADASTRO</TableHead>
               <TableHead className="text-right">AÇÕES</TableHead>
             </TableRow>
           </TableHeader>
@@ -408,6 +467,9 @@ const UserManagement: React.FC = () => {
                 const nome = user.nome_completo || `${user.first_name || ""} ${user.last_name || ""}`.trim() || "Sem nome";
                 const status = (user.status_da_assinatura || "").toLowerCase();
                 const cadastro = user.created_at ? new Date(user.created_at).toLocaleDateString("pt-BR") : "-";
+                const nascimento = user.data_nascimento
+                  ? new Date(`${user.data_nascimento}T00:00:00`).toLocaleDateString("pt-BR")
+                  : "-";
 
                 return (
                   <TableRow key={user.id}>
@@ -415,8 +477,26 @@ const UserManagement: React.FC = () => {
                       <div className="font-semibold text-slate-900">{nome}</div>
                       <div className="text-sm text-slate-500">{user.email || "-"}</div>
                     </TableCell>
-                    <TableCell>{user.documento || "-"}</TableCell>
-                    <TableCell>{user.telefone || "-"}</TableCell>
+                    <TableCell>
+                      <div className="text-sm font-medium text-slate-900">CPF: {user.documento || "-"}</div>
+                      <div className="text-sm text-slate-500">WhatsApp: {user.telefone || "-"}</div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="text-sm text-slate-900">{formatPracticeAreas(user.ramos_atuacao) || "-"}</div>
+                      <div className="text-sm text-slate-500">
+                        {[user.cidade, user.estado].filter(Boolean).join("/") || user.regiao || "-"}
+                      </div>
+                      {user.cep && <div className="text-xs text-slate-400">CEP: {user.cep}</div>}
+                    </TableCell>
+                    <TableCell>
+                      <div className="text-sm text-slate-900">Sexo: {user.sexo || "-"}</div>
+                      <div className="text-sm text-slate-500">Idade: {user.idade ?? "-"}</div>
+                      <div className="text-xs text-slate-400">Nascimento: {nascimento}</div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="text-sm font-medium text-slate-900">{formatOriginLabel(user.origem_cadastro)}</div>
+                      <div className="text-sm text-slate-500">Cadastro: {cadastro}</div>
+                    </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <Switch
@@ -442,7 +522,6 @@ const UserManagement: React.FC = () => {
                         {(user.plan_type || "basic").toUpperCase()}
                       </span>
                     </TableCell>
-                    <TableCell>{cadastro}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
                         <Button variant="ghost" size="sm" onClick={() => handleEditUserRole(user)} className="text-indigo-600 hover:bg-indigo-50">
@@ -467,6 +546,7 @@ const UserManagement: React.FC = () => {
             )}
           </TableBody>
         </Table>
+        </div>
       </Card>
 
       <CreateUserDialog

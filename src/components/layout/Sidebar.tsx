@@ -1,6 +1,6 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
-import { PlusCircle, BookOpen, Bot, Settings, LogOut, Shield, MoreVertical, Edit, Trash2, Home, Users, Video, Link as LinkIcon, Plus, Sparkles, ChevronLeft, ChevronRight, Wallet, Activity, HandCoins } from "lucide-react";
+import { PlusCircle, BookOpen, Bot, Settings, LogOut, Shield, MoreVertical, Edit, Trash2, Home, Users, Video, Link as LinkIcon, Plus, Sparkles, ChevronLeft, ChevronRight, Wallet, Activity, HandCoins, CreditCard } from "lucide-react";
 import { Category, CustomLink } from "@/types/app";
 import { cn } from "@/lib/utils";
 import { useSession } from "@/components/SessionContextProvider";
@@ -380,6 +380,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               <h2 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider px-3 mb-1">Conta</h2>
             )}
             <div className="flex flex-col gap-1 w-full">
+              {renderButton(CreditCard, "Assinatura", () => navigate("/app/assinatura"), isCurrentPath("/app/assinatura") || isCurrentPath("/app/subscription"), false, false, "text-slate-500")}
               {renderButton(HandCoins, "Indicações", () => navigate("/app/indicacoes"), isCurrentPath("/app/indicacoes"), false, false, "text-slate-500")}
               {!isAdmin && renderButton(BookOpen, "Como Usar", onHowToUse, isCurrentPath("/app/how-to-use"), false, false, "text-slate-500")}
               {renderButton(Settings, "Configurações", handleSettings, isCurrentPath("/app/settings"), false, false, "text-slate-500")}

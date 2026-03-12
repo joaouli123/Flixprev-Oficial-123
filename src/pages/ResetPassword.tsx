@@ -5,10 +5,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabaseAuth } from "@/lib/supabase-auth";
 import { toast } from 'sonner';
-import { resetPasswordSchema } from '@/lib/validations';
+import { accountProfileSchema, resetPasswordSchema } from '@/lib/validations';
 import { loginUser, persistSupabaseSession } from '@/lib/auth';
+import { calculateAgeFromBirthDate, formatCep, formatPracticeAreas, lookupBrazilianCep, parsePracticeAreas } from '@/lib/userProfile';
 
 type RecoveryType = 'recovery' | 'invite';
 
@@ -44,20 +47,37 @@ const ResetPassword: React.FC = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [recoveryEmail, setRecoveryEmail] = useState<string | null>(null);
+  const [recoveryUserId, setRecoveryUserId] = useState<string | null>(null);
   const [hasRecoverySession, setHasRecoverySession] = useState(false);
   const [sessionChecking, setSessionChecking] = useState(true);
+  const [fullName, setFullName] = useState('');
+  const [documento, setDocumento] = useState('');
+  const [telefone, setTelefone] = useState('');
+  const [practiceAreasInput, setPracticeAreasInput] = useState('');
+  const [cep, setCep] = useState('');
+  const [logradouro, setLogradouro] = useState('');
+  const [bairro, setBairro] = useState('');
+  const [cidade, setCidade] = useState('');
+  const [estado, setEstado] = useState('');
+  const [regiao, setRegiao] = useState('');
+  const [sexo, setSexo] = useState<'feminino' | 'masculino' | 'outro' | 'prefiro_nao_informar'>('prefiro_nao_informar');
+  const [dataNascimento, setDataNascimento] = useState('');
+  const [isLookingUpCep, setIsLookingUpCep] = useState(false);
   const isProcessingRecoveryRef = useRef(false);
   const navigate = useNavigate();
+  const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || '').trim().replace(/\/$/, '');
+  const idade = calculateAgeFromBirthDate(dataNascimento);
 
   useEffect(() => {
     let isMounted = true;
 
-    const applyRecoveryState = (email: string | null, activeMessage: string) => {
+    const applyRecoveryState = (email: string | null, userId: string | null, activeMessage: string) => {
       if (!isMounted) {
         return;
       }
 
       setRecoveryEmail(email);
+      setRecoveryUserId(userId);
       setHasRecoverySession(Boolean(email));
       setMessage(activeMessage);
       setIsError(false);
@@ -69,6 +89,7 @@ const ResetPassword: React.FC = () => {
       }
 
       setRecoveryEmail(null);
+      setRecoveryUserId(null);
       setHasRecoverySession(false);
       setMessage(expiredMessage);
       setIsError(true);
@@ -80,8 +101,9 @@ const ResetPassword: React.FC = () => {
       }
 
       const sessionEmail = session?.user?.email ?? null;
+      const sessionUserId = session?.user?.id ?? null;
       if ((event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN') && sessionEmail) {
-        applyRecoveryState(sessionEmail, 'Defina sua nova senha para ativar sua conta.');
+        applyRecoveryState(sessionEmail, sessionUserId, 'Defina sua nova senha e complete seu cadastro para ativar sua conta.');
         setSessionChecking(false);
       }
     });
@@ -105,7 +127,7 @@ const ResetPassword: React.FC = () => {
         } = getRecoveryUrlParams();
 
         if (tokenHash && (recoveryType === 'recovery' || recoveryType === 'invite')) {
-          applyRecoveryState(null, 'Validando link de acesso...');
+          applyRecoveryState(null, null, 'Validando link de acesso...');
 
           const verification = await supabaseAuth.auth.verifyOtp({
             token_hash: tokenHash,
@@ -118,32 +140,34 @@ const ResetPassword: React.FC = () => {
           }
 
           const email = verification.data.user?.email ?? verification.data.session?.user?.email ?? null;
+          const userId = verification.data.user?.id ?? verification.data.session?.user?.id ?? null;
 
-          applyRecoveryState(email, 'Defina sua nova senha para ativar sua conta.');
+          applyRecoveryState(email, userId, 'Defina sua nova senha e complete seu cadastro para ativar sua conta.');
           clearRecoveryUrlParams();
 
           return;
         }
 
         if (authCode) {
-          applyRecoveryState(null, 'Validando link de acesso...');
+          applyRecoveryState(null, null, 'Validando link de acesso...');
 
           const { data, error } = await supabaseAuth.auth.exchangeCodeForSession(authCode);
           const email = data.session?.user?.email ?? data.user?.email ?? null;
+          const userId = data.session?.user?.id ?? data.user?.id ?? null;
 
           if (error || !email) {
             applyExpiredState('Sessão de recuperação não encontrada ou expirada. Solicite um novo e-mail de ativação/redefinição.');
             return;
           }
 
-          applyRecoveryState(email, 'Defina sua nova senha para redefinir o acesso.');
+          applyRecoveryState(email, userId, 'Defina sua nova senha e complete seu cadastro para concluir o acesso.');
           clearRecoveryUrlParams();
 
           return;
         }
 
         if (accessToken && refreshToken) {
-          applyRecoveryState(null, 'Validando link de acesso...');
+          applyRecoveryState(null, null, 'Validando link de acesso...');
 
           const { data, error } = await supabaseAuth.auth.setSession({
             access_token: accessToken,
@@ -151,13 +175,14 @@ const ResetPassword: React.FC = () => {
           });
 
           const email = data.session?.user?.email ?? data.user?.email ?? null;
+          const userId = data.session?.user?.id ?? data.user?.id ?? null;
 
           if (error || !email) {
             applyExpiredState('Sessão de recuperação não encontrada ou expirada. Solicite um novo e-mail de ativação/redefinição.');
             return;
           }
 
-          applyRecoveryState(email, 'Defina sua nova senha para redefinir o acesso.');
+          applyRecoveryState(email, userId, 'Defina sua nova senha e complete seu cadastro para concluir o acesso.');
           clearRecoveryUrlParams();
 
           return;
@@ -165,9 +190,10 @@ const ResetPassword: React.FC = () => {
 
         const { data, error } = await supabaseAuth.auth.getSession();
         const email = data?.session?.user?.email ?? null;
+        const userId = data?.session?.user?.id ?? null;
 
         if (!error && email) {
-          applyRecoveryState(email, 'Sessão de recuperação ativa. Defina sua nova senha para ativar a conta.');
+          applyRecoveryState(email, userId, 'Sessão de recuperação ativa. Defina sua nova senha e complete seu cadastro.');
         } else {
           applyExpiredState('Sessão de recuperação não encontrada ou expirada. Solicite um novo e-mail de ativação/redefinição.');
         }
@@ -210,6 +236,72 @@ const ResetPassword: React.FC = () => {
     };
   }, [navigate]);
 
+  useEffect(() => {
+    const loadProfile = async () => {
+      if (!hasRecoverySession || !recoveryUserId || !apiBaseUrl) {
+        return;
+      }
+
+      try {
+        const response = await fetch(`${apiBaseUrl}/api/account/profile`, {
+          headers: {
+            'Content-Type': 'application/json',
+            'x-user-id': recoveryUserId,
+          },
+        });
+
+        if (!response.ok) {
+          return;
+        }
+
+        const payload = await response.json();
+        const profile = payload?.profile;
+        if (!profile) {
+          return;
+        }
+
+        setFullName(profile.nome_completo || '');
+        setDocumento(profile.documento || '');
+        setTelefone(profile.telefone || '');
+        setPracticeAreasInput(formatPracticeAreas(profile.ramos_atuacao));
+        setCep(profile.cep || '');
+        setLogradouro(profile.logradouro || '');
+        setBairro(profile.bairro || '');
+        setCidade(profile.cidade || '');
+        setEstado(profile.estado || '');
+        setRegiao(profile.regiao || '');
+        setSexo((profile.sexo as any) || 'prefiro_nao_informar');
+        setDataNascimento(profile.data_nascimento || '');
+      } catch {
+        return;
+      }
+    };
+
+    void loadProfile();
+  }, [apiBaseUrl, hasRecoverySession, recoveryUserId]);
+
+  const handleCepLookup = async () => {
+    if (cep.replace(/\D/g, '').length !== 8) {
+      return;
+    }
+
+    setIsLookingUpCep(true);
+
+    try {
+      const result = await lookupBrazilianCep(cep);
+      setCep(result.cep);
+      setLogradouro(result.logradouro);
+      setBairro(result.bairro);
+      setCidade(result.cidade);
+      setEstado(result.estado);
+      setRegiao(result.regiao);
+    } catch (error: any) {
+      toast.error(error?.message || 'Não foi possível consultar o CEP.');
+    } finally {
+      setIsLookingUpCep(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -231,6 +323,32 @@ const ResetPassword: React.FC = () => {
       return;
     }
 
+    const profileResult = accountProfileSchema.safeParse({
+      fullName: fullName.trim(),
+      email: String(recoveryEmail || '').trim().toLowerCase(),
+      documento: documento.trim(),
+      telefone: telefone.trim(),
+      practiceAreas: parsePracticeAreas(practiceAreasInput),
+      cep: cep.trim(),
+      logradouro: logradouro.trim(),
+      bairro: bairro.trim(),
+      cidade: cidade.trim(),
+      estado: estado.trim().toUpperCase(),
+      regiao: regiao.trim(),
+      sexo,
+      dataNascimento,
+      idade: idade ?? -1,
+    });
+
+    if (!profileResult.success) {
+      const firstError = profileResult.error.errors[0];
+      setMessage(firstError.message);
+      setIsError(true);
+      setLoading(false);
+      toast.error(firstError.message);
+      return;
+    }
+
     try {
       let targetEmail = recoveryEmail;
 
@@ -239,6 +357,43 @@ const ResetPassword: React.FC = () => {
         setIsError(true);
         toast.error('Sessão de recuperação expirada ou inválida.');
         return;
+      }
+
+      if (!recoveryUserId) {
+        setMessage('Não foi possível identificar o usuário do link de ativação. Solicite um novo acesso.');
+        setIsError(true);
+        toast.error('Não foi possível identificar o usuário do link.');
+        return;
+      }
+
+      const profileSaveResponse = await fetch(`${apiBaseUrl}/api/account/profile`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': recoveryUserId,
+        },
+        body: JSON.stringify({
+          full_name: profileResult.data.fullName,
+          email: profileResult.data.email,
+          documento: profileResult.data.documento,
+          telefone: profileResult.data.telefone,
+          ramos_atuacao: profileResult.data.practiceAreas,
+          cep: profileResult.data.cep,
+          logradouro: profileResult.data.logradouro,
+          bairro: profileResult.data.bairro,
+          cidade: profileResult.data.cidade,
+          estado: profileResult.data.estado,
+          regiao: profileResult.data.regiao,
+          sexo: profileResult.data.sexo,
+          idade: profileResult.data.idade,
+          data_nascimento: profileResult.data.dataNascimento,
+          cadastro_finalizado_em: new Date().toISOString(),
+        }),
+      });
+
+      if (!profileSaveResponse.ok) {
+        const errorPayload = await profileSaveResponse.json().catch(() => ({}));
+        throw new Error(errorPayload.error || 'Não foi possível salvar o cadastro complementar.');
       }
 
       const { error } = await supabaseAuth.auth.updateUser({
@@ -349,12 +504,113 @@ const ResetPassword: React.FC = () => {
                 Redefinir Senha
               </CardTitle>
               <CardDescription className="text-slate-600 leading-relaxed px-2 text-sm sm:text-base">
-                Insira e confirme sua nova senha.
+                Defina sua senha e complete seu cadastro para concluir a ativação.
               </CardDescription>
             </CardHeader>
 
             <CardContent className="px-6 sm:px-8 pb-6 sm:pb-8">
               <form onSubmit={handleSubmit} className="space-y-6">
+                <div className="space-y-4 rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+                  <div className="text-sm font-semibold text-slate-800">Dados obrigatórios do cadastro</div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="fullName">Nome Completo</Label>
+                    <Input id="fullName" value={fullName} onChange={(e) => setFullName(e.target.value)} />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="email-display">E-mail</Label>
+                    <Input id="email-display" value={recoveryEmail || ''} disabled />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="documento">CPF</Label>
+                      <Input id="documento" value={documento} onChange={(e) => setDocumento(e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="telefone">WhatsApp</Label>
+                      <Input id="telefone" value={telefone} onChange={(e) => setTelefone(e.target.value)} />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="practiceAreas">Quais Ramos Atua?</Label>
+                    <Textarea
+                      id="practiceAreas"
+                      value={practiceAreasInput}
+                      onChange={(e) => setPracticeAreasInput(e.target.value)}
+                      placeholder="Ex: Previdenciário, Cível"
+                      className="min-h-[88px]"
+                    />
+                  </div>
+
+                  <div className="space-y-4 rounded-xl border border-slate-200 bg-white p-4">
+                    <div className="text-sm font-medium text-slate-700">Região e Endereço</div>
+                    <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3">
+                      <div className="space-y-2">
+                        <Label htmlFor="cep">CEP</Label>
+                        <Input id="cep" value={cep} onChange={(e) => setCep(formatCep(e.target.value))} onBlur={() => void handleCepLookup()} />
+                      </div>
+                      <Button type="button" variant="outline" className="self-end" onClick={() => void handleCepLookup()} disabled={isLookingUpCep || cep.replace(/\D/g, '').length !== 8}>
+                        {isLookingUpCep ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Buscar CEP'}
+                      </Button>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="logradouro">Endereço</Label>
+                      <Input id="logradouro" value={logradouro} onChange={(e) => setLogradouro(e.target.value)} />
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="bairro">Bairro</Label>
+                        <Input id="bairro" value={bairro} onChange={(e) => setBairro(e.target.value)} />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="cidade">Cidade</Label>
+                        <Input id="cidade" value={cidade} onChange={(e) => setCidade(e.target.value)} />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="estado">UF</Label>
+                        <Input id="estado" value={estado} onChange={(e) => setEstado(e.target.value.toUpperCase())} maxLength={2} />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="regiao">Região</Label>
+                        <Input id="regiao" value={regiao} onChange={(e) => setRegiao(e.target.value)} />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="sexo">Sexo</Label>
+                      <Select value={sexo} onValueChange={(value: 'feminino' | 'masculino' | 'outro' | 'prefiro_nao_informar') => setSexo(value)}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="feminino">Feminino</SelectItem>
+                          <SelectItem value="masculino">Masculino</SelectItem>
+                          <SelectItem value="outro">Outro</SelectItem>
+                          <SelectItem value="prefiro_nao_informar">Prefiro não informar</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="dataNascimento">Data de Nascimento</Label>
+                      <Input id="dataNascimento" type="date" value={dataNascimento} onChange={(e) => setDataNascimento(e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="idade">Idade</Label>
+                      <Input id="idade" value={idade ?? ''} readOnly />
+                    </div>
+                  </div>
+                </div>
+
                 <div className="space-y-2">
                   <Label htmlFor="new-password">Nova Senha</Label>
                   <div className="relative">

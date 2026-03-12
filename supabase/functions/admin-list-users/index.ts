@@ -20,6 +20,18 @@ interface Usuario {
     telefone?: string | null;
     nome_completo?: string | null;
     email?: string | null;
+  ramos_atuacao?: string[] | null;
+  cep?: string | null;
+  logradouro?: string | null;
+  bairro?: string | null;
+  cidade?: string | null;
+  estado?: string | null;
+  regiao?: string | null;
+  sexo?: string | null;
+  idade?: number | null;
+  data_nascimento?: string | null;
+  origem_cadastro?: string | null;
+  cadastro_finalizado_em?: string | null;
 }
 
 interface Subscription {
@@ -76,14 +88,31 @@ serve(async (req: Request) => {
     }
 
     // Fetch all users from auth.users
-    const { data: authUsers, error: authUsersError } = await supabaseAdmin.auth.admin.listUsers();
+    const authUsers: AuthUser[] = [];
+    let page = 1;
 
-    if (authUsersError) {
-      console.error('Error listing auth users:', authUsersError);
-      return new Response(JSON.stringify({ error: authUsersError.message }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500,
+    while (true) {
+      const { data, error: authUsersError } = await supabaseAdmin.auth.admin.listUsers({
+        page,
+        perPage: 200,
       });
+
+      if (authUsersError) {
+        console.error('Error listing auth users:', authUsersError);
+        return new Response(JSON.stringify({ error: authUsersError.message }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 500,
+        });
+      }
+
+      const currentPageUsers = data?.users || [];
+      authUsers.push(...currentPageUsers);
+
+      if (currentPageUsers.length < 200) {
+        break;
+      }
+
+      page += 1;
     }
 
     // Fetch all profiles from public.profiles
@@ -102,7 +131,7 @@ serve(async (req: Request) => {
     // Fetch all subscription statuses from public.usuarios
     const { data: usuarios, error: usuariosError } = await supabaseAdmin
       .from('usuarios')
-      .select('user_id, status_da_assinatura, documento, telefone, nome_completo, email');
+      .select('user_id, status_da_assinatura, documento, telefone, nome_completo, email, ramos_atuacao, cep, logradouro, bairro, cidade, estado, regiao, sexo, idade, data_nascimento, origem_cadastro, cadastro_finalizado_em');
 
     if (usuariosError) {
         console.error('Error listing usuarios:', usuariosError);
@@ -126,7 +155,7 @@ serve(async (req: Request) => {
     }
 
     // Combine auth users with their profiles and subscription status
-    const usersWithProfiles = authUsers.users.map((authUser: AuthUser) => {
+    const usersWithProfiles = authUsers.map((authUser: AuthUser) => {
       const profile = profiles.find((p: Profile) => p.id === authUser.id);
       const usuario = usuarios.find((u: Usuario) => u.user_id === authUser.id);
       const subscription = (subscriptions as Subscription[]).find((s) => s.user_id === authUser.id);
@@ -143,6 +172,18 @@ serve(async (req: Request) => {
         documento: usuario?.documento || null,
         telefone: usuario?.telefone || null,
         nome_completo: usuario?.nome_completo || null,
+        ramos_atuacao: usuario?.ramos_atuacao || null,
+        cep: usuario?.cep || null,
+        logradouro: usuario?.logradouro || null,
+        bairro: usuario?.bairro || null,
+        cidade: usuario?.cidade || null,
+        estado: usuario?.estado || null,
+        regiao: usuario?.regiao || null,
+        sexo: usuario?.sexo || null,
+        idade: usuario?.idade ?? null,
+        data_nascimento: usuario?.data_nascimento || null,
+        origem_cadastro: usuario?.origem_cadastro || null,
+        cadastro_finalizado_em: usuario?.cadastro_finalizado_em || null,
         plan_type: subscription?.plan_type || null,
       };
     });

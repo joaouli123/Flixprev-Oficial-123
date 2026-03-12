@@ -366,7 +366,8 @@ const AppLayout = () => {
   };
 
   const handleAddAgent = async (
-    newAgentData: Omit<Agent, "id" | "userId" | "created_at">
+    newAgentData: Omit<Agent, "id" | "userId" | "created_at">,
+    options?: { onProgress?: (progress: { stage: string; detail?: string }) => void }
   ) => {
     if (!userId) {
       toast.error("Você precisa estar logado para adicionar agentes.");
@@ -375,6 +376,10 @@ const AppLayout = () => {
 
     try {
       console.log("Tentando criar agente:", newAgentData.title, "com categorias:", newAgentData.category_ids);
+      options?.onProgress?.({
+        stage: "Salvando estrutura principal do agente...",
+        detail: "Criando o registro base antes de processar anexos e URLs.",
+      });
       
       // Generate a UUID for the agent
       const agentId = crypto.randomUUID();
@@ -414,16 +419,21 @@ const AppLayout = () => {
 
           try {
             if (normalizedAgent.extra_links.length > 0) {
-            const syncResult = await syncAgentKnowledgeLinks(normalizedAgent.id, normalizedAgent.extra_links);
-            normalizedAgent = {
-              ...normalizedAgent,
-              attachments: Array.isArray(syncResult.attachments) ? syncResult.attachments : normalizedAgent.attachments,
-              extra_links: Array.isArray(syncResult.extra_links) ? syncResult.extra_links : normalizedAgent.extra_links,
-            };
+              options?.onProgress?.({
+                stage: "Lendo e processando o conteúdo das URLs...",
+                detail: `Baixando ${normalizedAgent.extra_links.length} fonte(s) externa(s), extraindo texto e indexando a base do agente.`,
+              });
 
-            if (syncResult.failures && syncResult.failures.length > 0) {
-              toast.warning(`Alguns links do agente não puderam ser processados (${syncResult.failures.length}).`);
-            }
+              const syncResult = await syncAgentKnowledgeLinks(normalizedAgent.id, normalizedAgent.extra_links);
+              normalizedAgent = {
+                ...normalizedAgent,
+                attachments: Array.isArray(syncResult.attachments) ? syncResult.attachments : normalizedAgent.attachments,
+                extra_links: Array.isArray(syncResult.extra_links) ? syncResult.extra_links : normalizedAgent.extra_links,
+              };
+
+              if (syncResult.failures && syncResult.failures.length > 0) {
+                toast.warning(`Alguns links do agente não puderam ser processados (${syncResult.failures.length}).`);
+              }
             }
           } catch (syncError: any) {
             console.error("Erro ao sincronizar links do agente:", syncError);
@@ -434,6 +444,10 @@ const AppLayout = () => {
           toast.success(`Agente '${newAgentData.title}' adicionado com sucesso!`);
 
           if (normalizedAgent.extra_links.length === 0) {
+            options?.onProgress?.({
+              stage: "Indexando anexos do agente...",
+              detail: "Gerando chunks e embeddings dos arquivos já enviados para treinar a IA.",
+            });
             await fetch(`/api/admin/reprocess-agent-attachments/${normalizedAgent.id}`, { method: 'POST' }).catch(console.error);
           }
           
@@ -477,7 +491,8 @@ const AppLayout = () => {
 
   const handleEditAgent = async (
     agentId: string,
-    updatedAgentData: Omit<Agent, "id" | "userId" | "created_at">
+    updatedAgentData: Omit<Agent, "id" | "userId" | "created_at">,
+    options?: { onProgress?: (progress: { stage: string; detail?: string }) => void }
   ) => {
     if (!userId) {
       toast.error("Você precisa estar logado para editar agentes.");
@@ -500,6 +515,11 @@ const AppLayout = () => {
       updatePayload.extra_links = updatedAgentData.extra_links;
     }
 
+    options?.onProgress?.({
+      stage: "Salvando alterações do agente...",
+      detail: "Atualizando os dados principais antes de reprocessar o conhecimento.",
+    });
+
     const { data, error, omittedColumns } = await updateAgentWithSchemaFallback(agentId, updatePayload);
 
     if (error) {
@@ -516,16 +536,21 @@ const AppLayout = () => {
 
         try {
           if (normalizedAgent.extra_links.length > 0) {
-          const syncResult = await syncAgentKnowledgeLinks(agentId, normalizedAgent.extra_links);
-          normalizedAgent = {
-            ...normalizedAgent,
-            attachments: Array.isArray(syncResult.attachments) ? syncResult.attachments : normalizedAgent.attachments,
-            extra_links: Array.isArray(syncResult.extra_links) ? syncResult.extra_links : normalizedAgent.extra_links,
-          };
+            options?.onProgress?.({
+              stage: "Relendo e processando as URLs do agente...",
+              detail: `Atualizando ${normalizedAgent.extra_links.length} fonte(s) externas e reindexando o treinamento.`,
+            });
 
-          if (syncResult.failures && syncResult.failures.length > 0) {
-            toast.warning(`Alguns links do agente não puderam ser processados (${syncResult.failures.length}).`);
-          }
+            const syncResult = await syncAgentKnowledgeLinks(agentId, normalizedAgent.extra_links);
+            normalizedAgent = {
+              ...normalizedAgent,
+              attachments: Array.isArray(syncResult.attachments) ? syncResult.attachments : normalizedAgent.attachments,
+              extra_links: Array.isArray(syncResult.extra_links) ? syncResult.extra_links : normalizedAgent.extra_links,
+            };
+
+            if (syncResult.failures && syncResult.failures.length > 0) {
+              toast.warning(`Alguns links do agente não puderam ser processados (${syncResult.failures.length}).`);
+            }
           }
         } catch (syncError: any) {
           console.error("Erro ao sincronizar links do agente:", syncError);
@@ -538,6 +563,10 @@ const AppLayout = () => {
         toast.success(`Agente '${updatedAgentData.title}' atualizado com sucesso!`);
 
         if (normalizedAgent.extra_links.length === 0) {
+          options?.onProgress?.({
+            stage: "Reindexando anexos do agente...",
+            detail: "Atualizando chunks e embeddings dos anexos já existentes.",
+          });
           await fetch(`/api/admin/reprocess-agent-attachments/${agentId}`, { method: 'POST' }).catch(console.error);
         }
         

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -10,15 +10,17 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { createUserSchema } from "@/lib/validations";
+import { createUserSchema, type CreateUserInput } from "@/lib/validations";
+import { calculateAgeFromBirthDate, formatCep, lookupBrazilianCep, parsePracticeAreas } from "@/lib/userProfile";
 import { toast } from "sonner";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Loader2, MapPin } from "lucide-react";
 
 interface CreateUserDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (email: string, firstName: string, lastName: string, role: 'user' | 'admin', password: string) => void;
+  onSave: (payload: CreateUserInput) => Promise<boolean> | boolean;
 }
 
 const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
@@ -27,20 +29,90 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
   onSave,
 }) => {
   const [email, setEmail] = useState("");
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
+  const [fullName, setFullName] = useState("");
   const [role, setRole] = useState<'user' | 'admin'>('user');
   const [password, setPassword] = useState("");
+  const [documento, setDocumento] = useState("");
+  const [telefone, setTelefone] = useState("");
+  const [practiceAreasInput, setPracticeAreasInput] = useState("");
+  const [cep, setCep] = useState("");
+  const [logradouro, setLogradouro] = useState("");
+  const [bairro, setBairro] = useState("");
+  const [cidade, setCidade] = useState("");
+  const [estado, setEstado] = useState("");
+  const [regiao, setRegiao] = useState("");
+  const [sexo, setSexo] = useState<'feminino' | 'masculino' | 'outro' | 'prefiro_nao_informar'>('prefiro_nao_informar');
+  const [dataNascimento, setDataNascimento] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [isLookingUpCep, setIsLookingUpCep] = useState(false);
 
-  const handleSave = () => {
+  const idade = useMemo(() => calculateAgeFromBirthDate(dataNascimento), [dataNascimento]);
+
+  const resetForm = () => {
+    setEmail("");
+    setFullName("");
+    setPassword("");
+    setRole('user');
+    setDocumento("");
+    setTelefone("");
+    setPracticeAreasInput("");
+    setCep("");
+    setLogradouro("");
+    setBairro("");
+    setCidade("");
+    setEstado("");
+    setRegiao("");
+    setSexo('prefiro_nao_informar');
+    setDataNascimento("");
+    setShowPassword(false);
+  };
+
+  const handleCepLookup = async () => {
+    if (cep.replace(/\D/g, '').length !== 8) {
+      return;
+    }
+
+    setIsLookingUpCep(true);
+
+    try {
+      const result = await lookupBrazilianCep(cep);
+      setCep(result.cep);
+      setLogradouro(result.logradouro);
+      setBairro(result.bairro);
+      setCidade(result.cidade);
+      setEstado(result.estado);
+      setRegiao(result.regiao);
+    } catch (error: any) {
+      toast.error(error?.message || 'Não foi possível consultar o CEP.');
+    } finally {
+      setIsLookingUpCep(false);
+    }
+  };
+
+  const handleSave = async () => {
+    if (idade === null) {
+      toast.error("Informe uma data de nascimento válida.");
+      return;
+    }
+
     // Validação com Zod
     const result = createUserSchema.safeParse({
       email: email.trim(),
       password: password,
-      firstName: firstName.trim(),
-      lastName: lastName.trim(),
+      fullName: fullName.trim(),
       role: role,
+      documento: documento.trim(),
+      telefone: telefone.trim(),
+      practiceAreas: parsePracticeAreas(practiceAreasInput),
+      cep: cep.trim(),
+      logradouro: logradouro.trim(),
+      bairro: bairro.trim(),
+      cidade: cidade.trim(),
+      estado: estado.trim().toUpperCase(),
+      regiao: regiao.trim(),
+      sexo,
+      dataNascimento,
+      idade,
     });
 
     if (!result.success) {
@@ -49,33 +121,40 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
       return;
     }
 
-    onSave(
-      result.data.email,
-      result.data.firstName,
-      result.data.lastName,
-      result.data.role,
-      result.data.password
-    );
-    
-    setEmail("");
-    setFirstName("");
-    setLastName("");
-    setPassword("");
-    setRole('user');
+    const saved = await onSave(result.data);
+    if (!saved) {
+      return;
+    }
+
+    resetForm();
     onClose();
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[450px] p-0 overflow-hidden bg-white/95 backdrop-blur-xl border-slate-200/60 shadow-2xl">
+      <DialogContent className="sm:max-w-[720px] p-0 overflow-hidden bg-white/95 backdrop-blur-xl border-slate-200/60 shadow-2xl">
         <DialogHeader className="px-6 pt-6 pb-4 border-b border-slate-100">
           <DialogTitle className="text-xl font-semibold text-slate-800">Adicionar Novo Usuário</DialogTitle>
           <DialogDescription className="text-slate-500 mt-1.5">
-            Preencha os detalhes para criar uma nova conta. O usuário poderá fazer login imediatamente.
+            Preencha o cadastro completo. O usuário será criado manualmente pelo admin e poderá acessar com a senha definida aqui.
           </DialogDescription>
         </DialogHeader>
         
         <div className="px-6 py-5 space-y-4 max-h-[60vh] overflow-y-auto custom-scrollbar">
+          <div className="space-y-2">
+            <Label htmlFor="fullName" className="text-sm font-medium text-slate-700">
+              Nome Completo <span className="text-red-500">*</span>
+            </Label>
+            <Input
+              id="fullName"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              placeholder="Nome do usuário"
+              autoComplete="name"
+              className="w-full transition-all border-slate-200 focus:border-indigo-500 focus:ring-indigo-500/20"
+            />
+          </div>
+
           <div className="space-y-2">
             <Label htmlFor="email" className="text-sm font-medium text-slate-700">
               Email <span className="text-red-500">*</span>
@@ -89,6 +168,47 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
               autoComplete="email"
               className="w-full transition-all border-slate-200 focus:border-indigo-500 focus:ring-indigo-500/20"
             />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="documento" className="text-sm font-medium text-slate-700">
+                CPF <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="documento"
+                value={documento}
+                onChange={(e) => setDocumento(e.target.value)}
+                placeholder="000.000.000-00"
+                className="w-full transition-all border-slate-200 focus:border-indigo-500 focus:ring-indigo-500/20"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="telefone" className="text-sm font-medium text-slate-700">
+                WhatsApp <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="telefone"
+                value={telefone}
+                onChange={(e) => setTelefone(e.target.value)}
+                placeholder="(00) 00000-0000"
+                className="w-full transition-all border-slate-200 focus:border-indigo-500 focus:ring-indigo-500/20"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="practiceAreas" className="text-sm font-medium text-slate-700">
+              Quais Ramos Atua? <span className="text-red-500">*</span>
+            </Label>
+            <Textarea
+              id="practiceAreas"
+              value={practiceAreasInput}
+              onChange={(e) => setPracticeAreasInput(e.target.value)}
+              placeholder="Ex: Previdenciário, Trabalhista, Cível"
+              className="min-h-[88px] w-full transition-all border-slate-200 focus:border-indigo-500 focus:ring-indigo-500/20"
+            />
+            <p className="text-xs text-slate-500">Separe por vírgula ou uma linha por ramo.</p>
           </div>
           
           <div className="space-y-2">
@@ -117,33 +237,138 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
               Mínimo 8 caracteres, 1 maiúscula, 1 minúscula, 1 número
             </p>
           </div>
-          
-          <div className="grid grid-cols-2 gap-4">
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="firstName" className="text-sm font-medium text-slate-700">
-                Nome
+              <Label htmlFor="dataNascimento" className="text-sm font-medium text-slate-700">
+                Data de Nascimento <span className="text-red-500">*</span>
               </Label>
               <Input
-                id="firstName"
-                value={firstName}
-                onChange={(e) => setFirstName(e.target.value)}
-                placeholder="João"
-                autoComplete="given-name"
+                id="dataNascimento"
+                type="date"
+                value={dataNascimento}
+                onChange={(e) => setDataNascimento(e.target.value)}
                 className="w-full transition-all border-slate-200 focus:border-indigo-500 focus:ring-indigo-500/20"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="lastName" className="text-sm font-medium text-slate-700">
-                Sobrenome
+              <Label htmlFor="idade" className="text-sm font-medium text-slate-700">
+                Idade
               </Label>
               <Input
-                id="lastName"
-                value={lastName}
-                onChange={(e) => setLastName(e.target.value)}
-                placeholder="Silva"
-                autoComplete="family-name"
+                id="idade"
+                value={idade ?? ""}
+                readOnly
+                placeholder="Calculada automaticamente"
                 className="w-full transition-all border-slate-200 focus:border-indigo-500 focus:ring-indigo-500/20"
               />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="sexo" className="text-sm font-medium text-slate-700">
+              Sexo <span className="text-red-500">*</span>
+            </Label>
+            <Select value={sexo} onValueChange={(value: 'feminino' | 'masculino' | 'outro' | 'prefiro_nao_informar') => setSexo(value)}>
+              <SelectTrigger className="w-full transition-all border-slate-200 focus:border-indigo-500 focus:ring-indigo-500/20">
+                <SelectValue placeholder="Selecione o sexo" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="feminino">Feminino</SelectItem>
+                <SelectItem value="masculino">Masculino</SelectItem>
+                <SelectItem value="outro">Outro</SelectItem>
+                <SelectItem value="prefiro_nao_informar">Prefiro não informar</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50/70 p-4">
+            <div className="flex items-center gap-2 text-sm font-medium text-slate-700">
+              <MapPin className="h-4 w-4 text-indigo-600" />
+              Região e Endereço
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="cep" className="text-sm font-medium text-slate-700">
+                  CEP <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="cep"
+                  value={cep}
+                  onChange={(e) => setCep(formatCep(e.target.value))}
+                  onBlur={() => void handleCepLookup()}
+                  placeholder="00000-000"
+                  className="w-full transition-all border-slate-200 focus:border-indigo-500 focus:ring-indigo-500/20"
+                />
+              </div>
+              <Button type="button" variant="outline" className="self-end" onClick={() => void handleCepLookup()} disabled={isLookingUpCep || cep.replace(/\D/g, '').length !== 8}>
+                {isLookingUpCep ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Buscar CEP'}
+              </Button>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="logradouro" className="text-sm font-medium text-slate-700">
+                Endereço <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="logradouro"
+                value={logradouro}
+                onChange={(e) => setLogradouro(e.target.value)}
+                placeholder="Rua, avenida ou logradouro"
+                className="w-full transition-all border-slate-200 focus:border-indigo-500 focus:ring-indigo-500/20"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="bairro" className="text-sm font-medium text-slate-700">
+                  Bairro <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="bairro"
+                  value={bairro}
+                  onChange={(e) => setBairro(e.target.value)}
+                  className="w-full transition-all border-slate-200 focus:border-indigo-500 focus:ring-indigo-500/20"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="cidade" className="text-sm font-medium text-slate-700">
+                  Cidade <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="cidade"
+                  value={cidade}
+                  onChange={(e) => setCidade(e.target.value)}
+                  className="w-full transition-all border-slate-200 focus:border-indigo-500 focus:ring-indigo-500/20"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="estado" className="text-sm font-medium text-slate-700">
+                  UF <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="estado"
+                  value={estado}
+                  onChange={(e) => setEstado(e.target.value.toUpperCase())}
+                  maxLength={2}
+                  className="w-full transition-all border-slate-200 focus:border-indigo-500 focus:ring-indigo-500/20"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="regiao" className="text-sm font-medium text-slate-700">
+                  Região <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="regiao"
+                  value={regiao}
+                  onChange={(e) => setRegiao(e.target.value)}
+                  className="w-full transition-all border-slate-200 focus:border-indigo-500 focus:ring-indigo-500/20"
+                />
+              </div>
             </div>
           </div>
           
@@ -164,7 +389,7 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
           
           <div className="text-sm text-emerald-700 bg-emerald-50 p-3 rounded-lg border border-emerald-100 flex items-start gap-2">
             <span className="text-emerald-500 mt-0.5">✅</span>
-            <span>O usuário será criado com a senha definida e poderá fazer login imediatamente.</span>
+            <span>O usuário será criado com origem administrativa, cadastro completo e senha já definida para acesso imediato.</span>
           </div>
         </div>
         
@@ -173,8 +398,8 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
             Cancelar
           </Button>
           <Button 
-            onClick={handleSave}
-            disabled={!email.trim() || !password.trim()}
+            onClick={() => void handleSave()}
+            disabled={!email.trim() || !password.trim() || !fullName.trim()}
             className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm transition-all"
           >
             Adicionar Usuário

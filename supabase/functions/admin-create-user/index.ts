@@ -4,6 +4,56 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 import { getCorsHeaders, handleCorsPreFlight } from '../_shared/cors.ts';
 
+function splitFullName(value: unknown) {
+  const parts = String(value || '').trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) {
+    return { firstName: null, lastName: null };
+  }
+
+  if (parts.length === 1) {
+    return { firstName: parts[0], lastName: null };
+  }
+
+  return {
+    firstName: parts[0],
+    lastName: parts.slice(1).join(' '),
+  };
+}
+
+function normalizeStringArray(value: unknown) {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item || '').trim()).filter(Boolean);
+  }
+
+  return String(value || '')
+    .split(/[\n,;|]+/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function calculateAgeFromBirthDate(value: unknown) {
+  const raw = String(value || '').trim();
+  if (!raw) {
+    return null;
+  }
+
+  const birthDate = new Date(`${raw}T00:00:00`);
+  if (Number.isNaN(birthDate.getTime())) {
+    return null;
+  }
+
+  const today = new Date();
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const monthDiff = today.getMonth() - birthDate.getMonth();
+  const dayDiff = today.getDate() - birthDate.getDate();
+
+  if (monthDiff < 0 || (monthDiff === 0 && dayDiff < 0)) {
+    age -= 1;
+  }
+
+  return age >= 0 ? age : null;
+}
+
 serve(async (req: Request) => {
   const origin = req.headers.get('origin');
   const corsHeaders = getCorsHeaders(origin);
@@ -52,7 +102,24 @@ serve(async (req: Request) => {
       });
     }
 
-    const { email, first_name, last_name, role, password } = await req.json();
+    const payload = await req.json();
+    const email = String(payload?.email || '').trim().toLowerCase();
+    const fullName = String(payload?.full_name || payload?.fullName || '').trim();
+    const { firstName, lastName } = splitFullName(fullName);
+    const role = String(payload?.role || 'user').trim() === 'admin' ? 'admin' : 'user';
+    const password = String(payload?.password || '');
+    const documento = String(payload?.documento || '').trim() || null;
+    const telefone = String(payload?.telefone || '').trim() || null;
+    const ramosAtuacao = normalizeStringArray(payload?.practice_areas ?? payload?.practiceAreas);
+    const cep = String(payload?.cep || '').trim() || null;
+    const logradouro = String(payload?.logradouro || '').trim() || null;
+    const bairro = String(payload?.bairro || '').trim() || null;
+    const cidade = String(payload?.cidade || '').trim() || null;
+    const estado = String(payload?.estado || '').trim().toUpperCase() || null;
+    const regiao = String(payload?.regiao || '').trim() || null;
+    const sexo = String(payload?.sexo || '').trim() || null;
+    const dataNascimento = String(payload?.data_nascimento || payload?.dataNascimento || '').trim() || null;
+    const idade = calculateAgeFromBirthDate(dataNascimento) ?? null;
 
     if (!email || !role || !password) {
       return new Response(JSON.stringify({ error: 'Email, role e password são obrigatórios.' }), {
@@ -75,7 +142,7 @@ serve(async (req: Request) => {
       email,
       password, // Admin defines the password
       email_confirm: true, // Email already confirmed - user can login immediately
-      user_metadata: { first_name, last_name }, // Pass metadata for the trigger
+      user_metadata: { first_name: firstName, last_name: lastName, role, full_name: fullName },
     });
 
     if (createUserError) {
@@ -97,7 +164,7 @@ serve(async (req: Request) => {
     // After the user is created and the trigger has run, update the profile's role
     const { data: updatedProfile, error: updateProfileError } = await supabaseAdmin
       .from('profiles')
-      .update({ role: role })
+      .update({ first_name: firstName, last_name: lastName, role: role })
       .eq('id', newUser.user.id)
       .select()
       .single();
@@ -107,6 +174,39 @@ serve(async (req: Request) => {
       // If profile update fails, attempt to delete the auth user to prevent orphaned users
       await supabaseAdmin.auth.admin.deleteUser(newUser.user.id);
       return new Response(JSON.stringify({ error: updateProfileError.message }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 500,
+      });
+    }
+
+    const { error: usuarioError } = await supabaseAdmin
+      .from('usuarios')
+      .upsert({
+        user_id: newUser.user.id,
+        email,
+        nome_completo: fullName || [firstName, lastName].filter(Boolean).join(' ') || null,
+        documento,
+        telefone,
+        ramos_atuacao: ramosAtuacao,
+        cep,
+        logradouro,
+        bairro,
+        cidade,
+        estado,
+        regiao,
+        sexo,
+        idade,
+        data_nascimento: dataNascimento,
+        origem_cadastro: 'cadastro_admin',
+        cadastro_finalizado_em: new Date().toISOString(),
+        status_da_assinatura: 'ativo',
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'user_id' });
+
+    if (usuarioError) {
+      console.error('Error upserting usuarios row:', usuarioError);
+      await supabaseAdmin.auth.admin.deleteUser(newUser.user.id);
+      return new Response(JSON.stringify({ error: usuarioError.message }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 500,
       });
