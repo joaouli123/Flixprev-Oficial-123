@@ -193,7 +193,7 @@ export function getAgentPresentation(rawTitle: string, rawDescription?: string |
 
   if (preset) {
     return {
-      badge: preset.badge,
+      badge: null,
       title: preset.title,
       description: normalizeAgentDescription(rawDescription, preset.description || `Especialista em ${preset.title}.`),
       order: preset.order,

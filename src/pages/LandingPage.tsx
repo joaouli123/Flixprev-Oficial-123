@@ -91,6 +91,15 @@ function isVisibleAgent(agent: Agent) {
   return !shouldHideAgentFromCatalog(agent.title, agent.description, agent.role);
 }
 
+function openLandingAgent(agent: Agent, checkoutUrl: string) {
+  if (agent.link) {
+    window.open(agent.link, "_blank", "noopener,noreferrer");
+    return;
+  }
+
+  window.open(checkoutUrl, "_blank", "noopener,noreferrer");
+}
+
 const LandingPage = () => {
   const location = useLocation();
   const [agents, setAgents] = useState<Agent[]>([]);
@@ -127,7 +136,7 @@ const LandingPage = () => {
       setLoading(true);
       // Buscar agentes e categorias em paralelo
       const [agentsRes, catsRes] = await Promise.all([
-        supabase.from("agents").select("id, title, role, description, icon, category_ids"),
+        supabase.from("agents").select("id, title, role, description, icon, category_ids, link"),
         supabase.from("categories").select("id, name"),
       ]);
 
@@ -407,7 +416,19 @@ const LandingPage = () => {
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
                 {visibleAgentsForTab.map((agent) => (
-                  <Card key={agent.id} className="group relative overflow-hidden rounded-xl border border-slate-200/80 bg-white/90 p-3 shadow-sm backdrop-blur-sm transition-all duration-300 hover:shadow-md">
+                  <Card
+                    key={agent.id}
+                    className="group relative cursor-pointer overflow-hidden rounded-xl border border-slate-200/80 bg-white/90 p-3 shadow-sm backdrop-blur-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md"
+                    onClick={() => openLandingAgent(agent, checkoutUrl)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        openLandingAgent(agent, checkoutUrl);
+                      }
+                    }}
+                    role="link"
+                    tabIndex={0}
+                  >
                     <div className="relative z-10 flex items-center gap-3">
                       <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center transition-all duration-300 shadow-sm shadow-green-500/10 shrink-0">
                         <AgentListIcon className="h-5 w-5 text-green-600" />
@@ -416,6 +437,9 @@ const LandingPage = () => {
                         <CardTitle className="text-sm font-semibold text-slate-900 group-hover:text-green-700 transition-colors duration-300 line-clamp-2 m-0">
                           {getAgentPresentation(agent.title, agent.description, agent.role).title}
                         </CardTitle>
+                        <CardDescription className="mt-1 text-xs text-slate-500 line-clamp-2">
+                          {agent.link ? "Abrir fonte oficial" : "Abrir apresentação do agente"}
+                        </CardDescription>
                       </div>
                     </div>
                   </Card>
