@@ -79,7 +79,36 @@ function normalizeText(input: string) {
   return input
     .toLowerCase()
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+const HIDDEN_TITLE_TOKENS = new Set([
+  "agentes",
+  "file",
+  "normas comuns para todos estes agentes",
+  "os agentes abaixo serao alimentados com os links ao lado",
+  "agentes da categoria direito previdenciario",
+  "link 1 https",
+]);
+
+function hasGeneratedDescription(rawDescription?: string | null) {
+  return /gerado a partir do pdf mestre de agentes/i.test(String(rawDescription || ""));
+}
+
+function isFileLikeTitle(rawTitle: string) {
+  return /^\d{1,2}[a-z]{3}\d{4}-\d+\.(pdf|docx?)$/i.test(String(rawTitle || "")) || /\.(pdf|docx?)$/i.test(String(rawTitle || ""));
+}
+
+function isGenericRole(rawRole?: string | null) {
+  const normalizedRole = normalizeText(String(rawRole || ""));
+  return ["previdenciario", "trabalhista", "tributario", "stj", "prompt", "prompts ia"].includes(normalizedRole);
+}
+
+function isNoisyCatalogTitle(rawTitle: string) {
+  const normalizedTitle = normalizeText(cleanRawTitle(rawTitle));
+  return !normalizedTitle || HIDDEN_TITLE_TOKENS.has(normalizedTitle) || isFileLikeTitle(rawTitle);
 }
 
 function cleanRawTitle(rawTitle: string) {
@@ -163,7 +192,8 @@ export function getAgentPresentation(rawTitle: string, rawDescription?: string |
   const cleanedTitle = cleanRawTitle(rawTitle);
   const looksLikeFileName = /^\d{1,2}[a-z]{3}\d{4}-\d+\.(pdf|docx?)$/i.test(rawTitle || "");
   const isNoisy = /(pdf|docx?|gerad[oa]\s+a\s+partir|mestre\s+de\s+agentes?)/i.test(rawTitle || "");
-  const fallbackSource = String(rawDescription || rawRole || "Especialista Jurídico");
+  const roleSource = !isGenericRole(rawRole) ? String(rawRole || "").trim() : "";
+  const fallbackSource = String(rawDescription || roleSource || "Especialista Jurídico");
   const fallbackTitle = cleanedTitle && cleanedTitle.length >= 3
     ? toProfessionalCase(cleanedTitle)
     : toProfessionalCase(fallbackSource);
@@ -187,4 +217,41 @@ export function getAgentBadge(rawTitle: string, rawDescription?: string | null, 
 
 export function normalizeAgentTitle(rawTitle: string, rawDescription?: string | null, rawRole?: string | null) {
   return getAgentPresentation(rawTitle, rawDescription, rawRole).title;
+}
+
+export function shouldHideAgentFromCatalog(rawTitle: string, rawDescription?: string | null, rawRole?: string | null) {
+  if (hasGeneratedDescription(rawDescription)) {
+    return true;
+  }
+
+  if (isNoisyCatalogTitle(rawTitle) && isGenericRole(rawRole)) {
+    return true;
+  }
+
+  return false;
+}
+
+export function dedupeAgentsByPresentation<T extends { id: string; title: string; description?: string | null; role?: string | null }>(agents: T[]) {
+  const unique = new Map<string, T>();
+
+  for (const agent of agents) {
+    const presentation = getAgentPresentation(agent.title, agent.description, agent.role);
+    const key = normalizeText(presentation.title);
+    const existing = unique.get(key);
+
+    if (!existing) {
+      unique.set(key, agent);
+      continue;
+    }
+
+    const existingPresentation = getAgentPresentation(existing.title, existing.description, existing.role);
+    const currentScore = (presentation.order !== 999 ? 10 : 0) + (hasGeneratedDescription(agent.description) ? -10 : 0) + (isNoisyCatalogTitle(agent.title) ? -5 : 0);
+    const existingScore = (existingPresentation.order !== 999 ? 10 : 0) + (hasGeneratedDescription(existing.description) ? -10 : 0) + (isNoisyCatalogTitle(existing.title) ? -5 : 0);
+
+    if (currentScore > existingScore) {
+      unique.set(key, agent);
+    }
+  }
+
+  return Array.from(unique.values());
 }

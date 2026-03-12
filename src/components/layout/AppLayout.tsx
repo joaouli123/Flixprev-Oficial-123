@@ -31,11 +31,10 @@ import { useSession } from "@/components/SessionContextProvider";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import { makeAgentRouteKey, toSlug } from "@/lib/slug";
+import { dedupeAgentsByPresentation, normalizeAgentTitle, shouldHideAgentFromCatalog } from "@/lib/agentText";
 
 function isVisibleAgent(agent: Agent) {
-  const description = String(agent.description || "").trim();
-
-  return !/gerado a partir do PDF mestre de agentes/i.test(description);
+  return !shouldHideAgentFromCatalog(agent.title, agent.description, agent.role);
 }
 
 const AppLayout = () => {
@@ -717,7 +716,7 @@ const AppLayout = () => {
   );
 
   const visibleAgents = useMemo(
-    () => agents.filter((agent) => isVisibleAgent(agent)),
+    () => dedupeAgentsByPresentation(agents.filter((agent) => isVisibleAgent(agent))),
     [agents]
   );
 
@@ -733,8 +732,9 @@ const AppLayout = () => {
       const lowerCaseSearchTerm = searchTerm.trim().toLowerCase();
       currentAgents = currentAgents.filter(
         (agent) =>
-          agent.title.toLowerCase().includes(lowerCaseSearchTerm) ||
-          agent.description.toLowerCase().includes(lowerCaseSearchTerm)
+          normalizeAgentTitle(agent.title, agent.description, agent.role).toLowerCase().includes(lowerCaseSearchTerm) ||
+          String(agent.role || "").toLowerCase().includes(lowerCaseSearchTerm) ||
+          String(agent.description || "").toLowerCase().includes(lowerCaseSearchTerm)
       );
     }
     return currentAgents;

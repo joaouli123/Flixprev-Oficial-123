@@ -31,7 +31,7 @@ import {
 import { neon as supabase } from "@/lib/neon"
 import { Agent, Category } from "@/types/app";
 import { toast } from "sonner";
-import { getAgentDisplayOrder, getAgentPresentation } from "@/lib/agentText";
+import { dedupeAgentsByPresentation, getAgentDisplayOrder, getAgentPresentation, shouldHideAgentFromCatalog } from "@/lib/agentText";
 
 /* ─── Configuração de cores por categoria ─── */
 const CATEGORY_COLORS: Record<string, { bg: string; border: string; text: string; gradient: string; icon: LucideIcon }> = {
@@ -88,9 +88,7 @@ function isVisibleCategory(rawName: string) {
 }
 
 function isVisibleAgent(agent: Agent) {
-  const description = String(agent.description || "").trim();
-
-  return !/gerado a partir do PDF mestre de agentes/i.test(description);
+  return !shouldHideAgentFromCatalog(agent.title, agent.description, agent.role);
 }
 
 const LandingPage = () => {
@@ -147,7 +145,7 @@ const LandingPage = () => {
   }, [categories]);
 
   const visibleAgents = useMemo(() => {
-    return agents.filter((agent) => isVisibleAgent(agent));
+    return dedupeAgentsByPresentation(agents.filter((agent) => isVisibleAgent(agent)));
   }, [agents]);
 
   // Contagem de agentes por categoria
