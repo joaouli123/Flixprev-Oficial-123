@@ -114,7 +114,7 @@ const LandingPage = () => {
   }, [location.search]);
 
   const checkoutUrl = useMemo(() => {
-    const url = new URL("https://pay.cakto.com.br/vhmancx_628125");
+    const url = new URL("https://pay.cakto.com.br/33b5sor");
     if (referralCode) {
       url.searchParams.set("ref", referralCode);
       url.searchParams.set("referral_code", referralCode);

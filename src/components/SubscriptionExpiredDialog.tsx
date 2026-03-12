@@ -21,8 +21,7 @@ export const SubscriptionExpiredDialog: React.FC<SubscriptionExpiredDialogProps>
   userEmail
 }) => {
   const handleBuyAgain = () => {
-    // Redirecionar para a página de compra
-    window.open('https://pay.cakto.com.br/vhmancx_628125', '_blank');
+    window.open('https://pay.cakto.com.br/33b5sor', '_blank');
   };
 
   return (
