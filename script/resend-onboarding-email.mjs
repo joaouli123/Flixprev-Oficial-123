@@ -204,7 +204,7 @@ if (userData?.user_id) {
 }
 
 const { data, error } = await supabase.auth.admin.generateLink({
-  type: 'recovery',
+  type: 'invite',
   email: targetEmail,
   options: {
     redirectTo,
@@ -220,7 +220,7 @@ if (!hashedToken) {
   throw new Error('Supabase nao retornou hashed_token');
 }
 
-const actionLink = buildAppRecoveryUrl(appBaseUrl, hashedToken, 'recovery');
+const actionLink = buildAppRecoveryUrl(appBaseUrl, hashedToken, 'invite');
 const subscriptionMetadata = safeGet(subscriptionData, ['metadata', 'data']) || safeGet(subscriptionData, ['metadata']) || {};
 const customerName = userData?.nome_completo || null;
 const customerPhone = userData?.telefone || null;

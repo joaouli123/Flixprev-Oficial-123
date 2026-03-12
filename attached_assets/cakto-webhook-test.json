@@ -1,0 +1,35 @@
+{
+  "data": {
+    "id": "test-event-1",
+    "status": "paid",
+    "amount": 90,
+    "product": {
+      "id": "ff3fdf61-e88f-43b5-982a-32d50f112414",
+      "name": "Produto Teste",
+      "type": "unique",
+      "short_id": "AckhQ75"
+    },
+    "customer": {
+      "name": "John Doe",
+      "email": "john.doe@example.com",
+      "phone": "34999999999",
+      "docType": "cpf",
+      "docNumber": "12345678909"
+    },
+    "subscription": {
+      "id": "c507ee5b-17f6-427f-854a-7694575e114e",
+      "status": "active",
+      "amount": "90.00",
+      "customer": {
+        "name": "John Doe",
+        "email": "john.doe@example.com",
+        "phone": "34999999999",
+        "docType": "cpf",
+        "docNumber": "12345678909"
+      },
+      "next_payment_date": "2026-04-10T20:24:28.292917+00:00"
+    }
+  },
+  "event": "purchase_approved",
+  "secret": "3031b8e6-632d-48dc-8757-4d2d06ef8e2b"
+}

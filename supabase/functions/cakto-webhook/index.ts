@@ -486,7 +486,7 @@ async function ensureProvisionedUser(
       throw new Error("Token de ativacao nao retornado pelo Supabase");
     }
 
-    const actionLink = buildAppRecoveryUrl(appBaseUrl, hashedToken, "recovery");
+    const actionLink = buildAppRecoveryUrl(appBaseUrl, hashedToken, "invite");
 
     try {
       await sendWelcomeEmail({

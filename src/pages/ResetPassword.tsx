@@ -23,23 +23,46 @@ const ResetPassword: React.FC = () => {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [recoveryEmail, setRecoveryEmail] = useState<string | null>(null);
   const [hasRecoverySession, setHasRecoverySession] = useState(false);
-  const [pendingTokenHash, setPendingTokenHash] = useState<string | null>(null);
-  const [pendingRecoveryType, setPendingRecoveryType] = useState<RecoveryType | null>(null);
+  const [sessionChecking, setSessionChecking] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
     const loadRecoverySession = async () => {
+      setSessionChecking(true);
+
       try {
         const searchParams = new URLSearchParams(window.location.search);
         const tokenHash = searchParams.get('token_hash');
         const recoveryType = searchParams.get('type') as RecoveryType | null;
 
         if (tokenHash && (recoveryType === 'recovery' || recoveryType === 'invite')) {
-          setPendingTokenHash(tokenHash);
-          setPendingRecoveryType(recoveryType);
+          setMessage('Validando link de acesso...');
+          setIsError(false);
+
+          const verification = await supabaseAuth.auth.verifyOtp({
+            token_hash: tokenHash,
+            type: recoveryType,
+          });
+
+          if (verification.error) {
+            setRecoveryEmail(null);
+            setHasRecoverySession(false);
+            setMessage('Sessão de recuperação não encontrada ou expirada. Solicite um novo e-mail de ativação/redefinição.');
+            setIsError(true);
+            return;
+          }
+
+          const email = verification.data.user?.email ?? verification.data.session?.user?.email ?? null;
+
+          setRecoveryEmail(email);
           setHasRecoverySession(true);
           setMessage('Defina sua nova senha para ativar sua conta.');
           setIsError(false);
+
+          if (window.location.search) {
+            window.history.replaceState({}, document.title, '/reset-password');
+          }
+
           return;
         }
 
@@ -60,6 +83,8 @@ const ResetPassword: React.FC = () => {
         setHasRecoverySession(false);
         setMessage('Não foi possível validar a sessão de recuperação. Tente novamente pelo link enviado no e-mail.');
         setIsError(true);
+      } finally {
+        setSessionChecking(false);
       }
     };
 
@@ -113,32 +138,6 @@ const ResetPassword: React.FC = () => {
 
     try {
       let targetEmail = recoveryEmail;
-
-      if ((!targetEmail || !hasRecoverySession) && pendingTokenHash && pendingRecoveryType) {
-        const verification = await supabaseAuth.auth.verifyOtp({
-          token_hash: pendingTokenHash,
-          type: pendingRecoveryType,
-        });
-
-        if (verification.error) {
-          setHasRecoverySession(false);
-          setMessage('Sessão de recuperação de senha não encontrada ou expirada. Por favor, inicie o processo de recuperação novamente.');
-          setIsError(true);
-          toast.error('Sessão de recuperação expirada ou inválida.');
-          return;
-        }
-
-        const refreshed = await supabaseAuth.auth.getSession();
-        targetEmail = refreshed.data?.session?.user?.email ?? verification.data.user?.email ?? null;
-        setRecoveryEmail(targetEmail);
-        setHasRecoverySession(true);
-        setPendingTokenHash(null);
-        setPendingRecoveryType(null);
-
-        if (window.location.search) {
-          window.history.replaceState({}, document.title, '/reset-password');
-        }
-      }
 
       if (!targetEmail) {
         setMessage('Sessão de recuperação de senha não encontrada ou expirada. Por favor, inicie o processo de recuperação novamente.');
@@ -301,9 +300,9 @@ const ResetPassword: React.FC = () => {
                 <Button 
                   type="submit" 
                   className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-medium py-3"
-                  disabled={loading}
+                  disabled={loading || sessionChecking || !hasRecoverySession}
                 >
-                  {loading ? 'Redefinindo...' : 'Redefinir Senha'}
+                  {sessionChecking ? 'Validando link...' : loading ? 'Redefinindo...' : 'Redefinir Senha'}
                 </Button>
               </form>
 
