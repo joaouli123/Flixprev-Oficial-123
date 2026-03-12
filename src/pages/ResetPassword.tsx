@@ -280,15 +280,15 @@ const ResetPassword: React.FC = () => {
     void loadProfile();
   }, [apiBaseUrl, hasRecoverySession, recoveryUserId]);
 
-  const handleCepLookup = async () => {
-    if (cep.replace(/\D/g, '').length !== 8) {
+  const handleCepLookup = async (targetCep: string = cep) => {
+    if (targetCep.replace(/\D/g, '').length !== 8) {
       return;
     }
 
     setIsLookingUpCep(true);
 
     try {
-      const result = await lookupBrazilianCep(cep);
+      const result = await lookupBrazilianCep(targetCep);
       setCep(result.cep);
       setLogradouro(result.logradouro);
       setBairro(result.bairro);
@@ -547,14 +547,25 @@ const ResetPassword: React.FC = () => {
 
                   <div className="space-y-4 rounded-xl border border-slate-200 bg-white p-4">
                     <div className="text-sm font-medium text-slate-700">Região e Endereço</div>
-                    <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-[1fr] gap-3">
                       <div className="space-y-2">
-                        <Label htmlFor="cep">CEP</Label>
-                        <Input id="cep" value={cep} onChange={(e) => setCep(formatCep(e.target.value))} onBlur={() => void handleCepLookup()} />
+                        <Label htmlFor="cep">
+                          CEP
+                          {isLookingUpCep && <Loader2 className="ml-2 h-4 w-4 inline animate-spin" />}
+                        </Label>
+                        <Input 
+                          id="cep" 
+                          value={cep} 
+                          onChange={(e) => {
+                            const formatted = formatCep(e.target.value);
+                            setCep(formatted);
+                            if (formatted.replace(/\D/g, '').length === 8) {
+                              void handleCepLookup(formatted);
+                            }
+                          }} 
+                          onBlur={() => void handleCepLookup(cep)} 
+                        />
                       </div>
-                      <Button type="button" variant="outline" className="self-end" onClick={() => void handleCepLookup()} disabled={isLookingUpCep || cep.replace(/\D/g, '').length !== 8}>
-                        {isLookingUpCep ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Buscar CEP'}
-                      </Button>
                     </div>
 
                     <div className="space-y-2">

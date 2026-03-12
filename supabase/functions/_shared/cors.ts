@@ -7,6 +7,7 @@ const ALLOWED_ORIGINS = [
   'https://flixprev.com.br',
   'https://www.flixprev.com.br',
   'https://flixprev-oficial.vercel.app',
+  'https://flixprev.uxcodedev.com.br'
 ];
 
 export function getCorsHeaders(origin: string | null): Record<string, string> {

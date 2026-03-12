@@ -67,15 +67,15 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
     setShowPassword(false);
   };
 
-  const handleCepLookup = async () => {
-    if (cep.replace(/\D/g, '').length !== 8) {
+  const handleCepLookup = async (targetCep: string = cep) => {
+    if (targetCep.replace(/\D/g, '').length !== 8) {
       return;
     }
 
     setIsLookingUpCep(true);
 
     try {
-      const result = await lookupBrazilianCep(cep);
+      const result = await lookupBrazilianCep(targetCep);
       setCep(result.cep);
       setLogradouro(result.logradouro);
       setBairro(result.bairro);
@@ -288,23 +288,27 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
               Região e Endereço
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-3">
+            <div className="grid grid-cols-1 gap-3">
               <div className="space-y-2">
                 <Label htmlFor="cep" className="text-sm font-medium text-slate-700">
                   CEP <span className="text-red-500">*</span>
+                  {isLookingUpCep && <Loader2 className="ml-2 h-4 w-4 inline animate-spin" />}
                 </Label>
                 <Input
                   id="cep"
                   value={cep}
-                  onChange={(e) => setCep(formatCep(e.target.value))}
-                  onBlur={() => void handleCepLookup()}
+                  onChange={(e) => {
+                    const formatted = formatCep(e.target.value);
+                    setCep(formatted);
+                    if (formatted.replace(/\D/g, '').length === 8) {
+                      void handleCepLookup(formatted);
+                    }
+                  }}
+                  onBlur={() => void handleCepLookup(cep)}
                   placeholder="00000-000"
                   className="w-full transition-all border-slate-200 focus:border-indigo-500 focus:ring-indigo-500/20"
                 />
               </div>
-              <Button type="button" variant="outline" className="self-end" onClick={() => void handleCepLookup()} disabled={isLookingUpCep || cep.replace(/\D/g, '').length !== 8}>
-                {isLookingUpCep ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Buscar CEP'}
-              </Button>
             </div>
 
             <div className="space-y-2">
@@ -385,11 +389,6 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
                 <SelectItem value="admin" className="cursor-pointer">Administrador</SelectItem>
               </SelectContent>
             </Select>
-          </div>
-          
-          <div className="text-sm text-emerald-700 bg-emerald-50 p-3 rounded-lg border border-emerald-100 flex items-start gap-2">
-            <span className="text-emerald-500 mt-0.5">✅</span>
-            <span>O usuário será criado com origem administrativa, cadastro completo e senha já definida para acesso imediato.</span>
           </div>
         </div>
         
