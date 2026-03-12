@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Lock, ArrowLeft, Eye, EyeOff, CheckCircle } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,6 +12,28 @@ import { loginUser } from '@/lib/auth';
 
 type RecoveryType = 'recovery' | 'invite';
 
+function getRecoveryUrlParams() {
+  const searchParams = new URLSearchParams(window.location.search);
+  const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+  const readParam = (key: string) => searchParams.get(key) ?? hashParams.get(key);
+
+  return {
+    tokenHash: readParam('token_hash'),
+    recoveryType: readParam('type') as RecoveryType | null,
+    authCode: readParam('code'),
+    accessToken: readParam('access_token'),
+    refreshToken: readParam('refresh_token'),
+  };
+}
+
+function clearRecoveryUrlParams() {
+  if (!window.location.search && !window.location.hash) {
+    return;
+  }
+
+  window.history.replaceState({}, document.title, '/reset-password');
+}
+
 const ResetPassword: React.FC = () => {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -24,20 +46,66 @@ const ResetPassword: React.FC = () => {
   const [recoveryEmail, setRecoveryEmail] = useState<string | null>(null);
   const [hasRecoverySession, setHasRecoverySession] = useState(false);
   const [sessionChecking, setSessionChecking] = useState(true);
+  const isProcessingRecoveryRef = useRef(false);
   const navigate = useNavigate();
 
   useEffect(() => {
+    let isMounted = true;
+
+    const applyRecoveryState = (email: string | null, activeMessage: string) => {
+      if (!isMounted) {
+        return;
+      }
+
+      setRecoveryEmail(email);
+      setHasRecoverySession(Boolean(email));
+      setMessage(activeMessage);
+      setIsError(false);
+    };
+
+    const applyExpiredState = (expiredMessage: string) => {
+      if (!isMounted) {
+        return;
+      }
+
+      setRecoveryEmail(null);
+      setHasRecoverySession(false);
+      setMessage(expiredMessage);
+      setIsError(true);
+    };
+
+    const { data: authSubscription } = supabaseAuth.auth.onAuthStateChange((event, session) => {
+      if (!isMounted) {
+        return;
+      }
+
+      const sessionEmail = session?.user?.email ?? null;
+      if ((event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN') && sessionEmail) {
+        applyRecoveryState(sessionEmail, 'Defina sua nova senha para ativar sua conta.');
+        setSessionChecking(false);
+      }
+    });
+
     const loadRecoverySession = async () => {
       setSessionChecking(true);
 
       try {
-        const searchParams = new URLSearchParams(window.location.search);
-        const tokenHash = searchParams.get('token_hash');
-        const recoveryType = searchParams.get('type') as RecoveryType | null;
+        if (isProcessingRecoveryRef.current) {
+          return;
+        }
+
+        isProcessingRecoveryRef.current = true;
+
+        const {
+          tokenHash,
+          recoveryType,
+          authCode,
+          accessToken,
+          refreshToken,
+        } = getRecoveryUrlParams();
 
         if (tokenHash && (recoveryType === 'recovery' || recoveryType === 'invite')) {
-          setMessage('Validando link de acesso...');
-          setIsError(false);
+          applyRecoveryState(null, 'Validando link de acesso...');
 
           const verification = await supabaseAuth.auth.verifyOtp({
             token_hash: tokenHash,
@@ -45,23 +113,52 @@ const ResetPassword: React.FC = () => {
           });
 
           if (verification.error) {
-            setRecoveryEmail(null);
-            setHasRecoverySession(false);
-            setMessage('Sessão de recuperação não encontrada ou expirada. Solicite um novo e-mail de ativação/redefinição.');
-            setIsError(true);
+            applyExpiredState('Sessão de recuperação não encontrada ou expirada. Solicite um novo e-mail de ativação/redefinição.');
             return;
           }
 
           const email = verification.data.user?.email ?? verification.data.session?.user?.email ?? null;
 
-          setRecoveryEmail(email);
-          setHasRecoverySession(true);
-          setMessage('Defina sua nova senha para ativar sua conta.');
-          setIsError(false);
+          applyRecoveryState(email, 'Defina sua nova senha para ativar sua conta.');
+          clearRecoveryUrlParams();
 
-          if (window.location.search) {
-            window.history.replaceState({}, document.title, '/reset-password');
+          return;
+        }
+
+        if (authCode) {
+          applyRecoveryState(null, 'Validando link de acesso...');
+
+          const { data, error } = await supabaseAuth.auth.exchangeCodeForSession(authCode);
+          const email = data.session?.user?.email ?? data.user?.email ?? null;
+
+          if (error || !email) {
+            applyExpiredState('Sessão de recuperação não encontrada ou expirada. Solicite um novo e-mail de ativação/redefinição.');
+            return;
           }
+
+          applyRecoveryState(email, 'Defina sua nova senha para redefinir o acesso.');
+          clearRecoveryUrlParams();
+
+          return;
+        }
+
+        if (accessToken && refreshToken) {
+          applyRecoveryState(null, 'Validando link de acesso...');
+
+          const { data, error } = await supabaseAuth.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          });
+
+          const email = data.session?.user?.email ?? data.user?.email ?? null;
+
+          if (error || !email) {
+            applyExpiredState('Sessão de recuperação não encontrada ou expirada. Solicite um novo e-mail de ativação/redefinição.');
+            return;
+          }
+
+          applyRecoveryState(email, 'Defina sua nova senha para redefinir o acesso.');
+          clearRecoveryUrlParams();
 
           return;
         }
@@ -70,21 +167,17 @@ const ResetPassword: React.FC = () => {
         const email = data?.session?.user?.email ?? null;
 
         if (!error && email) {
-          setRecoveryEmail(email);
-          setHasRecoverySession(true);
-          setMessage('Sessão de recuperação ativa. Defina sua nova senha para ativar a conta.');
-          setIsError(false);
+          applyRecoveryState(email, 'Sessão de recuperação ativa. Defina sua nova senha para ativar a conta.');
         } else {
-          setHasRecoverySession(false);
-          setMessage('Sessão de recuperação não encontrada ou expirada. Solicite um novo e-mail de ativação/redefinição.');
-          setIsError(true);
+          applyExpiredState('Sessão de recuperação não encontrada ou expirada. Solicite um novo e-mail de ativação/redefinição.');
         }
       } catch {
-        setHasRecoverySession(false);
-        setMessage('Não foi possível validar a sessão de recuperação. Tente novamente pelo link enviado no e-mail.');
-        setIsError(true);
+        applyExpiredState('Não foi possível validar a sessão de recuperação. Tente novamente pelo link enviado no e-mail.');
       } finally {
-        setSessionChecking(false);
+        if (isMounted) {
+          setSessionChecking(false);
+        }
+        isProcessingRecoveryRef.current = false;
       }
     };
 
@@ -110,10 +203,12 @@ const ResetPassword: React.FC = () => {
     window.addEventListener('popstate', handlePopState);
 
     return () => {
+      isMounted = false;
+      authSubscription.subscription.unsubscribe();
       window.removeEventListener('beforeunload', handleBeforeUnload);
       window.removeEventListener('popstate', handlePopState);
     };
-  }, [hasRecoverySession, showSuccessModal, navigate]);
+  }, [navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
