@@ -21,17 +21,43 @@ const AgentCard: React.FC<AgentCardProps> = ({ agent, onStartAgent, onDeleteAgen
   const IconComponent: LucideIcon = (LucideIcons[agent.icon as keyof typeof LucideIcons] as LucideIcon) || LucideIcons.Bot;
   const BackgroundIconComponent: LucideIcon = (LucideIcons[(agent.background_icon || agent.icon) as keyof typeof LucideIcons] as LucideIcon) || LucideIcons.Bot;
   const displayTitle = normalizeAgentTitle(agent.title, agent.description, agent.role);
+  const isExternalShortcut = Boolean(agent.link);
 
   const handleButtonClick = () => {
-    if (agent.link) {
+    if (isExternalShortcut) {
       window.open(agent.link, "_blank");
     } else {
       onStartAgent(agent.id);
     }
   };
 
+  const handleCardClick = () => {
+    if (!isExternalShortcut) {
+      return;
+    }
+
+    handleButtonClick();
+  };
+
+  const handleCardKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (!isExternalShortcut) {
+      return;
+    }
+
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      handleButtonClick();
+    }
+  };
+
   return (
-    <Card className="group relative flex min-h-[116px] min-w-[260px] self-start flex-col overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-purple-200 hover:shadow-lg hover:shadow-purple-500/10">
+    <Card
+      className={`group relative flex min-h-[116px] min-w-[260px] self-start flex-col overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-purple-200 hover:shadow-lg hover:shadow-purple-500/10 ${isExternalShortcut ? "cursor-pointer" : ""}`}
+      onClick={isExternalShortcut ? handleCardClick : undefined}
+      onKeyDown={isExternalShortcut ? handleCardKeyDown : undefined}
+      role={isExternalShortcut ? "link" : undefined}
+      tabIndex={isExternalShortcut ? 0 : undefined}
+    >
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-purple-50/70 via-white to-purple-50/40 opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
       
       {/* Ícone de fundo (Marca d'água) */}
@@ -75,7 +101,10 @@ const AgentCard: React.FC<AgentCardProps> = ({ agent, onStartAgent, onDeleteAgen
           variant="ghost"
           size="icon"
           className="h-7 w-7 rounded-full bg-purple-50 text-purple-600 hover:bg-purple-100 hover:text-purple-900 transition-all duration-300" 
-          onClick={handleButtonClick}
+          onClick={(event) => {
+            event.stopPropagation();
+            handleButtonClick();
+          }}
         >
           <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />

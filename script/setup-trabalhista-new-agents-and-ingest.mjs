@@ -82,9 +82,10 @@ const AGENTS = [
     title: 'JurisPrd',
     role: 'Inteligência de Jurisprudência Trabalhista',
     description:
-      'Núcleo de inteligência em jurisprudência trabalhista para identificar precedentes dominantes, entendimentos consolidados e divergências.',
+      'Atalho direto para consulta oficial de jurisprudência trabalhista.',
     instructions:
       'Quando a pergunta exigir pesquisa viva de jurisprudência, indique explicitamente os links oficiais de pesquisa indexados neste agente.',
+    link: 'https://jurisprudencia.jt.jus.br',
     urls: ['https://jurisprudencia.jt.jus.br', 'https://jurisprudencia.tst.jus.br/'],
   },
 ];
@@ -289,16 +290,16 @@ async function ensureAgent(agent, categoryId) {
     const id = existing.rows[0].id;
     await dbQuery(
       `UPDATE agents
-       SET role=$1, description=$2, instructions=$3, user_id=NULL, category_ids=$4, icon=COALESCE(icon, $5)
-       WHERE id=$6`,
-      [agent.role, agent.description, `${agent.instructions}\n\n${strict}`, [categoryId], 'Scale', id]
+       SET role=$1, description=$2, instructions=$3, user_id=NULL, category_ids=$4, icon=COALESCE(icon, $5), link=$6
+       WHERE id=$7`,
+      [agent.role, agent.description, `${agent.instructions}\n\n${strict}`, [categoryId], 'Scale', agent.link || null, id]
     );
     return id;
   }
 
   const created = await dbQuery(
-    `INSERT INTO agents (id,user_id,title,role,description,instructions,icon,category_ids,shortcuts,attachments)
-     VALUES ($1,NULL,$2,$3,$4,$5,$6,$7,$8,$9)
+    `INSERT INTO agents (id,user_id,title,role,description,instructions,icon,category_ids,shortcuts,attachments,link)
+     VALUES ($1,NULL,$2,$3,$4,$5,$6,$7,$8,$9,$10)
      RETURNING id`,
     [
       crypto.randomUUID(),
@@ -310,6 +311,7 @@ async function ensureAgent(agent, categoryId) {
       [categoryId],
       ['Resumo', 'Base legal', 'Pesquisa'],
       [],
+      agent.link || null,
     ]
   );
 

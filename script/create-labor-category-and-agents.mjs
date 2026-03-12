@@ -17,7 +17,7 @@ const agents = [
   { title: 'Agente DirTrab', role: 'Macro Direito Trabalhista', description: 'Agente macro de Direito Trabalhista.' },
   { title: 'Agente AcordCore', role: 'Acordos Trabalhistas', description: 'Núcleo de acordos e composição trabalhista.' },
   { title: 'Agente AtosTr', role: 'Atos Trabalhistas', description: 'Busca e organização de atos administrativos e instruções normativas trabalhistas.' },
-  { title: 'Agente JurisPrud', role: 'Jurisprudência Trabalhista', description: 'Pesquisa de jurisprudência trabalhista.' },
+  { title: 'Agente JurisPrud', role: 'Jurisprudência Trabalhista', description: 'Atalho direto para consulta oficial de jurisprudência trabalhista.', link: 'https://jurisprudencia.jt.jus.br' },
   { title: 'Agente NR.sPro', role: 'Normas Regulamentadoras', description: 'Especialista em NRs aplicáveis ao Direito do Trabalho.' },
   { title: 'Agente SúmulasTr', role: 'Súmulas Trabalhistas', description: 'Especialista em súmulas trabalhistas.' },
   { title: 'Agente JurisPrud 2', role: 'Jurisprudência Trabalhista', description: 'Pesquisa de jurisprudência trabalhista (camada complementar).' },
@@ -64,8 +64,8 @@ async function main() {
       await client.query(
         `INSERT INTO agents (
           id, user_id, title, role, description, instructions,
-          icon, category_ids, shortcuts, attachments
-        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+          icon, category_ids, shortcuts, attachments, link
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
         [
           crypto.randomUUID(),
           userId,
@@ -76,7 +76,8 @@ async function main() {
           'Scale',
           [categoryId],
           ['Resumo', 'Base legal', 'Checklist', 'Riscos'],
-          []
+          [],
+          agent.link || null,
         ]
       );
       created += 1;
