@@ -127,11 +127,23 @@ function cleanRawTitle(rawTitle: string) {
 }
 
 function findPresentationPreset(rawTitle: string, rawDescription?: string | null, rawRole?: string | null) {
+  const normalizedTitle = normalizeText(rawTitle || "");
   const base = ` ${normalizeText(`${rawTitle || ""} ${rawDescription || ""} ${rawRole || ""}`)} `;
 
-  return AGENT_PRESENTATION_PRESETS.find((preset) =>
-    preset.match.some((token) => base.includes(` ${normalizeText(token)} `) || base.includes(normalizeText(token)))
-  );
+  // 1st pass: strict title match (highest priority)
+  const titlePreset = AGENT_PRESENTATION_PRESETS.find((preset) => {
+    return preset.match.some((token) => normalizedTitle === normalizeText(token));
+  });
+
+  if (titlePreset) return titlePreset;
+
+  // 2nd pass: token match anywhere in the text
+  return AGENT_PRESENTATION_PRESETS.find((preset) => {
+    return preset.match.some((token) => {
+      const normToken = normalizeText(token);
+      return base.includes(` ${normToken} `);
+    });
+  });
 }
 
 function toProfessionalCase(text: string) {
