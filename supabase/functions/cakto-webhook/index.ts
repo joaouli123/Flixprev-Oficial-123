@@ -556,6 +556,64 @@ async function ensureProvisionedUser(
   return { userId, activationEmailSent };
 }
 
+async function resendAccessEmailForExistingUser(
+  supabaseAdmin: ReturnType<typeof createClient>,
+  email: string,
+  fullName: string | null,
+  documento: string | null,
+  phone: string | null,
+  activationRedirectTo: string,
+  resendApiKey: string | null,
+  resendFromEmail: string,
+  plan: string | null,
+  productName: string | null,
+  amount: number,
+  purchaseDate: string | null,
+  appBaseUrl: string,
+): Promise<boolean> {
+  const normalizedEmail = normalizeEmail(email);
+  if (!normalizedEmail) {
+    return false;
+  }
+
+  const { data: recoveryLinkData, error: recoveryLinkError } = await supabaseAdmin.auth.admin.generateLink({
+    type: "recovery",
+    email: normalizedEmail,
+    options: {
+      redirectTo: activationRedirectTo,
+    },
+  });
+
+  if (recoveryLinkError) {
+    throw new Error(`Erro ao gerar link de acesso para usuario existente: ${recoveryLinkError.message}`);
+  }
+
+  const hashedToken = asString((recoveryLinkData as unknown as AnyRecord | null)?.properties?.hashed_token);
+
+  if (!hashedToken) {
+    throw new Error("Token de acesso nao retornado pelo Supabase para usuario existente");
+  }
+
+  const actionLink = buildAppRecoveryUrl(appBaseUrl, hashedToken, "recovery");
+
+  await sendWelcomeEmail({
+    resendApiKey,
+    fromEmail: resendFromEmail,
+    customerEmail: normalizedEmail,
+    customerName: fullName,
+    customerPhone: phone,
+    documento,
+    plan,
+    productName,
+    amount,
+    purchaseDate,
+    setPasswordUrl: actionLink,
+    appBaseUrl,
+  });
+
+  return true;
+}
+
 async function isSignatureValid(rawBody: string, signatureHeader: string | null, secret: string | null): Promise<boolean> {
   if (!secret || secret.trim().length === 0) {
     return true;
@@ -810,6 +868,45 @@ serve(async (req: Request) => {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+  }
+
+  if (!error && data?.ok === true && email && shouldProvisionUser(eventType, status) && !onboarding) {
+    try {
+      const activationEmailSent = await resendAccessEmailForExistingUser(
+        supabaseAdmin,
+        email,
+        customerName,
+        documento,
+        customerPhone,
+        activationRedirectTo,
+        resendApiKey,
+        resendFromEmail,
+        plan,
+        productName,
+        purchaseAmount,
+        purchaseDate,
+        appBaseUrl,
+      );
+
+      onboarding = {
+        user_auto_created: false,
+        activation_email_sent: activationEmailSent,
+        activation_redirect_to: activationRedirectTo,
+        reason: "existing_user_purchase_approved",
+      };
+    } catch (emailError) {
+      console.error(
+        "[cakto-webhook] Falha ao reenviar email de acesso para usuario existente:",
+        emailError instanceof Error ? emailError.message : emailError,
+      );
+
+      onboarding = {
+        user_auto_created: false,
+        activation_email_sent: false,
+        activation_redirect_to: activationRedirectTo,
+        reason: "existing_user_purchase_approved",
+      };
     }
   }
 

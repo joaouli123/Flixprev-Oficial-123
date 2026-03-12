@@ -26,15 +26,16 @@ Sem isso, a função responde `401 Invalid webhook signature`.
 
 ## Provisionamento automático de conta
 
-Quando o evento chega com compra aprovada e o usuário ainda não existe:
+Quando o evento chega com compra aprovada:
 
 - A criação automática acontece apenas em `purchase_approved` ou equivalente de pagamento aprovado
 - `subscription_renewed` não cria conta nova
 - `boleto_gerado`, `pix_gerado`, `purchase_refused`, `refund`, `chargeback` e cancelamentos não criam conta
 
-- Cria automaticamente a conta no Auth (por e-mail)
+- Cria automaticamente a conta no Auth (por e-mail) quando o usuário ainda não existe
 - Garante registros em `public.profiles` e `public.usuarios`
 - Gera o link de definição de senha no Supabase e envia um e-mail customizado de boas-vindas via Resend
+- Se o usuário já existir, reenviará um novo link de acesso por e-mail na compra aprovada
 - Reprocessa o webhook para sincronizar assinatura em `usuarios/subscriptions`
 
 Variável opcional:
@@ -76,13 +77,14 @@ A função tenta mapear de forma flexível:
 
 - URL correta: `https://gyqsvfwwgiarmhibdjyp.supabase.co/functions/v1/cakto-webhook`
 - Se o teste falhar com `404`, normalmente o nome da função na URL está errado.
-- Se falhar com `401`, o problema costuma ser assinatura/segreto.
+- Se falhar com `401 Invalid webhook signature`, o problema costuma ser assinatura/segreto.
+- Se falhar com `401 Missing authorization header`, a função foi deployada exigindo JWT e precisa ser publicada novamente com `--no-verify-jwt`.
 - Se falhar com `500`, o problema tende a ser migração pendente ou segredo `SUPABASE_SERVICE_ROLE_KEY`/`CAKTO_WEBHOOK_SECRET` não configurado.
 
 ## Deploy
 
 ```bash
-supabase functions deploy cakto-webhook
+supabase functions deploy cakto-webhook --no-verify-jwt
 ```
 
 ## Migração obrigatória

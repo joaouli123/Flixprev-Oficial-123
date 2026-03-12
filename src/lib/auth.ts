@@ -15,6 +15,30 @@ interface LoginResponse {
   error?: string;
 }
 
+type PersistedSupabaseSessionParams = {
+  user: {
+    id: string;
+    email?: string | null;
+    user_metadata?: Record<string, any> | null;
+  };
+  accessToken?: string | null;
+  fallbackEmail?: string;
+};
+
+export function persistSupabaseSession(params: PersistedSupabaseSessionParams): LoginResponse['user'] {
+  const loggedUser = {
+    id: params.user.id,
+    email: params.user.email || String(params.fallbackEmail || '').trim(),
+    role: params.user.user_metadata?.role || 'user',
+  };
+
+  localStorage.setItem('user', JSON.stringify(loggedUser));
+  localStorage.setItem('sessionToken', params.accessToken || `token_user_${Date.now()}`);
+  document.dispatchEvent(new Event('localStorageChanged'));
+
+  return loggedUser;
+}
+
 export async function loginUser(email: string, password: string): Promise<LoginResponse> {
   const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || '').trim().replace(/\/$/, '');
   const loginUrl = `${apiBaseUrl}/api/login`;
@@ -47,15 +71,11 @@ export async function loginUser(email: string, password: string): Promise<LoginR
           return { success: false, error: error?.message || 'Email ou senha incorretos' };
         }
 
-        const loggedUser = {
-          id: authData.user.id,
-          email: authData.user.email || String(email).trim(),
-          role: authData.user.user_metadata?.role || 'user',
-        };
-
-        localStorage.setItem('user', JSON.stringify(loggedUser));
-        localStorage.setItem('sessionToken', authData.session?.access_token || `token_user_${Date.now()}`);
-        document.dispatchEvent(new Event('localStorageChanged'));
+        const loggedUser = persistSupabaseSession({
+          user: authData.user,
+          accessToken: authData.session?.access_token,
+          fallbackEmail: email,
+        });
 
         return { success: true, user: loggedUser };
       }
@@ -83,15 +103,11 @@ export async function loginUser(email: string, password: string): Promise<LoginR
         return { success: false, error: err?.message || error?.message || 'Erro ao fazer login' };
       }
 
-      const loggedUser = {
-        id: authData.user.id,
-        email: authData.user.email || String(email).trim(),
-        role: authData.user.user_metadata?.role || 'user',
-      };
-
-      localStorage.setItem('user', JSON.stringify(loggedUser));
-      localStorage.setItem('sessionToken', authData.session?.access_token || `token_user_${Date.now()}`);
-      document.dispatchEvent(new Event('localStorageChanged'));
+      const loggedUser = persistSupabaseSession({
+        user: authData.user,
+        accessToken: authData.session?.access_token,
+        fallbackEmail: email,
+      });
 
       return { success: true, user: loggedUser };
     } catch {

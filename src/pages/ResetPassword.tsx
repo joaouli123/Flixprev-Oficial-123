@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { supabaseAuth } from "@/lib/supabase-auth";
 import { toast } from 'sonner';
 import { resetPasswordSchema } from '@/lib/validations';
-import { loginUser } from '@/lib/auth';
+import { loginUser, persistSupabaseSession } from '@/lib/auth';
 
 type RecoveryType = 'recovery' | 'invite';
 
@@ -250,19 +250,36 @@ const ResetPassword: React.FC = () => {
         setIsError(true);
         toast.error('Erro ao redefinir a senha: ' + error.message);
       } else {
-        // Mostrar modal de sucesso e autenticar automaticamente
         setShowSuccessModal(true);
-        toast.success('Senha redefinida com sucesso!');
+        toast.success('Senha redefinida com sucesso! Entrando na sua conta...');
+
+        const currentSession = await supabaseAuth.auth.getSession();
+        const sessionUser = currentSession.data.session?.user;
+        const accessToken = currentSession.data.session?.access_token;
+
+        if (sessionUser) {
+          persistSupabaseSession({
+            user: sessionUser,
+            accessToken,
+            fallbackEmail: targetEmail,
+          });
+
+          navigate('/app', { replace: true });
+          return;
+        }
 
         const loginResult = await loginUser(targetEmail, result.data.password);
 
         if (loginResult.success) {
           toast.success('Conta ativada e login realizado com sucesso!');
-          setTimeout(() => navigate('/app'), 1200);
-        } else {
-          toast.warning('Senha atualizada. Faça login para continuar.');
-          setTimeout(() => navigate('/login'), 2200);
+          navigate('/app', { replace: true });
+          return;
         }
+
+        setMessage('Senha atualizada, mas não foi possível iniciar sua sessão automaticamente. Faça login para continuar.');
+        setIsError(false);
+        setShowSuccessModal(false);
+        toast.warning('Senha atualizada. Faça login para continuar.');
       }
     } catch (err: any) {
       setMessage('Ocorreu um erro inesperado: ' + err.message);
@@ -296,12 +313,12 @@ const ResetPassword: React.FC = () => {
                 Senha Alterada com Sucesso!
               </h3>
               <p className="text-gray-600 mb-4">
-                Sua senha foi redefinida com sucesso. Você será redirecionado para a página de login em instantes.
+                Sua senha foi redefinida com sucesso. Entrando na área logada...
               </p>
               <div className="w-full bg-gray-200 rounded-full h-2">
                 <div className="bg-green-600 h-2 rounded-full animate-pulse" style={{width: '100%'}}></div>
               </div>
-              <p className="text-sm text-gray-500 mt-2">Redirecionando...</p>
+              <p className="text-sm text-gray-500 mt-2">Abrindo sua conta...</p>
             </div>
           </div>
         </div>
