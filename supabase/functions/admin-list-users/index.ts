@@ -40,6 +40,47 @@ interface Subscription {
   expires_at: string | null;
 }
 
+async function fetchUsuarios(supabaseAdmin: ReturnType<typeof createClient>, corsHeaders: Record<string, string>) {
+  const primarySelect = 'user_id, status_da_assinatura, documento, telefone, nome_completo, email, ramos_atuacao, cep, logradouro, bairro, cidade, estado, regiao, sexo, idade, data_nascimento, origem_cadastro, cadastro_finalizado_em';
+
+  const { data, error } = await supabaseAdmin
+    .from('usuarios')
+    .select(primarySelect);
+
+  if (!error) {
+    return data as Usuario[];
+  }
+
+  console.error('Error listing usuarios with full projection:', error);
+
+  const { data: fallbackData, error: fallbackError } = await supabaseAdmin
+    .from('usuarios')
+    .select('user_id, status_da_assinatura, documento, telefone, nome_completo, email');
+
+  if (fallbackError) {
+    console.error('Error listing usuarios with fallback projection:', fallbackError);
+    throw new Response(JSON.stringify({ error: fallbackError.message }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 500,
+    });
+  }
+
+  return (fallbackData || []) as Usuario[];
+}
+
+async function fetchSubscriptions(supabaseAdmin: ReturnType<typeof createClient>) {
+  const { data, error } = await supabaseAdmin
+    .from('subscriptions')
+    .select('user_id, plan_type, expires_at');
+
+  if (error) {
+    console.error('Error listing subscriptions:', error);
+    return [] as Subscription[];
+  }
+
+  return (data || []) as Subscription[];
+}
+
 serve(async (req: Request) => {
   const origin = req.headers.get('origin');
   const corsHeaders = getCorsHeaders(origin);
@@ -119,7 +160,7 @@ serve(async (req: Request) => {
     // Fetch all profiles from public.profiles
     const { data: profiles, error: profilesError } = await supabaseAdmin
       .from('profiles')
-      .select('*');
+      .select('id, first_name, last_name, avatar_url, role, updated_at');
 
     if (profilesError) {
       console.error('Error listing profiles:', profilesError);
@@ -130,36 +171,14 @@ serve(async (req: Request) => {
     }
 
     // Fetch all subscription statuses from public.usuarios
-    const { data: usuarios, error: usuariosError } = await supabaseAdmin
-      .from('usuarios')
-      .select('user_id, status_da_assinatura, documento, telefone, nome_completo, email, ramos_atuacao, cep, logradouro, bairro, cidade, estado, regiao, sexo, idade, data_nascimento, origem_cadastro, cadastro_finalizado_em');
-
-    if (usuariosError) {
-        console.error('Error listing usuarios:', usuariosError);
-        return new Response(JSON.stringify({ error: usuariosError.message }), {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            status: 500,
-        });
-    }
-
-    // Fetch subscription plans
-    const { data: subscriptions, error: subscriptionsError } = await supabaseAdmin
-      .from('subscriptions')
-      .select('user_id, plan_type, expires_at');
-
-    if (subscriptionsError) {
-      console.error('Error listing subscriptions:', subscriptionsError);
-      return new Response(JSON.stringify({ error: subscriptionsError.message }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500,
-      });
-    }
+    const usuarios = await fetchUsuarios(supabaseAdmin, corsHeaders);
+    const subscriptions = await fetchSubscriptions(supabaseAdmin);
 
     // Combine auth users with their profiles and subscription status
     const usersWithProfiles = authUsers.map((authUser: AuthUser) => {
-      const profile = profiles.find((p: Profile) => p.id === authUser.id);
+      const profile = (profiles || []).find((p: Profile) => p.id === authUser.id);
       const usuario = usuarios.find((u: Usuario) => u.user_id === authUser.id);
-      const subscription = (subscriptions as Subscription[]).find((s) => s.user_id === authUser.id);
+      const subscription = subscriptions.find((s) => s.user_id === authUser.id);
       return {
         id: authUser.id,
         email: authUser.email,
