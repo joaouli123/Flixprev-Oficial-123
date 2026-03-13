@@ -155,40 +155,68 @@ async function ensureAiUsageTable() {
 }
 
 async function logAiUsage(params = {}) {
-  if (!hasDatabaseUrl) {
-    return;
-  }
+  const payload = {
+    user_id: String(params.userId || '').trim() || null,
+    conversation_id: Number.isFinite(params.conversationId) ? params.conversationId : null,
+    request_type: String(params.requestType || 'chat_completion').trim(),
+    model: String(params.model || '').trim() || null,
+    status: String(params.status || 'success').trim(),
+    prompt_tokens: Math.max(0, Math.floor(Number(params.promptTokens || 0))),
+    completion_tokens: Math.max(0, Math.floor(Number(params.completionTokens || 0))),
+    total_tokens: Math.max(0, Math.floor(Number(params.totalTokens || 0))),
+    cost_usd: Number(params.costUsd || 0),
+    error_message: String(params.errorMessage || '').trim() || null,
+  };
 
-  await ensureAiUsageTable();
+  await withDatabaseFallback(
+    'logAiUsage',
+    async () => {
+      if (!hasDatabaseUrl) {
+        return;
+      }
 
-  await pool.query(
-    `
-    INSERT INTO ai_request_logs (
-      user_id,
-      conversation_id,
-      request_type,
-      model,
-      status,
-      prompt_tokens,
-      completion_tokens,
-      total_tokens,
-      cost_usd,
-      error_message
-    )
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-    `,
-    [
-      String(params.userId || '').trim() || null,
-      Number.isFinite(params.conversationId) ? params.conversationId : null,
-      String(params.requestType || 'chat_completion').trim(),
-      String(params.model || '').trim() || null,
-      String(params.status || 'success').trim(),
-      Math.max(0, Math.floor(Number(params.promptTokens || 0))),
-      Math.max(0, Math.floor(Number(params.completionTokens || 0))),
-      Math.max(0, Math.floor(Number(params.totalTokens || 0))),
-      Number(params.costUsd || 0),
-      String(params.errorMessage || '').trim() || null,
-    ]
+      await ensureAiUsageTable();
+
+      await pool.query(
+        `
+        INSERT INTO ai_request_logs (
+          user_id,
+          conversation_id,
+          request_type,
+          model,
+          status,
+          prompt_tokens,
+          completion_tokens,
+          total_tokens,
+          cost_usd,
+          error_message
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        `,
+        [
+          payload.user_id,
+          payload.conversation_id,
+          payload.request_type,
+          payload.model,
+          payload.status,
+          payload.prompt_tokens,
+          payload.completion_tokens,
+          payload.total_tokens,
+          payload.cost_usd,
+          payload.error_message,
+        ]
+      );
+    },
+    async () => {
+      if (!supabaseAdminClient) {
+        return;
+      }
+
+      const response = await supabaseAdminClient.from('ai_request_logs').insert([payload]);
+      if (response.error) {
+        throw createSupabaseFallbackError(response.error, 'Falha ao registrar uso de IA via Supabase');
+      }
+    }
   );
 }
 
@@ -5271,31 +5299,89 @@ function hasActiveSubscriptionAccess(raw) {
 }
 
 async function getUserPlatformAccessState(userId, fallbackEmail) {
-  const [userResult, subscriptionResult] = await Promise.all([
-    pool.query(
-      `
-      SELECT email, status_da_assinatura
-      FROM usuarios
-      WHERE user_id = $1
-      ORDER BY updated_at DESC NULLS LAST, created_at DESC NULLS LAST
-      LIMIT 1
-      `,
-      [userId]
-    ).catch(() => ({ rows: [] })),
-    pool.query(
-      `
-      SELECT status, plan_type
-      FROM subscriptions
-      WHERE user_id = $1
-      ORDER BY updated_at DESC NULLS LAST, created_at DESC NULLS LAST
-      LIMIT 1
-      `,
-      [userId]
-    ).catch(() => ({ rows: [] }))
+  return withDatabaseFallback(
+    'getUserPlatformAccessState',
+    async () => {
+      const [userResult, subscriptionResult] = await Promise.all([
+        pool.query(
+          `
+          SELECT email, status_da_assinatura
+          FROM usuarios
+          WHERE user_id = $1
+          ORDER BY updated_at DESC NULLS LAST, created_at DESC NULLS LAST
+          LIMIT 1
+          `,
+          [userId]
+        ).catch(() => ({ rows: [] })),
+        pool.query(
+          `
+          SELECT status, plan_type
+          FROM subscriptions
+          WHERE user_id = $1
+          ORDER BY updated_at DESC NULLS LAST, created_at DESC NULLS LAST
+          LIMIT 1
+          `,
+          [userId]
+        ).catch(() => ({ rows: [] }))
+      ]);
+
+      const userRow = userResult.rows?.[0] || {};
+      const subscriptionRow = subscriptionResult.rows?.[0] || {};
+      const userStatus = String(userRow.status_da_assinatura || '').trim() || null;
+      const subscriptionStatus = String(subscriptionRow.status || '').trim() || null;
+      const effectiveStatus = userStatus || subscriptionStatus;
+
+      return {
+        email: String(userRow.email || fallbackEmail || '').trim() || null,
+        status: effectiveStatus,
+        plan: normalizePlanName(subscriptionRow.plan_type),
+        hasActiveAccess: hasActiveSubscriptionAccess(effectiveStatus),
+      };
+    },
+    () => getUserPlatformAccessStateViaSupabase(userId, fallbackEmail)
+  );
+}
+
+function isConfirmedReferralStatus(raw) {
+  return hasActiveSubscriptionAccess(raw);
+}
+
+function normalizePlanName(raw) {
+  const value = String(raw || '').trim();
+  return value || null;
+}
+
+async function getUserPlatformAccessStateViaSupabase(userId, fallbackEmail) {
+  const client = ensureSupabaseAdminAvailable();
+  const [userResponse, subscriptionResponse] = await Promise.all([
+    client
+      .from('usuarios')
+      .select('email, status_da_assinatura')
+      .eq('user_id', userId)
+      .order('updated_at', { ascending: false, nullsFirst: false })
+      .order('created_at', { ascending: false, nullsFirst: false })
+      .limit(1)
+      .maybeSingle(),
+    client
+      .from('subscriptions')
+      .select('status, plan_type')
+      .eq('user_id', userId)
+      .order('updated_at', { ascending: false, nullsFirst: false })
+      .order('created_at', { ascending: false, nullsFirst: false })
+      .limit(1)
+      .maybeSingle(),
   ]);
 
-  const userRow = userResult.rows?.[0] || {};
-  const subscriptionRow = subscriptionResult.rows?.[0] || {};
+  if (userResponse.error) {
+    throw createSupabaseFallbackError(userResponse.error, 'Erro ao carregar status do usuário');
+  }
+
+  if (subscriptionResponse.error) {
+    throw createSupabaseFallbackError(subscriptionResponse.error, 'Erro ao carregar assinatura do usuário');
+  }
+
+  const userRow = userResponse.data || {};
+  const subscriptionRow = subscriptionResponse.data || {};
   const userStatus = String(userRow.status_da_assinatura || '').trim() || null;
   const subscriptionStatus = String(subscriptionRow.status || '').trim() || null;
   const effectiveStatus = userStatus || subscriptionStatus;
@@ -5308,17 +5394,49 @@ async function getUserPlatformAccessState(userId, fallbackEmail) {
   };
 }
 
-function isConfirmedReferralStatus(raw) {
-  return hasActiveSubscriptionAccess(raw);
-}
-
-function normalizePlanName(raw) {
-  const value = String(raw || '').trim();
-  return value || null;
-}
-
 function getReferralCreditUnits(status) {
   return isConfirmedReferralStatus(status) ? 1 : 0;
+  return withDatabaseFallback(
+    'getUserPlatformAccessState',
+    async () => {
+      const [userResult, subscriptionResult] = await Promise.all([
+        pool.query(
+          `
+          SELECT email, status_da_assinatura
+          FROM usuarios
+          WHERE user_id = $1
+          ORDER BY updated_at DESC NULLS LAST, created_at DESC NULLS LAST
+          LIMIT 1
+          `,
+          [userId]
+        ).catch(() => ({ rows: [] })),
+        pool.query(
+          `
+          SELECT status, plan_type
+          FROM subscriptions
+          WHERE user_id = $1
+          ORDER BY updated_at DESC NULLS LAST, created_at DESC NULLS LAST
+          LIMIT 1
+          `,
+          [userId]
+        ).catch(() => ({ rows: [] }))
+      ]);
+
+      const userRow = userResult.rows?.[0] || {};
+      const subscriptionRow = subscriptionResult.rows?.[0] || {};
+      const userStatus = String(userRow.status_da_assinatura || '').trim() || null;
+      const subscriptionStatus = String(subscriptionRow.status || '').trim() || null;
+      const effectiveStatus = userStatus || subscriptionStatus;
+
+      return {
+        email: String(userRow.email || fallbackEmail || '').trim() || null,
+        status: effectiveStatus,
+        plan: normalizePlanName(subscriptionRow.plan_type),
+        hasActiveAccess: hasActiveSubscriptionAccess(effectiveStatus),
+      };
+    },
+    () => getUserPlatformAccessStateViaSupabase(userId, fallbackEmail)
+  );
 }
 
 function getReferralCommissionPercent(status) {
