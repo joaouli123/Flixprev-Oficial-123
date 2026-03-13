@@ -15,6 +15,12 @@ interface LoginResponse {
   error?: string;
 }
 
+type StoredSession = {
+  user: LoginResponse['user'];
+  token: string;
+  access_token: string;
+};
+
 type PersistedSupabaseSessionParams = {
   user: {
     id: string;
@@ -137,10 +143,30 @@ export function getSession() {
     return {
       user: parsedUser,
       token,
+      access_token: token,
     };
   } catch {
     return null;
   }
+}
+
+export async function getAccessToken() {
+  try {
+    const { data, error } = await supabaseAuth.auth.getSession();
+
+    if (error) {
+      throw error;
+    }
+
+    if (data.session?.access_token) {
+      return data.session.access_token;
+    }
+  } catch {
+    // Fallback para sessão persistida localmente.
+  }
+
+  const storedSession = getSession() as StoredSession | null;
+  return storedSession?.access_token || storedSession?.token || null;
 }
 
 export async function logout() {

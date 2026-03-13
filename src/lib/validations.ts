@@ -60,6 +60,8 @@ export const userProfileDetailsSchema = z.object({
   practiceAreas: practiceAreasSchema,
   cep: cepSchema,
   logradouro: z.string().min(2, 'Endereço é obrigatório').max(120, 'Endereço muito longo').trim(),
+  numero: z.string().min(1, 'Número é obrigatório').max(20, 'Número inválido').trim(),
+  complemento: z.string().max(120, 'Complemento muito longo').trim().optional().or(z.literal('')),
   bairro: z.string().min(2, 'Bairro é obrigatório').max(80, 'Bairro muito longo').trim(),
   cidade: z.string().min(2, 'Cidade é obrigatória').max(80, 'Cidade muito longa').trim(),
   estado: z.string().length(2, 'UF inválida').trim().transform((value) => value.toUpperCase()),
@@ -85,7 +87,20 @@ export const createUserSchema = z.object({
   role: z.enum(['user', 'admin'], {
     errorMap: () => ({ message: 'Papel inválido' }),
   }),
-}).merge(userProfileDetailsSchema);
+  planType: z.enum(['basic', 'premium', 'enterprise'], {
+    errorMap: () => ({ message: 'Plano inválido' }),
+  }),
+  lifetimeAccess: z.boolean(),
+  expiresAt: z.string().trim().optional(),
+}).merge(userProfileDetailsSchema).superRefine((data, ctx) => {
+  if (!data.lifetimeAccess && !String(data.expiresAt || '').trim()) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['expiresAt'],
+      message: 'Informe a data de expiração ou marque acesso vitalício.',
+    });
+  }
+});
 
 // Schema de Criação de Usuário pelo Admin (sem senha - envia convite)
 export const createUserByAdminSchema = z.object({

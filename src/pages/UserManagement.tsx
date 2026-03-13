@@ -33,6 +33,7 @@ import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import type { CreateUserInput } from "@/lib/validations";
 import { formatPracticeAreas } from "@/lib/userProfile";
+import { getAccessToken } from "@/lib/auth";
 
 function formatOriginLabel(value: string | null | undefined) {
   const normalized = String(value || "").trim().toLowerCase();
@@ -63,6 +64,19 @@ const UserManagement: React.FC = () => {
 
   const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 
+  const getEdgeHeaders = useCallback(async () => {
+    const accessToken = await getAccessToken();
+
+    if (!accessToken) {
+      throw new Error("Sessão expirada. Faça login novamente.");
+    }
+
+    return {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    };
+  }, []);
+
   useEffect(() => {
     if (!session) {
       navigate("/login");
@@ -82,12 +96,10 @@ const UserManagement: React.FC = () => {
     }
 
     try {
+      const headers = await getEdgeHeaders();
       const response = await fetch(`${SUPABASE_URL}/functions/v1/admin-list-users`, {
         method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session?.access_token}`,
-        },
+        headers,
       });
 
       if (!response.ok) {
@@ -103,7 +115,7 @@ const UserManagement: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [isAdmin, session?.access_token, SUPABASE_URL]);
+  }, [SUPABASE_URL, getEdgeHeaders, isAdmin]);
 
   useEffect(() => {
     if (isAdmin) {
@@ -113,12 +125,10 @@ const UserManagement: React.FC = () => {
 
   const handleCreateUser = async (payload: CreateUserInput) => {
     try {
+      const headers = await getEdgeHeaders();
       const response = await fetch(`${SUPABASE_URL}/functions/v1/admin-create-user`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session?.access_token}`,
-        },
+        headers,
         body: JSON.stringify({
           email: payload.email,
           full_name: payload.fullName,
@@ -129,10 +139,15 @@ const UserManagement: React.FC = () => {
           practice_areas: payload.practiceAreas,
           cep: payload.cep,
           logradouro: payload.logradouro,
+          numero: payload.numero,
+          complemento: payload.complemento,
           bairro: payload.bairro,
           cidade: payload.cidade,
           estado: payload.estado,
           regiao: payload.regiao,
+          plan_type: payload.planType,
+          lifetime_access: payload.lifetimeAccess,
+          expires_at: payload.expiresAt,
           sexo: payload.sexo,
           data_nascimento: payload.dataNascimento,
           idade: payload.idade,
@@ -164,12 +179,10 @@ const UserManagement: React.FC = () => {
     if (!userToDelete) return;
 
     try {
+      const headers = await getEdgeHeaders();
       const response = await fetch(`${SUPABASE_URL}/functions/v1/admin-transfer-and-delete-user`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session?.access_token}`,
-        },
+        headers,
         body: JSON.stringify({ userId: userToDelete.id }),
       });
 
@@ -196,12 +209,10 @@ const UserManagement: React.FC = () => {
 
   const handleUpdateUserRole = async (userId: string, newRole: "user" | "admin") => {
     try {
+      const headers = await getEdgeHeaders();
       const response = await fetch(`${SUPABASE_URL}/functions/v1/admin-update-user-role`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session?.access_token}`,
-        },
+        headers,
         body: JSON.stringify({ userId, newRole }),
       });
 
@@ -228,12 +239,10 @@ const UserManagement: React.FC = () => {
     setUsers((prev) => prev.map((u) => (u.id === user.id ? { ...u, status_da_assinatura: newStatus } : u)));
 
     try {
+      const headers = await getEdgeHeaders();
       const response = await fetch(`${SUPABASE_URL}/functions/v1/admin-update-subscription-status`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session?.access_token}`,
-        },
+        headers,
         body: JSON.stringify({ userId: user.id, newStatus }),
       });
 
@@ -295,7 +304,7 @@ const UserManagement: React.FC = () => {
   }, [users]);
 
   const exportToCsv = () => {
-    const headers = ["nome", "email", "cpf", "whatsapp", "ramos_atuacao", "cep", "endereco", "bairro", "cidade", "estado", "regiao", "sexo", "idade", "data_nascimento", "origem", "status", "plano", "cadastro"];
+    const headers = ["nome", "email", "cpf", "whatsapp", "ramos_atuacao", "cep", "endereco", "bairro", "cidade", "estado", "regiao", "sexo", "idade", "data_nascimento", "origem", "status", "plano", "expira_em", "cadastro"];
     const escapeCsvCell = (value: unknown) => `"${String(value ?? "").replace(/"/g, '""')}"`;
 
     const lines = users.map((user) => {
@@ -319,6 +328,7 @@ const UserManagement: React.FC = () => {
         formatOriginLabel(user.origem_cadastro),
         user.status_da_assinatura || "",
         user.plan_type || "",
+        user.subscription_expires_at ? new Date(user.subscription_expires_at).toLocaleDateString("pt-BR") : "",
         cadastro,
       ]
         .map(escapeCsvCell)
@@ -483,6 +493,7 @@ const UserManagement: React.FC = () => {
                     </TableCell>
                     <TableCell>
                       <div className="text-sm text-slate-900">{formatPracticeAreas(user.ramos_atuacao) || "-"}</div>
+                      <div className="text-sm text-slate-500">{user.logradouro || "Endereço não informado"}</div>
                       <div className="text-sm text-slate-500">
                         {[user.cidade, user.estado].filter(Boolean).join("/") || user.regiao || "-"}
                       </div>
@@ -521,6 +532,11 @@ const UserManagement: React.FC = () => {
                       <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">
                         {(user.plan_type || "basic").toUpperCase()}
                       </span>
+                      <div className="mt-1 text-xs text-slate-500">
+                        {user.subscription_expires_at
+                          ? `Expira em ${new Date(user.subscription_expires_at).toLocaleDateString("pt-BR")}`
+                          : "Vitalício / sem expiração"}
+                      </div>
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">

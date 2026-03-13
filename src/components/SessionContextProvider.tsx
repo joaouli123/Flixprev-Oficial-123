@@ -66,6 +66,10 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
 
     const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || '').trim().replace(/\/$/, '');
 
+    if (!apiBaseUrl) {
+      return;
+    }
+
     try {
       const response = await fetch(`${apiBaseUrl}/api/account/profile`, {
         headers: {
@@ -189,10 +193,21 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
     })
       .then(async (response) => {
         if (response.ok) {
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem('referral_code');
+          }
           return;
         }
 
         const errorData = await response.json().catch(() => ({}));
+
+        if (response.status === 404) {
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem('referral_code');
+          }
+          return;
+        }
+
         throw new Error(errorData.error || `Erro ${response.status}`);
       })
       .catch((error: Error) => {

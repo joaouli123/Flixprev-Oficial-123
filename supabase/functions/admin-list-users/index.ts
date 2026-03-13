@@ -37,6 +37,7 @@ interface Usuario {
 interface Subscription {
   user_id: string;
   plan_type: string | null;
+  expires_at: string | null;
 }
 
 serve(async (req: Request) => {
@@ -144,7 +145,7 @@ serve(async (req: Request) => {
     // Fetch subscription plans
     const { data: subscriptions, error: subscriptionsError } = await supabaseAdmin
       .from('subscriptions')
-      .select('user_id, plan_type');
+      .select('user_id, plan_type, expires_at');
 
     if (subscriptionsError) {
       console.error('Error listing subscriptions:', subscriptionsError);
@@ -185,6 +186,7 @@ serve(async (req: Request) => {
         origem_cadastro: usuario?.origem_cadastro || null,
         cadastro_finalizado_em: usuario?.cadastro_finalizado_em || null,
         plan_type: subscription?.plan_type || null,
+        subscription_expires_at: subscription?.expires_at || null,
       };
     });
 

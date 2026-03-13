@@ -36,6 +36,8 @@ export type Profile = {
   ramos_atuacao?: string[] | null;
   cep?: string | null;
   logradouro?: string | null;
+  numero?: string | null;
+  complemento?: string | null;
   bairro?: string | null;
   cidade?: string | null;
   estado?: string | null;
@@ -63,6 +65,8 @@ export type AdminUser = {
   ramos_atuacao: string[] | null;
   cep: string | null;
   logradouro: string | null;
+  numero: string | null;
+  complemento: string | null;
   bairro: string | null;
   cidade: string | null;
   estado: string | null;
@@ -73,6 +77,7 @@ export type AdminUser = {
   origem_cadastro: string | null;
   cadastro_finalizado_em: string | null;
   plan_type: string | null;
+  subscription_expires_at: string | null;
   nome_completo: string | null;
 };
 

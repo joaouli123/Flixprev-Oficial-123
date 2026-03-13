@@ -16,6 +16,7 @@ import { createUserSchema, type CreateUserInput } from "@/lib/validations";
 import { calculateAgeFromBirthDate, formatCep, lookupBrazilianCep, parsePracticeAreas } from "@/lib/userProfile";
 import { toast } from "sonner";
 import { Eye, EyeOff, Loader2, MapPin } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 
 interface CreateUserDialogProps {
   isOpen: boolean;
@@ -37,10 +38,15 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
   const [practiceAreasInput, setPracticeAreasInput] = useState("");
   const [cep, setCep] = useState("");
   const [logradouro, setLogradouro] = useState("");
+  const [numero, setNumero] = useState("");
+  const [complemento, setComplemento] = useState("");
   const [bairro, setBairro] = useState("");
   const [cidade, setCidade] = useState("");
   const [estado, setEstado] = useState("");
   const [regiao, setRegiao] = useState("");
+  const [planType, setPlanType] = useState<'basic' | 'premium' | 'enterprise'>('basic');
+  const [lifetimeAccess, setLifetimeAccess] = useState(false);
+  const [expiresAt, setExpiresAt] = useState("");
   const [sexo, setSexo] = useState<'feminino' | 'masculino' | 'outro' | 'prefiro_nao_informar'>('prefiro_nao_informar');
   const [dataNascimento, setDataNascimento] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -58,10 +64,15 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
     setPracticeAreasInput("");
     setCep("");
     setLogradouro("");
+    setNumero("");
+    setComplemento("");
     setBairro("");
     setCidade("");
     setEstado("");
     setRegiao("");
+    setPlanType('basic');
+    setLifetimeAccess(false);
+    setExpiresAt("");
     setSexo('prefiro_nao_informar');
     setDataNascimento("");
     setShowPassword(false);
@@ -106,10 +117,15 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
       practiceAreas: parsePracticeAreas(practiceAreasInput),
       cep: cep.trim(),
       logradouro: logradouro.trim(),
+      numero: numero.trim(),
+      complemento: complemento.trim(),
       bairro: bairro.trim(),
       cidade: cidade.trim(),
       estado: estado.trim().toUpperCase(),
       regiao: regiao.trim(),
+      planType,
+      lifetimeAccess,
+      expiresAt: expiresAt.trim(),
       sexo,
       dataNascimento,
       idade,
@@ -326,6 +342,33 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
+                <Label htmlFor="numero" className="text-sm font-medium text-slate-700">
+                  Número <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="numero"
+                  value={numero}
+                  onChange={(e) => setNumero(e.target.value)}
+                  placeholder="123"
+                  className="w-full transition-all border-slate-200 focus:border-indigo-500 focus:ring-indigo-500/20"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="complemento" className="text-sm font-medium text-slate-700">
+                  Complemento
+                </Label>
+                <Input
+                  id="complemento"
+                  value={complemento}
+                  onChange={(e) => setComplemento(e.target.value)}
+                  placeholder="Apto, sala, bloco..."
+                  className="w-full transition-all border-slate-200 focus:border-indigo-500 focus:ring-indigo-500/20"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
                 <Label htmlFor="bairro" className="text-sm font-medium text-slate-700">
                   Bairro <span className="text-red-500">*</span>
                 </Label>
@@ -373,6 +416,49 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
                   className="w-full transition-all border-slate-200 focus:border-indigo-500 focus:ring-indigo-500/20"
                 />
               </div>
+            </div>
+          </div>
+
+          <div className="space-y-3 rounded-xl border border-emerald-200 bg-emerald-50/60 p-4">
+            <div className="text-sm font-medium text-slate-700">Plano e acesso</div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="planType" className="text-sm font-medium text-slate-700">
+                  Plano <span className="text-red-500">*</span>
+                </Label>
+                <Select value={planType} onValueChange={(value: 'basic' | 'premium' | 'enterprise') => setPlanType(value)}>
+                  <SelectTrigger id="planType" className="w-full transition-all border-slate-200 focus:border-indigo-500 focus:ring-indigo-500/20">
+                    <SelectValue placeholder="Selecione o plano" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="basic">Basic</SelectItem>
+                    <SelectItem value="premium">Premium</SelectItem>
+                    <SelectItem value="enterprise">Enterprise</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="expiresAt" className="text-sm font-medium text-slate-700">
+                  Expira em {!lifetimeAccess && <span className="text-red-500">*</span>}
+                </Label>
+                <Input
+                  id="expiresAt"
+                  type="date"
+                  value={expiresAt}
+                  onChange={(e) => setExpiresAt(e.target.value)}
+                  disabled={lifetimeAccess}
+                  className="w-full transition-all border-slate-200 focus:border-indigo-500 focus:ring-indigo-500/20 disabled:opacity-60"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between rounded-lg border border-emerald-200 bg-white px-3 py-3">
+              <div>
+                <div className="text-sm font-medium text-slate-800">Acesso vitalício</div>
+                <div className="text-xs text-slate-500">Mantém o usuário ativo sem data de expiração.</div>
+              </div>
+              <Switch checked={lifetimeAccess} onCheckedChange={setLifetimeAccess} />
             </div>
           </div>
           

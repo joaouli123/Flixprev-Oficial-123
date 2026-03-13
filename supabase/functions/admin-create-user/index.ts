@@ -113,13 +113,25 @@ serve(async (req: Request) => {
     const ramosAtuacao = normalizeStringArray(payload?.practice_areas ?? payload?.practiceAreas);
     const cep = String(payload?.cep || '').trim() || null;
     const logradouro = String(payload?.logradouro || '').trim() || null;
+    const numero = String(payload?.numero || '').trim() || null;
+    const complemento = String(payload?.complemento || '').trim() || null;
     const bairro = String(payload?.bairro || '').trim() || null;
     const cidade = String(payload?.cidade || '').trim() || null;
     const estado = String(payload?.estado || '').trim().toUpperCase() || null;
     const regiao = String(payload?.regiao || '').trim() || null;
+    const planTypeRaw = String(payload?.plan_type || payload?.planType || '').trim().toLowerCase();
+    const planType = ['basic', 'premium', 'enterprise'].includes(planTypeRaw) ? planTypeRaw : 'basic';
+    const lifetimeAccess = Boolean(payload?.lifetime_access ?? payload?.lifetimeAccess);
+    const expiresAtRaw = String(payload?.expires_at || payload?.expiresAt || '').trim();
+    const expiresAt = !lifetimeAccess && expiresAtRaw ? new Date(`${expiresAtRaw}T23:59:59`).toISOString() : null;
     const sexo = String(payload?.sexo || '').trim() || null;
     const dataNascimento = String(payload?.data_nascimento || payload?.dataNascimento || '').trim() || null;
     const idade = calculateAgeFromBirthDate(dataNascimento) ?? null;
+    const logradouroCompleto = [
+      logradouro,
+      numero ? `, ${numero}` : '',
+      complemento ? ` - ${complemento}` : '',
+    ].join('');
 
     if (!email || !role || !password) {
       return new Response(JSON.stringify({ error: 'Email, role e password são obrigatórios.' }), {
@@ -189,7 +201,7 @@ serve(async (req: Request) => {
         telefone,
         ramos_atuacao: ramosAtuacao,
         cep,
-        logradouro,
+        logradouro: logradouroCompleto || logradouro,
         bairro,
         cidade,
         estado,
@@ -207,6 +219,25 @@ serve(async (req: Request) => {
       console.error('Error upserting usuarios row:', usuarioError);
       await supabaseAdmin.auth.admin.deleteUser(newUser.user.id);
       return new Response(JSON.stringify({ error: usuarioError.message }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 500,
+      });
+    }
+
+    const { error: subscriptionError } = await supabaseAdmin
+      .from('subscriptions')
+      .upsert({
+        user_id: newUser.user.id,
+        status: 'active',
+        plan_type: planType,
+        starts_at: new Date().toISOString(),
+        expires_at: expiresAt,
+      }, { onConflict: 'user_id' });
+
+    if (subscriptionError) {
+      console.error('Error upserting subscriptions row:', subscriptionError);
+      await supabaseAdmin.auth.admin.deleteUser(newUser.user.id);
+      return new Response(JSON.stringify({ error: subscriptionError.message }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 500,
       });
