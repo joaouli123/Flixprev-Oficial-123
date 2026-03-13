@@ -2362,6 +2362,254 @@ async function cancelAccountSubscription(userId, payload = {}) {
   );
 }
 
+function ensureSupabaseAdminAvailable() {
+  if (!supabaseAdminClient) {
+    throw new Error('Supabase admin client não configurado para fallback de conversas.');
+  }
+
+  return supabaseAdminClient;
+}
+
+async function listConversationsViaSupabase(userId, agentId = null) {
+  const client = ensureSupabaseAdminAvailable();
+  let query = client
+    .from('conversations')
+    .select('id, agent_id, user_id, title, created_at, updated_at')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false });
+
+  if (agentId) {
+    query = query.eq('agent_id', agentId);
+  }
+
+  const response = await query;
+  if (response.error) {
+    throw createSupabaseFallbackError(response.error, 'Erro ao listar conversas');
+  }
+
+  return response.data || [];
+}
+
+async function createConversationViaSupabase(userId, title, agentId = null) {
+  const client = ensureSupabaseAdminAvailable();
+  const response = await client
+    .from('conversations')
+    .insert([{ user_id: userId, agent_id: agentId || null, title: title || 'New Chat' }])
+    .select('id, agent_id, user_id, title, created_at, updated_at')
+    .single();
+
+  if (response.error) {
+    throw createSupabaseFallbackError(response.error, 'Erro ao criar conversa');
+  }
+
+  return response.data;
+}
+
+async function getConversationViaSupabase(userId, conversationId) {
+  const client = ensureSupabaseAdminAvailable();
+  const response = await client
+    .from('conversations')
+    .select('id, agent_id, user_id, title, created_at, updated_at')
+    .eq('id', conversationId)
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (response.error) {
+    throw createSupabaseFallbackError(response.error, 'Erro ao carregar conversa');
+  }
+
+  return response.data || null;
+}
+
+async function listConversationMessagesViaSupabase(userId, conversationId) {
+  const client = ensureSupabaseAdminAvailable();
+  const conversation = await getConversationViaSupabase(userId, conversationId);
+  if (!conversation) {
+    return null;
+  }
+
+  const response = await client
+    .from('messages')
+    .select('id, conversation_id, role, content, created_at')
+    .eq('conversation_id', conversationId)
+    .order('created_at', { ascending: true });
+
+  if (response.error) {
+    throw createSupabaseFallbackError(response.error, 'Erro ao listar mensagens da conversa');
+  }
+
+  return response.data || [];
+}
+
+async function insertConversationMessageViaSupabase(conversationId, role, content) {
+  const client = ensureSupabaseAdminAvailable();
+  const response = await client
+    .from('messages')
+    .insert([{ conversation_id: conversationId, role, content }])
+    .select('id, conversation_id, role, content, created_at')
+    .single();
+
+  if (response.error) {
+    throw createSupabaseFallbackError(response.error, 'Erro ao salvar mensagem');
+  }
+
+  return response.data;
+}
+
+async function deleteConversationViaSupabase(userId, conversationId) {
+  const client = ensureSupabaseAdminAvailable();
+  const conversation = await getConversationViaSupabase(userId, conversationId);
+  if (!conversation) {
+    return false;
+  }
+
+  const response = await client
+    .from('conversations')
+    .delete()
+    .eq('id', conversationId)
+    .eq('user_id', userId);
+
+  if (response.error) {
+    throw createSupabaseFallbackError(response.error, 'Erro ao excluir conversa');
+  }
+
+  return true;
+}
+
+async function updateConversationTitleViaSupabase(userId, conversationId, title) {
+  const client = ensureSupabaseAdminAvailable();
+  const response = await client
+    .from('conversations')
+    .update({ title, updated_at: new Date().toISOString() })
+    .eq('id', conversationId)
+    .eq('user_id', userId)
+    .select('id, agent_id, user_id, title, created_at, updated_at')
+    .maybeSingle();
+
+  if (response.error) {
+    throw createSupabaseFallbackError(response.error, 'Erro ao renomear conversa');
+  }
+
+  return response.data || null;
+}
+
+async function clearAllConversationsViaSupabase(userId) {
+  const client = ensureSupabaseAdminAvailable();
+  const response = await client
+    .from('conversations')
+    .delete()
+    .eq('user_id', userId);
+
+  if (response.error) {
+    throw createSupabaseFallbackError(response.error, 'Erro ao limpar conversas');
+  }
+
+  return true;
+}
+
+async function deleteAgentConversationsViaSupabase(agentId) {
+  const client = ensureSupabaseAdminAvailable();
+  const response = await client
+    .from('conversations')
+    .delete()
+    .eq('agent_id', agentId)
+    .select('id');
+
+  if (response.error) {
+    throw createSupabaseFallbackError(response.error, 'Erro ao excluir conversas do agente');
+  }
+
+  return response.data?.length || 0;
+}
+
+async function getAgentViaSupabase(agentId) {
+  if (!agentId) {
+    return null;
+  }
+
+  const client = ensureSupabaseAdminAvailable();
+  const response = await client
+    .from('agents')
+    .select('*')
+    .eq('id', agentId)
+    .maybeSingle();
+
+  if (response.error) {
+    throw createSupabaseFallbackError(response.error, 'Erro ao carregar agente');
+  }
+
+  return response.data || null;
+}
+
+async function handleSupabaseConversationMessageFallback({ res, userId, cid, content, agentId, attachment, attachmentContext, directPdfAnswer }) {
+  const userText = String(content || '').trim();
+  const conversation = await getConversationViaSupabase(userId, cid);
+  if (!conversation) {
+    return res.status(404).json({ error: 'Conversa não encontrada' });
+  }
+
+  const effectiveAgentId = conversation.agent_id || agentId || null;
+  await insertConversationMessageViaSupabase(cid, 'user', `${userText}${attachment?.filename ? `\n\n[Anexo enviado: ${attachment.filename}]` : ''}`.trim());
+
+  const historyRows = await listConversationMessagesViaSupabase(userId, cid) || [];
+  const conversationContext = buildConversationContext(historyRows);
+
+  let prompt = buildPrompt(attachmentContext || '', '', userText || 'Analise o anexo enviado.', 'chatgpt', conversationContext);
+  if (effectiveAgentId) {
+    try {
+      const agent = await getAgentViaSupabase(effectiveAgentId);
+      if (agent) {
+        const agentInstructions = agent.instructions || agent.description || '';
+        prompt = buildPrompt(attachmentContext || '', agentInstructions, userText || 'Analise o anexo enviado.', 'chatgpt', conversationContext);
+      }
+    } catch (error) {
+      console.warn('[CHAT][SUPABASE-FALLBACK] Falha ao carregar agente:', error?.message || error);
+    }
+  }
+
+  let assistantText = directPdfAnswer && directPdfAnswer.trim().length > 0 ? directPdfAnswer : '';
+
+  if (!assistantText) {
+    const aiCfg = getAiRuntimeConfig();
+    const openai = createAiClient();
+    const msgs = [
+      { role: 'system', content: prompt },
+      ...historyRows.slice(-10).map((message) => ({ role: message.role, content: message.content })),
+    ];
+
+    const stream = await openai.chat.completions.create({
+      model: aiCfg.chatModel,
+      messages: msgs,
+      stream: true,
+      temperature: 0,
+    });
+
+    for await (const chunk of stream) {
+      const delta = chunk.choices?.[0]?.delta?.content || '';
+      if (delta) {
+        assistantText += delta;
+      }
+    }
+  }
+
+  const finalAssistantText = assistantText.trim() || 'Não consegui gerar uma resposta agora.';
+  await insertConversationMessageViaSupabase(cid, 'assistant', finalAssistantText);
+
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  if (res.flushHeaders) res.flushHeaders();
+
+  const chunkSize = 50;
+  for (let index = 0; index < finalAssistantText.length; index += chunkSize) {
+    const chunk = finalAssistantText.substring(index, index + chunkSize);
+    res.write(`data: ${JSON.stringify({ content: chunk })}\n\n`);
+  }
+
+  res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+  return res.end();
+}
+
 async function listTutorialsViaSupabase() {
   const response = await supabaseAdminClient
     .from('tutorials')
@@ -2662,26 +2910,34 @@ app.get("/api/conversations", async (req, res) => {
   if (!userId) return res.status(401).json({ error: "x-user-id header is required" });
 
   try {
+    const { agentId } = req.query;
+
     if (!hasDatabaseUrl) {
-      const { agentId } = req.query;
       const data = memoryChatStore.conversations
         .filter((c) => c.user_id === userId && (!agentId || String(c.agent_id) === String(agentId)))
         .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
       return res.json(data);
     }
 
-    await ensureChatTables();
+    const conversations = await withDatabaseFallback(
+      'listConversations',
+      async () => {
+        await ensureChatTables();
 
-    const { agentId } = req.query;
-    let query = 'SELECT * FROM conversations WHERE user_id = $1';
-    const params = [userId];
-    if (agentId) {
-      params.push(agentId);
-      query += ' AND agent_id = $2';
-    }
-    query += ' ORDER BY created_at DESC';
-    const result = await pool.query(query, params);
-    res.json(result.rows || []);
+        let query = 'SELECT * FROM conversations WHERE user_id = $1';
+        const params = [userId];
+        if (agentId) {
+          params.push(agentId);
+          query += ' AND agent_id = $2';
+        }
+        query += ' ORDER BY created_at DESC';
+        const result = await pool.query(query, params);
+        return result.rows || [];
+      },
+      () => listConversationsViaSupabase(userId, agentId ? String(agentId) : null)
+    );
+
+    res.json(conversations);
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -2693,8 +2949,9 @@ app.post("/api/conversations", async (req, res) => {
   if (!userId) return res.status(401).json({ error: "x-user-id header is required" });
 
   try {
+    const { title, agentId } = req.body;
+
     if (!hasDatabaseUrl) {
-      const { title, agentId } = req.body;
       const conv = {
         id: memoryChatStore.nextConversationId++,
         agent_id: agentId || null,
@@ -2707,14 +2964,21 @@ app.post("/api/conversations", async (req, res) => {
       return res.status(201).json(conv);
     }
 
-    await ensureChatTables();
+    const conversation = await withDatabaseFallback(
+      'createConversation',
+      async () => {
+        await ensureChatTables();
 
-    const { title, agentId } = req.body;
-    const result = await pool.query(
-      'INSERT INTO conversations (agent_id, title, user_id) VALUES ($1, $2, $3) RETURNING *', 
-      [agentId || null, title || "New Chat", userId]
+        const result = await pool.query(
+          'INSERT INTO conversations (agent_id, title, user_id) VALUES ($1, $2, $3) RETURNING *',
+          [agentId || null, title || 'New Chat', userId]
+        );
+        return result.rows[0];
+      },
+      () => createConversationViaSupabase(userId, title || 'New Chat', agentId || null)
     );
-    res.status(201).json(result.rows[0]);
+
+    res.status(201).json(conversation);
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -2740,28 +3004,40 @@ app.get("/api/conversations/:id/messages", async (req, res) => {
       return res.json(rows);
     }
 
-    await ensureChatTables();
+    const messages = await withDatabaseFallback(
+      'listConversationMessages',
+      async () => {
+        await ensureChatTables();
 
-    const conversationResult = await pool.query(
-      'SELECT id FROM conversations WHERE id = $1 AND user_id = $2 LIMIT 1',
-      [cid, userId]
+        const conversationResult = await pool.query(
+          'SELECT id FROM conversations WHERE id = $1 AND user_id = $2 LIMIT 1',
+          [cid, userId]
+        );
+        if (conversationResult.rows.length === 0) {
+          return null;
+        }
+
+        const result = await pool.query(
+          `
+          SELECT m.*
+          FROM messages m
+          INNER JOIN conversations c ON c.id = m.conversation_id
+          WHERE m.conversation_id = $1
+            AND c.user_id = $2
+          ORDER BY m.created_at ASC
+          `,
+          [cid, userId]
+        );
+        return result.rows || [];
+      },
+      () => listConversationMessagesViaSupabase(userId, cid)
     );
-    if (conversationResult.rows.length === 0) {
+
+    if (!messages) {
       return res.status(404).json({ error: "Conversa não encontrada" });
     }
 
-    const result = await pool.query(
-      `
-      SELECT m.*
-      FROM messages m
-      INNER JOIN conversations c ON c.id = m.conversation_id
-      WHERE m.conversation_id = $1
-        AND c.user_id = $2
-      ORDER BY m.created_at ASC
-      `,
-      [cid, userId]
-    );
-    res.json(result.rows || []);
+    res.json(messages);
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -2786,13 +3062,21 @@ app.delete("/api/conversations/:id", async (req, res) => {
       return res.json({ success: true });
     }
 
-    await ensureChatTables();
+    const deleted = await withDatabaseFallback(
+      'deleteConversation',
+      async () => {
+        await ensureChatTables();
 
-    const deleted = await pool.query(
-      'DELETE FROM conversations WHERE id = $1 AND user_id = $2 RETURNING id',
-      [cid, userId]
+        const result = await pool.query(
+          'DELETE FROM conversations WHERE id = $1 AND user_id = $2 RETURNING id',
+          [cid, userId]
+        );
+        return result.rows.length > 0;
+      },
+      () => deleteConversationViaSupabase(userId, cid)
     );
-    if (deleted.rows.length === 0) {
+
+    if (!deleted) {
       return res.status(404).json({ error: "Conversa não encontrada" });
     }
     res.json({ success: true });
@@ -2823,11 +3107,18 @@ app.post("/api/delete-agent-conversations", async (req, res) => {
       return res.json({ success: true, deletedCount: idsToDelete.length });
     }
 
-    await ensureChatTables();
-    
-    // Deleta para TODOS os usuários, pois o agente não existirá mais.
-    const result = await pool.query('DELETE FROM conversations WHERE agent_id = $1', [agentId]);
-    res.json({ success: true, deletedCount: result.rowCount });
+    const deletedCount = await withDatabaseFallback(
+      'deleteAgentConversations',
+      async () => {
+        await ensureChatTables();
+
+        const result = await pool.query('DELETE FROM conversations WHERE agent_id = $1', [agentId]);
+        return result.rowCount;
+      },
+      () => deleteAgentConversationsViaSupabase(agentId)
+    );
+
+    res.json({ success: true, deletedCount });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -3173,7 +3464,24 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
       return res.end();
     }
 
-    await ensureChatTables();
+    try {
+      await ensureChatTables();
+    } catch (error) {
+      if (isPostgresUnavailableError(error) && supabaseAdminClient) {
+        return await handleSupabaseConversationMessageFallback({
+          res,
+          userId,
+          cid,
+          content,
+          agentId,
+          attachment,
+          attachmentContext,
+          directPdfAnswer,
+        });
+      }
+
+      throw error;
+    }
 
     const conversationResult = await pool.query(
       'SELECT id, agent_id FROM conversations WHERE id = $1 AND user_id = $2 LIMIT 1',
@@ -3378,23 +3686,29 @@ app.patch('/api/conversations/:id', async (req, res) => {
       return res.json(conv);
     }
 
-    await ensureChatTables();
+    const numericId = parseInt(id);
+    const updatedConversation = await withDatabaseFallback(
+      'updateConversationTitle',
+      async () => {
+        await ensureChatTables();
 
-    let result = await pool.query(
-      'UPDATE conversations SET title = $1, updated_at = CURRENT_TIMESTAMP WHERE id::text = $2 AND user_id = $3 RETURNING *',
-      [title.trim(), id, userId]
-    );
-    if (result.rows.length === 0) {
-      const numericId = parseInt(id);
-      if (!isNaN(numericId)) {
-        result = await pool.query(
-          'UPDATE conversations SET title = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 AND user_id = $3 RETURNING *',
-          [title.trim(), numericId, userId]
+        let result = await pool.query(
+          'UPDATE conversations SET title = $1, updated_at = CURRENT_TIMESTAMP WHERE id::text = $2 AND user_id = $3 RETURNING *',
+          [title.trim(), id, userId]
         );
-      }
-    }
-    if (result.rows.length === 0) return res.status(404).json({ error: 'Conversa não encontrada' });
-    res.json(result.rows[0]);
+        if (result.rows.length === 0 && !isNaN(numericId)) {
+          result = await pool.query(
+            'UPDATE conversations SET title = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 AND user_id = $3 RETURNING *',
+            [title.trim(), numericId, userId]
+          );
+        }
+        return result.rows[0] || null;
+      },
+      () => updateConversationTitleViaSupabase(userId, numericId, title.trim())
+    );
+
+    if (!updatedConversation) return res.status(404).json({ error: 'Conversa não encontrada' });
+    res.json(updatedConversation);
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -3416,17 +3730,24 @@ app.post('/api/conversations/clear-all', async (req, res) => {
       return res.json({ success: true, message: 'Todas as conversas foram excluídas' });
     }
 
-    await ensureChatTables();
+    await withDatabaseFallback(
+      'clearAllConversations',
+      async () => {
+        await ensureChatTables();
 
-    // Only delete messages for the specific user's conversations
-    await pool.query(`
-      DELETE FROM messages 
-      WHERE conversation_id IN (
-        SELECT id FROM conversations WHERE user_id = $1
-      )
-    `, [userId]);
-    
-    await pool.query('DELETE FROM conversations WHERE user_id = $1', [userId]);
+        await pool.query(`
+          DELETE FROM messages 
+          WHERE conversation_id IN (
+            SELECT id FROM conversations WHERE user_id = $1
+          )
+        `, [userId]);
+
+        await pool.query('DELETE FROM conversations WHERE user_id = $1', [userId]);
+        return true;
+      },
+      () => clearAllConversationsViaSupabase(userId)
+    );
+
     res.json({ success: true, message: 'Todas as conversas foram excluídas' });
   } catch (e) {
     res.status(500).json({ success: false, error: e.message });
