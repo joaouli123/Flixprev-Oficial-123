@@ -125,6 +125,8 @@ function estimateEmbeddingCostUsd(totalTokens) {
   return Number((((Math.max(0, Number(totalTokens || 0))) / 1000) * AI_EMBEDDING_COST_PER_1K).toFixed(6));
 }
 
+let aiUsageLoggingDisabled = false;
+
 async function ensureAiUsageTable() {
   if (!hasDatabaseUrl) {
     return;
@@ -155,6 +157,10 @@ async function ensureAiUsageTable() {
 }
 
 async function logAiUsage(params = {}) {
+  if (aiUsageLoggingDisabled) {
+    return;
+  }
+
   const payload = {
     user_id: String(params.userId || '').trim() || null,
     conversation_id: Number.isFinite(params.conversationId) ? params.conversationId : null,
@@ -214,6 +220,11 @@ async function logAiUsage(params = {}) {
 
       const response = await supabaseAdminClient.from('ai_request_logs').insert([payload]);
       if (response.error) {
+        if (isMissingRelationFromSchemaCacheError(response.error, 'ai_request_logs')) {
+          aiUsageLoggingDisabled = true;
+          console.warn('[AI USAGE] Tabela ai_request_logs indisponivel no schema cache; seguindo sem persistir log.');
+          return;
+        }
         throw createSupabaseFallbackError(response.error, 'Falha ao registrar uso de IA via Supabase');
       }
     }
@@ -222,6 +233,9 @@ async function logAiUsage(params = {}) {
 
 function logAiUsageSafe(params = {}) {
   void logAiUsage(params).catch((error) => {
+    if (aiUsageLoggingDisabled || isMissingRelationFromSchemaCacheError(error?.cause || error, 'ai_request_logs')) {
+      return;
+    }
     console.warn('[AI USAGE] Falha ao registrar uso:', error?.message || error);
   });
 }
@@ -337,6 +351,16 @@ function extractMissingColumnFromSchemaCacheError(error) {
   const message = String(error?.message || '');
   const match = message.match(/Could not find the '([^']+)' column/i);
   return match?.[1] || null;
+}
+
+function isMissingRelationFromSchemaCacheError(error, relationName) {
+  const message = String(error?.message || '').toLowerCase();
+  const code = String(error?.code || '').trim().toUpperCase();
+  const normalizedRelation = String(relationName || '').trim().toLowerCase();
+  return code === 'PGRST205'
+    || code === 'PGRST204'
+    || message.includes(`table 'public.${normalizedRelation}'`)
+    || message.includes(`'${normalizedRelation}'`);
 }
 
 function resolvePublicAppBaseUrl(req) {
@@ -1332,6 +1356,10 @@ async function initializeRagTables() {
 
     console.log('[RAG] ✅ Tabelas RAG inicializadas');
   } catch (e) {
+    if (isPostgresUnavailableError(e)) {
+      console.warn('[RAG] Postgres indisponivel na inicializacao; operando com fallback via Supabase REST.');
+      return;
+    }
     console.error('[RAG] Erro ao inicializar:', e.message);
   }
 }
