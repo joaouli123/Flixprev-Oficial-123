@@ -263,9 +263,6 @@ const AgentEditorPage = () => {
 
         const formData = new FormData();
         formData.append("file", file);
-        if (isEditing && agentToEdit?.id) {
-          formData.append("agentId", agentToEdit.id);
-        }
 
         const response = await fetch(buildApiUrl("/api/agents/upload"), {
           method: "POST",
@@ -296,7 +293,7 @@ const AgentEditorPage = () => {
       background_icon: backgroundIcon,
       category_ids: selectedCategory ? [selectedCategory] : [],
       link: link.trim() || undefined,
-      extra_links: processedExtraLinks.length > 0 ? processedExtraLinks : undefined,
+      extra_links: processedExtraLinks,
       shortcuts,
       instructions: instructions.trim() || undefined,
       attachments: uploadedPaths,

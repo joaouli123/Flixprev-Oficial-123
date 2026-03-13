@@ -328,9 +328,6 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
             });
             const formData = new FormData();
             formData.append("file", file);
-            if (isEditing && agentToEdit?.id) {
-              formData.append("agentId", agentToEdit.id);
-            }
             
             const response = await fetch(buildApiUrl("/api/agents/upload"), {
               method: "POST",
@@ -381,7 +378,7 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
         background_icon: backgroundIcon,
         category_ids: categoryArray as string[],
         link: link.trim() || undefined,
-        extra_links: processedExtraLinks.length > 0 ? processedExtraLinks : undefined,
+        extra_links: processedExtraLinks,
         shortcuts: shortcuts,
         instructions: instructions.trim() || undefined,
         attachments: uploadedPaths,

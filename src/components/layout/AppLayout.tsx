@@ -416,11 +416,8 @@ const AppLayout = () => {
         shortcuts: (newAgentData as any).shortcuts || [],
         instructions: (newAgentData as any).instructions || null,
         attachments: (newAgentData as any).attachments || [],
+        extra_links: Array.isArray(newAgentData.extra_links) ? newAgentData.extra_links : [],
       };
-
-      if (Array.isArray(newAgentData.extra_links) && newAgentData.extra_links.length > 0) {
-        insertPayload.extra_links = newAgentData.extra_links;
-      }
       
       // Salvar arrays como arrays nativas do PostgreSQL
       const { data, error, omittedColumns } = await insertAgentWithSchemaFallback(insertPayload);
@@ -530,11 +527,8 @@ const AppLayout = () => {
       shortcuts: updatedAgentData.shortcuts || [],
       instructions: updatedAgentData.instructions || null,
       attachments: updatedAgentData.attachments || [],
+      extra_links: Array.isArray(updatedAgentData.extra_links) ? updatedAgentData.extra_links : [],
     };
-
-    if (Array.isArray(updatedAgentData.extra_links) && updatedAgentData.extra_links.length > 0) {
-      updatePayload.extra_links = updatedAgentData.extra_links;
-    }
 
     options?.onProgress?.({
       stage: "Salvando alterações do agente...",
