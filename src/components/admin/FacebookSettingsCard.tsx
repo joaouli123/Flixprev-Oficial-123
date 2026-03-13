@@ -4,9 +4,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Facebook, Save, AlertTriangle } from "lucide-react";
-import { neon } from "@/lib/neon";
 import { toast } from "sonner";
 import { useSession } from "@/components/SessionContextProvider";
+import { buildApiUrl } from "@/lib/api";
 
 interface FacebookSettings {
   facebook_pixel_id: string | null;
@@ -40,48 +40,28 @@ const FacebookSettingsCard: React.FC<FacebookSettingsCardProps> = ({ initialSett
     setIsSaving(true);
     
     try {
-      // 1. Buscar o ID da linha de configurações (deve ser apenas uma)
-      const { data: existingSettings, error: fetchError } = await neon
-        .from('app_settings')
-        .select('id')
-        .limit(1)
-        .maybeSingle();
+      const response = await fetch(buildApiUrl('/api/admin/app-settings'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': session.user.id,
+        },
+        body: JSON.stringify({
+          facebook_pixel_id: pixelId.trim() || null,
+          facebook_capi_token: capiToken.trim() || null,
+        }),
+      });
 
-      if (fetchError) {
-        throw new Error(fetchError.message);
-      }
-
-      const updateData = {
-        facebook_pixel_id: pixelId.trim() || null,
-        facebook_capi_token: capiToken.trim() || null,
-        updated_at: new Date().toISOString(),
-      };
-
-      let result;
-
-      if (existingSettings && existingSettings.length > 0) {
-        // 2. Atualizar
-        result = await neon
-          .from('app_settings')
-          .update(updateData)
-          .eq('id', existingSettings[0].id)
-          .execute();
-      } else {
-        // 3. Inserir se não existir
-        result = await neon
-          .from('app_settings')
-          .insert(updateData)
-          .execute();
-      }
-
-      if (result.error) {
-        throw new Error(result.error.message);
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Erro ${response.status}`);
       }
 
       toast.success("Configurações do Facebook salvas com sucesso!");
       onSettingsSaved(); // Notificar o pai para recarregar
-    } catch (error: any) {
-      toast.error("Erro ao salvar configurações: " + error.message);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Erro desconhecido ao salvar configurações.";
+      toast.error("Erro ao salvar configurações: " + message);
       console.error("Erro ao salvar configurações do Facebook:", error);
     } finally {
       setIsSaving(false);

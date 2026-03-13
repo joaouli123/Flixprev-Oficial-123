@@ -2527,6 +2527,495 @@ function ensureSupabaseAdminAvailable() {
   return supabaseAdminClient;
 }
 
+const ADMIN_CREATED_PLAN_TYPE = ['basic', 'premium', 'enterprise'].includes(String(process.env.ADMIN_CREATED_PLAN_TYPE || '').trim().toLowerCase())
+  ? String(process.env.ADMIN_CREATED_PLAN_TYPE || '').trim().toLowerCase()
+  : 'premium';
+
+function normalizeManagedPlanType(raw) {
+  const normalized = String(raw || '').trim().toLowerCase();
+  return ['basic', 'premium', 'enterprise'].includes(normalized) ? normalized : ADMIN_CREATED_PLAN_TYPE;
+}
+
+function formatManagedAddress(logradouro, numero, complemento) {
+  return [
+    String(logradouro || '').trim(),
+    String(numero || '').trim() ? `, ${String(numero || '').trim()}` : '',
+    String(complemento || '').trim() ? ` - ${String(complemento || '').trim()}` : '',
+  ].join('').trim() || null;
+}
+
+function isMissingAppSettingsRelation(error) {
+  const message = String(error?.message || '').toLowerCase();
+  const code = String(error?.code || '').toLowerCase();
+  return message.includes('app_settings') || code === 'pgrst205' || code === '42p01';
+}
+
+async function ensureAppSettingsTable() {
+  if (!hasDatabaseUrl) {
+    return;
+  }
+
+  await pool.query(`
+    CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+    CREATE TABLE IF NOT EXISTS public.app_settings (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      facebook_pixel_id text,
+      facebook_capi_token text,
+      created_at timestamptz NOT NULL DEFAULT NOW(),
+      updated_at timestamptz NOT NULL DEFAULT NOW()
+    )
+  `);
+}
+
+async function readAppSettingsViaSupabase() {
+  const client = ensureSupabaseAdminAvailable();
+  const response = await client
+    .from('app_settings')
+    .select('facebook_pixel_id, facebook_capi_token')
+    .limit(1)
+    .maybeSingle();
+
+  if (response.error) {
+    if (isMissingAppSettingsRelation(response.error)) {
+      return { facebook_pixel_id: null, facebook_capi_token: null };
+    }
+
+    throw createSupabaseFallbackError(response.error, 'Erro ao carregar app_settings');
+  }
+
+  return response.data || { facebook_pixel_id: null, facebook_capi_token: null };
+}
+
+async function readAppSettings() {
+  return withDatabaseFallback(
+    'readAppSettings',
+    async () => {
+      await ensureAppSettingsTable();
+      const result = await pool.query(
+        `
+        SELECT facebook_pixel_id, facebook_capi_token
+        FROM public.app_settings
+        ORDER BY created_at ASC
+        LIMIT 1
+        `
+      );
+
+      return result.rows?.[0] || { facebook_pixel_id: null, facebook_capi_token: null };
+    },
+    () => readAppSettingsViaSupabase()
+  );
+}
+
+async function saveAppSettingsViaSupabase(payload = {}) {
+  const client = ensureSupabaseAdminAvailable();
+  const updateData = {
+    facebook_pixel_id: String(payload.facebook_pixel_id || '').trim() || null,
+    facebook_capi_token: String(payload.facebook_capi_token || '').trim() || null,
+    updated_at: new Date().toISOString(),
+  };
+
+  const existing = await client
+    .from('app_settings')
+    .select('id')
+    .limit(1)
+    .maybeSingle();
+
+  if (existing.error && !isMissingAppSettingsRelation(existing.error)) {
+    throw createSupabaseFallbackError(existing.error, 'Erro ao carregar app_settings para salvar');
+  }
+
+  if (existing.error && isMissingAppSettingsRelation(existing.error)) {
+    return { ...updateData };
+  }
+
+  if (existing.data?.id) {
+    const response = await client
+      .from('app_settings')
+      .update(updateData)
+      .eq('id', existing.data.id)
+      .select('facebook_pixel_id, facebook_capi_token')
+      .single();
+
+    if (response.error) {
+      throw createSupabaseFallbackError(response.error, 'Erro ao atualizar app_settings');
+    }
+
+    return response.data;
+  }
+
+  const response = await client
+    .from('app_settings')
+    .insert([updateData])
+    .select('facebook_pixel_id, facebook_capi_token')
+    .single();
+
+  if (response.error) {
+    throw createSupabaseFallbackError(response.error, 'Erro ao inserir app_settings');
+  }
+
+  return response.data;
+}
+
+async function saveAppSettings(payload = {}) {
+  return withDatabaseFallback(
+    'saveAppSettings',
+    async () => {
+      await ensureAppSettingsTable();
+
+      const updateData = {
+        facebook_pixel_id: String(payload.facebook_pixel_id || '').trim() || null,
+        facebook_capi_token: String(payload.facebook_capi_token || '').trim() || null,
+      };
+
+      const existing = await pool.query('SELECT id FROM public.app_settings ORDER BY created_at ASC LIMIT 1');
+
+      if (existing.rows?.[0]?.id) {
+        const result = await pool.query(
+          `
+          UPDATE public.app_settings
+          SET facebook_pixel_id = $2,
+              facebook_capi_token = $3,
+              updated_at = NOW()
+          WHERE id = $1
+          RETURNING facebook_pixel_id, facebook_capi_token
+          `,
+          [existing.rows[0].id, updateData.facebook_pixel_id, updateData.facebook_capi_token]
+        );
+
+        return result.rows[0] || { facebook_pixel_id: null, facebook_capi_token: null };
+      }
+
+      const inserted = await pool.query(
+        `
+        INSERT INTO public.app_settings (facebook_pixel_id, facebook_capi_token)
+        VALUES ($1, $2)
+        RETURNING facebook_pixel_id, facebook_capi_token
+        `,
+        [updateData.facebook_pixel_id, updateData.facebook_capi_token]
+      );
+
+      return inserted.rows[0] || { facebook_pixel_id: null, facebook_capi_token: null };
+    },
+    () => saveAppSettingsViaSupabase(payload)
+  );
+}
+
+async function listAdminUsersViaSupabase() {
+  const client = ensureSupabaseAdminAvailable();
+  const authUsers = [];
+  let page = 1;
+
+  while (true) {
+    const { data, error } = await client.auth.admin.listUsers({ page, perPage: 200 });
+    if (error) {
+      throw new Error(error.message || 'Erro ao listar usuários de autenticação');
+    }
+
+    const currentPageUsers = data?.users || [];
+    authUsers.push(...currentPageUsers);
+
+    if (currentPageUsers.length < 200) {
+      break;
+    }
+
+    page += 1;
+  }
+
+  const [profilesResponse, subscriptionsResponse, usuariosPrimaryResponse] = await Promise.all([
+    client.from('profiles').select('id, first_name, last_name, avatar_url, role, updated_at'),
+    client.from('subscriptions').select('user_id, plan_type, expires_at'),
+    client.from('usuarios').select('user_id, status_da_assinatura, documento, telefone, nome_completo, email, ramos_atuacao, cep, logradouro, bairro, cidade, estado, regiao, sexo, idade, data_nascimento, origem_cadastro, cadastro_finalizado_em')
+  ]);
+
+  let usuariosRows = usuariosPrimaryResponse.data || [];
+  if (usuariosPrimaryResponse.error) {
+    const fallbackUsuariosResponse = await client
+      .from('usuarios')
+      .select('user_id, status_da_assinatura, documento, telefone, nome_completo, email');
+
+    if (fallbackUsuariosResponse.error) {
+      throw new Error(fallbackUsuariosResponse.error.message || 'Erro ao listar usuários');
+    }
+
+    usuariosRows = fallbackUsuariosResponse.data || [];
+  }
+
+  if (profilesResponse.error) {
+    throw new Error(profilesResponse.error.message || 'Erro ao listar perfis');
+  }
+
+  if (subscriptionsResponse.error) {
+    throw new Error(subscriptionsResponse.error.message || 'Erro ao listar assinaturas');
+  }
+
+  const profilesById = new Map((profilesResponse.data || []).map((profile) => [String(profile.id), profile]));
+  const usuariosById = new Map((usuariosRows || []).map((usuario) => [String(usuario.user_id), usuario]));
+  const subscriptionsById = new Map((subscriptionsResponse.data || []).map((subscription) => [String(subscription.user_id), subscription]));
+
+  return authUsers
+    .map((authUser) => {
+      const userId = String(authUser.id || '').trim();
+      const profile = profilesById.get(userId) || {};
+      const usuario = usuariosById.get(userId) || {};
+      const subscription = subscriptionsById.get(userId) || {};
+      const userMetadata = authUser.user_metadata || {};
+
+      return {
+        id: userId,
+        email: String(authUser.email || usuario.email || '').trim() || null,
+        created_at: authUser.created_at || null,
+        last_sign_in_at: authUser.last_sign_in_at || null,
+        first_name: profile.first_name || userMetadata.first_name || null,
+        last_name: profile.last_name || userMetadata.last_name || null,
+        role: String(profile.role || userMetadata.role || 'user').trim().toLowerCase() === 'admin' ? 'admin' : 'user',
+        avatar_url: profile.avatar_url || null,
+        status_da_assinatura: String(usuario.status_da_assinatura || '').trim() || null,
+        documento: usuario.documento || null,
+        telefone: usuario.telefone || null,
+        ramos_atuacao: Array.isArray(usuario.ramos_atuacao) ? usuario.ramos_atuacao : null,
+        cep: usuario.cep || null,
+        logradouro: usuario.logradouro || null,
+        numero: null,
+        complemento: null,
+        bairro: usuario.bairro || null,
+        cidade: usuario.cidade || null,
+        estado: usuario.estado || null,
+        regiao: usuario.regiao || null,
+        sexo: usuario.sexo || null,
+        idade: Number.isFinite(Number(usuario.idade)) ? Number(usuario.idade) : null,
+        data_nascimento: usuario.data_nascimento || null,
+        origem_cadastro: usuario.origem_cadastro || null,
+        cadastro_finalizado_em: usuario.cadastro_finalizado_em || null,
+        plan_type: subscription.plan_type || null,
+        subscription_expires_at: subscription.expires_at || null,
+        nome_completo: usuario.nome_completo || userMetadata.full_name || [profile.first_name, profile.last_name].filter(Boolean).join(' ') || null,
+      };
+    })
+    .sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
+}
+
+async function createAdminUserViaSupabase(payload = {}) {
+  const client = ensureSupabaseAdminAvailable();
+
+  const email = String(payload.email || '').trim().toLowerCase();
+  const fullName = String(payload.full_name || payload.fullName || '').trim();
+  const role = String(payload.role || 'user').trim().toLowerCase() === 'admin' ? 'admin' : 'user';
+  const password = String(payload.password || '');
+  const documento = String(payload.documento || '').trim() || null;
+  const telefone = String(payload.telefone || '').trim() || null;
+  const ramosAtuacao = Array.isArray(payload.practice_areas || payload.practiceAreas)
+    ? (payload.practice_areas || payload.practiceAreas).map((item) => String(item || '').trim()).filter(Boolean)
+    : String(payload.practice_areas || payload.practiceAreas || '').split(/[\n,;|]+/).map((item) => item.trim()).filter(Boolean);
+  const cep = String(payload.cep || '').trim() || null;
+  const logradouro = String(payload.logradouro || '').trim() || null;
+  const numero = String(payload.numero || '').trim() || null;
+  const complemento = String(payload.complemento || '').trim() || null;
+  const bairro = String(payload.bairro || '').trim() || null;
+  const cidade = String(payload.cidade || '').trim() || null;
+  const estado = String(payload.estado || '').trim().toUpperCase() || null;
+  const regiao = String(payload.regiao || '').trim() || null;
+  const sexo = String(payload.sexo || '').trim() || null;
+  const dataNascimento = String(payload.data_nascimento || payload.dataNascimento || '').trim() || null;
+  const idade = calculateAccountAgeFromBirthDate(dataNascimento) ?? normalizeAccountAge(payload.idade);
+  const lifetimeAccess = Boolean(payload.lifetime_access ?? payload.lifetimeAccess);
+  const expiresAtRaw = String(payload.expires_at || payload.expiresAt || '').trim();
+  const expiresAt = !lifetimeAccess && expiresAtRaw ? new Date(`${expiresAtRaw}T23:59:59`).toISOString() : null;
+  const planType = normalizeManagedPlanType(payload.plan_type || payload.planType);
+  const { firstName, lastName } = splitAccountFullName(fullName);
+  const logradouroCompleto = formatManagedAddress(logradouro, numero, complemento);
+
+  if (!email || !password) {
+    throw new Error('Email e senha são obrigatórios.');
+  }
+
+  if (password.length < 8) {
+    throw new Error('Senha deve ter no mínimo 8 caracteres.');
+  }
+
+  const { data: newUser, error: createUserError } = await client.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+    user_metadata: { first_name: firstName, last_name: lastName, role, full_name: fullName },
+  });
+
+  if (createUserError || !newUser?.user?.id) {
+    const errorMessage = String(createUserError?.message || 'Falha ao criar usuário').toLowerCase();
+    if (errorMessage.includes('already') || errorMessage.includes('registered') || errorMessage.includes('duplicate')) {
+      const conflictError = new Error('Um usuário com este email já está registrado.');
+      conflictError.statusCode = 409;
+      throw conflictError;
+    }
+
+    throw new Error(createUserError?.message || 'Falha ao criar usuário');
+  }
+
+  const userId = newUser.user.id;
+
+  const profileResponse = await client
+    .from('profiles')
+    .update({ first_name: firstName, last_name: lastName, role })
+    .eq('id', userId)
+    .select('id, first_name, last_name, role')
+    .single();
+
+  if (profileResponse.error) {
+    await client.auth.admin.deleteUser(userId).catch(() => undefined);
+    throw new Error(profileResponse.error.message || 'Falha ao atualizar perfil do usuário');
+  }
+
+  const usuarioResponse = await client
+    .from('usuarios')
+    .upsert({
+      user_id: userId,
+      email,
+      nome_completo: fullName || [firstName, lastName].filter(Boolean).join(' ') || null,
+      documento,
+      telefone,
+      ramos_atuacao: ramosAtuacao,
+      cep,
+      logradouro: logradouroCompleto || logradouro,
+      bairro,
+      cidade,
+      estado,
+      regiao,
+      sexo,
+      idade,
+      data_nascimento: dataNascimento,
+      origem_cadastro: 'cadastro_admin',
+      cadastro_finalizado_em: new Date().toISOString(),
+      status_da_assinatura: 'ativo',
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'user_id' });
+
+  if (usuarioResponse.error) {
+    await client.auth.admin.deleteUser(userId).catch(() => undefined);
+    throw new Error(usuarioResponse.error.message || 'Falha ao criar registro do usuário');
+  }
+
+  const subscriptionResponse = await client
+    .from('subscriptions')
+    .upsert({
+      user_id: userId,
+      status: 'active',
+      plan_type: planType,
+      provider: 'manual',
+      starts_at: new Date().toISOString(),
+      expires_at: expiresAt,
+    }, { onConflict: 'user_id' });
+
+  if (subscriptionResponse.error) {
+    await client.auth.admin.deleteUser(userId).catch(() => undefined);
+    throw new Error(subscriptionResponse.error.message || 'Falha ao criar assinatura do usuário');
+  }
+
+  return {
+    message: 'Usuário criado com sucesso! O usuário já pode fazer login.',
+    user: {
+      id: userId,
+      email,
+      first_name: profileResponse.data?.first_name || firstName,
+      last_name: profileResponse.data?.last_name || lastName,
+      role: profileResponse.data?.role || role,
+    },
+  };
+}
+
+async function updateAdminUserRoleViaSupabase(userId, newRole) {
+  const client = ensureSupabaseAdminAvailable();
+  const role = String(newRole || '').trim().toLowerCase() === 'admin' ? 'admin' : 'user';
+
+  const currentUser = await client.auth.admin.getUserById(userId);
+  if (currentUser.error) {
+    throw new Error(currentUser.error.message || 'Falha ao carregar usuário para atualizar papel');
+  }
+
+  const currentMetadata = currentUser.data?.user?.user_metadata || {};
+  const updateAuthResponse = await client.auth.admin.updateUserById(userId, {
+    user_metadata: {
+      ...currentMetadata,
+      role,
+    },
+  });
+
+  if (updateAuthResponse.error) {
+    throw new Error(updateAuthResponse.error.message || 'Falha ao atualizar papel no Auth');
+  }
+
+  const profileResponse = await client
+    .from('profiles')
+    .update({ role, updated_at: new Date().toISOString() })
+    .eq('id', userId)
+    .select('id, role')
+    .single();
+
+  if (profileResponse.error) {
+    throw new Error(profileResponse.error.message || 'Falha ao atualizar papel do perfil');
+  }
+
+  return profileResponse.data;
+}
+
+async function updateAdminUserSubscriptionStatusViaSupabase(userId, newStatus) {
+  const client = ensureSupabaseAdminAvailable();
+  const normalizedStatus = String(newStatus || '').trim().toLowerCase() === 'ativo' ? 'ativo' : 'desativado';
+  const subscriptionStatus = normalizedStatus === 'ativo' ? 'active' : 'inactive';
+  const nowIso = new Date().toISOString();
+
+  const usuarioResponse = await client
+    .from('usuarios')
+    .update({ status_da_assinatura: normalizedStatus, updated_at: nowIso })
+    .eq('user_id', userId);
+
+  if (usuarioResponse.error) {
+    throw new Error(usuarioResponse.error.message || 'Falha ao atualizar status do usuário');
+  }
+
+  const existingSubscription = await client
+    .from('subscriptions')
+    .select('id, plan_type')
+    .eq('user_id', userId)
+    .limit(1)
+    .maybeSingle();
+
+  if (existingSubscription.error) {
+    throw new Error(existingSubscription.error.message || 'Falha ao consultar assinatura atual');
+  }
+
+  const subscriptionResponse = await client
+    .from('subscriptions')
+    .upsert({
+      user_id: userId,
+      status: subscriptionStatus,
+      plan_type: normalizeManagedPlanType(existingSubscription.data?.plan_type),
+      provider: 'manual',
+      updated_at: nowIso,
+    }, { onConflict: 'user_id' });
+
+  if (subscriptionResponse.error) {
+    throw new Error(subscriptionResponse.error.message || 'Falha ao atualizar assinatura do usuário');
+  }
+
+  return { userId, status_da_assinatura: normalizedStatus, subscription_status: subscriptionStatus };
+}
+
+async function deleteAdminUserViaSupabase(userId) {
+  const client = ensureSupabaseAdminAvailable();
+
+  await client.from('subscription_webhook_events').delete().eq('matched_user_id', userId).then(() => undefined, () => undefined);
+  await client.from('subscriptions').delete().eq('user_id', userId).then(() => undefined, () => undefined);
+  await client.from('usuarios').delete().eq('user_id', userId).then(() => undefined, () => undefined);
+  await client.from('profiles').delete().eq('id', userId).then(() => undefined, () => undefined);
+
+  const response = await client.auth.admin.deleteUser(userId);
+  if (response.error) {
+    throw new Error(response.error.message || 'Falha ao excluir usuário');
+  }
+
+  return { success: true, userId };
+}
+
 async function listConversationsViaSupabase(userId, agentId = null) {
   const client = ensureSupabaseAdminAvailable();
   let query = client
@@ -3350,6 +3839,7 @@ app.post('/api/agents/upload', upload.single('file'), async (req, res) => {
     const fullPath = path.join(process.cwd(), 'public', filePath);
 
     let text = await extractAttachmentText(fullPath, originalname);
+    let indexingError = null;
 
     if (agentId && text.length > 500) {
       try {
@@ -3374,7 +3864,12 @@ app.post('/api/agents/upload', upload.single('file'), async (req, res) => {
         console.log(`[UPLOAD] ✅ RAG NUCLEAR processado para agente ${agentId}`);
       } catch (e) {
         console.error('[UPLOAD] Erro no pipeline RAG:', e.message);
+        indexingError = e;
       }
+    }
+
+    if (indexingError) {
+      return res.status(500).json({ error: indexingError.message || 'Falha ao indexar anexo do agente.' });
     }
 
     res.json({ success: true, path: filePath, filename: originalname });
@@ -4119,6 +4614,154 @@ app.get('/api/admin/ai-usage', async (req, res) => {
   } catch (error) {
     console.error('[AI USAGE] Error:', error);
     return res.status(500).json({ error: error?.message || 'Erro ao carregar consumo de IA' });
+  }
+});
+
+app.get('/api/admin/app-settings', async (req, res) => {
+  try {
+    const requesterId = String(req.header('x-user-id') || '').trim();
+    if (!requesterId) {
+      return res.status(401).json({ error: 'Usuário não autenticado' });
+    }
+
+    if (!(await isAdminUser(requesterId))) {
+      return res.status(403).json({ error: 'Acesso negado' });
+    }
+
+    const settings = await readAppSettings();
+    return res.json({ settings });
+  } catch (error) {
+    console.error('[ADMIN][APP_SETTINGS][GET] Error:', error);
+    return res.status(500).json({ error: error?.message || 'Erro ao carregar configurações do app' });
+  }
+});
+
+app.post('/api/admin/app-settings', async (req, res) => {
+  try {
+    const requesterId = String(req.header('x-user-id') || '').trim();
+    if (!requesterId) {
+      return res.status(401).json({ error: 'Usuário não autenticado' });
+    }
+
+    if (!(await isAdminUser(requesterId))) {
+      return res.status(403).json({ error: 'Acesso negado' });
+    }
+
+    const settings = await saveAppSettings(req.body || {});
+    return res.json({ settings, message: 'Configurações salvas com sucesso.' });
+  } catch (error) {
+    console.error('[ADMIN][APP_SETTINGS][POST] Error:', error);
+    return res.status(500).json({ error: error?.message || 'Erro ao salvar configurações do app' });
+  }
+});
+
+app.get('/api/admin/users', async (req, res) => {
+  try {
+    const requesterId = String(req.header('x-user-id') || '').trim();
+    if (!requesterId) {
+      return res.status(401).json({ error: 'Usuário não autenticado' });
+    }
+
+    if (!(await isAdminUser(requesterId))) {
+      return res.status(403).json({ error: 'Acesso negado' });
+    }
+
+    const users = await listAdminUsersViaSupabase();
+    return res.json(users);
+  } catch (error) {
+    console.error('[ADMIN][USERS][LIST] Error:', error);
+    return res.status(500).json({ error: error?.message || 'Erro ao carregar usuários' });
+  }
+});
+
+app.post('/api/admin/users', async (req, res) => {
+  try {
+    const requesterId = String(req.header('x-user-id') || '').trim();
+    if (!requesterId) {
+      return res.status(401).json({ error: 'Usuário não autenticado' });
+    }
+
+    if (!(await isAdminUser(requesterId))) {
+      return res.status(403).json({ error: 'Acesso negado' });
+    }
+
+    const payload = await createAdminUserViaSupabase(req.body || {});
+    return res.status(201).json(payload);
+  } catch (error) {
+    console.error('[ADMIN][USERS][CREATE] Error:', error);
+    return res.status(Number(error?.statusCode) || 500).json({ error: error?.message || 'Erro ao criar usuário' });
+  }
+});
+
+app.post('/api/admin/users/:userId/role', async (req, res) => {
+  try {
+    const requesterId = String(req.header('x-user-id') || '').trim();
+    const userId = String(req.params.userId || '').trim();
+    if (!requesterId) {
+      return res.status(401).json({ error: 'Usuário não autenticado' });
+    }
+
+    if (!(await isAdminUser(requesterId))) {
+      return res.status(403).json({ error: 'Acesso negado' });
+    }
+
+    if (!userId) {
+      return res.status(400).json({ error: 'userId é obrigatório' });
+    }
+
+    const updated = await updateAdminUserRoleViaSupabase(userId, req.body?.newRole);
+    return res.json({ message: 'Papel do usuário atualizado com sucesso.', user: updated });
+  } catch (error) {
+    console.error('[ADMIN][USERS][ROLE] Error:', error);
+    return res.status(500).json({ error: error?.message || 'Erro ao atualizar papel do usuário' });
+  }
+});
+
+app.post('/api/admin/users/:userId/subscription-status', async (req, res) => {
+  try {
+    const requesterId = String(req.header('x-user-id') || '').trim();
+    const userId = String(req.params.userId || '').trim();
+    if (!requesterId) {
+      return res.status(401).json({ error: 'Usuário não autenticado' });
+    }
+
+    if (!(await isAdminUser(requesterId))) {
+      return res.status(403).json({ error: 'Acesso negado' });
+    }
+
+    if (!userId) {
+      return res.status(400).json({ error: 'userId é obrigatório' });
+    }
+
+    const updated = await updateAdminUserSubscriptionStatusViaSupabase(userId, req.body?.newStatus);
+    return res.json({ message: 'Status de assinatura atualizado com sucesso.', user: updated });
+  } catch (error) {
+    console.error('[ADMIN][USERS][SUBSCRIPTION_STATUS] Error:', error);
+    return res.status(500).json({ error: error?.message || 'Erro ao atualizar status do usuário' });
+  }
+});
+
+app.delete('/api/admin/users/:userId', async (req, res) => {
+  try {
+    const requesterId = String(req.header('x-user-id') || '').trim();
+    const userId = String(req.params.userId || '').trim();
+    if (!requesterId) {
+      return res.status(401).json({ error: 'Usuário não autenticado' });
+    }
+
+    if (!(await isAdminUser(requesterId))) {
+      return res.status(403).json({ error: 'Acesso negado' });
+    }
+
+    if (!userId) {
+      return res.status(400).json({ error: 'userId é obrigatório' });
+    }
+
+    const result = await deleteAdminUserViaSupabase(userId);
+    return res.json({ message: 'Usuário removido com sucesso.', ...result });
+  } catch (error) {
+    console.error('[ADMIN][USERS][DELETE] Error:', error);
+    return res.status(500).json({ error: error?.message || 'Erro ao remover usuário' });
   }
 });
 

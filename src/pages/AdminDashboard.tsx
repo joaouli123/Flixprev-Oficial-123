@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { neon as supabase } from "@/lib/neon"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import FacebookSettingsCard from "@/components/admin/FacebookSettingsCard"; // Importar novo componente
+import { buildApiUrl } from "@/lib/api";
 
 interface AppSettings {
   facebook_pixel_id: string | null;
@@ -33,20 +34,31 @@ const AdminDashboard: React.FC = () => {
   }, [isAdmin, session, navigate]);
 
   const fetchAppSettings = useCallback(async () => {
-    const { data, error } = await supabase
-      .from('app_settings')
-      .select('facebook_pixel_id, facebook_capi_token')
-      .limit(1)
-      .maybeSingle();
+    if (!session?.user?.id) {
+      setAppSettings({ facebook_pixel_id: null, facebook_capi_token: null });
+      return;
+    }
 
-    if (error && error.code !== 'PGRST116') {
-      console.error("Erro ao carregar configurações do app:", error.message);
-    } else if (data) {
-      setAppSettings(data as AppSettings);
-    } else {
+    try {
+      const response = await fetch(buildApiUrl('/api/admin/app-settings'), {
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': session.user.id,
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Erro ${response.status}`);
+      }
+
+      const payload = await response.json();
+      setAppSettings((payload?.settings || { facebook_pixel_id: null, facebook_capi_token: null }) as AppSettings);
+    } catch (error: any) {
+      console.error("Erro ao carregar configurações do app:", error.message || error);
       setAppSettings({ facebook_pixel_id: null, facebook_capi_token: null });
     }
-  }, []);
+  }, [session?.user?.id]);
 
   const fetchAdminData = useCallback(async () => {
     setLoading(true);

@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
+import { buildApiUrl } from "@/lib/api";
 import { 
   Bot, 
   Sparkles, 
@@ -250,6 +251,41 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
     setBulkLinksInput("");
   };
 
+  const collectExtraLinksForSave = () => {
+    const mergedLinks = [...extraLinks];
+
+    const pushLink = (urlValue: string, labelValue?: string) => {
+      const trimmedUrl = String(urlValue || '').trim();
+      if (!trimmedUrl) {
+        return;
+      }
+
+      try {
+        const normalizedUrl = new URL(trimmedUrl).toString();
+        if (mergedLinks.some((item) => item.url === normalizedUrl)) {
+          return;
+        }
+
+        mergedLinks.push({
+          url: normalizedUrl,
+          label: String(labelValue || '').trim() || buildLinkLabel(normalizedUrl),
+        });
+      } catch {
+        toast.error(`URL inválida: ${trimmedUrl}`);
+      }
+    };
+
+    pushLink(newLinkUrl, newLinkLabel);
+
+    bulkLinksInput
+      .split(/\r?\n/)
+      .map((item) => item.trim())
+      .filter(Boolean)
+      .forEach((url) => pushLink(url));
+
+    return mergedLinks;
+  };
+
   const handleCreateCategoryInline = async () => {
     if (!newCategoryName.trim()) {
       return;
@@ -281,7 +317,7 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
       });
 
       // Upload new files first
-      let uploadedPaths: string[] = [...savedAttachments];
+      const uploadedPaths: string[] = [...savedAttachments];
       
       if (files.length > 0) {
         for (const file of files) {
@@ -296,7 +332,7 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
               formData.append("agentId", agentToEdit.id);
             }
             
-            const response = await fetch("/api/agents/upload", {
+            const response = await fetch(buildApiUrl("/api/agents/upload"), {
               method: "POST",
               body: formData,
             });
@@ -319,10 +355,12 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
         }
       }
 
-      if (extraLinks.length > 0) {
+      const processedExtraLinks = collectExtraLinksForSave();
+
+      if (processedExtraLinks.length > 0) {
         setSaveProgress({
           stage: "Lendo e processando o conteúdo das URLs...",
-          detail: `${extraLinks.length} fonte(s) externa(s) serão baixadas, convertidas em texto e indexadas no treinamento do agente.`,
+          detail: `${processedExtraLinks.length} fonte(s) externa(s) serão baixadas, convertidas em texto e indexadas no treinamento do agente.`,
         });
       } else {
         setSaveProgress({
@@ -343,7 +381,7 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
         background_icon: backgroundIcon,
         category_ids: categoryArray as string[],
         link: link.trim() || undefined,
-        extra_links: extraLinks.length > 0 ? extraLinks : undefined,
+        extra_links: processedExtraLinks.length > 0 ? processedExtraLinks : undefined,
         shortcuts: shortcuts,
         instructions: instructions.trim() || undefined,
         attachments: uploadedPaths,

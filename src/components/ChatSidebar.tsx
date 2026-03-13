@@ -86,8 +86,7 @@ export const ChatSidebar = ({ agentId, agentRouteKey, agentTitle, currentConvers
   }, [agentId, userId, apiBaseUrl, currentConversationId]);
 
   const handleNewChat = () => {
-    navigate(`/app/agente/${agentRouteKey}`);
-    // Não fazer reload aqui - deixa o ChatPage carregar normalmente
+    navigate(`/app/agente/${agentRouteKey}?new=1&ts=${Date.now()}`);
   };
 
   const handleDeleteConversation = async (convId: number) => {

@@ -29,6 +29,7 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
   onClose,
   onSave,
 }) => {
+  const FIXED_CAKTO_PLAN = 'premium' as const;
   const [email, setEmail] = useState("");
   const [fullName, setFullName] = useState("");
   const [role, setRole] = useState<'user' | 'admin'>('user');
@@ -44,7 +45,7 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
   const [cidade, setCidade] = useState("");
   const [estado, setEstado] = useState("");
   const [regiao, setRegiao] = useState("");
-  const [planType, setPlanType] = useState<'basic' | 'premium' | 'enterprise'>('basic');
+  const [planType] = useState<'premium'>(FIXED_CAKTO_PLAN);
   const [lifetimeAccess, setLifetimeAccess] = useState(false);
   const [expiresAt, setExpiresAt] = useState("");
   const [sexo, setSexo] = useState<'feminino' | 'masculino' | 'outro' | 'prefiro_nao_informar'>('prefiro_nao_informar');
@@ -70,7 +71,6 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
     setCidade("");
     setEstado("");
     setRegiao("");
-    setPlanType('basic');
     setLifetimeAccess(false);
     setExpiresAt("");
     setSexo('prefiro_nao_informar');
@@ -93,8 +93,9 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
       setCidade(result.cidade);
       setEstado(result.estado);
       setRegiao(result.regiao);
-    } catch (error: any) {
-      toast.error(error?.message || 'Não foi possível consultar o CEP.');
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Não foi possível consultar o CEP.';
+      toast.error(message);
     } finally {
       setIsLookingUpCep(false);
     }
@@ -427,16 +428,13 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
                 <Label htmlFor="planType" className="text-sm font-medium text-slate-700">
                   Plano <span className="text-red-500">*</span>
                 </Label>
-                <Select value={planType} onValueChange={(value: 'basic' | 'premium' | 'enterprise') => setPlanType(value)}>
-                  <SelectTrigger id="planType" className="w-full transition-all border-slate-200 focus:border-indigo-500 focus:ring-indigo-500/20">
-                    <SelectValue placeholder="Selecione o plano" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="basic">Basic</SelectItem>
-                    <SelectItem value="premium">Premium</SelectItem>
-                    <SelectItem value="enterprise">Enterprise</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Input
+                  id="planType"
+                  value="Plano Cakto"
+                  readOnly
+                  className="w-full border-slate-200 bg-slate-100 text-slate-700"
+                />
+                <p className="text-xs text-slate-500">O cadastro administrativo usa um único plano alinhado ao fluxo principal da Cakto.</p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="expiresAt" className="text-sm font-medium text-slate-700">

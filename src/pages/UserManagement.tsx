@@ -33,7 +33,7 @@ import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import type { CreateUserInput } from "@/lib/validations";
 import { formatPracticeAreas } from "@/lib/userProfile";
-import { getAccessToken } from "@/lib/auth";
+import { buildApiUrl } from "@/lib/api";
 
 function formatOriginLabel(value: string | null | undefined) {
   const normalized = String(value || "").trim().toLowerCase();
@@ -46,6 +46,15 @@ function formatOriginLabel(value: string | null | undefined) {
   }
 
   return normalized ? normalized : "Não informado";
+}
+
+function normalizePlanFilterValue(value: string | null | undefined) {
+  const normalized = String(value || "").trim().toLowerCase();
+  return normalized && normalized !== "basic" ? "cakto" : "sem_assinatura";
+}
+
+function formatPlanLabel(value: string | null | undefined) {
+  return normalizePlanFilterValue(value) === "cakto" ? "Plano Cakto" : "Sem assinatura";
 }
 
 const UserManagement: React.FC = () => {
@@ -62,20 +71,18 @@ const UserManagement: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState("todos");
   const [planFilter, setPlanFilter] = useState("todos");
 
-  const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+  const getAdminHeaders = useCallback(() => {
+    const userId = String(session?.user?.id || "").trim();
 
-  const getEdgeHeaders = useCallback(async () => {
-    const accessToken = await getAccessToken();
-
-    if (!accessToken) {
+    if (!userId) {
       throw new Error("Sessão expirada. Faça login novamente.");
     }
 
     return {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${accessToken}`,
+      "x-user-id": userId,
     };
-  }, []);
+  }, [session?.user?.id]);
 
   useEffect(() => {
     if (!session) {
@@ -96,8 +103,8 @@ const UserManagement: React.FC = () => {
     }
 
     try {
-      const headers = await getEdgeHeaders();
-      const response = await fetch(`${SUPABASE_URL}/functions/v1/admin-list-users`, {
+      const headers = getAdminHeaders();
+      const response = await fetch(buildApiUrl('/api/admin/users'), {
         method: "GET",
         headers,
       });
@@ -115,7 +122,7 @@ const UserManagement: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [SUPABASE_URL, getEdgeHeaders, isAdmin]);
+  }, [getAdminHeaders, isAdmin]);
 
   useEffect(() => {
     if (isAdmin) {
@@ -125,8 +132,8 @@ const UserManagement: React.FC = () => {
 
   const handleCreateUser = async (payload: CreateUserInput) => {
     try {
-      const headers = await getEdgeHeaders();
-      const response = await fetch(`${SUPABASE_URL}/functions/v1/admin-create-user`, {
+      const headers = getAdminHeaders();
+      const response = await fetch(buildApiUrl('/api/admin/users'), {
         method: "POST",
         headers,
         body: JSON.stringify({
@@ -165,7 +172,7 @@ const UserManagement: React.FC = () => {
       return true;
     } catch (error: any) {
       toast.error("Erro ao criar usuário: " + error.message);
-      logger.error("Erro ao criar usuário via Edge Function:", error);
+      logger.error("Erro ao criar usuário via backend:", error);
       return false;
     }
   };
@@ -179,11 +186,10 @@ const UserManagement: React.FC = () => {
     if (!userToDelete) return;
 
     try {
-      const headers = await getEdgeHeaders();
-      const response = await fetch(`${SUPABASE_URL}/functions/v1/admin-transfer-and-delete-user`, {
-        method: "POST",
+      const headers = getAdminHeaders();
+      const response = await fetch(buildApiUrl(`/api/admin/users/${userToDelete.id}`), {
+        method: "DELETE",
         headers,
-        body: JSON.stringify({ userId: userToDelete.id }),
       });
 
       if (!response.ok) {
@@ -209,8 +215,8 @@ const UserManagement: React.FC = () => {
 
   const handleUpdateUserRole = async (userId: string, newRole: "user" | "admin") => {
     try {
-      const headers = await getEdgeHeaders();
-      const response = await fetch(`${SUPABASE_URL}/functions/v1/admin-update-user-role`, {
+      const headers = getAdminHeaders();
+      const response = await fetch(buildApiUrl(`/api/admin/users/${userId}/role`), {
         method: "POST",
         headers,
         body: JSON.stringify({ userId, newRole }),
@@ -239,8 +245,8 @@ const UserManagement: React.FC = () => {
     setUsers((prev) => prev.map((u) => (u.id === user.id ? { ...u, status_da_assinatura: newStatus } : u)));
 
     try {
-      const headers = await getEdgeHeaders();
-      const response = await fetch(`${SUPABASE_URL}/functions/v1/admin-update-subscription-status`, {
+      const headers = getAdminHeaders();
+      const response = await fetch(buildApiUrl(`/api/admin/users/${user.id}/subscription-status`), {
         method: "POST",
         headers,
         body: JSON.stringify({ userId: user.id, newStatus }),
@@ -273,7 +279,7 @@ const UserManagement: React.FC = () => {
       const origem = (user.origem_cadastro || "").toLowerCase();
       const ramos = formatPracticeAreas(user.ramos_atuacao).toLowerCase();
       const status = (user.status_da_assinatura || "").toLowerCase();
-      const plano = (user.plan_type || "").toLowerCase();
+      const plano = normalizePlanFilterValue(user.plan_type);
 
       const matchQuery =
         !query ||
@@ -298,7 +304,7 @@ const UserManagement: React.FC = () => {
   const stats = useMemo(() => {
     const total = users.length;
     const ativos = users.filter((u) => (u.status_da_assinatura || "").toLowerCase() === "ativo").length;
-    const assinantes = users.filter((u) => (u.plan_type || "").toLowerCase() !== "basic").length;
+    const assinantes = users.filter((u) => normalizePlanFilterValue(u.plan_type) === "cakto").length;
     const administradores = users.filter((u) => u.role === "admin").length;
     return { total, ativos, assinantes, administradores };
   }, [users]);
@@ -443,9 +449,8 @@ const UserManagement: React.FC = () => {
             className="h-11 rounded-lg border border-slate-200 bg-white px-4 text-slate-800"
           >
             <option value="todos">Todos os planos</option>
-            <option value="basic">Basic</option>
-            <option value="premium">Premium</option>
-            <option value="enterprise">Enterprise</option>
+            <option value="sem_assinatura">Sem assinatura</option>
+            <option value="cakto">Plano Cakto</option>
           </select>
         </CardContent>
       </Card>
@@ -530,7 +535,7 @@ const UserManagement: React.FC = () => {
                     </TableCell>
                     <TableCell>
                       <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">
-                        {(user.plan_type || "basic").toUpperCase()}
+                        {formatPlanLabel(user.plan_type)}
                       </span>
                       <div className="mt-1 text-xs text-slate-500">
                         {user.subscription_expires_at

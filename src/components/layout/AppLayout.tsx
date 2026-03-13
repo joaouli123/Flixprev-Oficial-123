@@ -31,6 +31,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import { makeAgentRouteKey, toSlug } from "@/lib/slug";
 import { dedupeAgentsByPresentation, normalizeAgentTitle, shouldHideAgentFromCatalog } from "@/lib/agentText";
+import { buildApiUrl } from "@/lib/api";
 
 function isVisibleAgent(agent: Agent) {
   return !shouldHideAgentFromCatalog(agent.title, agent.description, agent.role);
@@ -136,7 +137,7 @@ const AppLayout = () => {
   }, [extractMissingColumnFromSchemaCacheError]);
 
   const syncAgentKnowledgeLinks = useCallback(async (agentId: string, links?: { label: string; url: string }[]) => {
-    const response = await fetch(`/api/agents/${agentId}/sync-links`, {
+    const response = await fetch(buildApiUrl(`/api/agents/${agentId}/sync-links`), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ links: Array.isArray(links) ? links : [] }),
@@ -154,6 +155,28 @@ const AppLayout = () => {
       extra_links: { label: string; url: string }[];
       failures?: Array<{ url: string; error: string }>;
     };
+  }, []);
+
+  const reprocessAgentAttachments = useCallback(async (agentId: string) => {
+    const response = await fetch(buildApiUrl(`/api/admin/reprocess-agent-attachments/${agentId}`), {
+      method: "POST",
+    });
+
+    const payload = await response.json().catch(() => null);
+
+    if (!response.ok) {
+      throw new Error(payload?.error || "Falha ao reprocessar anexos do agente.");
+    }
+
+    return payload;
+  }, []);
+
+  const emitAgentNotification = useCallback(async (title: string, message: string) => {
+    await fetch(buildApiUrl('/api/notifications'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, message })
+    }).catch(console.error);
   }, []);
 
   const fetchCategories = useCallback(async () => {
@@ -440,23 +463,25 @@ const AppLayout = () => {
           setAgents((prev) => [...prev, normalizedAgent]);
           toast.success(`Agente '${newAgentData.title}' adicionado com sucesso!`);
 
-          if (normalizedAgent.extra_links.length === 0) {
+          if (normalizedAgent.extra_links.length === 0 && normalizedAgent.attachments.length > 0) {
             options?.onProgress?.({
               stage: "Indexando anexos do agente...",
               detail: "Gerando chunks e embeddings dos arquivos já enviados para treinar a IA.",
             });
-            await fetch(`/api/admin/reprocess-agent-attachments/${normalizedAgent.id}`, { method: 'POST' }).catch(console.error);
+
+            try {
+              await reprocessAgentAttachments(normalizedAgent.id);
+            } catch (reprocessError: any) {
+              console.error("Erro ao reprocessar anexos do agente:", reprocessError);
+              toast.error(reprocessError?.message || "Falha ao indexar anexos do agente.");
+            }
           }
           
           // Emit new notification
-          fetch('/api/notifications', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              title: "Novo Agente Disponível! 🚀",
-              message: `O assistente "${newAgentData.title}" acabou de ser implementado na plataforma.`
-            })
-          }).catch(console.error);
+          emitAgentNotification(
+            "Novo Agente Disponível! 🚀",
+            `O assistente "${newAgentData.title}" acabou de ser implementado na plataforma.`
+          );
 
           return true;
         } else {
@@ -558,23 +583,25 @@ const AppLayout = () => {
         );
         toast.success(`Agente '${updatedAgentData.title}' atualizado com sucesso!`);
 
-        if (normalizedAgent.extra_links.length === 0) {
+        if (normalizedAgent.extra_links.length === 0 && normalizedAgent.attachments.length > 0) {
           options?.onProgress?.({
             stage: "Reindexando anexos do agente...",
             detail: "Atualizando chunks e embeddings dos anexos já existentes.",
           });
-          await fetch(`/api/admin/reprocess-agent-attachments/${agentId}`, { method: 'POST' }).catch(console.error);
+
+          try {
+            await reprocessAgentAttachments(agentId);
+          } catch (reprocessError: any) {
+            console.error("Erro ao reprocessar anexos do agente:", reprocessError);
+            toast.error(reprocessError?.message || "Falha ao reindexar anexos do agente.");
+          }
         }
         
         // Emit new notification
-        fetch('/api/notifications', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            title: "Agente Atualizado! 🔄",
-            message: `O assistente "${updatedAgentData.title}" recebeu novas atualizações de melhoria na plataforma.`
-          })
-        }).catch(console.error);
+        emitAgentNotification(
+          "Agente Atualizado! 🔄",
+          `O assistente "${updatedAgentData.title}" recebeu novas atualizações de melhoria na plataforma.`
+        );
 
         return true;
       }

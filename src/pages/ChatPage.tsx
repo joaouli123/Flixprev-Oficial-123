@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { useOutletContext } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,6 +40,7 @@ const ChatPage = () => {
   const { agentId, agentSlug, conversationId: urlConvId } = useParams<{ agentId?: string; agentSlug?: string; conversationId?: string }>();
   const agentRouteParam = agentId || agentSlug || "";
   const navigate = useNavigate();
+  const location = useLocation();
   const { agents } = useOutletContext<OutletContext>();
   const apiBaseUrl = getApiBaseUrl();
 
@@ -65,6 +66,7 @@ const ChatPage = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [conversationId, setConversationId] = useState<number | null>(urlConvId ? parseInt(urlConvId) : null);
+  const forceNewConversation = new URLSearchParams(location.search).get("new") === "1";
 
   useEffect(() => {
     if (!agent || !resolvedAgentRouteKey) return;
@@ -161,6 +163,12 @@ const ChatPage = () => {
             navigate(`/app/agente/${resolvedAgentRouteKey}`, { replace: true });
           }
         } else {
+          if (forceNewConversation) {
+            console.log("[CHAT] Forced new conversation requested");
+            await createConversation();
+            return;
+          }
+
           // Tentar encontrar a última conversa deste agente antes de criar uma nova
           console.log("[CHAT] Checking for existing conversations for agent:", resolvedAgentId);
           const conversationsRes = await fetch(buildApiUrl(`/api/conversations?agentId=${resolvedAgentId}`), {
@@ -192,7 +200,7 @@ const ChatPage = () => {
     if (agent?.title && userId) {
       initConversation();
     }
-  }, [agent?.title, resolvedAgentId, resolvedAgentRouteKey, conversationId, userId, apiBaseUrl]);
+  }, [agent?.title, resolvedAgentId, resolvedAgentRouteKey, conversationId, userId, apiBaseUrl, forceNewConversation, location.search]);
 
   useEffect(() => {
     if (!userId) {
