@@ -305,6 +305,12 @@ function createSupabaseFallbackError(error, message) {
   return fallbackError;
 }
 
+function extractMissingColumnFromSchemaCacheError(error) {
+  const message = String(error?.message || '');
+  const match = message.match(/Could not find the '([^']+)' column/i);
+  return match?.[1] || null;
+}
+
 function resolvePublicAppBaseUrl(req) {
   const origin = String(req?.headers?.origin || '').trim();
   if (/^https?:\/\//i.test(origin) && !/localhost|127\.0\.0\.1/i.test(origin)) {
@@ -3212,22 +3218,33 @@ async function getAgentViaSupabase(agentId) {
 
 async function updateAgentKnowledgeViaSupabase(agentId, attachments = [], extraLinks = []) {
   const client = ensureSupabaseAdminAvailable();
-  const response = await client
-    .from('agents')
-    .update({
-      attachments: Array.isArray(attachments) ? attachments : [],
-      extra_links: Array.isArray(extraLinks) ? extraLinks : [],
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', agentId)
-    .select('*')
-    .maybeSingle();
+  const payload = {
+    attachments: Array.isArray(attachments) ? attachments : [],
+    extra_links: Array.isArray(extraLinks) ? extraLinks : [],
+    updated_at: new Date().toISOString(),
+  };
 
-  if (response.error) {
-    throw createSupabaseFallbackError(response.error, 'Erro ao atualizar base de conhecimento do agente');
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    const response = await client
+      .from('agents')
+      .update(payload)
+      .eq('id', agentId)
+      .select('*')
+      .maybeSingle();
+
+    if (!response.error) {
+      return response.data || null;
+    }
+
+    const missingColumn = extractMissingColumnFromSchemaCacheError(response.error);
+    if (!missingColumn || !(missingColumn in payload)) {
+      throw createSupabaseFallbackError(response.error, 'Erro ao atualizar base de conhecimento do agente');
+    }
+
+    delete payload[missingColumn];
   }
 
-  return response.data || null;
+  throw new Error('Erro ao atualizar base de conhecimento do agente após múltiplas tentativas de compatibilidade.');
 }
 
 async function listAgentsWithAttachmentsViaSupabase() {
