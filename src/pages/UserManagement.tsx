@@ -26,7 +26,6 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import CreateUserDialog from "@/components/admin/CreateUserDialog";
-import EditUserRoleDialog from "@/components/admin/EditUserRoleDialog";
 import { AdminUser } from "@/types/app";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -65,8 +64,7 @@ const UserManagement: React.FC = () => {
   const [isCreateUserDialogOpen, setIsCreateUserDialogOpen] = useState(false);
   const [isDeleteUserDialogOpen, setIsDeleteUserDialogOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<AdminUser | null>(null);
-  const [isEditUserRoleDialogOpen, setIsEditUserRoleDialogOpen] = useState(false);
-  const [userToEditRole, setUserToEditRole] = useState<AdminUser | null>(null);
+  const [userToEdit, setUserToEdit] = useState<AdminUser | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("todos");
   const [planFilter, setPlanFilter] = useState("todos");
@@ -209,32 +207,56 @@ const UserManagement: React.FC = () => {
   };
 
   const handleEditUserRole = (user: AdminUser) => {
-    setUserToEditRole(user);
-    setIsEditUserRoleDialogOpen(true);
+    setUserToEdit(user);
+    setIsCreateUserDialogOpen(true);
   };
 
-  const handleUpdateUserRole = async (userId: string, newRole: "user" | "admin") => {
+  const handleUpdateUser = async (userId: string, payload: Omit<CreateUserInput, "password"> & { password?: string }) => {
     try {
       const headers = getAdminHeaders();
-      const response = await fetch(buildApiUrl(`/api/admin/users/${userId}/role`), {
-        method: "POST",
+      const response = await fetch(buildApiUrl(`/api/admin/users/${userId}`), {
+        method: "PUT",
         headers,
-        body: JSON.stringify({ userId, newRole }),
+        body: JSON.stringify({
+          email: payload.email,
+          full_name: payload.fullName,
+          role: payload.role,
+          password: payload.password,
+          documento: payload.documento,
+          telefone: payload.telefone,
+          practice_areas: payload.practiceAreas,
+          cep: payload.cep,
+          logradouro: payload.logradouro,
+          numero: payload.numero,
+          complemento: payload.complemento,
+          bairro: payload.bairro,
+          cidade: payload.cidade,
+          estado: payload.estado,
+          regiao: payload.regiao,
+          plan_type: payload.planType,
+          lifetime_access: payload.lifetimeAccess,
+          expires_at: payload.expiresAt,
+          sexo: payload.sexo,
+          data_nascimento: payload.dataNascimento,
+          idade: payload.idade,
+        }),
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to update user role via Edge Function");
+        throw new Error(errorData.error || "Failed to update user via backend");
       }
 
-      toast.success("Papel do usuário atualizado com sucesso!");
+      toast.success("Usuário atualizado com sucesso!");
       fetchUsers();
+      return true;
     } catch (error: any) {
-      toast.error("Erro ao atualizar papel do usuário: " + error.message);
-      logger.error("Erro ao atualizar papel do usuário via Edge Function:", error);
+      toast.error("Erro ao atualizar usuário: " + error.message);
+      logger.error("Erro ao atualizar usuário via backend:", error);
+      return false;
     } finally {
-      setIsEditUserRoleDialogOpen(false);
-      setUserToEditRole(null);
+      setIsCreateUserDialogOpen(false);
+      setUserToEdit(null);
     }
   };
 
@@ -572,15 +594,12 @@ const UserManagement: React.FC = () => {
 
       <CreateUserDialog
         isOpen={isCreateUserDialogOpen}
-        onClose={() => setIsCreateUserDialogOpen(false)}
-        onSave={handleCreateUser}
-      />
-
-      <EditUserRoleDialog
-        isOpen={isEditUserRoleDialogOpen}
-        onClose={() => setIsEditUserRoleDialogOpen(false)}
-        onSave={handleUpdateUserRole}
-        userToEdit={userToEditRole}
+        onClose={() => {
+          setIsCreateUserDialogOpen(false);
+          setUserToEdit(null);
+        }}
+        onSave={(payload) => userToEdit ? handleUpdateUser(userToEdit.id, payload) : handleCreateUser(payload as CreateUserInput)}
+        userToEdit={userToEdit}
       />
 
       <AlertDialog open={isDeleteUserDialogOpen} onOpenChange={setIsDeleteUserDialogOpen}>

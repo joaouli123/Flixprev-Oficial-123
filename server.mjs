@@ -1583,15 +1583,6 @@ function normalizeAccountDate(value) {
   return parsed.toISOString().slice(0, 10);
 }
 
-function normalizeAccountAge(value) {
-  if (value === null || value === undefined || value === '') {
-    return null;
-  }
-
-  const parsed = Number.parseInt(String(value), 10);
-  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
-}
-
 function deriveRegionFromStateServer(value) {
   const state = String(value || '').trim().toUpperCase();
   const regions = {
@@ -2670,6 +2661,84 @@ function formatManagedAddress(logradouro, numero, complemento) {
   ].join('').trim() || null;
 }
 
+function parseManagedAddress(value) {
+  const raw = String(value || '').trim();
+  if (!raw) {
+    return { logradouro: null, numero: null, complemento: null };
+  }
+
+  const [basePart, complementoPart] = raw.split(/\s+-0?| /).length > 1
+    ? [raw.split(/\s+-0?| /)[0], raw.split(/\s+-0?| /).slice(1).join(' - ')]
+    : raw.split(/\s+-0?| /);
+
+  const dashSplit = raw.split(/\s+-0?| /);
+  const normalizedBase = String(dashSplit[0] || '').trim();
+  const complemento = dashSplit.length > 1 ? dashSplit.slice(1).join(' - ').trim() || null : null;
+
+  const commaIndex = normalizedBase.lastIndexOf(',');
+  if (commaIndex === -1) {
+    return {
+      logradouro: normalizedBase || null,
+      numero: null,
+      complemento,
+    };
+  }
+
+  const possibleNumero = normalizedBase.slice(commaIndex + 1).trim();
+  const logradouro = normalizedBase.slice(0, commaIndex).trim();
+
+  if (!possibleNumero || possibleNumero.length > 20) {
+    return {
+      logradouro: normalizedBase || null,
+      numero: null,
+      complemento,
+    };
+  }
+
+  return {
+    logradouro: logradouro || null,
+    numero: possibleNumero || null,
+    complemento,
+  };
+}
+
+function parseManagedAddressSafe(value) {
+  const raw = String(value || '').trim();
+  if (!raw) {
+    return { logradouro: null, numero: null, complemento: null };
+  }
+
+  const dashSplit = raw.split(/\s+-\s+/);
+  const normalizedBase = String(dashSplit[0] || '').trim();
+  const complemento = dashSplit.length > 1 ? dashSplit.slice(1).join(' - ').trim() || null : null;
+
+  const commaIndex = normalizedBase.lastIndexOf(',');
+  if (commaIndex === -1) {
+    return {
+      logradouro: normalizedBase || null,
+      numero: null,
+      complemento,
+    };
+  }
+
+  const possibleNumero = normalizedBase.slice(commaIndex + 1).trim();
+  const logradouro = normalizedBase.slice(0, commaIndex).trim();
+
+  if (!possibleNumero || possibleNumero.length > 20) {
+    return {
+      logradouro: normalizedBase || null,
+      numero: null,
+      complemento,
+    };
+  }
+
+  return {
+    logradouro: logradouro || null,
+    numero: possibleNumero || null,
+    complemento,
+  };
+}
+
 function isMissingAppSettingsRelation(error) {
   const message = String(error?.message || '').toLowerCase();
   const code = String(error?.code || '').toLowerCase();
@@ -2886,6 +2955,7 @@ async function listAdminUsersViaSupabase() {
       const usuario = usuariosById.get(userId) || {};
       const subscription = subscriptionsById.get(userId) || {};
       const userMetadata = authUser.user_metadata || {};
+      const parsedAddress = parseManagedAddressSafe(usuario.logradouro || null);
 
       return {
         id: userId,
@@ -2901,9 +2971,9 @@ async function listAdminUsersViaSupabase() {
         telefone: usuario.telefone || null,
         ramos_atuacao: Array.isArray(usuario.ramos_atuacao) ? usuario.ramos_atuacao : null,
         cep: usuario.cep || null,
-        logradouro: usuario.logradouro || null,
-        numero: null,
-        complemento: null,
+        logradouro: parsedAddress.logradouro,
+        numero: parsedAddress.numero,
+        complemento: parsedAddress.complemento,
         bairro: usuario.bairro || null,
         cidade: usuario.cidade || null,
         estado: usuario.estado || null,
@@ -2981,10 +3051,9 @@ async function createAdminUserViaSupabase(payload = {}) {
 
   const profileResponse = await client
     .from('profiles')
-    .update({ first_name: firstName, last_name: lastName, role })
-    .eq('id', userId)
+    .upsert([{ id: userId, first_name: firstName, last_name: lastName, role, updated_at: new Date().toISOString() }], { onConflict: 'id' })
     .select('id, first_name, last_name, role')
-    .single();
+    .maybeSingle();
 
   if (profileResponse.error) {
     await client.auth.admin.deleteUser(userId).catch(() => undefined);
@@ -3045,6 +3114,128 @@ async function createAdminUserViaSupabase(payload = {}) {
       last_name: profileResponse.data?.last_name || lastName,
       role: profileResponse.data?.role || role,
     },
+  };
+}
+
+async function updateAdminUserViaSupabase(userId, payload = {}) {
+  const client = ensureSupabaseAdminAvailable();
+  const existingUserResponse = await client.auth.admin.getUserById(userId);
+  if (existingUserResponse.error || !existingUserResponse.data?.user) {
+    throw new Error(existingUserResponse.error?.message || 'Usuário não encontrado');
+  }
+
+  const existingUser = existingUserResponse.data.user;
+  const email = String(payload.email || existingUser.email || '').trim().toLowerCase();
+  const fullName = String(payload.full_name || payload.fullName || payload.nome_completo || '').trim();
+  const role = String(payload.role || 'user').trim().toLowerCase() === 'admin' ? 'admin' : 'user';
+  const documento = String(payload.documento || '').trim() || null;
+  const telefone = String(payload.telefone || '').trim() || null;
+  const ramosAtuacao = Array.isArray(payload.practice_areas || payload.practiceAreas)
+    ? (payload.practice_areas || payload.practiceAreas).map((item) => String(item || '').trim()).filter(Boolean)
+    : String(payload.practice_areas || payload.practiceAreas || '').split(/[\n,;|]+/).map((item) => item.trim()).filter(Boolean);
+  const cep = String(payload.cep || '').trim() || null;
+  const logradouro = String(payload.logradouro || '').trim() || null;
+  const numero = String(payload.numero || '').trim() || null;
+  const complemento = String(payload.complemento || '').trim() || null;
+  const bairro = String(payload.bairro || '').trim() || null;
+  const cidade = String(payload.cidade || '').trim() || null;
+  const estado = String(payload.estado || '').trim().toUpperCase() || null;
+  const regiao = String(payload.regiao || '').trim() || null;
+  const sexo = String(payload.sexo || '').trim() || null;
+  const dataNascimento = String(payload.data_nascimento || payload.dataNascimento || '').trim() || null;
+  const idade = calculateAccountAgeFromBirthDate(dataNascimento) ?? normalizeAccountAge(payload.idade);
+  const lifetimeAccess = Boolean(payload.lifetime_access ?? payload.lifetimeAccess);
+  const expiresAtRaw = String(payload.expires_at || payload.expiresAt || '').trim();
+  const expiresAt = !lifetimeAccess && expiresAtRaw ? new Date(`${expiresAtRaw}T23:59:59`).toISOString() : null;
+  const planType = normalizeManagedPlanType(payload.plan_type || payload.planType);
+  const { firstName, lastName } = splitAccountFullName(fullName);
+  const logradouroCompleto = formatManagedAddress(logradouro, numero, complemento);
+  const password = String(payload.password || '').trim();
+  const nowIso = new Date().toISOString();
+
+  const nextMetadata = {
+    ...(existingUser.user_metadata || {}),
+    first_name: firstName,
+    last_name: lastName,
+    full_name: fullName,
+    role,
+  };
+
+  const authUpdatePayload = {
+    email,
+    user_metadata: nextMetadata,
+    ...(password ? { password } : {}),
+  };
+
+  const authUpdateResponse = await client.auth.admin.updateUserById(userId, authUpdatePayload);
+  if (authUpdateResponse.error) {
+    const errorMessage = String(authUpdateResponse.error.message || '').toLowerCase();
+    if (errorMessage.includes('already') || errorMessage.includes('registered') || errorMessage.includes('duplicate')) {
+      const conflictError = new Error('Um usuário com este email já está registrado.');
+      conflictError.statusCode = 409;
+      throw conflictError;
+    }
+
+    throw new Error(authUpdateResponse.error.message || 'Falha ao atualizar usuário no Auth');
+  }
+
+  const profileResponse = await client
+    .from('profiles')
+    .upsert([{ id: userId, first_name: firstName, last_name: lastName, role, updated_at: nowIso }], { onConflict: 'id' })
+    .select('id, first_name, last_name, role')
+    .maybeSingle();
+
+  if (profileResponse.error) {
+    throw new Error(profileResponse.error.message || 'Falha ao atualizar perfil do usuário');
+  }
+
+  const usuarioResponse = await client
+    .from('usuarios')
+    .upsert({
+      user_id: userId,
+      email,
+      nome_completo: fullName || [firstName, lastName].filter(Boolean).join(' ') || null,
+      documento,
+      telefone,
+      ramos_atuacao: ramosAtuacao,
+      cep,
+      logradouro: logradouroCompleto || logradouro,
+      bairro,
+      cidade,
+      estado,
+      regiao,
+      sexo,
+      idade,
+      data_nascimento: dataNascimento,
+      origem_cadastro: 'cadastro_admin',
+      cadastro_finalizado_em: nowIso,
+      status_da_assinatura: 'ativo',
+      updated_at: nowIso,
+    }, { onConflict: 'user_id' });
+
+  if (usuarioResponse.error) {
+    throw new Error(usuarioResponse.error.message || 'Falha ao atualizar registro do usuário');
+  }
+
+  const subscriptionResponse = await client
+    .from('subscriptions')
+    .upsert({
+      user_id: userId,
+      status: 'active',
+      plan_type: planType,
+      provider: 'manual',
+      starts_at: existingUser.created_at || nowIso,
+      expires_at: expiresAt,
+      updated_at: nowIso,
+    }, { onConflict: 'user_id' });
+
+  if (subscriptionResponse.error) {
+    throw new Error(subscriptionResponse.error.message || 'Falha ao atualizar assinatura do usuário');
+  }
+
+  return {
+    message: 'Usuário atualizado com sucesso!',
+    user: await listAdminUsersViaSupabase().then((rows) => rows.find((row) => row.id === userId) || null),
   };
 }
 
@@ -5196,6 +5387,30 @@ app.post('/api/admin/users', async (req, res) => {
   } catch (error) {
     console.error('[ADMIN][USERS][CREATE] Error:', error);
     return res.status(Number(error?.statusCode) || 500).json({ error: error?.message || 'Erro ao criar usuário' });
+  }
+});
+
+app.put('/api/admin/users/:userId', async (req, res) => {
+  try {
+    const requesterId = String(req.header('x-user-id') || '').trim();
+    const userId = String(req.params.userId || '').trim();
+    if (!requesterId) {
+      return res.status(401).json({ error: 'Usuário não autenticado' });
+    }
+
+    if (!(await isAdminUser(requesterId))) {
+      return res.status(403).json({ error: 'Acesso negado' });
+    }
+
+    if (!userId) {
+      return res.status(400).json({ error: 'userId é obrigatório' });
+    }
+
+    const payload = await updateAdminUserViaSupabase(userId, req.body || {});
+    return res.json(payload);
+  } catch (error) {
+    console.error('[ADMIN][USERS][UPDATE] Error:', error);
+    return res.status(Number(error?.statusCode) || 500).json({ error: error?.message || 'Erro ao atualizar usuário' });
   }
 });
 

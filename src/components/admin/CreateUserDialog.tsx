@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -12,24 +12,31 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { createUserSchema, type CreateUserInput } from "@/lib/validations";
+import { createUserSchema, emailSchema, passwordSchema, userProfileDetailsSchema, type CreateUserInput } from "@/lib/validations";
 import { calculateAgeFromBirthDate, formatCep, lookupBrazilianCep, parsePracticeAreas } from "@/lib/userProfile";
 import { toast } from "sonner";
 import { Eye, EyeOff, Loader2, MapPin } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
+import { z } from "zod";
+import type { AdminUser } from "@/types/app";
+
+type ManageUserInput = Omit<CreateUserInput, "password"> & { password?: string };
 
 interface CreateUserDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (payload: CreateUserInput) => Promise<boolean> | boolean;
+  onSave: (payload: ManageUserInput) => Promise<boolean> | boolean;
+  userToEdit?: AdminUser | null;
 }
 
 const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
   isOpen,
   onClose,
   onSave,
+  userToEdit = null,
 }) => {
   const FIXED_CAKTO_PLAN = 'premium' as const;
+  const isEditing = Boolean(userToEdit);
   const [email, setEmail] = useState("");
   const [fullName, setFullName] = useState("");
   const [role, setRole] = useState<'user' | 'admin'>('user');
@@ -54,6 +61,38 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
   const [isLookingUpCep, setIsLookingUpCep] = useState(false);
 
   const idade = useMemo(() => calculateAgeFromBirthDate(dataNascimento), [dataNascimento]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    if (!userToEdit) {
+      resetForm();
+      return;
+    }
+
+    setEmail(userToEdit.email || "");
+    setFullName(userToEdit.nome_completo || `${userToEdit.first_name || ""} ${userToEdit.last_name || ""}`.trim());
+    setRole(userToEdit.role || 'user');
+    setPassword("");
+    setDocumento(userToEdit.documento || "");
+    setTelefone(userToEdit.telefone || "");
+    setPracticeAreasInput(Array.isArray(userToEdit.ramos_atuacao) ? userToEdit.ramos_atuacao.join(", ") : "");
+    setCep(userToEdit.cep || "");
+    setLogradouro(userToEdit.logradouro || "");
+    setNumero(userToEdit.numero || "");
+    setComplemento(userToEdit.complemento || "");
+    setBairro(userToEdit.bairro || "");
+    setCidade(userToEdit.cidade || "");
+    setEstado(userToEdit.estado || "");
+    setRegiao(userToEdit.regiao || "");
+    setLifetimeAccess(!userToEdit.subscription_expires_at);
+    setExpiresAt(userToEdit.subscription_expires_at ? String(userToEdit.subscription_expires_at).slice(0, 10) : "");
+    setSexo((userToEdit.sexo as 'feminino' | 'masculino' | 'outro' | 'prefiro_nao_informar') || 'prefiro_nao_informar');
+    setDataNascimento(userToEdit.data_nascimento || "");
+    setShowPassword(false);
+  }, [isOpen, userToEdit]);
 
   const resetForm = () => {
     setEmail("");
@@ -107,10 +146,8 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
       return;
     }
 
-    // Validação com Zod
-    const result = createUserSchema.safeParse({
+    const basePayload = {
       email: email.trim(),
-      password: password,
       fullName: fullName.trim(),
       role: role,
       documento: documento.trim(),
@@ -130,6 +167,30 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
       sexo,
       dataNascimento,
       idade,
+    };
+
+    const schema = isEditing
+      ? z.object({
+          email: emailSchema,
+          password: z.union([passwordSchema.trim(), z.literal("")]).optional(),
+          planType: z.enum(['basic', 'premium', 'enterprise']),
+          lifetimeAccess: z.boolean(),
+          expiresAt: z.string().trim().optional(),
+          role: z.enum(['user', 'admin']),
+        }).merge(userProfileDetailsSchema).superRefine((data, ctx) => {
+          if (!data.lifetimeAccess && !String(data.expiresAt || '').trim()) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              path: ['expiresAt'],
+              message: 'Informe a data de expiração ou marque acesso vitalício.',
+            });
+          }
+        })
+      : createUserSchema;
+
+    const result = schema.safeParse({
+      ...basePayload,
+      password,
     });
 
     if (!result.success) {
@@ -138,7 +199,11 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
       return;
     }
 
-    const saved = await onSave(result.data);
+    const payloadToSave = isEditing && !password.trim()
+      ? { ...result.data, password: undefined }
+      : result.data;
+
+    const saved = await onSave(payloadToSave);
     if (!saved) {
       return;
     }
@@ -151,9 +216,11 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[720px] p-0 overflow-hidden bg-white/95 backdrop-blur-xl border-slate-200/60 shadow-2xl">
         <DialogHeader className="px-6 pt-6 pb-4 border-b border-slate-100">
-          <DialogTitle className="text-xl font-semibold text-slate-800">Adicionar Novo Usuário</DialogTitle>
+          <DialogTitle className="text-xl font-semibold text-slate-800">{isEditing ? 'Editar Usuário' : 'Adicionar Novo Usuário'}</DialogTitle>
           <DialogDescription className="text-slate-500 mt-1.5">
-            Preencha o cadastro completo. O usuário será criado manualmente pelo admin e poderá acessar com a senha definida aqui.
+            {isEditing
+              ? 'Edite ou complemente os dados existentes do usuário. Se não quiser trocar a senha, deixe esse campo em branco.'
+              : 'Preencha o cadastro completo. O usuário será criado manualmente pelo admin e poderá acessar com a senha definida aqui.'}
           </DialogDescription>
         </DialogHeader>
         
@@ -230,7 +297,7 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
           
           <div className="space-y-2">
             <Label htmlFor="password" className="text-sm font-medium text-slate-700">
-              Senha <span className="text-red-500">*</span>
+              Senha {!isEditing && <span className="text-red-500">*</span>}
             </Label>
             <div className="relative">
               <Input
@@ -238,7 +305,7 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
                 type={showPassword ? "text" : "password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
+                placeholder={isEditing ? "Deixe em branco para manter a senha atual" : "••••••••"}
                 autoComplete="new-password"
                 className="w-full transition-all border-slate-200 focus:border-indigo-500 focus:ring-indigo-500/20 pr-10"
               />
@@ -251,7 +318,7 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
               </button>
             </div>
             <p className="text-xs text-slate-500">
-              Mínimo 8 caracteres, 1 maiúscula, 1 minúscula, 1 número
+              {isEditing ? 'Preencha apenas se quiser redefinir a senha.' : 'Mínimo 8 caracteres, 1 maiúscula, 1 minúscula, 1 número'}
             </p>
           </div>
 
@@ -482,10 +549,10 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
           </Button>
           <Button 
             onClick={() => void handleSave()}
-            disabled={!email.trim() || !password.trim() || !fullName.trim()}
+            disabled={!email.trim() || !fullName.trim() || (!isEditing && !password.trim())}
             className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm transition-all"
           >
-            Adicionar Usuário
+            {isEditing ? 'Salvar Alterações' : 'Adicionar Usuário'}
           </Button>
         </DialogFooter>
       </DialogContent>
