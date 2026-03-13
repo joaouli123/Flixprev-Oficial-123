@@ -31,6 +31,7 @@ const Financeiro = lazy(() => import("./pages/Financeiro"));
 const AILogs = lazy(() => import("./pages/AILogs"));
 const Indicacoes = lazy(() => import("./pages/Indicacoes"));
 const SubscriptionPage = lazy(() => import("./pages/SubscriptionPage"));
+const AgentEditorPage = lazy(() => import("./pages/AgentEditorPage"));
 const FaviconUpdater = lazy(() => import("./components/FaviconUpdater"));
 const CookieConsent = lazy(() => import("./components/CookieConsent"));
 
@@ -79,6 +80,8 @@ const App = () => (
                 <Route path="users" element={<AdminRoute><UserManagement /></AdminRoute>} />
                 <Route path="finance" element={<AdminRoute><Financeiro /></AdminRoute>} />
                 <Route path="ai-logs" element={<AdminRoute><AILogs /></AdminRoute>} />
+                <Route path="admin/agentes/novo" element={<AdminRoute><AgentEditorPage /></AdminRoute>} />
+                <Route path="admin/agentes/:agentEditId/editar" element={<AdminRoute><AgentEditorPage /></AdminRoute>} />
                 <Route path="indications" element={<Indicacoes />} />
                 <Route path="subscription" element={<SubscriptionPage />} />
                 <Route path="tutorials" element={<AdminRoute><TutorialManagement /></AdminRoute>} />
@@ -92,6 +95,8 @@ const App = () => (
                 <Route path="usuarios" element={<AdminRoute><UserManagement /></AdminRoute>} />
                 <Route path="financeiro" element={<AdminRoute><Financeiro /></AdminRoute>} />
                 <Route path="logs-ia" element={<AdminRoute><AILogs /></AdminRoute>} />
+                <Route path="administracao/agentes/novo" element={<AdminRoute><AgentEditorPage /></AdminRoute>} />
+                <Route path="administracao/agentes/:agentEditId/editar" element={<AdminRoute><AgentEditorPage /></AdminRoute>} />
                 <Route path="indicacoes" element={<Indicacoes />} />
                 <Route path="assinatura" element={<SubscriptionPage />} />
                 <Route path="tutoriais" element={<AdminRoute><TutorialManagement /></AdminRoute>} />

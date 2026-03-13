@@ -1086,6 +1086,39 @@ async function initializeRagTables() {
   }
 }
 
+async function ensureChatTables() {
+  if (!hasDatabaseUrl) {
+    return;
+  }
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS conversations (
+      id SERIAL PRIMARY KEY,
+      agent_id UUID,
+      user_id UUID,
+      title VARCHAR(255) NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  try { await pool.query(`ALTER TABLE conversations ADD COLUMN agent_id UUID`); } catch (e) {}
+  try { await pool.query(`ALTER TABLE conversations ADD COLUMN user_id UUID`); } catch (e) {}
+  await pool.query('CREATE INDEX IF NOT EXISTS conversations_user_agent_created_idx ON conversations (user_id, agent_id, created_at DESC)');
+  await pool.query('CREATE INDEX IF NOT EXISTS conversations_user_created_idx ON conversations (user_id, created_at DESC)');
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS messages (
+      id SERIAL PRIMARY KEY,
+      conversation_id INTEGER NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+      role VARCHAR(50) NOT NULL,
+      content TEXT NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  await pool.query('CREATE INDEX IF NOT EXISTS messages_conversation_created_idx ON messages (conversation_id, created_at ASC)');
+}
+
 initializeRagTables();
 
 async function ensureTutorialsTable() {
@@ -2601,6 +2634,8 @@ app.get("/api/conversations", async (req, res) => {
       return res.json(data);
     }
 
+    await ensureChatTables();
+
     const { agentId } = req.query;
     let query = 'SELECT * FROM conversations WHERE user_id = $1';
     const params = [userId];
@@ -2636,6 +2671,8 @@ app.post("/api/conversations", async (req, res) => {
       return res.status(201).json(conv);
     }
 
+    await ensureChatTables();
+
     const { title, agentId } = req.body;
     const result = await pool.query(
       'INSERT INTO conversations (agent_id, title, user_id) VALUES ($1, $2, $3) RETURNING *', 
@@ -2666,6 +2703,8 @@ app.get("/api/conversations/:id/messages", async (req, res) => {
         .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
       return res.json(rows);
     }
+
+    await ensureChatTables();
 
     const conversationResult = await pool.query(
       'SELECT id FROM conversations WHERE id = $1 AND user_id = $2 LIMIT 1',
@@ -2711,6 +2750,8 @@ app.delete("/api/conversations/:id", async (req, res) => {
       return res.json({ success: true });
     }
 
+    await ensureChatTables();
+
     const deleted = await pool.query(
       'DELETE FROM conversations WHERE id = $1 AND user_id = $2 RETURNING id',
       [cid, userId]
@@ -2745,6 +2786,8 @@ app.post("/api/delete-agent-conversations", async (req, res) => {
 
       return res.json({ success: true, deletedCount: idsToDelete.length });
     }
+
+    await ensureChatTables();
     
     // Deleta para TODOS os usuários, pois o agente não existirá mais.
     const result = await pool.query('DELETE FROM conversations WHERE agent_id = $1', [agentId]);
@@ -3094,6 +3137,8 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
       return res.end();
     }
 
+    await ensureChatTables();
+
     const conversationResult = await pool.query(
       'SELECT id, agent_id FROM conversations WHERE id = $1 AND user_id = $2 LIMIT 1',
       [cid, userId]
@@ -3297,6 +3342,8 @@ app.patch('/api/conversations/:id', async (req, res) => {
       return res.json(conv);
     }
 
+    await ensureChatTables();
+
     let result = await pool.query(
       'UPDATE conversations SET title = $1, updated_at = CURRENT_TIMESTAMP WHERE id::text = $2 AND user_id = $3 RETURNING *',
       [title.trim(), id, userId]
@@ -3332,6 +3379,8 @@ app.post('/api/conversations/clear-all', async (req, res) => {
       
       return res.json({ success: true, message: 'Todas as conversas foram excluídas' });
     }
+
+    await ensureChatTables();
 
     // Only delete messages for the specific user's conversations
     await pool.query(`

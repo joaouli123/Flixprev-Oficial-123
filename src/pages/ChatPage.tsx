@@ -16,6 +16,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { useSession } from "@/components/SessionContextProvider";
 import { extractUuidFromRouteKey, makeAgentRouteKey, toSlug } from "@/lib/slug";
 import { normalizeAgentTitle } from "@/lib/agentText";
+import { toast } from "sonner";
 
 interface Message {
   role: "assistant" | "user";
@@ -97,6 +98,32 @@ const ChatPage = () => {
   // Use agent shortcuts or default shortcuts
   const shortcuts = agent?.shortcuts || ["Resumir docs", "Extrair cláusulas", "Analisar risco", "Dúvidas"];
 
+  const createConversation = async () => {
+    if (!userId || !resolvedAgentId) {
+      return null;
+    }
+
+    const response = await fetch("/api/conversations", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-user-id": userId },
+      body: JSON.stringify({
+        title: "Novo Chat",
+        agentId: resolvedAgentId,
+        userId,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || `Falha ao criar conversa (${response.status})`);
+    }
+
+    const conv = await response.json();
+    setConversationId(conv.id);
+    navigate(`/app/agente/${resolvedAgentRouteKey}/${conv.id}`, { replace: true });
+    return conv.id as number;
+  };
+
   // Initialize conversation on component mount
   useEffect(() => {
     const initConversation = async () => {
@@ -147,23 +174,7 @@ const ChatPage = () => {
 
           // Criar nova conversa se não existir nenhuma
           console.log("[CHAT] No existing conversation found. Creating new one for agent:", agent?.title, "ID:", resolvedAgentId);
-          const response = await fetch("/api/conversations", {
-            method: "POST",
-            headers: { "Content-Type": "application/json", "x-user-id": userId },
-            body: JSON.stringify({ 
-              title: `Novo Chat`,
-              agentId: resolvedAgentId,
-              userId,
-            }),
-          });
-          if (response.ok) {
-            const conv = await response.json();
-            console.log("[CHAT] Conversation created with ID:", conv.id);
-            setConversationId(conv.id);
-            // Manter mensagens vazias apenas para nova conversa
-            // Atualizar a URL para incluir o ID da conversa sem recarregar
-            navigate(`/app/agente/${resolvedAgentRouteKey}/${conv.id}`, { replace: true });
-          }
+          await createConversation();
         }
       } catch (error) {
         console.error("[CHAT] Error:", error);
@@ -238,9 +249,19 @@ const ChatPage = () => {
       console.warn("[CHAT] Cannot send: input and attachment are empty");
       return;
     }
-    
-    if (!conversationId) {
-      console.warn("[CHAT] Conversation not ready yet, waiting...");
+
+    let activeConversationId = conversationId;
+    if (!activeConversationId) {
+      try {
+        activeConversationId = await createConversation();
+      } catch (error: any) {
+        console.error("[CHAT] Failed to create conversation before send:", error);
+        toast.error(error?.message || "Não foi possível iniciar a conversa.");
+        return;
+      }
+    }
+
+    if (!activeConversationId) {
       return;
     }
 
@@ -252,7 +273,7 @@ const ChatPage = () => {
     setIsSending(true);
 
     try {
-      const convId = conversationId;
+      const convId = activeConversationId;
       console.log("[CHAT] Sending message to conversation:", convId, "agentId:", resolvedAgentId);
 
       let uploadedAttachment: ChatAttachment | null = null;
@@ -535,7 +556,12 @@ const ChatPage = () => {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onPaste={handleInputPaste}
-                onKeyDown={(e) => e.key === "Enter" && handleSend()}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    void handleSend();
+                  }
+                }}
                 className="rounded-2xl text-base bg-white border-gray-300 text-slate-900 pl-14 pr-14 py-6 shadow-sm focus-visible:ring-1 focus-visible:ring-indigo-500 focus-visible:border-indigo-500"
                 data-testid="input-message"
               />

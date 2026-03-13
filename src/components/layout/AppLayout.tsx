@@ -6,7 +6,6 @@ import MobileSidebar from "@/components/layout/MobileSidebar";
 import CreateCategoryDialog from "@/components/CreateCategoryDialog";
 import EditCategoryDialog from "@/components/EditCategoryDialog"; // Reintroduzido
 
-import CreateNewAIAgentDialog from "@/components/CreateNewAIAgentDialog";
 import CreateCustomLinkDialog from "@/components/CreateCustomLinkDialog"; // Importar novo diálogo
 import EditCustomLinkDialog from "@/components/EditCustomLinkDialog"; // Importar novo diálogo
 import { Category, Agent, CustomLink } from "@/types/app"; // Adicionar CustomLink
@@ -58,8 +57,6 @@ const AppLayout = () => {
   const [isDeleteCategoryDialogOpen, setIsDeleteCategoryDialogOpen] = useState(false); // Reintroduzido
   const [categoryToDeleteId, setCategoryToDeleteId] = useState<string | null>(null); // Reintroduzido
 
-  const [isCreateNewAIAgentDialogOpen, setIsCreateNewAIAgentDialogOpen] = useState(false);
-  const [agentToEdit, setAgentToEdit] = useState<Agent | null>(null);
   const [isDeleteAgentDialogOpen, setIsDeleteAgentDialogOpen] = useState(false);
   const [agentToDeleteId, setAgentToDeleteId] = useState<string | null>(null);
   const [isCreateCustomLinkDialogOpen, setIsCreateCustomLinkDialogOpen] = useState(false);
@@ -485,8 +482,7 @@ const AppLayout = () => {
   };
 
   const handleOpenEditAgentDialog = (agent: Agent) => {
-    setAgentToEdit(agent);
-    setIsCreateNewAIAgentDialogOpen(true);
+    navigate(`/app/admin/agentes/${agent.id}/editar`);
   };
 
   const handleEditAgent = async (
@@ -775,6 +771,9 @@ const AppLayout = () => {
       onStartAgent: handleStartAgent,
       onDeleteAgent: confirmDeleteAgent,
       onEditAgent: handleOpenEditAgentDialog,
+      onCreateAgent: handleAddAgent,
+      onUpdateAgent: handleEditAgent,
+      onCreateCategory: handleAddCategory,
       categories: categories, // Passar as categorias reais (sem "Todos") para o AgentsView
       agents: visibleAgents,
       searchTerm,
@@ -802,7 +801,7 @@ const AppLayout = () => {
           selectedCategory={selectedCategory}
           onSelectCategory={handleSelectCategory}
           onAddCategory={() => setIsCreateCategoryDialogOpen(true)}
-          onAddAgent={() => setIsCreateNewAIAgentDialogOpen(true)}
+          onAddAgent={() => navigate('/app/admin/agentes/novo')}
           onHowToUse={handleHowToUse}
           onEditCategory={handleOpenEditCategoryDialog}
           onDeleteCategory={confirmDeleteCategory}
@@ -827,7 +826,7 @@ const AppLayout = () => {
             selectedCategory={selectedCategory}
             onSelectCategory={handleSelectCategory}
             onAddCategory={() => setIsCreateCategoryDialogOpen(true)}
-            onAddAgent={() => setIsCreateNewAIAgentDialogOpen(true)}
+            onAddAgent={() => navigate('/app/admin/agentes/novo')}
             onHowToUse={handleHowToUse}
             onEditCategory={handleOpenEditCategoryDialog}
             onDeleteCategory={confirmDeleteCategory}
@@ -882,22 +881,6 @@ const AppLayout = () => {
         onSave={handleEditCategory}
         categoryToEdit={categoryToEdit}
       />
-
-
-
-      <CreateNewAIAgentDialog
-        isOpen={isCreateNewAIAgentDialogOpen}
-        onClose={() => {
-          setIsCreateNewAIAgentDialogOpen(false);
-          setAgentToEdit(null);
-        }}
-        onSave={handleAddAgent}
-        onEditSave={handleEditAgent}
-        onCreateCategory={handleAddCategory}
-        categories={categories}
-        agentToEdit={agentToEdit}
-      />
-
       <CreateCustomLinkDialog
         isOpen={isCreateCustomLinkDialogOpen}
         onClose={() => setIsCreateCustomLinkDialogOpen(false)}

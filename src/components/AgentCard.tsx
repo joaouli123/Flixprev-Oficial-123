@@ -32,18 +32,10 @@ const AgentCard: React.FC<AgentCardProps> = ({ agent, onStartAgent, onDeleteAgen
   };
 
   const handleCardClick = () => {
-    if (!isExternalShortcut) {
-      return;
-    }
-
     handleButtonClick();
   };
 
   const handleCardKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
-    if (!isExternalShortcut) {
-      return;
-    }
-
     if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
       handleButtonClick();
@@ -52,11 +44,11 @@ const AgentCard: React.FC<AgentCardProps> = ({ agent, onStartAgent, onDeleteAgen
 
   return (
     <Card
-      className={`group relative flex min-h-[148px] min-w-[260px] self-start flex-col overflow-hidden rounded-xl border bg-white shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-purple-500/10 ${presentation.featured ? "border-purple-300 ring-1 ring-purple-200" : "border-slate-200/80 hover:border-purple-200"} ${isExternalShortcut ? "cursor-pointer" : ""}`}
-      onClick={isExternalShortcut ? handleCardClick : undefined}
-      onKeyDown={isExternalShortcut ? handleCardKeyDown : undefined}
-      role={isExternalShortcut ? "link" : undefined}
-      tabIndex={isExternalShortcut ? 0 : undefined}
+      className={`group relative flex min-h-[148px] min-w-[260px] cursor-pointer self-start flex-col overflow-hidden rounded-xl border bg-white shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-purple-500/10 ${presentation.featured ? "border-purple-300 ring-1 ring-purple-200" : "border-slate-200/80 hover:border-purple-200"}`}
+      onClick={handleCardClick}
+      onKeyDown={handleCardKeyDown}
+      role={isExternalShortcut ? "link" : "button"}
+      tabIndex={0}
     >
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-purple-50/70 via-white to-purple-50/40 opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
       
@@ -91,16 +83,16 @@ const AgentCard: React.FC<AgentCardProps> = ({ agent, onStartAgent, onDeleteAgen
             {isAdmin && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full text-slate-500 hover:bg-purple-100 hover:text-purple-700">
+                  <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full text-slate-500 hover:bg-purple-100 hover:text-purple-700" onClick={(event) => event.stopPropagation()}>
                     <MoreVertical className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-40 rounded-xl border-slate-200 shadow-lg">
-                  <DropdownMenuItem onClick={() => onEditAgent(agent)} className="cursor-pointer hover:bg-purple-50 focus:bg-purple-50">
+                  <DropdownMenuItem onClick={(event) => { event.stopPropagation(); onEditAgent(agent); }} className="cursor-pointer hover:bg-purple-50 focus:bg-purple-50">
                     <Edit className="mr-2 h-4 w-4 text-purple-600" />
                     <span className="font-medium">Editar</span>
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => onDeleteAgent(agent.id)} className="cursor-pointer text-red-600 hover:bg-red-50 focus:bg-red-50">
+                  <DropdownMenuItem onClick={(event) => { event.stopPropagation(); onDeleteAgent(agent.id); }} className="cursor-pointer text-red-600 hover:bg-red-50 focus:bg-red-50">
                     <Trash2 className="mr-2 h-4 w-4" />
                     <span className="font-medium">Remover</span>
                   </DropdownMenuItem>
