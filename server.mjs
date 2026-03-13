@@ -107,6 +107,97 @@ function createAiClient() {
   });
 }
 
+const AI_INPUT_COST_PER_1K = Number(process.env.AI_INPUT_COST_PER_1K || 0.005);
+const AI_OUTPUT_COST_PER_1K = Number(process.env.AI_OUTPUT_COST_PER_1K || 0.015);
+const AI_EMBEDDING_COST_PER_1K = Number(process.env.AI_EMBEDDING_COST_PER_1K || 0.00013);
+
+function estimateTokens(text = '') {
+  return Math.max(1, Math.ceil(String(text || '').length / 4));
+}
+
+function estimateCompletionCostUsd(promptTokens, completionTokens) {
+  const input = (Math.max(0, Number(promptTokens || 0)) / 1000) * AI_INPUT_COST_PER_1K;
+  const output = (Math.max(0, Number(completionTokens || 0)) / 1000) * AI_OUTPUT_COST_PER_1K;
+  return Number((input + output).toFixed(6));
+}
+
+function estimateEmbeddingCostUsd(totalTokens) {
+  return Number((((Math.max(0, Number(totalTokens || 0))) / 1000) * AI_EMBEDDING_COST_PER_1K).toFixed(6));
+}
+
+async function ensureAiUsageTable() {
+  if (!hasDatabaseUrl) {
+    return;
+  }
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ai_request_logs (
+      id BIGSERIAL PRIMARY KEY,
+      user_id TEXT,
+      conversation_id INTEGER,
+      request_type TEXT NOT NULL DEFAULT 'chat_completion',
+      model TEXT,
+      status TEXT NOT NULL DEFAULT 'success',
+      prompt_tokens INTEGER NOT NULL DEFAULT 0,
+      completion_tokens INTEGER NOT NULL DEFAULT 0,
+      total_tokens INTEGER NOT NULL DEFAULT 0,
+      cost_usd NUMERIC(12,6) NOT NULL DEFAULT 0,
+      error_message TEXT,
+      created_at TIMESTAMP NOT NULL DEFAULT NOW()
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_ai_request_logs_created_at
+      ON ai_request_logs(created_at DESC);
+
+    CREATE INDEX IF NOT EXISTS idx_ai_request_logs_user_id
+      ON ai_request_logs(user_id, created_at DESC);
+  `);
+}
+
+async function logAiUsage(params = {}) {
+  if (!hasDatabaseUrl) {
+    return;
+  }
+
+  await ensureAiUsageTable();
+
+  await pool.query(
+    `
+    INSERT INTO ai_request_logs (
+      user_id,
+      conversation_id,
+      request_type,
+      model,
+      status,
+      prompt_tokens,
+      completion_tokens,
+      total_tokens,
+      cost_usd,
+      error_message
+    )
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+    `,
+    [
+      String(params.userId || '').trim() || null,
+      Number.isFinite(params.conversationId) ? params.conversationId : null,
+      String(params.requestType || 'chat_completion').trim(),
+      String(params.model || '').trim() || null,
+      String(params.status || 'success').trim(),
+      Math.max(0, Math.floor(Number(params.promptTokens || 0))),
+      Math.max(0, Math.floor(Number(params.completionTokens || 0))),
+      Math.max(0, Math.floor(Number(params.totalTokens || 0))),
+      Number(params.costUsd || 0),
+      String(params.errorMessage || '').trim() || null,
+    ]
+  );
+}
+
+function logAiUsageSafe(params = {}) {
+  void logAiUsage(params).catch((error) => {
+    console.warn('[AI USAGE] Falha ao registrar uso:', error?.message || error);
+  });
+}
+
 const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -393,7 +484,7 @@ function isTextFile(fileName = '') {
   return /\.(txt|md|csv|json|xml|html|htm)$/i.test(fileName);
 }
 
-async function extractImageText(filePath, fileName = '') {
+async function extractImageText(filePath, fileName = '', logContext = {}) {
   try {
     const cfg = getAiRuntimeConfig();
     const openai = createAiClient();
@@ -424,9 +515,36 @@ async function extractImageText(filePath, fileName = '') {
       ]
     });
 
-    return (response.choices?.[0]?.message?.content || '').trim();
+    const content = (response.choices?.[0]?.message?.content || '').trim();
+    const promptTokens = estimateTokens('ocr-image');
+    const completionTokens = estimateTokens(content);
+    logAiUsageSafe({
+      userId: logContext.userId,
+      conversationId: logContext.conversationId,
+      requestType: 'image_ocr',
+      model: cfg.fastChatModel,
+      status: 'success',
+      promptTokens,
+      completionTokens,
+      totalTokens: promptTokens + completionTokens,
+      costUsd: estimateCompletionCostUsd(promptTokens, completionTokens),
+    });
+
+    return content;
   } catch (e) {
     console.error('[IMAGE OCR] Erro ao extrair texto da imagem:', e.message);
+    logAiUsageSafe({
+      userId: logContext.userId,
+      conversationId: logContext.conversationId,
+      requestType: 'image_ocr',
+      model: getAiRuntimeConfig().fastChatModel,
+      status: 'error',
+      promptTokens: 0,
+      completionTokens: 0,
+      totalTokens: 0,
+      costUsd: 0,
+      errorMessage: e?.message || 'Falha ao extrair texto de imagem',
+    });
     return '';
   }
 }
@@ -572,7 +690,7 @@ async function fetchLinkKnowledgeSource(rawUrl) {
   };
 }
 
-async function askGeminiDirectlyFromPdf(fullPath, fileName, question, agentInstructions = '') {
+async function askGeminiDirectlyFromPdf(fullPath, fileName, question, agentInstructions = '', logContext = {}) {
   try {
     const geminiKey = process.env.GEMINI_API_KEY;
     if (!geminiKey) return '';
@@ -621,9 +739,34 @@ Responda de forma objetiva em português. Se possível, traga resumo e pontos pr
     const data = await resp.json();
     const parts = data?.candidates?.[0]?.content?.parts || [];
     const answer = parts.map(p => p?.text || '').join('\n').trim();
+    const promptTokens = estimateTokens(`${agentInstructions || ''}\n${question || ''}`);
+    const completionTokens = estimateTokens(answer);
+    logAiUsageSafe({
+      userId: logContext.userId,
+      conversationId: logContext.conversationId,
+      requestType: 'pdf_direct_analysis',
+      model,
+      status: 'success',
+      promptTokens,
+      completionTokens,
+      totalTokens: promptTokens + completionTokens,
+      costUsd: estimateCompletionCostUsd(promptTokens, completionTokens),
+    });
     return answer;
   } catch (e) {
     console.warn('[PDF][DIRECT] Erro leitura direta:', e?.message || e);
+    logAiUsageSafe({
+      userId: logContext.userId,
+      conversationId: logContext.conversationId,
+      requestType: 'pdf_direct_analysis',
+      model: process.env.FAST_CHAT_MODEL || process.env.CHAT_MODEL || 'gemini-2.5-flash',
+      status: 'error',
+      promptTokens: 0,
+      completionTokens: 0,
+      totalTokens: 0,
+      costUsd: 0,
+      errorMessage: e?.message || 'Falha na leitura direta de PDF',
+    });
     return '';
   }
 }
@@ -672,7 +815,7 @@ function chunkText(text, size = 4000, overlap = 1000) {
 }
 
 // 3️⃣ Gerar embeddings (OpenAI/Gemini)
-async function generateEmbeddings(chunks) {
+async function generateEmbeddings(chunks, logContext = {}) {
   const cfg = getAiRuntimeConfig();
   const openai = createAiClient();
 
@@ -694,6 +837,20 @@ async function generateEmbeddings(chunks) {
       embeddings.push(Array(3072).fill(0));
     }
   }
+
+  const totalTokens = chunks.reduce((sum, chunk) => sum + estimateTokens(chunk), 0);
+  logAiUsageSafe({
+    userId: logContext.userId,
+    conversationId: logContext.conversationId,
+    requestType: logContext.requestType || 'embedding_generation',
+    model: cfg.embeddingModel,
+    status: 'success',
+    promptTokens: totalTokens,
+    completionTokens: 0,
+    totalTokens,
+    costUsd: estimateEmbeddingCostUsd(totalTokens),
+  });
+
   return embeddings;
 }
 
@@ -2590,6 +2747,20 @@ async function handleSupabaseConversationMessageFallback({ res, userId, cid, con
         assistantText += delta;
       }
     }
+
+    const promptTokens = estimateTokens(JSON.stringify(msgs));
+    const completionTokens = estimateTokens(assistantText);
+    logAiUsageSafe({
+      userId,
+      conversationId: cid,
+      requestType: 'chat_completion_supabase_fallback',
+      model: aiCfg.chatModel,
+      status: 'success',
+      promptTokens,
+      completionTokens,
+      totalTokens: promptTokens + completionTokens,
+      costUsd: estimateCompletionCostUsd(promptTokens, completionTokens),
+    });
   }
 
   const finalAssistantText = assistantText.trim() || 'Não consegui gerar uma resposta agora.';
@@ -3384,7 +3555,8 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
               fullAttachmentPath,
               attachmentFileName,
               userText || 'Resuma o documento anexado.',
-              ''
+              '',
+              { userId, conversationId: cid }
             );
           }
         }
@@ -3437,9 +3609,35 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
           if (generated) {
             localResponse = generated;
           }
+
+          const promptTokens = estimateTokens(localPrompt);
+          const completionTokens = estimateTokens(generated || localResponse);
+          logAiUsageSafe({
+            userId,
+            conversationId: cid,
+            requestType: 'chat_local_fallback',
+            model: aiCfg.fastChatModel,
+            status: 'success',
+            promptTokens,
+            completionTokens,
+            totalTokens: promptTokens + completionTokens,
+            costUsd: estimateCompletionCostUsd(promptTokens, completionTokens),
+          });
         }
       } catch (e) {
         console.error('[CHAT][LOCAL] Erro ao gerar resposta local:', e.message);
+        logAiUsageSafe({
+          userId,
+          conversationId: cid,
+          requestType: 'chat_local_fallback',
+          model: getAiRuntimeConfig().fastChatModel,
+          status: 'error',
+          promptTokens: 0,
+          completionTokens: 0,
+          totalTokens: 0,
+          costUsd: 0,
+          errorMessage: e?.message || 'Falha no chat local',
+        });
       }
 
       memoryChatStore.messages.push({
@@ -3563,6 +3761,19 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
                   input: retrievalQuery || userText
                 });
 
+                const embeddingTokens = estimateTokens(retrievalQuery || userText);
+                logAiUsageSafe({
+                  userId,
+                  conversationId: cid,
+                  requestType: 'chat_embedding_query',
+                  model: aiCfg.embeddingModel,
+                  status: 'success',
+                  promptTokens: embeddingTokens,
+                  completionTokens: 0,
+                  totalTokens: embeddingTokens,
+                  costUsd: estimateEmbeddingCostUsd(embeddingTokens),
+                });
+
                 // 🔥 BUSCA NUCLEAR: TOP-K 25
                 relevantContext = await searchSimilarChunks(
                   queryEmbedding.data[0].embedding,
@@ -3636,6 +3847,19 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
     }
 
     const cleanedFullResp = fullResp.replace(/\[\s*Trecho\s*ID\s*:\s*\d+\s*\]/gi, '').trim();
+    const promptTokens = estimateTokens(JSON.stringify(msgs));
+    const completionTokens = estimateTokens(cleanedFullResp);
+    logAiUsageSafe({
+      userId,
+      conversationId: cid,
+      requestType: attachment ? 'chat_completion_with_attachment' : 'chat_completion',
+      model: aiCfg.chatModel,
+      status: 'success',
+      promptTokens,
+      completionTokens,
+      totalTokens: promptTokens + completionTokens,
+      costUsd: estimateCompletionCostUsd(promptTokens, completionTokens),
+    });
 
     const chunkSize = 50;
     for (let i = 0; i < cleanedFullResp.length; i += chunkSize) {
@@ -3653,6 +3877,18 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
     res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
     res.end();
   } catch (e) {
+    logAiUsageSafe({
+      userId,
+      conversationId: Number.isFinite(cid) ? cid : null,
+      requestType: 'chat_completion',
+      model: getAiRuntimeConfig().chatModel,
+      status: 'error',
+      promptTokens: 0,
+      completionTokens: 0,
+      totalTokens: 0,
+      costUsd: 0,
+      errorMessage: e?.message || 'Falha no chat principal',
+    });
     if (!res.headersSent) res.status(500).json({ error: e.message });
     else res.write(`data: ${JSON.stringify({ error: e.message })}\n\n`), res.end();
   }
@@ -3751,6 +3987,138 @@ app.post('/api/conversations/clear-all', async (req, res) => {
     res.json({ success: true, message: 'Todas as conversas foram excluídas' });
   } catch (e) {
     res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+app.get('/api/admin/ai-usage', async (req, res) => {
+  try {
+    const requesterId = String(req.header('x-user-id') || '').trim();
+    if (!requesterId) {
+      return res.status(401).json({ error: 'Usuário não autenticado' });
+    }
+
+    if (!(await isAdminUser(requesterId))) {
+      return res.status(403).json({ error: 'Acesso negado' });
+    }
+
+    const requestedDays = Number(req.query.days);
+    const rangeDays = Number.isFinite(requestedDays)
+      ? Math.min(Math.max(Math.floor(requestedDays), 1), 365)
+      : 30;
+
+    if (!hasDatabaseUrl) {
+      return res.json({
+        range_days: rangeDays,
+        summary: {
+          tokens_today: 0,
+          cost_today: 0,
+          requests: 0,
+          errors: 0,
+          error_rate: 0,
+          tokens_month: 0,
+          cost_month: 0,
+          total_tokens_range: 0,
+          total_cost_range: 0,
+        },
+        by_user: [],
+        requests: [],
+      });
+    }
+
+    await ensureAiUsageTable();
+
+    const summaryQuery = await pool.query(
+      `
+      SELECT
+        COALESCE(SUM(CASE WHEN created_at >= CURRENT_DATE THEN total_tokens ELSE 0 END), 0)::int AS tokens_today,
+        COALESCE(SUM(CASE WHEN created_at >= CURRENT_DATE THEN cost_usd ELSE 0 END), 0)::numeric(12,6) AS cost_today,
+        COALESCE(SUM(CASE WHEN created_at >= date_trunc('month', NOW()) THEN total_tokens ELSE 0 END), 0)::int AS tokens_month,
+        COALESCE(SUM(CASE WHEN created_at >= date_trunc('month', NOW()) THEN cost_usd ELSE 0 END), 0)::numeric(12,6) AS cost_month,
+        COALESCE(COUNT(*) FILTER (WHERE created_at >= NOW() - ($1 || ' days')::interval), 0)::int AS requests,
+        COALESCE(COUNT(*) FILTER (WHERE created_at >= NOW() - ($1 || ' days')::interval AND status = 'error'), 0)::int AS errors,
+        COALESCE(SUM(total_tokens) FILTER (WHERE created_at >= NOW() - ($1 || ' days')::interval), 0)::int AS total_tokens_range,
+        COALESCE(SUM(cost_usd) FILTER (WHERE created_at >= NOW() - ($1 || ' days')::interval), 0)::numeric(12,6) AS total_cost_range
+      FROM ai_request_logs
+      `,
+      [rangeDays]
+    );
+
+    const usersQuery = await pool.query(
+      `
+      SELECT
+        COALESCE(l.user_id, 'desconhecido') AS user_id,
+        COALESCE(
+          NULLIF(trim(concat_ws(' ', p.first_name, p.last_name)), ''),
+          NULLIF(u.nome_completo, ''),
+          NULLIF(u.email, ''),
+          l.user_id,
+          'Sem identificação'
+        ) AS nome,
+        COALESCE(NULLIF(u.email, ''), '—') AS email,
+        COUNT(*)::int AS requests,
+        COALESCE(SUM(l.total_tokens), 0)::int AS total_tokens,
+        COALESCE(SUM(l.cost_usd), 0)::numeric(12,6) AS total_cost_usd,
+        MAX(l.created_at) AS ultima_atividade
+      FROM ai_request_logs l
+      LEFT JOIN profiles p ON p.id::text = l.user_id
+      LEFT JOIN usuarios u ON u.user_id = l.user_id
+      WHERE l.created_at >= NOW() - ($1 || ' days')::interval
+      GROUP BY l.user_id, p.first_name, p.last_name, u.nome_completo, u.email
+      ORDER BY total_tokens DESC
+      LIMIT 200
+      `,
+      [rangeDays]
+    );
+
+    const requestsQuery = await pool.query(
+      `
+      SELECT
+        l.id,
+        l.created_at,
+        COALESCE(
+          NULLIF(trim(concat_ws(' ', p.first_name, p.last_name)), ''),
+          NULLIF(u.email, ''),
+          l.user_id,
+          'Sem identificação'
+        ) AS usuario,
+        l.request_type AS tipo,
+        l.total_tokens AS tokens,
+        l.cost_usd,
+        l.status
+      FROM ai_request_logs l
+      LEFT JOIN profiles p ON p.id::text = l.user_id
+      LEFT JOIN usuarios u ON u.user_id = l.user_id
+      WHERE l.created_at >= NOW() - ($1 || ' days')::interval
+      ORDER BY l.created_at DESC
+      LIMIT 200
+      `,
+      [rangeDays]
+    );
+
+    const summaryRow = summaryQuery.rows?.[0] || {};
+    const requests = Number(summaryRow.requests || 0);
+    const errors = Number(summaryRow.errors || 0);
+    const errorRate = requests > 0 ? Number(((errors / requests) * 100).toFixed(2)) : 0;
+
+    return res.json({
+      range_days: rangeDays,
+      summary: {
+        tokens_today: Number(summaryRow.tokens_today || 0),
+        cost_today: Number(summaryRow.cost_today || 0),
+        requests,
+        errors,
+        error_rate: errorRate,
+        tokens_month: Number(summaryRow.tokens_month || 0),
+        cost_month: Number(summaryRow.cost_month || 0),
+        total_tokens_range: Number(summaryRow.total_tokens_range || 0),
+        total_cost_range: Number(summaryRow.total_cost_range || 0),
+      },
+      by_user: usersQuery.rows || [],
+      requests: requestsQuery.rows || [],
+    });
+  } catch (error) {
+    console.error('[AI USAGE] Error:', error);
+    return res.status(500).json({ error: error?.message || 'Erro ao carregar consumo de IA' });
   }
 });
 

@@ -6,6 +6,7 @@ import { Activity, DollarSign, Sigma, AlertCircle, RefreshCcw, Zap } from "lucid
 import { useSession } from "@/components/SessionContextProvider";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { buildApiUrl } from "@/lib/api";
 
 type UsageRequestRow = {
   id: number;
@@ -73,7 +74,7 @@ const AILogs: React.FC = () => {
 
     setLoading(true);
     try {
-      const response = await fetch(`/api/admin/ai-usage?days=${days}`, {
+      const response = await fetch(buildApiUrl(`/api/admin/ai-usage?days=${days}`), {
         headers: {
           "Content-Type": "application/json",
           "x-user-id": user.id,
