@@ -17,6 +17,7 @@ import { useSession } from "@/components/SessionContextProvider";
 import { extractUuidFromRouteKey, makeAgentRouteKey, toSlug } from "@/lib/slug";
 import { normalizeAgentTitle } from "@/lib/agentText";
 import { toast } from "sonner";
+import { buildApiUrl, getApiBaseUrl } from "@/lib/api";
 
 interface Message {
   role: "assistant" | "user";
@@ -40,6 +41,7 @@ const ChatPage = () => {
   const agentRouteParam = agentId || agentSlug || "";
   const navigate = useNavigate();
   const { agents } = useOutletContext<OutletContext>();
+  const apiBaseUrl = getApiBaseUrl();
 
   const resolveAgent = (key: string) => {
     if (!key) return undefined;
@@ -103,7 +105,11 @@ const ChatPage = () => {
       return null;
     }
 
-    const response = await fetch("/api/conversations", {
+    if (!apiBaseUrl) {
+      throw new Error("Backend do chat não configurado.");
+    }
+
+    const response = await fetch(buildApiUrl("/api/conversations"), {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-user-id": userId },
       body: JSON.stringify({
@@ -139,7 +145,7 @@ const ChatPage = () => {
         // Se já tem ID na URL, carregar mensagens dessa conversa
         if (conversationId) {
           console.log("[CHAT] Loading conversation:", conversationId);
-          const res = await fetch(`/api/conversations/${conversationId}/messages`, {
+          const res = await fetch(buildApiUrl(`/api/conversations/${conversationId}/messages`), {
             headers: { "x-user-id": userId }
           });
           if (res.ok) {
@@ -157,7 +163,7 @@ const ChatPage = () => {
         } else {
           // Tentar encontrar a última conversa deste agente antes de criar uma nova
           console.log("[CHAT] Checking for existing conversations for agent:", resolvedAgentId);
-          const conversationsRes = await fetch(`/api/conversations?agentId=${resolvedAgentId}`, {
+          const conversationsRes = await fetch(buildApiUrl(`/api/conversations?agentId=${resolvedAgentId}`), {
             headers: { "x-user-id": userId }
           });
           if (conversationsRes.ok) {
@@ -186,7 +192,7 @@ const ChatPage = () => {
     if (agent?.title && userId) {
       initConversation();
     }
-  }, [agent?.title, resolvedAgentId, resolvedAgentRouteKey, conversationId, userId]);
+  }, [agent?.title, resolvedAgentId, resolvedAgentRouteKey, conversationId, userId, apiBaseUrl]);
 
   useEffect(() => {
     if (!userId) {
@@ -206,7 +212,7 @@ const ChatPage = () => {
     const formData = new FormData();
     formData.append("file", file);
 
-    const res = await fetch("/api/agents/upload", {
+    const res = await fetch(buildApiUrl("/api/agents/upload"), {
       method: "POST",
       body: formData,
     });
@@ -281,7 +287,7 @@ const ChatPage = () => {
         uploadedAttachment = await uploadAttachment(pendingAttachment);
       }
       
-      const response = await fetch(`/api/conversations/${convId}/messages`, {
+      const response = await fetch(buildApiUrl(`/api/conversations/${convId}/messages`), {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-user-id": userId },
         body: JSON.stringify({ 
@@ -350,7 +356,7 @@ const ChatPage = () => {
   const handleClearChat = async () => {
     if (!conversationId) return;
     try {
-      const res = await fetch(`/api/conversations/${conversationId}`, {
+      const res = await fetch(buildApiUrl(`/api/conversations/${conversationId}`), {
         method: "DELETE",
         headers: { "x-user-id": userId }
       });

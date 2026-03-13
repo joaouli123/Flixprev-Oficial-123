@@ -13,6 +13,7 @@ import { Plus, MessageSquare, Trash2, MoreVertical, Pencil, ChevronRight, Chevro
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useSession } from "@/components/SessionContextProvider";
+import { buildApiUrl, getApiBaseUrl } from "@/lib/api";
 
 interface Conversation {
   id: number;
@@ -32,6 +33,7 @@ export const ChatSidebar = ({ agentId, agentRouteKey, agentTitle, currentConvers
   const userId = session?.user?.id || "";
   const navigate = useNavigate();
   const isMobile = useIsMobile();
+  const apiBaseUrl = getApiBaseUrl();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -52,9 +54,14 @@ export const ChatSidebar = ({ agentId, agentRouteKey, agentTitle, currentConvers
       setIsLoading(false);
       return;
     }
+    if (!apiBaseUrl || !agentId) {
+      setConversations([]);
+      setIsLoading(false);
+      return;
+    }
     try {
       setIsLoading(true);
-      const res = await fetch(`/api/conversations?agentId=${agentId}`, {
+      const res = await fetch(buildApiUrl(`/api/conversations?agentId=${agentId}`), {
         headers: { "x-user-id": userId }
       });
       const data = await res.json();
@@ -76,7 +83,7 @@ export const ChatSidebar = ({ agentId, agentRouteKey, agentTitle, currentConvers
       return;
     }
     loadConversations();
-  }, [agentId, userId]);
+  }, [agentId, userId, apiBaseUrl, currentConversationId]);
 
   const handleNewChat = () => {
     navigate(`/app/agente/${agentRouteKey}`);
@@ -86,7 +93,7 @@ export const ChatSidebar = ({ agentId, agentRouteKey, agentTitle, currentConvers
   const handleDeleteConversation = async (convId: number) => {
     if (confirm("Tem certeza que quer deletar esta conversa?")) {
       try {
-        await fetch(`/api/conversations/${convId}`, { 
+        await fetch(buildApiUrl(`/api/conversations/${convId}`), { 
           method: "DELETE",
           headers: { "x-user-id": userId }
         });
@@ -112,7 +119,7 @@ export const ChatSidebar = ({ agentId, agentRouteKey, agentTitle, currentConvers
     }
     try {
       console.log(`[SIDEBAR] Saving new title for conversation ${convId}: ${editingTitle}`);
-      const res = await fetch(`/api/conversations/${convId}`, {
+      const res = await fetch(buildApiUrl(`/api/conversations/${convId}`), {
         method: "PATCH",
         headers: { "Content-Type": "application/json", "x-user-id": userId },
         body: JSON.stringify({ title: editingTitle }),
@@ -153,7 +160,7 @@ export const ChatSidebar = ({ agentId, agentRouteKey, agentTitle, currentConvers
   const handleClearAll = async () => {
     if (confirm("Tem certeza que deseja apagar TODO o histórico de conversas? Esta ação não pode ser desfeita.")) {
       try {
-        const res = await fetch("/api/conversations/clear-all", { 
+        const res = await fetch(buildApiUrl("/api/conversations/clear-all"), { 
           method: "POST",
           headers: { "x-user-id": userId }
         });
