@@ -4122,6 +4122,82 @@ app.get('/api/admin/ai-usage', async (req, res) => {
   }
 });
 
+app.get('/api/admin/financial-summary', async (req, res) => {
+  try {
+    const requesterId = String(req.header('x-user-id') || '').trim();
+    if (!requesterId) {
+      return res.status(401).json({ error: 'Usuário não autenticado' });
+    }
+
+    if (!(await isAdminUser(requesterId))) {
+      return res.status(403).json({ error: 'Acesso negado' });
+    }
+
+    const rows = await withDatabaseFallback(
+      'adminFinancialSummary',
+      async () => {
+        const result = await pool.query(
+          `
+          SELECT
+            u.id,
+            u.user_id,
+            u.nome_completo,
+            u.email,
+            u.status_da_assinatura,
+            u.updated_at,
+            COALESCE(s.plan_type, 'basic') AS plan_type
+          FROM usuarios u
+          LEFT JOIN subscriptions s ON s.user_id = u.user_id
+          ORDER BY u.updated_at DESC NULLS LAST
+          LIMIT 500
+          `
+        );
+
+        return result.rows || [];
+      },
+      async () => {
+        const [usuariosResponse, subscriptionsResponse] = await Promise.all([
+          supabaseAdminClient
+            .from('usuarios')
+            .select('id, user_id, nome_completo, email, status_da_assinatura, updated_at')
+            .order('updated_at', { ascending: false })
+            .limit(500),
+          supabaseAdminClient
+            .from('subscriptions')
+            .select('user_id, plan_type')
+            .limit(1000)
+        ]);
+
+        if (usuariosResponse.error) {
+          throw createSupabaseFallbackError(usuariosResponse.error, 'Erro ao carregar usuarios para o financeiro');
+        }
+
+        if (subscriptionsResponse.error) {
+          throw createSupabaseFallbackError(subscriptionsResponse.error, 'Erro ao carregar subscriptions para o financeiro');
+        }
+
+        const subscriptionsByUser = new Map();
+        for (const subscription of subscriptionsResponse.data || []) {
+          const key = String(subscription.user_id || '').trim();
+          if (key && !subscriptionsByUser.has(key)) {
+            subscriptionsByUser.set(key, String(subscription.plan_type || 'basic').trim() || 'basic');
+          }
+        }
+
+        return (usuariosResponse.data || []).map((usuario) => ({
+          ...usuario,
+          plan_type: subscriptionsByUser.get(String(usuario.user_id || '').trim()) || 'basic',
+        }));
+      }
+    );
+
+    return res.json({ rows });
+  } catch (error) {
+    console.error('[FINANCEIRO] Error:', error);
+    return res.status(500).json({ error: error?.message || 'Erro ao carregar dados financeiros' });
+  }
+});
+
 // GET notificações
 app.get('/api/notifications', async (req, res) => {
   try {

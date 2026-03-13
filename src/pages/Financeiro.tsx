@@ -5,7 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Wallet, Users, CheckCircle2, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { useSession } from "@/components/SessionContextProvider";
-import { neon as supabase } from "@/lib/neon";
+import { buildApiUrl } from "@/lib/api";
 
 type UsuarioFinanceiro = {
   id?: string;
@@ -58,47 +58,27 @@ const Financeiro: React.FC = () => {
       }
 
       setLoading(true);
-      const { data, error } = await supabase
-        .from("usuarios")
-        .select("id, user_id, nome_completo, email, status_da_assinatura, updated_at")
-        .order("updated_at", { ascending: false })
-        .limit(200)
-        .execute();
+      const response = await fetch(buildApiUrl("/api/admin/financial-summary"), {
+        headers: {
+          "Content-Type": "application/json",
+          "x-user-id": session.user.id,
+        },
+      });
 
-      const { data: subscriptionsData } = await supabase
-        .from("subscriptions")
-        .select("user_id, plan_type")
-        .limit(500)
-        .execute();
-
-      if (error) {
-        toast.error("Erro ao carregar dados financeiros: " + error.message);
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        toast.error("Erro ao carregar dados financeiros: " + (errorData.error || `Erro ${response.status}`));
         setUsuarios([]);
       } else {
-        const subscriptionsByUser = new Map<string, string>();
-        ((subscriptionsData as SubscriptionFinanceiro[]) || []).forEach((subscription) => {
-          const key = (subscription.user_id || "").toString().trim();
-          if (key && !subscriptionsByUser.has(key)) {
-            subscriptionsByUser.set(key, (subscription.plan_type || "").toString());
-          }
-        });
-
-        const merged = ((data as UsuarioFinanceiro[]) || []).map((usuario) => {
-          const userKey = (usuario.user_id || "").toString().trim();
-          return {
-            ...usuario,
-            plan_type: subscriptionsByUser.get(userKey) || "basic",
-          };
-        });
-
-        setUsuarios(merged);
+        const payload = await response.json().catch(() => ({ rows: [] }));
+        setUsuarios(Array.isArray(payload?.rows) ? payload.rows : []);
       }
 
       setLoading(false);
     };
 
     load();
-  }, [isAdmin]);
+  }, [isAdmin, session?.user?.id]);
 
   const filteredUsuarios = useMemo(() => {
     return usuarios.filter((usuario) => {
