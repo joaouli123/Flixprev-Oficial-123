@@ -619,9 +619,12 @@ const AppLayout = () => {
     if (agentToDeleteId) {
       try {
         // Deletar conversas associadas ao agente (cascade)
-        await fetch(`/api/delete-agent-conversations`, {
+        await fetch(buildApiUrl(`/api/delete-agent-conversations`), {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'x-user-id': userId || '',
+          },
           body: JSON.stringify({ agentId: agentToDeleteId })
         });
       } catch (e) {

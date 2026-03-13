@@ -855,36 +855,42 @@ async function generateEmbeddings(chunks, logContext = {}) {
 }
 
 // 4️⃣ Busca semântica com pgvector - CONFIGURAÇÃO NUCLEAR (Limit 25)
-async function searchSimilarChunks(queryEmbedding, agentId, limit = 25) {
+async function searchSimilarChunks(queryEmbedding, agentId, limit = 25, queryText = '') {
   try {
-    const embeddingString = '[' + queryEmbedding.join(',') + ']';
+    return await withDatabaseFallback(
+      'searchSimilarChunks',
+      async () => {
+        const embeddingString = '[' + queryEmbedding.join(',') + ']';
 
-    const result = await pool.query(`
-      SELECT content, chunk_index, 1 - (embedding <=> $2::vector) as similarity
-      FROM document_chunks
-      WHERE agent_id = $1
-      ORDER BY embedding <=> $2::vector
-      LIMIT $3
-    `, [agentId, embeddingString, limit]);
+        const result = await pool.query(`
+          SELECT content, chunk_index, 1 - (embedding <=> $2::vector) as similarity
+          FROM document_chunks
+          WHERE agent_id = $1
+          ORDER BY embedding <=> $2::vector
+          LIMIT $3
+        `, [agentId, embeddingString, limit]);
 
-    console.log('--- TESTE DE RECUPERAÇÃO (RAG NUCLEAR) ---');
-    console.log(`Agente: ${agentId}`);
-    console.log(`Chunks encontrados: ${result.rows.length}/${limit}`);
+        console.log('--- TESTE DE RECUPERAÇÃO (RAG NUCLEAR) ---');
+        console.log(`Agente: ${agentId}`);
+        console.log(`Chunks encontrados: ${result.rows.length}/${limit}`);
 
-    if (result.rows.length > 0) {
-      result.rows.slice(0, 3).forEach((r, i) => {
-        console.log(`Chunk ${i + 1} (Sim: ${r.similarity.toFixed(3)}): ${r.content.substring(0, 60)}...`);
-      });
-    }
-    console.log('----------------------------------');
+        if (result.rows.length > 0) {
+          result.rows.slice(0, 3).forEach((r, i) => {
+            console.log(`Chunk ${i + 1} (Sim: ${r.similarity.toFixed(3)}): ${r.content.substring(0, 60)}...`);
+          });
+        }
+        console.log('----------------------------------');
 
-    const bestSimilarity = result.rows?.[0]?.similarity ?? 0;
-    if (bestSimilarity < 0.35) {
-      console.log(`[SEARCH] Similaridade baixa (${bestSimilarity.toFixed(3)}). Ignorando contexto documental nesta pergunta.`);
-      return '';
-    }
+        const bestSimilarity = result.rows?.[0]?.similarity ?? 0;
+        if (bestSimilarity < 0.35) {
+          console.log(`[SEARCH] Similaridade baixa (${bestSimilarity.toFixed(3)}). Ignorando contexto documental nesta pergunta.`);
+          return '';
+        }
 
-    return result.rows.map(r => `[Trecho ID: ${r.chunk_index}]\n${r.content}`).join('\n\n---\n\n');
+        return result.rows.map(r => `[Trecho ID: ${r.chunk_index}]\n${r.content}`).join('\n\n---\n\n');
+      },
+      () => searchSimilarChunksViaSupabase(queryText, agentId, limit)
+    );
   } catch (e) {
     console.error('[SEARCH] Erro fatal na busca vetorial:', e.message);
     return '';
@@ -894,15 +900,21 @@ async function searchSimilarChunks(queryEmbedding, agentId, limit = 25) {
 // 4B️⃣ Busca por palavra-chave (fallback)
 async function searchKeywordChunks(keyword, agentId, limit = 5) {
   try {
-    const result = await pool.query(`
-      SELECT content
-      FROM document_chunks
-      WHERE agent_id = $1 AND content ILIKE $2
-      LIMIT $3
-    `, [agentId, '%' + keyword + '%', limit]);
+    return await withDatabaseFallback(
+      'searchKeywordChunks',
+      async () => {
+        const result = await pool.query(`
+          SELECT content
+          FROM document_chunks
+          WHERE agent_id = $1 AND content ILIKE $2
+          LIMIT $3
+        `, [agentId, '%' + keyword + '%', limit]);
 
-    console.log(`[KEYWORD_SEARCH] Encontrados ${result.rows.length} chunks com palavra-chave: "${keyword}"`);
-    return result.rows.map(r => r.content).join('\n\n---\n\n');
+        console.log(`[KEYWORD_SEARCH] Encontrados ${result.rows.length} chunks com palavra-chave: "${keyword}"`);
+        return result.rows.map(r => r.content).join('\n\n---\n\n');
+      },
+      () => searchKeywordChunksViaSupabase(keyword, agentId, limit)
+    );
   } catch (e) {
     console.error('[KEYWORD_SEARCH] Erro:', e.message);
     return '';
@@ -912,16 +924,22 @@ async function searchKeywordChunks(keyword, agentId, limit = 5) {
 // 4C️⃣ Busca por ordem cronológica
 async function getFirstChunks(agentId, limit = 3) {
   try {
-    const result = await pool.query(`
-      SELECT content
-      FROM document_chunks
-      WHERE agent_id = $1
-      ORDER BY chunk_index ASC
-      LIMIT $2
-    `, [agentId, limit]);
+    return await withDatabaseFallback(
+      'getFirstChunks',
+      async () => {
+        const result = await pool.query(`
+          SELECT content
+          FROM document_chunks
+          WHERE agent_id = $1
+          ORDER BY chunk_index ASC
+          LIMIT $2
+        `, [agentId, limit]);
 
-    console.log(`[ORDER_SEARCH] Recuperados os primeiros ${result.rows.length} chunks.`);
-    return result.rows.map(r => r.content).join('\n\n---\n\n');
+        console.log(`[ORDER_SEARCH] Recuperados os primeiros ${result.rows.length} chunks.`);
+        return result.rows.map(r => r.content).join('\n\n---\n\n');
+      },
+      () => getFirstChunksViaSupabase(agentId, limit)
+    );
   } catch (e) {
     console.error('[ORDER_SEARCH] Erro:', e.message);
     return '';
@@ -971,66 +989,71 @@ function buildRetrievalQuery(question = '', conversationContext = '') {
 
 async function reindexAgentAttachments(agentId, attachments = []) {
   const validAttachments = Array.isArray(attachments) ? attachments : [];
+  return withDatabaseFallback(
+    'reindexAgentAttachments',
+    async () => {
+      await pool.query('DELETE FROM documents WHERE agent_id = $1', [agentId]);
 
-  await pool.query('DELETE FROM documents WHERE agent_id = $1', [agentId]);
+      let processedCount = 0;
+      let skippedCount = 0;
+      let totalChunks = 0;
 
-  let processedCount = 0;
-  let skippedCount = 0;
-  let totalChunks = 0;
+      for (const attachment of validAttachments) {
+        try {
+          const filePath = attachment.startsWith('/') ? attachment : `/${attachment}`;
+          const fileName = attachment.split('/').pop() || attachment;
+          const fullPath = path.join(process.cwd(), 'public', filePath);
 
-  for (const attachment of validAttachments) {
-    try {
-      const filePath = attachment.startsWith('/') ? attachment : `/${attachment}`;
-      const fileName = attachment.split('/').pop() || attachment;
-      const fullPath = path.join(process.cwd(), 'public', filePath);
+          if (!fs.existsSync(fullPath)) {
+            skippedCount += 1;
+            continue;
+          }
 
-      if (!fs.existsSync(fullPath)) {
-        skippedCount += 1;
-        continue;
+          const text = await extractAttachmentText(fullPath, fileName);
+          if (!text || text.trim().length < 50) {
+            skippedCount += 1;
+            continue;
+          }
+
+          const docResult = await pool.query(
+            'INSERT INTO documents (agent_id, title) VALUES ($1, $2) RETURNING id',
+            [agentId, fileName]
+          );
+          const documentId = docResult.rows[0].id;
+
+          const chunks = chunkText(text, 4000, 1000);
+          if (chunks.length === 0) {
+            skippedCount += 1;
+            continue;
+          }
+
+          const embeddings = await generateEmbeddings(chunks);
+
+          for (let index = 0; index < chunks.length; index += 1) {
+            const embeddingString = '[' + embeddings[index].join(',') + ']';
+            await pool.query(
+              `INSERT INTO document_chunks (agent_id, document_id, content, embedding, chunk_index)
+               VALUES ($1, $2, $3, $4::vector, $5)`,
+              [agentId, documentId, chunks[index], embeddingString, index]
+            );
+          }
+
+          processedCount += 1;
+          totalChunks += chunks.length;
+        } catch (error) {
+          skippedCount += 1;
+          console.error('[REINDEX] Erro ao processar attachment:', attachment, error?.message || error);
+        }
       }
 
-      const text = await extractAttachmentText(fullPath, fileName);
-      if (!text || text.trim().length < 50) {
-        skippedCount += 1;
-        continue;
-      }
-
-      const docResult = await pool.query(
-        'INSERT INTO documents (agent_id, title) VALUES ($1, $2) RETURNING id',
-        [agentId, fileName]
-      );
-      const documentId = docResult.rows[0].id;
-
-      const chunks = chunkText(text, 4000, 1000);
-      if (chunks.length === 0) {
-        skippedCount += 1;
-        continue;
-      }
-
-      const embeddings = await generateEmbeddings(chunks);
-
-      for (let index = 0; index < chunks.length; index += 1) {
-        const embeddingString = '[' + embeddings[index].join(',') + ']';
-        await pool.query(
-          `INSERT INTO document_chunks (agent_id, document_id, content, embedding, chunk_index)
-           VALUES ($1, $2, $3, $4::vector, $5)`,
-          [agentId, documentId, chunks[index], embeddingString, index]
-        );
-      }
-
-      processedCount += 1;
-      totalChunks += chunks.length;
-    } catch (error) {
-      skippedCount += 1;
-      console.error('[REINDEX] Erro ao processar attachment:', attachment, error?.message || error);
-    }
-  }
-
-  return {
-    processedCount,
-    skippedCount,
-    totalChunks,
-  };
+      return {
+        processedCount,
+        skippedCount,
+        totalChunks,
+      };
+    },
+    () => reindexAgentAttachmentsViaSupabase(agentId, validAttachments)
+  );
 }
 
 // ============================================
@@ -3187,6 +3210,266 @@ async function getAgentViaSupabase(agentId) {
   return response.data || null;
 }
 
+async function updateAgentKnowledgeViaSupabase(agentId, attachments = [], extraLinks = []) {
+  const client = ensureSupabaseAdminAvailable();
+  const response = await client
+    .from('agents')
+    .update({
+      attachments: Array.isArray(attachments) ? attachments : [],
+      extra_links: Array.isArray(extraLinks) ? extraLinks : [],
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', agentId)
+    .select('*')
+    .maybeSingle();
+
+  if (response.error) {
+    throw createSupabaseFallbackError(response.error, 'Erro ao atualizar base de conhecimento do agente');
+  }
+
+  return response.data || null;
+}
+
+async function listAgentsWithAttachmentsViaSupabase() {
+  const client = ensureSupabaseAdminAvailable();
+  const response = await client
+    .from('agents')
+    .select('id, attachments')
+    .not('attachments', 'is', null);
+
+  if (response.error) {
+    throw createSupabaseFallbackError(response.error, 'Erro ao listar anexos dos agentes');
+  }
+
+  return (response.data || []).filter((agent) => Array.isArray(agent.attachments) && agent.attachments.length > 0);
+}
+
+async function deleteAgentDocumentsViaSupabase(agentId) {
+  const client = ensureSupabaseAdminAvailable();
+  await client.from('document_chunks').delete().eq('agent_id', agentId).then(() => undefined, () => undefined);
+  await client.from('documents').delete().eq('agent_id', agentId).then(() => undefined, () => undefined);
+}
+
+async function insertAgentDocumentViaSupabase(agentId, title) {
+  const client = ensureSupabaseAdminAvailable();
+  const response = await client
+    .from('documents')
+    .insert([{ agent_id: agentId, title }])
+    .select('id')
+    .single();
+
+  if (response.error) {
+    throw createSupabaseFallbackError(response.error, 'Erro ao criar documento do agente');
+  }
+
+  return response.data?.id || null;
+}
+
+async function insertAgentDocumentChunksViaSupabase(agentId, documentId, chunks = []) {
+  const client = ensureSupabaseAdminAvailable();
+  if (!Array.isArray(chunks) || chunks.length === 0) {
+    return 0;
+  }
+
+  const rows = chunks.map((content, index) => ({
+    agent_id: agentId,
+    document_id: documentId,
+    content,
+    chunk_index: index,
+    embedding: null,
+  }));
+
+  const response = await client.from('document_chunks').insert(rows);
+  if (response.error) {
+    throw createSupabaseFallbackError(response.error, 'Erro ao salvar chunks do agente');
+  }
+
+  return rows.length;
+}
+
+async function countAgentChunksViaSupabase(agentId) {
+  const client = ensureSupabaseAdminAvailable();
+  const response = await client
+    .from('document_chunks')
+    .select('id', { count: 'exact', head: true })
+    .eq('agent_id', agentId);
+
+  if (response.error) {
+    throw createSupabaseFallbackError(response.error, 'Erro ao contar chunks do agente');
+  }
+
+  return Number(response.count || 0);
+}
+
+async function getFirstChunksViaSupabase(agentId, limit = 3) {
+  const client = ensureSupabaseAdminAvailable();
+  const response = await client
+    .from('document_chunks')
+    .select('content, chunk_index')
+    .eq('agent_id', agentId)
+    .order('chunk_index', { ascending: true })
+    .limit(limit);
+
+  if (response.error) {
+    throw createSupabaseFallbackError(response.error, 'Erro ao carregar primeiros chunks do agente');
+  }
+
+  return (response.data || []).map((row) => row.content).join('\n\n---\n\n');
+}
+
+async function searchKeywordChunksViaSupabase(keyword, agentId, limit = 3) {
+  const client = ensureSupabaseAdminAvailable();
+  const normalizedKeyword = String(keyword || '').trim();
+  if (!normalizedKeyword) {
+    return '';
+  }
+
+  const response = await client
+    .from('document_chunks')
+    .select('content, chunk_index')
+    .eq('agent_id', agentId)
+    .ilike('content', `%${normalizedKeyword}%`)
+    .order('chunk_index', { ascending: true })
+    .limit(limit);
+
+  if (response.error) {
+    throw createSupabaseFallbackError(response.error, 'Erro ao buscar chunks por palavra-chave');
+  }
+
+  return (response.data || []).map((row) => row.content).join('\n\n---\n\n');
+}
+
+function scoreChunkAgainstQuery(content = '', queryText = '') {
+  const normalizedContent = String(content || '').toLowerCase();
+  const tokens = Array.from(new Set(String(queryText || '').toLowerCase().match(/[\p{L}\p{N}_-]{3,}/gu) || []));
+  if (!normalizedContent || tokens.length === 0) {
+    return 0;
+  }
+
+  return tokens.reduce((score, token) => score + (normalizedContent.includes(token) ? token.length : 0), 0);
+}
+
+async function searchSimilarChunksViaSupabase(queryText, agentId, limit = 25) {
+  const client = ensureSupabaseAdminAvailable();
+  const response = await client
+    .from('document_chunks')
+    .select('content, chunk_index')
+    .eq('agent_id', agentId)
+    .order('chunk_index', { ascending: true })
+    .limit(Math.max(limit * 4, 80));
+
+  if (response.error) {
+    throw createSupabaseFallbackError(response.error, 'Erro ao recuperar chunks do agente');
+  }
+
+  return (response.data || [])
+    .map((row) => ({
+      content: row.content,
+      chunk_index: row.chunk_index,
+      score: scoreChunkAgainstQuery(row.content, queryText),
+    }))
+    .sort((a, b) => (b.score - a.score) || (a.chunk_index - b.chunk_index))
+    .slice(0, limit)
+    .map((row) => row.content)
+    .join('\n\n---\n\n');
+}
+
+async function countAgentChunks(agentId) {
+  return withDatabaseFallback(
+    'countAgentChunks',
+    async () => {
+      const result = await pool.query(
+        'SELECT COUNT(*) as count FROM document_chunks WHERE agent_id = $1',
+        [agentId]
+      );
+      return parseInt(result.rows?.[0]?.count || '0', 10);
+    },
+    () => countAgentChunksViaSupabase(agentId)
+  );
+}
+
+async function indexAgentAttachmentContent(agentId, title, text) {
+  const normalizedText = String(text || '').trim();
+  if (!agentId || normalizedText.length <= 50) {
+    return { chunksCount: 0 };
+  }
+
+  return withDatabaseFallback(
+    'indexAgentAttachmentContent',
+    async () => {
+      const docResult = await pool.query(
+        'INSERT INTO documents (agent_id, title) VALUES ($1, $2) RETURNING id',
+        [agentId, title]
+      );
+      const documentId = docResult.rows[0].id;
+
+      const chunks = chunkText(normalizedText, 4000, 1000);
+      const embeddings = await generateEmbeddings(chunks);
+
+      for (let index = 0; index < chunks.length; index += 1) {
+        const embeddingString = '[' + embeddings[index].join(',') + ']';
+        await pool.query(
+          `INSERT INTO document_chunks (agent_id, document_id, content, embedding, chunk_index)
+           VALUES ($1, $2, $3, $4::vector, $5)`,
+          [agentId, documentId, chunks[index], embeddingString, index]
+        );
+      }
+
+      return { chunksCount: chunks.length };
+    },
+    async () => {
+      const documentId = await insertAgentDocumentViaSupabase(agentId, title);
+      const chunks = chunkText(normalizedText, 4000, 1000);
+      await insertAgentDocumentChunksViaSupabase(agentId, documentId, chunks);
+      return { chunksCount: chunks.length };
+    }
+  );
+}
+
+async function reindexAgentAttachmentsViaSupabase(agentId, attachments = []) {
+  const validAttachments = Array.isArray(attachments) ? attachments : [];
+  await deleteAgentDocumentsViaSupabase(agentId);
+
+  let processedCount = 0;
+  let skippedCount = 0;
+  let totalChunks = 0;
+
+  for (const attachment of validAttachments) {
+    try {
+      const filePath = attachment.startsWith('/') ? attachment : `/${attachment}`;
+      const fileName = attachment.split('/').pop() || attachment;
+      const fullPath = path.join(process.cwd(), 'public', filePath);
+
+      if (!fs.existsSync(fullPath)) {
+        skippedCount += 1;
+        continue;
+      }
+
+      const text = await extractAttachmentText(fullPath, fileName);
+      if (!text || text.trim().length < 50) {
+        skippedCount += 1;
+        continue;
+      }
+
+      const documentId = await insertAgentDocumentViaSupabase(agentId, fileName);
+      const chunks = chunkText(text, 4000, 1000);
+      if (chunks.length === 0) {
+        skippedCount += 1;
+        continue;
+      }
+
+      await insertAgentDocumentChunksViaSupabase(agentId, documentId, chunks);
+      processedCount += 1;
+      totalChunks += chunks.length;
+    } catch (error) {
+      skippedCount += 1;
+      console.error('[REINDEX][SUPABASE] Erro ao processar attachment:', attachment, error?.message || error);
+    }
+  }
+
+  return { processedCount, skippedCount, totalChunks };
+}
+
 async function handleSupabaseConversationMessageFallback({ res, userId, cid, content, agentId, attachment, attachmentContext, directPdfAnswer }) {
   const userText = String(content || '').trim();
   const conversation = await getConversationViaSupabase(userId, cid);
@@ -3843,24 +4126,7 @@ app.post('/api/agents/upload', upload.single('file'), async (req, res) => {
 
     if (agentId && text.length > 500) {
       try {
-        const docResult = await pool.query(
-          'INSERT INTO documents (agent_id, title) VALUES ($1, $2) RETURNING id',
-          [agentId, originalname]
-        );
-        const documentId = docResult.rows[0].id;
-
-        // 🔥 CHUNKING NUCLEAR: 4000 chars com 1000 de overlap
-        const chunks = chunkText(text, 4000, 1000);
-        const embeddings = await generateEmbeddings(chunks);
-
-        for (let i = 0; i < chunks.length; i++) {
-          const embeddingString = '[' + embeddings[i].join(',') + ']';
-          await pool.query(
-            `INSERT INTO document_chunks (agent_id, document_id, content, embedding, chunk_index)
-             VALUES ($1, $2, $3, $4::vector, $5)`,
-            [agentId, documentId, chunks[i], embeddingString, i]
-          );
-        }
+        await indexAgentAttachmentContent(agentId, originalname, text);
         console.log(`[UPLOAD] ✅ RAG NUCLEAR processado para agente ${agentId}`);
       } catch (e) {
         console.error('[UPLOAD] Erro no pipeline RAG:', e.message);
@@ -3907,12 +4173,19 @@ app.post('/api/agents/:agentId/sync-links', async (req, res) => {
       .filter(Boolean)
       .filter((item, index, arr) => arr.findIndex((entry) => entry.url === item.url) === index);
 
-    const agentResult = await pool.query(
-      'SELECT id, attachments FROM "agents" WHERE id = $1 LIMIT 1',
-      [agentId]
+    const agent = await withDatabaseFallback(
+      'syncAgentKnowledgeLinks:getAgent',
+      async () => {
+        const agentResult = await pool.query(
+          'SELECT id, attachments FROM "agents" WHERE id = $1 LIMIT 1',
+          [agentId]
+        );
+
+        return agentResult.rows?.[0] || null;
+      },
+      () => getAgentViaSupabase(agentId)
     );
 
-    const agent = agentResult.rows?.[0];
     if (!agent) {
       return res.status(404).json({ error: 'Agente não encontrado' });
     }
@@ -3952,9 +4225,15 @@ app.post('/api/agents/:agentId/sync-links', async (req, res) => {
 
     const nextAttachments = [...keptAttachments, ...generatedAttachments];
 
-    await pool.query(
-      'UPDATE "agents" SET attachments = $1, extra_links = $2::jsonb WHERE id = $3',
-      [nextAttachments, JSON.stringify(normalizedLinks), agentId]
+    await withDatabaseFallback(
+      'syncAgentKnowledgeLinks:updateAgent',
+      async () => {
+        await pool.query(
+          'UPDATE "agents" SET attachments = $1, extra_links = $2::jsonb WHERE id = $3',
+          [nextAttachments, JSON.stringify(normalizedLinks), agentId]
+        );
+      },
+      () => updateAgentKnowledgeViaSupabase(agentId, nextAttachments, normalizedLinks)
     );
 
     const reindexSummary = await reindexAgentAttachments(agentId, nextAttachments);
@@ -3976,13 +4255,21 @@ app.post('/api/agents/:agentId/sync-links', async (req, res) => {
 app.post('/api/admin/reprocess-attachments', async (req, res) => {
   console.log('[REPROCESS] ========== REPROCESSAMENTO NUCLEAR ==========');
   try {
-    const agentsResult = await pool.query(
-      'SELECT id, attachments FROM "agents" WHERE attachments IS NOT NULL AND array_length(attachments, 1) > 0'
+    const agents = await withDatabaseFallback(
+      'reprocessAttachments:listAgents',
+      async () => {
+        const agentsResult = await pool.query(
+          'SELECT id, attachments FROM "agents" WHERE attachments IS NOT NULL AND array_length(attachments, 1) > 0'
+        );
+
+        return agentsResult.rows || [];
+      },
+      () => listAgentsWithAttachmentsViaSupabase()
     );
 
     let totalProcessed = 0;
     let totalChunks = 0;
-    for (const agent of agentsResult.rows) {
+    for (const agent of agents) {
       const agentId = agent.id;
       console.log(`[REPROCESS] Agente ${agentId}: reindexando knowledge base...`);
       const summary = await reindexAgentAttachments(agentId, agent.attachments || []);
@@ -4001,12 +4288,19 @@ app.post('/api/admin/reprocess-agent-attachments/:agentId', async (req, res) => 
   if (!agentId) return res.status(400).json({ error: 'agentId é obrigatório' });
 
   try {
-    const agentResult = await pool.query(
-      'SELECT id, attachments FROM "agents" WHERE id = $1 LIMIT 1',
-      [agentId]
+    const agent = await withDatabaseFallback(
+      'reprocessAgentAttachments:getAgent',
+      async () => {
+        const agentResult = await pool.query(
+          'SELECT id, attachments FROM "agents" WHERE id = $1 LIMIT 1',
+          [agentId]
+        );
+
+        return agentResult.rows?.[0] || null;
+      },
+      () => getAgentViaSupabase(agentId)
     );
 
-    const agent = agentResult.rows?.[0];
     if (!agent) return res.status(404).json({ error: 'Agente não encontrado' });
 
     const summary = await reindexAgentAttachments(agentId, agent.attachments || []);
@@ -4229,17 +4523,19 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
 
     if (effectiveAgentId) {
       try {
-        const agent = await pool.query('SELECT * FROM "agents" WHERE "id" = $1', [effectiveAgentId]);
-        if (agent.rows[0]) {
-          const agentData = agent.rows[0];
+        const agentData = await withDatabaseFallback(
+          'chat:getAgent',
+          async () => {
+            const agent = await pool.query('SELECT * FROM "agents" WHERE "id" = $1', [effectiveAgentId]);
+            return agent.rows?.[0] || null;
+          },
+          () => getAgentViaSupabase(effectiveAgentId)
+        );
+        if (agentData) {
           const agentInstructions = agentData.instructions || agentData.description || "";
           questionType = detectQuestionType(userText);
 
-          const hasDocuments = await pool.query(
-            'SELECT COUNT(*) as count FROM document_chunks WHERE agent_id = $1',
-            [effectiveAgentId]
-          );
-          const hasChunks = parseInt(hasDocuments.rows[0].count) > 0;
+          const hasChunks = (await countAgentChunks(effectiveAgentId)) > 0;
 
           if (hasChunks) {
             try {
@@ -4273,7 +4569,8 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
                 relevantContext = await searchSimilarChunks(
                   queryEmbedding.data[0].embedding,
                   effectiveAgentId,
-                  25 
+                  25,
+                  retrievalQuery || userText
                 );
 
                 // Busca híbrida (keyword)
