@@ -2,6 +2,7 @@ import express from 'express';
 import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
+import dns from 'dns/promises';
 import { fileURLToPath } from 'url';
 import { createRequire } from 'module';
 import pkg from 'pg';
@@ -127,13 +128,48 @@ const supabaseAdminClient = hasSupabaseAdmin
 const pgConnectionTimeoutMillis = Number.parseInt(process.env.PG_CONNECTION_TIMEOUT_MS || '4000', 10);
 const pgQueryTimeoutMillis = Number.parseInt(process.env.PG_QUERY_TIMEOUT_MS || '10000', 10);
 
+function isIpAddress(value) {
+  return /^\d+\.\d+\.\d+\.\d+$/.test(String(value || '').trim()) || /^\[[0-9a-f:]+\]$/i.test(String(value || '').trim());
+}
+
+function shouldEnableSsl(databaseUrl) {
+  const sslMode = String(databaseUrl?.searchParams?.get('sslmode') || '').trim().toLowerCase();
+  return ['require', 'verify-ca', 'verify-full', 'prefer'].includes(sslMode) || isProduction;
+}
+
+async function buildPgPoolConfig() {
+  const databaseUrl = String(process.env.DATABASE_URL || '').trim();
+  const parsedUrl = new URL(databaseUrl);
+  const originalHost = String(parsedUrl.hostname || '').trim();
+  let resolvedHost = originalHost;
+
+  if (originalHost && !isIpAddress(originalHost)) {
+    try {
+      const lookupResult = await dns.lookup(originalHost, { family: 4 });
+      if (lookupResult?.address) {
+        resolvedHost = lookupResult.address;
+        console.log(`[DB] Host PostgreSQL resolvido em IPv4: ${originalHost} -> ${resolvedHost}`);
+      }
+    } catch (error) {
+      console.warn(`[DB] Falha ao resolver IPv4 para ${originalHost}. Mantendo hostname original.`, error?.message || error);
+    }
+  }
+
+  return {
+    host: resolvedHost,
+    port: Number.parseInt(parsedUrl.port || '5432', 10),
+    database: decodeURIComponent(parsedUrl.pathname.replace(/^\//, '')),
+    user: decodeURIComponent(parsedUrl.username || ''),
+    password: decodeURIComponent(parsedUrl.password || ''),
+    ssl: shouldEnableSsl(parsedUrl) ? { rejectUnauthorized: false } : false,
+    connectionTimeoutMillis: Number.isFinite(pgConnectionTimeoutMillis) ? pgConnectionTimeoutMillis : 4000,
+    query_timeout: Number.isFinite(pgQueryTimeoutMillis) ? pgQueryTimeoutMillis : 10000,
+    idleTimeoutMillis: 30000,
+  };
+}
+
 const pool = hasDatabaseUrl
-  ? new Pool({
-      connectionString: process.env.DATABASE_URL,
-      connectionTimeoutMillis: Number.isFinite(pgConnectionTimeoutMillis) ? pgConnectionTimeoutMillis : 4000,
-      query_timeout: Number.isFinite(pgQueryTimeoutMillis) ? pgQueryTimeoutMillis : 10000,
-      idleTimeoutMillis: 30000,
-    })
+  ? new Pool(await buildPgPoolConfig())
   : {
       query: async () => {
         const err = new Error('DATABASE_URL não configurado. Configure o arquivo .env para habilitar banco e RAG.');
