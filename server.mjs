@@ -1180,10 +1180,46 @@ function buildOfflineAttachmentResponse(attachmentContext, question = '', fileNa
   return `Recebi o anexo ${fileName} e fiz uma análise local preliminar.${topicHint}\n\nResumo inicial:\n${excerpt}\n\nSe quiser, posso detalhar por tópicos (objetivo, pontos principais, riscos e próximos passos).`;
 }
 
+function shouldForceContextOnlyMode(agentInstructions = '') {
+  const text = String(agentInstructions || '').toLowerCase();
+  if (!text) {
+    return false;
+  }
+
+  const strictPatterns = [
+    /somente com o conte[uú]do/i,
+    /apenas com o conte[uú]do/i,
+    /s[oó] responda com base/i,
+    /responda apenas com base/i,
+    /responda somente usando/i,
+    /responda apenas usando/i,
+    /use apenas o conte[uú]do/i,
+    /use apenas o contexto/i,
+    /use apenas o contexto lido/i,
+    /s[oó] responda o que estiver na base/i,
+    /somente usando o conte[uú]do da base/i,
+    /sua [uú]nica fonte/i,
+    /[uú]nica fonte [ée] o conte[uú]do/i,
+    /base do agente/i,
+    /base lida/i,
+    /base de conhecimento/i,
+    /nada de completar/i,
+    /n[aã]o responda por fora/i,
+    /n[aã]o invente/i,
+    /n[aã]o use conhecimento externo/i,
+    /apenas o que est[aá] nos (links|anexos|documentos)/i,
+    /somente o que o rag/i,
+    /s[oó] o que o rag/i,
+  ];
+
+  return strictPatterns.some((pattern) => pattern.test(text));
+}
+
 // 5️⃣ Prompt GLOBAL DEFINITIVO (Ajustado para Visão Panorâmica)
 function buildPrompt(context, agentInstructions, question, toneStyle = 'chatgpt', conversationContext = '') {
   const hasContext = Boolean(context && context.trim().length > 0);
   const hasConversationContext = Boolean(conversationContext && conversationContext.trim().length > 0);
+  const forceContextOnlyMode = shouldForceContextOnlyMode(agentInstructions);
   const conversationBlock = hasConversationContext
     ? `\nCONTEXTO RECENTE DA CONVERSA:\n${conversationContext}\n`
     : '';
@@ -1197,8 +1233,12 @@ ${agentInstructions || "Atue como um assistente técnico."}
 
 REGRAS:
 1. Responda com clareza e objetividade.
-2. Se a pergunta for sobre o tema principal do agente, responda normalmente com base nas instruções acima.
-3. Se não souber, seja transparente e peça mais contexto.
+2. ${forceContextOnlyMode
+  ? 'Você está em modo estrito: se a resposta não estiver no conteúdo treinado disponível nesta conversa, responda exatamente: "Não encontrei essa informação na base do agente."'
+  : 'Se a pergunta for sobre o tema principal do agente, responda normalmente com base nas instruções acima.'}
+3. ${forceContextOnlyMode
+  ? 'Não use conhecimento externo, memória geral do modelo, suposições ou complementos inventados.'
+  : 'Se não souber, seja transparente e peça mais contexto.'}
 4. Considere o histórico recente da conversa para não repetir perguntas já respondidas.
 5. Se o usuário estiver retomando um assunto anterior, continue do ponto em que a conversa parou.
 
@@ -1222,11 +1262,12 @@ Você é um especialista direto, elegante e organizado.
 3. **FIDELIDADE**: Priorize os trechos abaixo quando a pergunta estiver relacionada aos anexos, URLs e documentos.
 4. **LIMPEZA**: Não mencione [Trecho ID] na resposta.
 5. **BUSCA PROFUNDA**: Se o usuário perguntar por um detalhe específico, vasculhe cada linha do contexto fornecido. Se estiver lá, você deve encontrar.
-6. **MODO HÍBRIDO**: Se a pergunta não estiver relacionada ao conteúdo dos anexos, responda normalmente seguindo as instruções do agente.
+6. **MODO ${forceContextOnlyMode ? 'ESTRITO' : 'HÍBRIDO'}**: ${forceContextOnlyMode ? 'Responda exclusivamente com base no contexto fornecido. Se a informação não estiver no contexto, responda exatamente: "Não encontrei essa informação na base do agente."' : 'Se a pergunta não estiver relacionada ao conteúdo dos anexos, responda normalmente seguindo as instruções do agente.'}
 7. **MEMÓRIA DE CONVERSA**: Use o histórico recente para manter continuidade, não repetir respostas e não pedir novamente informações que já foram dadas.
+8. **SEM CONHECIMENTO EXTERNO**: ${forceContextOnlyMode ? 'É proibido complementar a resposta com conhecimento geral do modelo.' : 'Conhecimento externo só pode ser usado quando não contrariar nem substituir o contexto.'}
 
 FONTE DE VERDADE:
-Responda baseando-se no [CONTEXTO] abaixo. Use as informações fornecidas para construir uma resposta útil e completa.
+Responda baseando-se no [CONTEXTO] abaixo. ${forceContextOnlyMode ? 'Sua resposta deve sair exclusivamente dele.' : 'Use as informações fornecidas para construir uma resposta útil e completa.'}
 
 ═══════════════════════════════════════════════════════════════════
 INSTRUÇÕES DO AGENTE:
@@ -3435,16 +3476,22 @@ async function searchSimilarChunksViaSupabase(queryText, agentId, limit = 25) {
     throw createSupabaseFallbackError(response.error, 'Erro ao recuperar chunks do agente');
   }
 
-  return (response.data || [])
+  const rankedRows = (response.data || [])
     .map((row) => ({
       content: row.content,
       chunk_index: row.chunk_index,
       score: scoreChunkAgainstQuery(row.content, queryText),
     }))
     .sort((a, b) => (b.score - a.score) || (a.chunk_index - b.chunk_index))
-    .slice(0, limit)
-    .map((row) => row.content)
-    .join('\n\n---\n\n');
+    .slice(0, limit);
+
+  const bestScore = rankedRows[0]?.score || 0;
+  if (bestScore <= 0) {
+    console.log(`[SEARCH][SUPABASE] Nenhum chunk lexicalmente relevante para o agente ${agentId}.`);
+    return '';
+  }
+
+  return rankedRows.map((row) => row.content).join('\n\n---\n\n');
 }
 
 async function countAgentChunks(agentId) {
@@ -3555,14 +3602,75 @@ async function handleSupabaseConversationMessageFallback({ res, userId, cid, con
 
   const historyRows = await listConversationMessagesViaSupabase(userId, cid) || [];
   const conversationContext = buildConversationContext(historyRows);
+  const retrievalQuery = buildRetrievalQuery(userText, conversationContext);
 
   let prompt = buildPrompt(attachmentContext || '', '', userText || 'Analise o anexo enviado.', 'chatgpt', conversationContext);
+  let hasContext = Boolean(attachmentContext && attachmentContext.trim());
+  let questionType = 'general';
+  let contextSize = attachmentContext ? attachmentContext.length : 0;
+  let chunksUsed = attachmentContext ? 1 : 0;
+  let relevantContext = '';
+
   if (effectiveAgentId) {
     try {
       const agent = await getAgentViaSupabase(effectiveAgentId);
       if (agent) {
         const agentInstructions = agent.instructions || agent.description || '';
-        prompt = buildPrompt(attachmentContext || '', agentInstructions, userText || 'Analise o anexo enviado.', 'chatgpt', conversationContext);
+        questionType = detectQuestionType(userText);
+        const hasChunks = (await countAgentChunks(effectiveAgentId)) > 0;
+
+        if (hasChunks) {
+          const isLookingForBeginning = userText.match(/primeira frase|título|inicio|começo|autor/i);
+
+          if (isLookingForBeginning) {
+            relevantContext = await getFirstChunks(effectiveAgentId, 5);
+          } else {
+            const aiCfg = getAiRuntimeConfig();
+            const openai = createAiClient();
+            const queryEmbedding = await openai.embeddings.create({
+              model: aiCfg.embeddingModel,
+              input: retrievalQuery || userText,
+            });
+
+            const embeddingTokens = estimateTokens(retrievalQuery || userText);
+            logAiUsageSafe({
+              userId,
+              conversationId: cid,
+              requestType: 'chat_embedding_query_supabase_fallback',
+              model: aiCfg.embeddingModel,
+              status: 'success',
+              promptTokens: embeddingTokens,
+              completionTokens: 0,
+              totalTokens: embeddingTokens,
+              costUsd: estimateEmbeddingCostUsd(embeddingTokens),
+            });
+
+            relevantContext = await searchSimilarChunks(
+              queryEmbedding.data[0].embedding,
+              effectiveAgentId,
+              25,
+              retrievalQuery || userText
+            );
+
+            const keywords = userText.match(/[A-ZÁÉÍÓÚ][a-zàéíóúç]+/g) || [];
+            if (keywords.length > 0) {
+              const keywordContext = await searchKeywordChunks(keywords[0], effectiveAgentId, 3);
+              if (keywordContext) {
+                relevantContext = [keywordContext, relevantContext].filter(Boolean).join('\n\n---\n\n');
+              }
+            }
+          }
+
+          if (relevantContext) {
+            relevantContext = relevantContext.replace(/\[Trecho ID: \d+\]\n?/g, '').trim();
+          }
+        }
+
+        const mergedContext = [attachmentContext, relevantContext].filter(Boolean).join('\n\n---\n\n');
+        prompt = buildPrompt(mergedContext || '', agentInstructions, userText || 'Analise o anexo enviado.', 'chatgpt', conversationContext);
+        hasContext = Boolean(mergedContext && mergedContext.trim().length > 0);
+        contextSize = mergedContext ? mergedContext.length : 0;
+        chunksUsed = mergedContext ? mergedContext.split('\n\n---\n\n').filter(Boolean).length : 0;
       }
     } catch (error) {
       console.warn('[CHAT][SUPABASE-FALLBACK] Falha ao carregar agente:', error?.message || error);
@@ -3608,7 +3716,15 @@ async function handleSupabaseConversationMessageFallback({ res, userId, cid, con
     });
   }
 
-  const finalAssistantText = assistantText.trim() || 'Não consegui gerar uma resposta agora.';
+  const finalAssistantText = validateOutput(
+    assistantText.trim() || 'Não consegui gerar uma resposta agora.',
+    hasContext,
+    userText,
+    questionType,
+    contextSize,
+    chunksUsed,
+    relevantContext,
+  );
   await insertConversationMessageViaSupabase(cid, 'assistant', finalAssistantText);
 
   res.setHeader('Content-Type', 'text/event-stream');
@@ -4197,7 +4313,7 @@ app.post('/api/agents/upload', upload.single('file'), async (req, res) => {
     let text = await extractAttachmentText(fullPath, originalname);
     let indexingError = null;
 
-    if (agentId && text.length > 500) {
+    if (agentId && text.trim().length > 50) {
       try {
         await indexAgentAttachmentContent(agentId, originalname, text);
         console.log(`[UPLOAD] ✅ RAG NUCLEAR processado para agente ${agentId}`);
@@ -4205,6 +4321,24 @@ app.post('/api/agents/upload', upload.single('file'), async (req, res) => {
         console.error('[UPLOAD] Erro no pipeline RAG:', e.message);
         indexingError = e;
       }
+    }
+
+    if (agentId) {
+      await withDatabaseFallback(
+        'uploadAgentAttachment:updateAgent',
+        async () => {
+          const agentResult = await pool.query('SELECT attachments FROM "agents" WHERE id = $1 LIMIT 1', [agentId]);
+          const currentAttachments = Array.isArray(agentResult.rows?.[0]?.attachments) ? agentResult.rows[0].attachments : [];
+          const nextAttachments = Array.from(new Set([...currentAttachments, filePath]));
+          await pool.query('UPDATE "agents" SET attachments = $1 WHERE id = $2', [nextAttachments, agentId]);
+        },
+        async () => {
+          const agent = await getAgentViaSupabase(agentId);
+          const currentAttachments = Array.isArray(agent?.attachments) ? agent.attachments : [];
+          const nextAttachments = Array.from(new Set([...currentAttachments, filePath]));
+          await updateAgentKnowledgeViaSupabase(agentId, nextAttachments, Array.isArray(agent?.extra_links) ? agent.extra_links : []);
+        }
+      );
     }
 
     if (indexingError) {
@@ -4225,7 +4359,9 @@ app.post('/api/agents/:agentId/sync-links', async (req, res) => {
   }
 
   try {
-    const rawLinks = Array.isArray(req.body?.links) ? req.body.links : [];
+    const rawLinks = Array.isArray(req.body?.links)
+      ? req.body.links
+      : (Array.isArray(req.body?.extra_links) ? req.body.extra_links : []);
     const normalizedLinks = rawLinks
       .map((item) => {
         const url = String(item?.url || '').trim();
