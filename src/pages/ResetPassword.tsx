@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Lock, ArrowLeft, Eye, EyeOff, CheckCircle } from 'lucide-react';
+import { Lock, ArrowLeft, Eye, EyeOff, CheckCircle, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,9 @@ import { toast } from 'sonner';
 import { accountProfileSchema, resetPasswordSchema } from '@/lib/validations';
 import { loginUser, persistSupabaseSession } from '@/lib/auth';
 import { calculateAgeFromBirthDate, formatCep, formatPracticeAreas, lookupBrazilianCep, parsePracticeAreas } from '@/lib/userProfile';
+import { buildApiUrl } from '@/lib/api';
+import { showAssertiveDone } from '@/lib/brandFeedback';
+import { trackPlatformEvent } from '@/lib/platformEvents';
 
 type RecoveryType = 'recovery' | 'invite';
 
@@ -53,9 +56,12 @@ const ResetPassword: React.FC = () => {
   const [fullName, setFullName] = useState('');
   const [documento, setDocumento] = useState('');
   const [telefone, setTelefone] = useState('');
+  const [profissao, setProfissao] = useState('');
   const [practiceAreasInput, setPracticeAreasInput] = useState('');
   const [cep, setCep] = useState('');
   const [logradouro, setLogradouro] = useState('');
+  const [numero, setNumero] = useState('');
+  const [complemento, setComplemento] = useState('');
   const [bairro, setBairro] = useState('');
   const [cidade, setCidade] = useState('');
   const [estado, setEstado] = useState('');
@@ -65,7 +71,6 @@ const ResetPassword: React.FC = () => {
   const [isLookingUpCep, setIsLookingUpCep] = useState(false);
   const isProcessingRecoveryRef = useRef(false);
   const navigate = useNavigate();
-  const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || '').trim().replace(/\/$/, '');
   const idade = calculateAgeFromBirthDate(dataNascimento);
 
   useEffect(() => {
@@ -238,12 +243,12 @@ const ResetPassword: React.FC = () => {
 
   useEffect(() => {
     const loadProfile = async () => {
-      if (!hasRecoverySession || !recoveryUserId || !apiBaseUrl) {
+      if (!hasRecoverySession || !recoveryUserId) {
         return;
       }
 
       try {
-        const response = await fetch(`${apiBaseUrl}/api/account/profile`, {
+        const response = await fetch(buildApiUrl('/api/account/profile'), {
           headers: {
             'Content-Type': 'application/json',
             'x-user-id': recoveryUserId,
@@ -263,9 +268,12 @@ const ResetPassword: React.FC = () => {
         setFullName(profile.nome_completo || '');
         setDocumento(profile.documento || '');
         setTelefone(profile.telefone || '');
+        setProfissao(profile.profissao || '');
         setPracticeAreasInput(formatPracticeAreas(profile.ramos_atuacao));
         setCep(profile.cep || '');
         setLogradouro(profile.logradouro || '');
+        setNumero(profile.numero || '');
+        setComplemento(profile.complemento || '');
         setBairro(profile.bairro || '');
         setCidade(profile.cidade || '');
         setEstado(profile.estado || '');
@@ -278,7 +286,7 @@ const ResetPassword: React.FC = () => {
     };
 
     void loadProfile();
-  }, [apiBaseUrl, hasRecoverySession, recoveryUserId]);
+  }, [hasRecoverySession, recoveryUserId]);
 
   const handleCepLookup = async (targetCep: string = cep) => {
     if (targetCep.replace(/\D/g, '').length !== 8) {
@@ -328,9 +336,12 @@ const ResetPassword: React.FC = () => {
       email: String(recoveryEmail || '').trim().toLowerCase(),
       documento: documento.trim(),
       telefone: telefone.trim(),
+      profissao: profissao.trim(),
       practiceAreas: parsePracticeAreas(practiceAreasInput),
       cep: cep.trim(),
       logradouro: logradouro.trim(),
+      numero: numero.trim(),
+      complemento: complemento.trim(),
       bairro: bairro.trim(),
       cidade: cidade.trim(),
       estado: estado.trim().toUpperCase(),
@@ -366,7 +377,7 @@ const ResetPassword: React.FC = () => {
         return;
       }
 
-      const profileSaveResponse = await fetch(`${apiBaseUrl}/api/account/profile`, {
+      const profileSaveResponse = await fetch(buildApiUrl('/api/account/profile'), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -377,9 +388,12 @@ const ResetPassword: React.FC = () => {
           email: profileResult.data.email,
           documento: profileResult.data.documento,
           telefone: profileResult.data.telefone,
+          profissao: profileResult.data.profissao,
           ramos_atuacao: profileResult.data.practiceAreas,
           cep: profileResult.data.cep,
           logradouro: profileResult.data.logradouro,
+          numero: profileResult.data.numero,
+          complemento: profileResult.data.complemento,
           bairro: profileResult.data.bairro,
           cidade: profileResult.data.cidade,
           estado: profileResult.data.estado,
@@ -405,6 +419,18 @@ const ResetPassword: React.FC = () => {
         setIsError(true);
         toast.error('Erro ao redefinir a senha: ' + error.message);
       } else {
+        showAssertiveDone('Feito', 'Cadastro complementar concluído por Assertive Mind.');
+        void trackPlatformEvent({
+          userId: recoveryUserId,
+          action: 'onboarding_complete',
+          label: 'Cadastro complementar concluído',
+          channel: 'reset_password',
+          metadata: {
+            profissao: profileResult.data.profissao,
+            regiao: profileResult.data.regiao,
+            sexo: profileResult.data.sexo,
+          },
+        });
         setShowSuccessModal(true);
         toast.success('Senha redefinida com sucesso! Entrando na sua conta...');
 
@@ -535,6 +561,11 @@ const ResetPassword: React.FC = () => {
                   </div>
 
                   <div className="space-y-2">
+                    <Label htmlFor="profissao">Profissão</Label>
+                    <Input id="profissao" value={profissao} onChange={(e) => setProfissao(e.target.value)} placeholder="Ex: Advogado Previdenciarista" />
+                  </div>
+
+                  <div className="space-y-2">
                     <Label htmlFor="practiceAreas">Quais Ramos Atua?</Label>
                     <Textarea
                       id="practiceAreas"
@@ -571,6 +602,17 @@ const ResetPassword: React.FC = () => {
                     <div className="space-y-2">
                       <Label htmlFor="logradouro">Endereço</Label>
                       <Input id="logradouro" value={logradouro} onChange={(e) => setLogradouro(e.target.value)} />
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="numero">Número</Label>
+                        <Input id="numero" value={numero} onChange={(e) => setNumero(e.target.value)} />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="complemento">Complemento</Label>
+                        <Input id="complemento" value={complemento} onChange={(e) => setComplemento(e.target.value)} />
+                      </div>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

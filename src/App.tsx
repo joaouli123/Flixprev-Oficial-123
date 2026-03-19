@@ -19,7 +19,6 @@ const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
 const UserManagement = lazy(() => import("./pages/UserManagement"));
 const TutorialManagement = lazy(() => import("./pages/TutorialManagement"));
 const HowToUse = lazy(() => import("./pages/HowToUse"));
-const ProfilePage = lazy(() => import("./pages/ProfilePage"));
 const ChatPage = lazy(() => import("./pages/ChatPage"));
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 const TermsOfService = lazy(() => import("./pages/TermsOfService"));
@@ -75,7 +74,7 @@ const App = () => (
               }>
                 <Route index element={<AgentsView />} />
                 <Route path="settings" element={<Settings />} />
-                <Route path="profile" element={<ProfilePage />} />
+                <Route path="profile" element={<Settings />} />
                 <Route path="admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
                 <Route path="users" element={<AdminRoute><UserManagement /></AdminRoute>} />
                 <Route path="finance" element={<AdminRoute><Financeiro /></AdminRoute>} />
@@ -90,7 +89,7 @@ const App = () => (
                 <Route path="agente/:agentSlug/:conversationId?" element={<ChatPage />} />
                 <Route path="categorias/:categorySlug" element={<AgentsView />} />
                 <Route path="configuracoes" element={<Settings />} />
-                <Route path="perfil" element={<ProfilePage />} />
+                <Route path="perfil" element={<Settings />} />
                 <Route path="administracao" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
                 <Route path="usuarios" element={<AdminRoute><UserManagement /></AdminRoute>} />
                 <Route path="financeiro" element={<AdminRoute><Financeiro /></AdminRoute>} />

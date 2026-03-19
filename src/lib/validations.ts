@@ -53,10 +53,17 @@ export const practiceAreasSchema = z
   .array(z.string().min(2, 'Informe um ramo válido').max(80, 'Ramo muito longo'))
   .min(1, 'Informe pelo menos um ramo de atuação');
 
+export const professionSchema = z
+  .string()
+  .min(2, 'Profissão é obrigatória')
+  .max(80, 'Profissão muito longa')
+  .trim();
+
 export const userProfileDetailsSchema = z.object({
   fullName: fullNameSchema,
   documento: documentSchema,
   telefone: whatsappSchema,
+  profissao: professionSchema,
   practiceAreas: practiceAreasSchema,
   cep: cepSchema,
   logradouro: z.string().min(2, 'Endereço é obrigatório').max(120, 'Endereço muito longo').trim(),

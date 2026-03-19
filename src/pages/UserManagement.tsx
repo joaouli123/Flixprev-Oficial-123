@@ -141,6 +141,7 @@ const UserManagement: React.FC = () => {
           password: payload.password,
           documento: payload.documento,
           telefone: payload.telefone,
+          profissao: payload.profissao,
           practice_areas: payload.practiceAreas,
           cep: payload.cep,
           logradouro: payload.logradouro,
@@ -224,6 +225,7 @@ const UserManagement: React.FC = () => {
           password: payload.password,
           documento: payload.documento,
           telefone: payload.telefone,
+          profissao: payload.profissao,
           practice_areas: payload.practiceAreas,
           cep: payload.cep,
           logradouro: payload.logradouro,
@@ -298,6 +300,7 @@ const UserManagement: React.FC = () => {
       const cidade = (user.cidade || "").toLowerCase();
       const estado = (user.estado || "").toLowerCase();
       const regiao = (user.regiao || "").toLowerCase();
+      const profissao = (user.profissao || "").toLowerCase();
       const origem = (user.origem_cadastro || "").toLowerCase();
       const ramos = formatPracticeAreas(user.ramos_atuacao).toLowerCase();
       const status = (user.status_da_assinatura || "").toLowerCase();
@@ -310,6 +313,7 @@ const UserManagement: React.FC = () => {
         email.includes(query) ||
         documento.includes(query) ||
         telefone.includes(query) ||
+        profissao.includes(query) ||
         cidade.includes(query) ||
         estado.includes(query) ||
         regiao.includes(query) ||
@@ -332,7 +336,7 @@ const UserManagement: React.FC = () => {
   }, [users]);
 
   const exportToCsv = () => {
-    const headers = ["nome", "email", "cpf", "whatsapp", "ramos_atuacao", "cep", "endereco", "bairro", "cidade", "estado", "regiao", "sexo", "idade", "data_nascimento", "origem", "status", "plano", "expira_em", "cadastro"];
+    const headers = ["nome", "email", "cpf", "whatsapp", "profissao", "ramos_atuacao", "cep", "endereco", "bairro", "cidade", "estado", "regiao", "sexo", "idade", "data_nascimento", "origem", "status", "plano", "expira_em", "cadastro"];
     const escapeCsvCell = (value: unknown) => `"${String(value ?? "").replace(/"/g, '""')}"`;
 
     const lines = users.map((user) => {
@@ -343,6 +347,7 @@ const UserManagement: React.FC = () => {
         user.email || "",
         user.documento || "",
         user.telefone || "",
+        user.profissao || "",
         formatPracticeAreas(user.ramos_atuacao),
         user.cep || "",
         user.logradouro || "",
@@ -528,6 +533,7 @@ const UserManagement: React.FC = () => {
                     </TableCell>
                     <TableCell>
                       <div className="text-sm text-slate-900">Sexo: {user.sexo || "-"}</div>
+                      <div className="text-sm text-slate-500">Profissão: {user.profissao || "-"}</div>
                       <div className="text-sm text-slate-500">Idade: {user.idade ?? "-"}</div>
                       <div className="text-xs text-slate-400">Nascimento: {nascimento}</div>
                     </TableCell>

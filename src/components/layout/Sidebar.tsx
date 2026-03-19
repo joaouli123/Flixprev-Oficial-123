@@ -51,7 +51,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   const location = useLocation();
 
   const handleSettings = () => {
-    navigate("/app/settings");
+    navigate("/app/perfil");
   };
 
   const handleLogout = async () => {
@@ -363,9 +363,8 @@ const Sidebar: React.FC<SidebarProps> = ({
                 <h2 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider px-3 mb-1">Administração</h2>
               )}
               <div className="flex flex-col gap-1 w-full">
-                {renderButton(PlusCircle, "Nova Categoria", onAddCategory, false, false, false, "text-slate-500")}
                 {renderButton(Sparkles, "Novo Agente", onAddAgent, false, false, false, "text-slate-500")}
-                {renderButton(Shield, "Painel Admin", () => navigate("/app/admin"), isCurrentPath("/app/admin"), false, false, "text-slate-500")}
+                {renderButton(Shield, "Dashboard", () => navigate("/app/admin"), isCurrentPath("/app/admin"), false, false, "text-slate-500")}
                 {renderButton(Users, "Usuários", () => navigate("/app/users"), isCurrentPath("/app/users"), false, false, "text-slate-500")}
                 {renderButton(Video, "Tutoriais", () => navigate("/app/tutorials"), isCurrentPath("/app/tutorials"), false, false, "text-slate-500")}
                 {renderButton(Wallet, "Financeiro", () => navigate("/app/financeiro"), isCurrentPath("/app/financeiro"), false, false, "text-slate-500")}
@@ -383,7 +382,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               {renderButton(CreditCard, "Assinatura", () => navigate("/app/assinatura"), isCurrentPath("/app/assinatura") || isCurrentPath("/app/subscription"), false, false, "text-slate-500")}
               {renderButton(HandCoins, "Indicações", () => navigate("/app/indicacoes"), isCurrentPath("/app/indicacoes"), false, false, "text-slate-500")}
               {!isAdmin && renderButton(BookOpen, "Como Usar", onHowToUse, isCurrentPath("/app/how-to-use"), false, false, "text-slate-500")}
-              {renderButton(Settings, "Configurações", handleSettings, isCurrentPath("/app/settings"), false, false, "text-slate-500")}
+              {renderButton(Settings, "Perfil", handleSettings, isCurrentPath("/app/perfil") || isCurrentPath("/app/profile") || isCurrentPath("/app/settings") || isCurrentPath("/app/configuracoes"), false, false, "text-slate-500")}
               {renderButton(LogOut, "Sair", handleLogout, false, true, false, "text-red-500")}
             </div>
           </div>

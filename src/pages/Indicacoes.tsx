@@ -3,9 +3,10 @@ import { useNavigate } from "react-router-dom";
 import { useSession } from "@/components/SessionContextProvider";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Copy, Link as LinkIcon, Users, Wallet } from "lucide-react";
+import { Link as LinkIcon, Users, Wallet } from "lucide-react";
+import { buildApiUrl } from "@/lib/api";
+import { ShareActions } from "@/components/share/ShareActions";
 
 type ReferralHistory = {
   id: string;
@@ -47,7 +48,6 @@ const getStatusBadgeClassName = (status?: string) => {
 const Indicacoes: React.FC = () => {
   const { session, user } = useSession();
   const navigate = useNavigate();
-  const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || "").trim().replace(/\/$/, "");
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<ReferralResponse | null>(null);
   const [loadError, setLoadError] = useState<string>("");
@@ -68,7 +68,7 @@ const Indicacoes: React.FC = () => {
       setLoading(true);
       setLoadError("");
       try {
-        const response = await fetch(`${apiBaseUrl}/api/referrals/me`, {
+        const response = await fetch(buildApiUrl('/api/referrals/me'), {
           headers: {
             "Content-Type": "application/json",
             "x-user-id": user.id,
@@ -93,7 +93,7 @@ const Indicacoes: React.FC = () => {
     };
 
     load();
-  }, [user?.id, apiBaseUrl]);
+  }, [user?.id]);
 
   const summary = useMemo(() => {
     return (
@@ -104,12 +104,6 @@ const Indicacoes: React.FC = () => {
       }
     );
   }, [data]);
-
-  const copyReferralUrl = async () => {
-    if (!data?.referral_url) return;
-    await navigator.clipboard.writeText(data.referral_url);
-    toast.success("Link de indicação copiado!");
-  };
 
   if (loading) {
     return (
@@ -143,11 +137,16 @@ const Indicacoes: React.FC = () => {
             <div className="flex-1 h-11 rounded-lg border border-slate-200 bg-slate-50 px-3 flex items-center text-sm text-slate-700 overflow-hidden text-ellipsis whitespace-nowrap">
               {data?.referral_url || (loadError ? "Falha ao carregar o link" : "Sem link disponível")}
             </div>
-            <Button onClick={copyReferralUrl} className="bg-indigo-600 hover:bg-indigo-700 text-white" disabled={!data?.referral_url}>
-              <Copy className="h-4 w-4 mr-2" />
-              Copiar link
-            </Button>
           </div>
+          {data?.referral_url ? (
+            <ShareActions
+              userId={user?.id}
+              shareUrl={data.referral_url}
+              shareTitle="Link de indicação FlixPrev"
+              shareText="Use meu link da FlixPrev para entrar e conhecer a plataforma."
+              eventBaseName="referral"
+            />
+          ) : null}
         </CardContent>
       </Card>
 

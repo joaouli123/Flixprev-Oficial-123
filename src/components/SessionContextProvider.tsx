@@ -4,6 +4,7 @@ import { Profile } from '@/types/app';
 import { SubscriptionExpiredDialog } from './SubscriptionExpiredDialog';
 import { logger } from '@/utils/logger';
 import { getSession, logout } from '@/lib/auth';
+import { buildApiUrl } from '@/lib/api';
 
 const hasActiveSubscriptionAccess = (status: string | null | undefined) => {
   const normalized = String(status || '').trim().toLowerCase();
@@ -44,9 +45,12 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
     email: sessionUser.email || null,
     documento: null,
     telefone: null,
+    profissao: null,
     ramos_atuacao: null,
     cep: null,
     logradouro: null,
+    numero: null,
+    complemento: null,
     bairro: null,
     cidade: null,
     estado: null,
@@ -64,14 +68,8 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
       return;
     }
 
-    const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || '').trim().replace(/\/$/, '');
-
-    if (!apiBaseUrl) {
-      return;
-    }
-
     try {
-      const response = await fetch(`${apiBaseUrl}/api/account/profile`, {
+      const response = await fetch(buildApiUrl('/api/account/profile'), {
         headers: {
           'Content-Type': 'application/json',
           'x-user-id': sessionUser.id,
@@ -178,9 +176,7 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
       localStorage.setItem('referral_code', referralCode);
     }
 
-    const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || '').trim().replace(/\/$/, '');
-
-    void fetch(`${apiBaseUrl}/api/referrals/claim`, {
+    void fetch(buildApiUrl('/api/referrals/claim'), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

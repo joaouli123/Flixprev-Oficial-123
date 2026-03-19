@@ -21,6 +21,113 @@ const isProduction = process.env.NODE_ENV === 'production';
 const allowDevAdminLogin = !isProduction && String(process.env.ALLOW_DEV_ADMIN_LOGIN || '').trim().toLowerCase() === 'true';
 const app = express();
 
+const runtimeMonitor = {
+  startedAt: Date.now(),
+  activeRequests: 0,
+  totalRequests: 0,
+  totalApiRequests: 0,
+  lastRequestAt: null,
+  lastErrorAt: null,
+  lastFallbackAt: null,
+  recentEvents: [],
+  routeStats: new Map(),
+};
+
+const RUNTIME_MONITOR_MAX_EVENTS = 200;
+const RUNTIME_MONITOR_SLOW_REQUEST_MS = 4000;
+
+function pushRuntimeEvent(type, details = {}) {
+  const event = {
+    id: crypto.randomUUID(),
+    type,
+    timestamp: new Date().toISOString(),
+    ...details,
+  };
+
+  runtimeMonitor.recentEvents.unshift(event);
+  if (runtimeMonitor.recentEvents.length > RUNTIME_MONITOR_MAX_EVENTS) {
+    runtimeMonitor.recentEvents.length = RUNTIME_MONITOR_MAX_EVENTS;
+  }
+
+  if (type === 'api_error' || type === 'process_error') {
+    runtimeMonitor.lastErrorAt = event.timestamp;
+  }
+
+  if (type === 'db_fallback') {
+    runtimeMonitor.lastFallbackAt = event.timestamp;
+  }
+
+  return event;
+}
+
+function getRecentRuntimeEvents(type, windowMs) {
+  const threshold = Date.now() - Math.max(0, Number(windowMs || 0));
+  return runtimeMonitor.recentEvents.filter((event) => {
+    if (type && event.type !== type) {
+      return false;
+    }
+
+    const eventTime = new Date(event.timestamp).getTime();
+    return Number.isFinite(eventTime) && eventTime >= threshold;
+  });
+}
+
+function getRuntimeStatusSnapshot() {
+  const errorEvents5m = getRecentRuntimeEvents('api_error', 5 * 60 * 1000);
+  const fallbackEvents15m = getRecentRuntimeEvents('db_fallback', 15 * 60 * 1000);
+  const slowEvents15m = getRecentRuntimeEvents('slow_request', 15 * 60 * 1000);
+  const processErrors15m = getRecentRuntimeEvents('process_error', 15 * 60 * 1000);
+  const requestEvents5m = getRecentRuntimeEvents('api_request', 5 * 60 * 1000);
+
+  let status = 'healthy';
+  if (runtimeMonitor.activeRequests >= 25 || errorEvents5m.length >= 5 || processErrors15m.length > 0) {
+    status = 'critical';
+  } else if (runtimeMonitor.activeRequests >= 10 || errorEvents5m.length > 0 || fallbackEvents15m.length > 0 || slowEvents15m.length > 0) {
+    status = 'degraded';
+  }
+
+  const routeStats = [...runtimeMonitor.routeStats.entries()]
+    .map(([route, stats]) => ({ route, ...stats }))
+    .sort((left, right) => {
+      const errorDiff = Number(right.errors || 0) - Number(left.errors || 0);
+      if (errorDiff !== 0) return errorDiff;
+      return Number(right.count || 0) - Number(left.count || 0);
+    })
+    .slice(0, 20);
+
+  return {
+    status,
+    uptime_seconds: Math.floor((Date.now() - runtimeMonitor.startedAt) / 1000),
+    active_requests: runtimeMonitor.activeRequests,
+    total_requests: runtimeMonitor.totalRequests,
+    total_api_requests: runtimeMonitor.totalApiRequests,
+    last_request_at: runtimeMonitor.lastRequestAt,
+    last_error_at: runtimeMonitor.lastErrorAt,
+    last_fallback_at: runtimeMonitor.lastFallbackAt,
+    requests_last_5m: requestEvents5m.length,
+    errors_last_5m: errorEvents5m.length,
+    process_errors_last_15m: processErrors15m.length,
+    fallbacks_last_15m: fallbackEvents15m.length,
+    slow_requests_last_15m: slowEvents15m.length,
+    routes: routeStats,
+    recent_events: runtimeMonitor.recentEvents.slice(0, 30),
+  };
+}
+
+process.on('uncaughtException', (error) => {
+  pushRuntimeEvent('process_error', {
+    scope: 'uncaughtException',
+    message: String(error?.message || error || 'Erro não tratado').trim(),
+  });
+});
+
+process.on('unhandledRejection', (reason) => {
+  pushRuntimeEvent('process_error', {
+    scope: 'unhandledRejection',
+    message: String(reason?.message || reason || 'Promise rejeitada sem tratamento').trim(),
+  });
+});
+
 // CORS — permite frontend acessar API de outro domínio
 app.use((req, res, next) => {
   const allowedOrigins = (process.env.VITE_ALLOWED_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean);
@@ -240,6 +347,207 @@ function logAiUsageSafe(params = {}) {
   });
 }
 
+function createEmptyAiUsageResponse(rangeDays) {
+  return {
+    range_days: rangeDays,
+    summary: {
+      tokens_today: 0,
+      cost_today: 0,
+      requests: 0,
+      errors: 0,
+      error_rate: 0,
+      tokens_month: 0,
+      cost_month: 0,
+      total_tokens_range: 0,
+      total_cost_range: 0,
+    },
+    by_user: [],
+    requests: [],
+  };
+}
+
+async function fetchSupabaseRowsByIds(tableName, columnName, selectClause, ids = []) {
+  if (!supabaseAdminClient || !Array.isArray(ids) || ids.length === 0) {
+    return [];
+  }
+
+  const rows = [];
+  const chunkSize = 100;
+
+  for (let index = 0; index < ids.length; index += chunkSize) {
+    const chunk = ids.slice(index, index + chunkSize);
+    const response = await supabaseAdminClient
+      .from(tableName)
+      .select(selectClause)
+      .in(columnName, chunk);
+
+    if (response.error) {
+      console.warn(`[AI USAGE] Falha ao carregar ${tableName} via Supabase:`, response.error.message || response.error);
+      return rows;
+    }
+
+    rows.push(...(response.data || []));
+  }
+
+  return rows;
+}
+
+async function getAiUsageViaSupabase(rangeDays) {
+  if (!supabaseAdminClient) {
+    return createEmptyAiUsageResponse(rangeDays);
+  }
+
+  const now = new Date();
+  const todayStart = new Date(now);
+  todayStart.setUTCHours(0, 0, 0, 0);
+
+  const monthStart = new Date(now);
+  monthStart.setUTCDate(1);
+  monthStart.setUTCHours(0, 0, 0, 0);
+
+  const rangeStart = new Date(now.getTime() - (rangeDays * 24 * 60 * 60 * 1000));
+  const fetchStart = new Date(Math.min(rangeStart.getTime(), monthStart.getTime()));
+
+  const rows = [];
+  const pageSize = 1000;
+
+  for (let offset = 0; ; offset += pageSize) {
+    const response = await supabaseAdminClient
+      .from('ai_request_logs')
+      .select('id, user_id, request_type, total_tokens, cost_usd, status, created_at')
+      .gte('created_at', fetchStart.toISOString())
+      .order('created_at', { ascending: false })
+      .range(offset, offset + pageSize - 1);
+
+    if (response.error) {
+      if (isMissingRelationFromSchemaCacheError(response.error, 'ai_request_logs')) {
+        return createEmptyAiUsageResponse(rangeDays);
+      }
+
+      throw createSupabaseFallbackError(response.error, 'Erro ao carregar consumo de IA via Supabase');
+    }
+
+    const batch = response.data || [];
+    rows.push(...batch);
+
+    if (batch.length < pageSize) {
+      break;
+    }
+  }
+
+  const rangeStartTime = rangeStart.getTime();
+  const todayStartTime = todayStart.getTime();
+  const monthStartTime = monthStart.getTime();
+
+  const rangeRows = [];
+  let tokensToday = 0;
+  let costToday = 0;
+  let tokensMonth = 0;
+  let costMonth = 0;
+
+  for (const row of rows) {
+    const createdAtTime = new Date(row.created_at).getTime();
+    const totalTokens = Math.max(0, Number(row.total_tokens || 0));
+    const costUsd = Number(row.cost_usd || 0);
+
+    if (createdAtTime >= monthStartTime) {
+      tokensMonth += totalTokens;
+      costMonth += costUsd;
+    }
+
+    if (createdAtTime >= todayStartTime) {
+      tokensToday += totalTokens;
+      costToday += costUsd;
+    }
+
+    if (createdAtTime >= rangeStartTime) {
+      rangeRows.push(row);
+    }
+  }
+
+  const userIds = [...new Set(rangeRows.map((row) => String(row.user_id || '').trim()).filter(Boolean))];
+  const [profileRows, usuarioRows] = await Promise.all([
+    fetchSupabaseRowsByIds('profiles', 'id', 'id, first_name, last_name', userIds),
+    fetchSupabaseRowsByIds('usuarios', 'user_id', 'user_id, nome_completo, email', userIds),
+  ]);
+
+  const profilesById = new Map(profileRows.map((row) => [String(row.id || '').trim(), row]));
+  const usuariosById = new Map(usuarioRows.map((row) => [String(row.user_id || '').trim(), row]));
+
+  const byUserMap = new Map();
+  const requestRows = [];
+
+  for (const row of rangeRows) {
+    const userId = String(row.user_id || '').trim();
+    const profile = profilesById.get(userId) || {};
+    const usuario = usuariosById.get(userId) || {};
+    const profileName = [profile.first_name, profile.last_name]
+      .map((part) => String(part || '').trim())
+      .filter(Boolean)
+      .join(' ');
+
+    const requestUserName = profileName || String(usuario.email || '').trim() || userId || 'Sem identificação';
+    const summaryUserName = profileName || String(usuario.nome_completo || '').trim() || String(usuario.email || '').trim() || userId || 'Sem identificação';
+    const safeUserId = userId || 'desconhecido';
+    const totalTokens = Math.max(0, Number(row.total_tokens || 0));
+    const costUsd = Number(row.cost_usd || 0);
+    const createdAt = row.created_at || null;
+
+    requestRows.push({
+      id: Number(row.id || 0),
+      created_at: createdAt,
+      usuario: requestUserName,
+      tipo: String(row.request_type || 'chat_completion').trim() || 'chat_completion',
+      tokens: totalTokens,
+      cost_usd: costUsd,
+      status: String(row.status || 'success').trim() || 'success',
+    });
+
+    const current = byUserMap.get(safeUserId) || {
+      user_id: safeUserId,
+      nome: summaryUserName,
+      email: String(usuario.email || '').trim() || '—',
+      requests: 0,
+      total_tokens: 0,
+      total_cost_usd: 0,
+      ultima_atividade: createdAt,
+    };
+
+    current.requests += 1;
+    current.total_tokens += totalTokens;
+    current.total_cost_usd = Number((current.total_cost_usd + costUsd).toFixed(6));
+    if (!current.ultima_atividade || (createdAt && new Date(createdAt).getTime() > new Date(current.ultima_atividade).getTime())) {
+      current.ultima_atividade = createdAt;
+    }
+    byUserMap.set(safeUserId, current);
+  }
+
+  const requests = rangeRows.length;
+  const errors = rangeRows.filter((row) => String(row.status || '').trim().toLowerCase() === 'error').length;
+  const errorRate = requests > 0 ? Number(((errors / requests) * 100).toFixed(2)) : 0;
+  const totalTokensRange = rangeRows.reduce((sum, row) => sum + Math.max(0, Number(row.total_tokens || 0)), 0);
+  const totalCostRange = Number(rangeRows.reduce((sum, row) => sum + Number(row.cost_usd || 0), 0).toFixed(6));
+
+  return {
+    range_days: rangeDays,
+    summary: {
+      tokens_today: tokensToday,
+      cost_today: Number(costToday.toFixed(6)),
+      requests,
+      errors,
+      error_rate: errorRate,
+      tokens_month: tokensMonth,
+      cost_month: Number(costMonth.toFixed(6)),
+      total_tokens_range: totalTokensRange,
+      total_cost_range: totalCostRange,
+    },
+    by_user: [...byUserMap.values()]
+      .sort((left, right) => Number(right.total_tokens || 0) - Number(left.total_tokens || 0))
+      .slice(0, 200),
+    requests: requestRows.slice(0, 200),
+  };
+}
+
 const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -341,6 +649,28 @@ function isPostgresUnavailableError(error) {
   ].some((token) => message.includes(token));
 }
 
+const dbFallbackLogTimestamps = new Map();
+const DB_FALLBACK_LOG_WINDOW_MS = 5 * 60 * 1000;
+
+function logDatabaseFallback(label, error) {
+  const message = String(error?.message || error || 'Falha desconhecida').trim();
+  const key = `${label}::${message}`;
+  const now = Date.now();
+  const lastLoggedAt = Number(dbFallbackLogTimestamps.get(key) || 0);
+
+  pushRuntimeEvent('db_fallback', {
+    label,
+    message,
+  });
+
+  if ((now - lastLoggedAt) < DB_FALLBACK_LOG_WINDOW_MS) {
+    return;
+  }
+
+  dbFallbackLogTimestamps.set(key, now);
+  console.warn(`[DB-FALLBACK] ${label}: usando Supabase REST devido a falha no Postgres`, message);
+}
+
 function createSupabaseFallbackError(error, message) {
   const fallbackError = new Error(message || error?.message || 'Falha ao consultar o Supabase');
   fallbackError.cause = error;
@@ -351,6 +681,22 @@ function extractMissingColumnFromSchemaCacheError(error) {
   const message = String(error?.message || '');
   const match = message.match(/Could not find the '([^']+)' column/i);
   return match?.[1] || null;
+}
+
+function extractMissingColumnFromDatabaseError(error) {
+  const schemaCacheColumn = extractMissingColumnFromSchemaCacheError(error);
+  if (schemaCacheColumn) {
+    return schemaCacheColumn;
+  }
+
+  const message = String(error?.message || '');
+  const qualifiedMatch = message.match(/column\s+[\w.]+\.([a-zA-Z_][\w]*)\s+does not exist/i);
+  if (qualifiedMatch?.[1]) {
+    return qualifiedMatch[1];
+  }
+
+  const simpleMatch = message.match(/column\s+([a-zA-Z_][\w]*)\s+does not exist/i);
+  return simpleMatch?.[1] || null;
 }
 
 function isMissingRelationFromSchemaCacheError(error, relationName) {
@@ -388,7 +734,7 @@ async function withDatabaseFallback(label, operation, fallback) {
       throw error;
     }
 
-    console.warn(`[DB-FALLBACK] ${label}: usando Supabase REST devido a falha no Postgres`, error?.message || error);
+    logDatabaseFallback(label, error);
     return fallback(error);
   }
 }
@@ -1537,26 +1883,7 @@ function splitAccountFullName(value) {
   };
 }
 
-async function ensureAccountProfileSchema() {
-  await pool.query(`
-    ALTER TABLE IF EXISTS public.usuarios
-      ADD COLUMN IF NOT EXISTS nome_completo text,
-      ADD COLUMN IF NOT EXISTS documento text,
-      ADD COLUMN IF NOT EXISTS telefone text,
-      ADD COLUMN IF NOT EXISTS ramos_atuacao text[] DEFAULT '{}'::text[],
-      ADD COLUMN IF NOT EXISTS cep text,
-      ADD COLUMN IF NOT EXISTS logradouro text,
-      ADD COLUMN IF NOT EXISTS bairro text,
-      ADD COLUMN IF NOT EXISTS cidade text,
-      ADD COLUMN IF NOT EXISTS estado text,
-      ADD COLUMN IF NOT EXISTS regiao text,
-      ADD COLUMN IF NOT EXISTS sexo text,
-      ADD COLUMN IF NOT EXISTS idade integer,
-      ADD COLUMN IF NOT EXISTS data_nascimento date,
-      ADD COLUMN IF NOT EXISTS origem_cadastro text,
-      ADD COLUMN IF NOT EXISTS cadastro_finalizado_em timestamptz;
-  `);
-}
+const ACCOUNT_PROFESSION_MARKER = '__profissao__:';
 
 function normalizeAccountTextArray(value) {
   if (Array.isArray(value)) {
@@ -1567,6 +1894,43 @@ function normalizeAccountTextArray(value) {
     .split(/[\n,;|]+/)
     .map((item) => item.trim())
     .filter(Boolean);
+}
+
+function normalizeAccountProfession(value) {
+  const normalized = String(value || '').trim();
+  return normalized || null;
+}
+
+function extractAccountStoredFields(value) {
+  const items = normalizeAccountTextArray(value);
+  const practiceAreas = [];
+  let profissao = null;
+
+  for (const item of items) {
+    if (item.toLowerCase().startsWith(ACCOUNT_PROFESSION_MARKER)) {
+      profissao = normalizeAccountProfession(item.slice(ACCOUNT_PROFESSION_MARKER.length));
+      continue;
+    }
+
+    practiceAreas.push(item);
+  }
+
+  return {
+    profissao,
+    practiceAreas: [...new Set(practiceAreas)],
+  };
+}
+
+function buildAccountStoredPracticeAreas(practiceAreas, profissao) {
+  const normalizedPracticeAreas = normalizeAccountTextArray(practiceAreas)
+    .filter((item) => !item.toLowerCase().startsWith(ACCOUNT_PROFESSION_MARKER));
+  const normalizedProfession = normalizeAccountProfession(profissao);
+
+  if (normalizedProfession) {
+    normalizedPracticeAreas.push(`${ACCOUNT_PROFESSION_MARKER}${normalizedProfession}`);
+  }
+
+  return [...new Set(normalizedPracticeAreas)];
 }
 
 function normalizeAccountDate(value) {
@@ -1637,40 +2001,20 @@ function calculateAccountAgeFromBirthDate(value) {
   return age >= 0 ? age : null;
 }
 
-async function readAccountProfileViaSupabase(userId) {
-  const [profileResponse, userResponse] = await Promise.all([
-    supabaseAdminClient
-      .from('profiles')
-      .select('id, first_name, last_name, avatar_url, role, updated_at')
-      .eq('id', userId)
-      .maybeSingle(),
-    supabaseAdminClient
-      .from('usuarios')
-      .select('user_id, nome_completo, email, documento, telefone, ramos_atuacao, cep, logradouro, bairro, cidade, estado, regiao, sexo, idade, data_nascimento, origem_cadastro, cadastro_finalizado_em, status_da_assinatura, updated_at, created_at')
-      .eq('user_id', userId)
-      .order('updated_at', { ascending: false, nullsFirst: false })
-      .order('created_at', { ascending: false, nullsFirst: false })
-      .limit(1)
-      .maybeSingle()
-  ]);
+const ACCOUNT_USUARIOS_SELECT = 'user_id, nome_completo, email, documento, telefone, ramos_atuacao, cep, logradouro, numero, complemento, bairro, cidade, estado, regiao, sexo, idade, data_nascimento, origem_cadastro, cadastro_finalizado_em, status_da_assinatura, updated_at, created_at';
 
-  if (profileResponse.error) {
-    throw createSupabaseFallbackError(profileResponse.error, 'Erro ao carregar perfil em profiles');
-  }
-
-  if (userResponse.error) {
-    throw createSupabaseFallbackError(userResponse.error, 'Erro ao carregar perfil em usuarios');
-  }
-
-  const profileRow = profileResponse.data || {};
-  const userRow = userResponse.data || {};
-  const fullName = String(userRow.nome_completo || '').trim();
+function buildAccountProfileResponse(userId, profileRow = {}, userRow = {}) {
+  const parsedAddress = parseManagedAddressSafe(userRow.logradouro || null);
+  const accountStoredFields = extractAccountStoredFields(userRow.ramos_atuacao);
+  const explicitFirstName = String(profileRow.first_name || '').trim();
+  const explicitLastName = String(profileRow.last_name || '').trim();
+  const fullName = String(userRow.nome_completo || [explicitFirstName, explicitLastName].filter(Boolean).join(' ') || '').trim();
   const splitName = splitAccountFullName(fullName);
 
   return {
     id: String(profileRow.id || userId),
-    first_name: profileRow.first_name || splitName.firstName,
-    last_name: profileRow.last_name || splitName.lastName,
+    first_name: explicitFirstName || splitName.firstName,
+    last_name: explicitLastName || splitName.lastName,
     avatar_url: profileRow.avatar_url || null,
     role: String(profileRow.role || 'user').trim().toLowerCase() === 'admin' ? 'admin' : 'user',
     updated_at: profileRow.updated_at || userRow.updated_at || null,
@@ -1678,9 +2022,12 @@ async function readAccountProfileViaSupabase(userId) {
     email: String(userRow.email || '').trim() || null,
     documento: String(userRow.documento || '').trim() || null,
     telefone: String(userRow.telefone || '').trim() || null,
-    ramos_atuacao: Array.isArray(userRow.ramos_atuacao) ? userRow.ramos_atuacao : [],
+    profissao: accountStoredFields.profissao,
+    ramos_atuacao: accountStoredFields.practiceAreas,
     cep: String(userRow.cep || '').trim() || null,
-    logradouro: String(userRow.logradouro || '').trim() || null,
+    logradouro: parsedAddress.logradouro || String(userRow.logradouro || '').trim() || null,
+    numero: String(userRow.numero || '').trim() || parsedAddress.numero,
+    complemento: String(userRow.complemento || '').trim() || parsedAddress.complemento,
     bairro: String(userRow.bairro || '').trim() || null,
     cidade: String(userRow.cidade || '').trim() || null,
     estado: String(userRow.estado || '').trim() || null,
@@ -1694,14 +2041,49 @@ async function readAccountProfileViaSupabase(userId) {
   };
 }
 
+async function readAccountProfileViaSupabase(userId) {
+  const [profileResponse, initialUserResponse] = await Promise.all([
+    supabaseAdminClient
+      .from('profiles')
+      .select('id, first_name, last_name, avatar_url, role, updated_at')
+      .eq('id', userId)
+      .maybeSingle(),
+    supabaseAdminClient
+      .from('usuarios')
+      .select(ACCOUNT_USUARIOS_SELECT)
+      .eq('user_id', userId)
+      .order('updated_at', { ascending: false, nullsFirst: false })
+      .order('created_at', { ascending: false, nullsFirst: false })
+      .limit(1)
+  ]);
+
+  let userResponse = initialUserResponse;
+
+  if (profileResponse.error) {
+    throw createSupabaseFallbackError(profileResponse.error, 'Erro ao carregar perfil em profiles');
+  }
+
+  if (userResponse.error) {
+    throw createSupabaseFallbackError(userResponse.error, 'Erro ao carregar perfil em usuarios');
+  }
+
+  const profileRow = profileResponse.data || {};
+  const userRow = Array.isArray(userResponse.data) ? (userResponse.data[0] || {}) : {};
+
+  return buildAccountProfileResponse(userId, profileRow, userRow);
+}
+
 async function saveAccountProfileViaSupabase(userId, payload = {}) {
   const normalizedFullName = String(payload.full_name || payload.nome_completo || '').trim();
   const normalizedEmail = String(payload.email || '').trim().toLowerCase();
   const normalizedDocumento = String(payload.documento || '').trim();
   const normalizedTelefone = String(payload.telefone || '').trim();
   const normalizedPracticeAreas = normalizeAccountTextArray(payload.practice_areas || payload.ramos_atuacao);
+  const normalizedProfession = normalizeAccountProfession(payload.profissao || payload.profession);
   const normalizedCep = String(payload.cep || '').trim();
   const normalizedLogradouro = String(payload.logradouro || '').trim();
+  const normalizedNumero = String(payload.numero || '').trim();
+  const normalizedComplemento = String(payload.complemento || '').trim();
   const normalizedBairro = String(payload.bairro || '').trim();
   const normalizedCidade = String(payload.cidade || '').trim();
   const normalizedEstado = String(payload.estado || '').trim().toUpperCase();
@@ -1714,31 +2096,32 @@ async function saveAccountProfileViaSupabase(userId, payload = {}) {
   const cadastroFinalizadoEm = payload.cadastro_finalizado_em ? String(payload.cadastro_finalizado_em).trim() : nowIso;
   const { firstName, lastName } = splitAccountFullName(normalizedFullName);
 
+  const usuarioPayload = {
+    user_id: userId,
+    nome_completo: normalizedFullName || null,
+    email: normalizedEmail || null,
+    documento: normalizedDocumento || null,
+    telefone: normalizedTelefone || null,
+    ramos_atuacao: buildAccountStoredPracticeAreas(normalizedPracticeAreas, normalizedProfession),
+    cep: normalizedCep || null,
+    logradouro: normalizedLogradouro || null,
+    numero: normalizedNumero || null,
+    complemento: normalizedComplemento || null,
+    bairro: normalizedBairro || null,
+    cidade: normalizedCidade || null,
+    estado: normalizedEstado || null,
+    regiao: normalizedRegiao || null,
+    sexo: normalizedSexo || null,
+    idade: normalizedAge,
+    data_nascimento: normalizedBirthDate,
+    origem_cadastro: normalizedOrigin || undefined,
+    cadastro_finalizado_em: cadastroFinalizadoEm,
+    updated_at: nowIso,
+  };
+
   const usuarioResponse = await supabaseAdminClient
     .from('usuarios')
-    .upsert(
-      [{
-        user_id: userId,
-        nome_completo: normalizedFullName || null,
-        email: normalizedEmail || null,
-        documento: normalizedDocumento || null,
-        telefone: normalizedTelefone || null,
-        ramos_atuacao: normalizedPracticeAreas,
-        cep: normalizedCep || null,
-        logradouro: normalizedLogradouro || null,
-        bairro: normalizedBairro || null,
-        cidade: normalizedCidade || null,
-        estado: normalizedEstado || null,
-        regiao: normalizedRegiao || null,
-        sexo: normalizedSexo || null,
-        idade: normalizedAge,
-        data_nascimento: normalizedBirthDate,
-        origem_cadastro: normalizedOrigin || undefined,
-        cadastro_finalizado_em: cadastroFinalizadoEm,
-        updated_at: nowIso,
-      }],
-      { onConflict: 'user_id' }
-    );
+    .upsert([usuarioPayload], { onConflict: 'user_id' });
 
   if (usuarioResponse.error) {
     throw createSupabaseFallbackError(usuarioResponse.error, 'Erro ao salvar dados do usuário');
@@ -1767,8 +2150,6 @@ async function readAccountProfile(userId) {
   return withDatabaseFallback(
     'readAccountProfile',
     async () => {
-      await ensureAccountProfileSchema();
-
       const [profileResult, userResult] = await Promise.all([
         pool.query(
           `
@@ -1778,50 +2159,24 @@ async function readAccountProfile(userId) {
           LIMIT 1
           `,
           [userId]
-        ).catch(() => ({ rows: [] })),
+        ),
         pool.query(
           `
           SELECT user_id, nome_completo, email, documento, telefone, status_da_assinatura, updated_at, created_at
-          , ramos_atuacao, cep, logradouro, bairro, cidade, estado, regiao, sexo, idade, data_nascimento, origem_cadastro, cadastro_finalizado_em
+          , ramos_atuacao, cep, logradouro, numero, complemento, bairro, cidade, estado, regiao, sexo, idade, data_nascimento, origem_cadastro, cadastro_finalizado_em
           FROM public.usuarios
           WHERE user_id = $1
           ORDER BY updated_at DESC NULLS LAST, created_at DESC NULLS LAST
           LIMIT 1
           `,
           [userId]
-        ).catch(() => ({ rows: [] }))
+        )
       ]);
 
       const profileRow = profileResult.rows?.[0] || {};
       const userRow = userResult.rows?.[0] || {};
-      const fullName = String(userRow.nome_completo || '').trim();
-      const splitName = splitAccountFullName(fullName);
 
-      return {
-        id: String(profileRow.id || userId),
-        first_name: profileRow.first_name || splitName.firstName,
-        last_name: profileRow.last_name || splitName.lastName,
-        avatar_url: profileRow.avatar_url || null,
-        role: String(profileRow.role || 'user').trim().toLowerCase() === 'admin' ? 'admin' : 'user',
-        updated_at: profileRow.updated_at || userRow.updated_at || null,
-        nome_completo: fullName || null,
-        email: String(userRow.email || '').trim() || null,
-        documento: String(userRow.documento || '').trim() || null,
-        telefone: String(userRow.telefone || '').trim() || null,
-        ramos_atuacao: Array.isArray(userRow.ramos_atuacao) ? userRow.ramos_atuacao : [],
-        cep: String(userRow.cep || '').trim() || null,
-        logradouro: String(userRow.logradouro || '').trim() || null,
-        bairro: String(userRow.bairro || '').trim() || null,
-        cidade: String(userRow.cidade || '').trim() || null,
-        estado: String(userRow.estado || '').trim() || null,
-        regiao: String(userRow.regiao || '').trim() || null,
-        sexo: String(userRow.sexo || '').trim() || null,
-        idade: Number.isFinite(Number(userRow.idade)) ? Number(userRow.idade) : null,
-        data_nascimento: String(userRow.data_nascimento || '').trim() || null,
-        origem_cadastro: String(userRow.origem_cadastro || '').trim() || null,
-        cadastro_finalizado_em: userRow.cadastro_finalizado_em || null,
-        status_da_assinatura: String(userRow.status_da_assinatura || '').trim() || null,
-      };
+      return buildAccountProfileResponse(userId, profileRow, userRow);
     },
     () => readAccountProfileViaSupabase(userId)
   );
@@ -1831,15 +2186,16 @@ async function saveAccountProfile(userId, payload = {}) {
   return withDatabaseFallback(
     'saveAccountProfile',
     async () => {
-      await ensureAccountProfileSchema();
-
       const normalizedFullName = String(payload.full_name || payload.nome_completo || '').trim();
       const normalizedEmail = String(payload.email || '').trim().toLowerCase();
       const normalizedDocumento = String(payload.documento || '').trim();
       const normalizedTelefone = String(payload.telefone || '').trim();
       const normalizedPracticeAreas = normalizeAccountTextArray(payload.practice_areas || payload.ramos_atuacao);
+      const normalizedProfession = normalizeAccountProfession(payload.profissao || payload.profession);
       const normalizedCep = String(payload.cep || '').trim();
       const normalizedLogradouro = String(payload.logradouro || '').trim();
+      const normalizedNumero = String(payload.numero || '').trim();
+      const normalizedComplemento = String(payload.complemento || '').trim();
       const normalizedBairro = String(payload.bairro || '').trim();
       const normalizedCidade = String(payload.cidade || '').trim();
       const normalizedEstado = String(payload.estado || '').trim().toUpperCase();
@@ -1860,14 +2216,16 @@ async function saveAccountProfile(userId, payload = {}) {
             ramos_atuacao = $6,
             cep = $7,
             logradouro = $8,
-            bairro = $9,
-            cidade = $10,
-            estado = $11,
-            regiao = $12,
-            sexo = $13,
-            idade = $14,
-            data_nascimento = $15,
-            origem_cadastro = COALESCE(NULLIF($16, ''), origem_cadastro),
+            numero = $9,
+            complemento = $10,
+            bairro = $11,
+            cidade = $12,
+            estado = $13,
+            regiao = $14,
+            sexo = $15,
+            idade = $16,
+            data_nascimento = $17,
+            origem_cadastro = COALESCE(NULLIF($18, ''), origem_cadastro),
             cadastro_finalizado_em = COALESCE(cadastro_finalizado_em, NOW()),
             updated_at = NOW()
         WHERE user_id = $1
@@ -1879,9 +2237,11 @@ async function saveAccountProfile(userId, payload = {}) {
           normalizedEmail || null,
           normalizedDocumento || null,
           normalizedTelefone || null,
-          normalizedPracticeAreas,
+          buildAccountStoredPracticeAreas(normalizedPracticeAreas, normalizedProfession),
           normalizedCep || null,
           normalizedLogradouro || null,
+          normalizedNumero || null,
+          normalizedComplemento || null,
           normalizedBairro || null,
           normalizedCidade || null,
           normalizedEstado || null,
@@ -1896,8 +2256,8 @@ async function saveAccountProfile(userId, payload = {}) {
       if (!updatedUser.rows.length) {
         await pool.query(
           `
-          INSERT INTO public.usuarios (user_id, nome_completo, email, documento, telefone, ramos_atuacao, cep, logradouro, bairro, cidade, estado, regiao, sexo, idade, data_nascimento, origem_cadastro, cadastro_finalizado_em)
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, NOW())
+          INSERT INTO public.usuarios (user_id, nome_completo, email, documento, telefone, ramos_atuacao, cep, logradouro, numero, complemento, bairro, cidade, estado, regiao, sexo, idade, data_nascimento, origem_cadastro, cadastro_finalizado_em)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, NOW())
           `,
           [
             userId,
@@ -1905,9 +2265,11 @@ async function saveAccountProfile(userId, payload = {}) {
             normalizedEmail || null,
             normalizedDocumento || null,
             normalizedTelefone || null,
-            normalizedPracticeAreas,
+            buildAccountStoredPracticeAreas(normalizedPracticeAreas, normalizedProfession),
             normalizedCep || null,
             normalizedLogradouro || null,
+            normalizedNumero || null,
+            normalizedComplemento || null,
             normalizedBairro || null,
             normalizedCidade || null,
             normalizedEstado || null,
@@ -2136,8 +2498,115 @@ function buildSubscriptionCapability(current) {
   };
 }
 
+function buildSubscriptionProductName(planType) {
+  const normalized = String(planType || '').trim().toLowerCase();
+  const labels = {
+    basic: 'FlixPrev Basico',
+    premium: 'FlixPrev Premium',
+    enterprise: 'FlixPrev Enterprise',
+  };
+
+  return labels[normalized] || (normalized ? `FlixPrev ${normalized.charAt(0).toUpperCase()}${normalized.slice(1)}` : null);
+}
+
+function inferSubscriptionPeriod(startsAt, expiresAt) {
+  const startDate = startsAt ? new Date(startsAt) : null;
+  const endDate = expiresAt ? new Date(expiresAt) : null;
+
+  if (!startDate || !endDate || Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+    return null;
+  }
+
+  const diffDays = Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+  if (diffDays <= 0) {
+    return null;
+  }
+
+  if (diffDays <= 35) {
+    return 'mensal';
+  }
+
+  if (diffDays <= 100) {
+    return 'trimestral';
+  }
+
+  if (diffDays <= 200) {
+    return 'semestral';
+  }
+
+  if (diffDays <= 400) {
+    return 'anual';
+  }
+
+  return 'periodico';
+}
+
+function buildCurrentSubscriptionDetails(subscriptionRow, details) {
+  const startsAt = asIsoDate(subscriptionRow?.starts_at);
+  const expiresAt = asIsoDate(subscriptionRow?.expires_at) || details.expires_at;
+  const nextChargeAt = details.next_charge_at || expiresAt;
+  const dueDate = details.due_date || expiresAt || nextChargeAt;
+  const purchaseDate = details.purchase_date || startsAt;
+  const subscriptionPeriod = details.subscription_period || inferSubscriptionPeriod(startsAt, expiresAt);
+  const productName = details.product_name || details.offer_name || buildSubscriptionProductName(subscriptionRow?.plan_type);
+
+  return {
+    starts_at: startsAt,
+    expires_at: expiresAt,
+    product_name: productName,
+    offer_name: details.offer_name || productName,
+    purchase_date: purchaseDate,
+    due_date: dueDate,
+    next_charge_at: nextChargeAt,
+    subscription_period: subscriptionPeriod,
+  };
+}
+
+function buildSyntheticSubscriptionHistory(current) {
+  if (!current) {
+    return [];
+  }
+
+  const occurredAt =
+    current.purchase_date ||
+    current.starts_at ||
+    current.updated_by_webhook_at ||
+    current.updated_at ||
+    current.expires_at ||
+    null;
+
+  return [{
+    id: `synthetic-${String(current.id || crypto.randomUUID())}`,
+    provider: current.provider || 'manual',
+    event_id: null,
+    event_type: 'manual_subscription_created',
+    label: current.provider === 'manual' ? 'Assinatura liberada pelo admin' : 'Assinatura registrada',
+    processing_status: 'processed',
+    occurred_at: occurredAt,
+    created_at: occurredAt,
+    status: current.status || current.user_status || 'active',
+    plan_type: current.plan_type || null,
+    product_name: current.product_name || null,
+    offer_name: current.offer_name || null,
+    amount: current.amount,
+    currency: current.currency,
+    payment_method: current.payment_method,
+    purchase_date: current.purchase_date,
+    due_date: current.due_date,
+    next_charge_at: current.next_charge_at,
+    expires_at: current.expires_at,
+    subscription_period: current.subscription_period,
+    order_reference: current.order_reference,
+    card_brand: current.card_brand,
+    card_last_digits: current.card_last_digits,
+    cancellation_reason: current.cancellation_reason,
+    provider_sync_status: current.provider_sync_status,
+  }];
+}
+
 function buildSubscriptionResponse(subscriptionRow, userRow, eventRows = []) {
   const details = readSubscriptionDetails(subscriptionRow?.metadata || {});
+  const derivedDetails = subscriptionRow ? buildCurrentSubscriptionDetails(subscriptionRow, details) : null;
   const current = subscriptionRow
     ? {
         id: String(subscriptionRow.id || ''),
@@ -2145,21 +2614,21 @@ function buildSubscriptionResponse(subscriptionRow, userRow, eventRows = []) {
         user_status: asCleanString(userRow?.status_da_assinatura),
         plan_type: asCleanString(subscriptionRow.plan_type),
         provider: asCleanString(subscriptionRow.provider) || 'manual',
-        starts_at: asIsoDate(subscriptionRow.starts_at),
-        expires_at: asIsoDate(subscriptionRow.expires_at) || details.expires_at,
+        starts_at: derivedDetails?.starts_at || null,
+        expires_at: derivedDetails?.expires_at || null,
         updated_at: asIsoDate(subscriptionRow.updated_at),
         updated_by_webhook_at: asIsoDate(subscriptionRow.updated_by_webhook_at),
         external_customer_id: asCleanString(subscriptionRow.external_customer_id),
         external_subscription_id: asCleanString(subscriptionRow.external_subscription_id) || details.external_subscription_id,
-        product_name: details.product_name,
-        offer_name: details.offer_name,
+        product_name: derivedDetails?.product_name || null,
+        offer_name: derivedDetails?.offer_name || null,
         amount: details.amount,
         currency: details.currency,
         payment_method: details.payment_method,
-        purchase_date: details.purchase_date,
-        due_date: details.due_date,
-        next_charge_at: details.next_charge_at,
-        subscription_period: details.subscription_period,
+        purchase_date: derivedDetails?.purchase_date || null,
+        due_date: derivedDetails?.due_date || null,
+        next_charge_at: derivedDetails?.next_charge_at || null,
+        subscription_period: derivedDetails?.subscription_period || null,
         order_reference: details.order_reference,
         card_brand: details.card_brand,
         card_last_digits: details.card_last_digits,
@@ -2229,9 +2698,11 @@ function buildSubscriptionResponse(subscriptionRow, userRow, eventRows = []) {
     };
   });
 
+  const normalizedHistory = history.length > 0 ? history : buildSyntheticSubscriptionHistory(current);
+
   return {
     current,
-    history,
+    history: normalizedHistory,
     capabilities: buildSubscriptionCapability(current),
   };
 }
@@ -2286,7 +2757,7 @@ async function readAccountSubscription(userId) {
           LIMIT 1
           `,
           [userId]
-        ).catch(() => ({ rows: [] })),
+        ),
         pool.query(
           `
           SELECT user_id, status_da_assinatura, email, updated_at, created_at
@@ -2296,7 +2767,7 @@ async function readAccountSubscription(userId) {
           LIMIT 1
           `,
           [userId]
-        ).catch(() => ({ rows: [] })),
+        ),
         pool.query(
           `
           SELECT id, provider, event_id, event_type, payload, processing_status, created_at, processed_at
@@ -2306,7 +2777,7 @@ async function readAccountSubscription(userId) {
           LIMIT 20
           `,
           [userId]
-        ).catch(() => ({ rows: [] }))
+        )
       ]);
 
       return buildSubscriptionResponse(
@@ -2653,14 +3124,6 @@ function normalizeManagedPlanType(raw) {
   return ['basic', 'premium', 'enterprise'].includes(normalized) ? normalized : ADMIN_CREATED_PLAN_TYPE;
 }
 
-function formatManagedAddress(logradouro, numero, complemento) {
-  return [
-    String(logradouro || '').trim(),
-    String(numero || '').trim() ? `, ${String(numero || '').trim()}` : '',
-    String(complemento || '').trim() ? ` - ${String(complemento || '').trim()}` : '',
-  ].join('').trim() || null;
-}
-
 function parseManagedAddress(value) {
   const raw = String(value || '').trim();
   if (!raw) {
@@ -2919,8 +3382,8 @@ async function listAdminUsersViaSupabase() {
 
   const [profilesResponse, subscriptionsResponse, usuariosPrimaryResponse] = await Promise.all([
     client.from('profiles').select('id, first_name, last_name, avatar_url, role, updated_at'),
-    client.from('subscriptions').select('user_id, plan_type, expires_at'),
-    client.from('usuarios').select('user_id, status_da_assinatura, documento, telefone, nome_completo, email, ramos_atuacao, cep, logradouro, bairro, cidade, estado, regiao, sexo, idade, data_nascimento, origem_cadastro, cadastro_finalizado_em')
+    client.from('subscriptions').select('user_id, status, plan_type, starts_at, expires_at, metadata, created_at, updated_at'),
+    client.from('usuarios').select('user_id, status_da_assinatura, documento, telefone, nome_completo, email, ramos_atuacao, cep, logradouro, numero, complemento, bairro, cidade, estado, regiao, sexo, idade, data_nascimento, origem_cadastro, cadastro_finalizado_em')
   ]);
 
   let usuariosRows = usuariosPrimaryResponse.data || [];
@@ -2956,6 +3419,7 @@ async function listAdminUsersViaSupabase() {
       const subscription = subscriptionsById.get(userId) || {};
       const userMetadata = authUser.user_metadata || {};
       const parsedAddress = parseManagedAddressSafe(usuario.logradouro || null);
+      const accountStoredFields = extractAccountStoredFields(usuario.ramos_atuacao);
 
       return {
         id: userId,
@@ -2969,11 +3433,12 @@ async function listAdminUsersViaSupabase() {
         status_da_assinatura: String(usuario.status_da_assinatura || '').trim() || null,
         documento: usuario.documento || null,
         telefone: usuario.telefone || null,
-        ramos_atuacao: Array.isArray(usuario.ramos_atuacao) ? usuario.ramos_atuacao : null,
+        profissao: accountStoredFields.profissao,
+        ramos_atuacao: accountStoredFields.practiceAreas,
         cep: usuario.cep || null,
-        logradouro: parsedAddress.logradouro,
-        numero: parsedAddress.numero,
-        complemento: parsedAddress.complemento,
+        logradouro: usuario.logradouro ? (parsedAddress.logradouro || usuario.logradouro) : null,
+        numero: usuario.numero || parsedAddress.numero,
+        complemento: usuario.complemento || parsedAddress.complemento,
         bairro: usuario.bairro || null,
         cidade: usuario.cidade || null,
         estado: usuario.estado || null,
@@ -2984,11 +3449,717 @@ async function listAdminUsersViaSupabase() {
         origem_cadastro: usuario.origem_cadastro || null,
         cadastro_finalizado_em: usuario.cadastro_finalizado_em || null,
         plan_type: subscription.plan_type || null,
+        subscription_status: subscription.status || null,
+        subscription_starts_at: subscription.starts_at || null,
         subscription_expires_at: subscription.expires_at || null,
+        subscription_created_at: subscription.created_at || null,
+        subscription_updated_at: subscription.updated_at || null,
+        subscription_metadata: isPlainObject(subscription.metadata) ? subscription.metadata : null,
         nome_completo: usuario.nome_completo || userMetadata.full_name || [profile.first_name, profile.last_name].filter(Boolean).join(' ') || null,
       };
     })
     .sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
+}
+
+const ADMIN_DASHBOARD_PERIODS = new Set(['today', '7d', '30d', 'all']);
+
+function normalizeAdminDashboardPeriod(value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  return ADMIN_DASHBOARD_PERIODS.has(normalized) ? normalized : 'all';
+}
+
+function startOfUtcDay(value) {
+  const next = new Date(value);
+  next.setUTCHours(0, 0, 0, 0);
+  return next;
+}
+
+function startOfUtcWeek(value) {
+  const next = startOfUtcDay(value);
+  const currentDay = next.getUTCDay();
+  const offset = currentDay === 0 ? -6 : 1 - currentDay;
+  next.setUTCDate(next.getUTCDate() + offset);
+  return next;
+}
+
+function startOfUtcMonth(value) {
+  const next = new Date(value);
+  next.setUTCDate(1);
+  next.setUTCHours(0, 0, 0, 0);
+  return next;
+}
+
+function addUtcDays(value, amount) {
+  const next = new Date(value);
+  next.setUTCDate(next.getUTCDate() + Number(amount || 0));
+  return next;
+}
+
+function addUtcHours(value, amount) {
+  const next = new Date(value);
+  next.setUTCHours(next.getUTCHours() + Number(amount || 0));
+  return next;
+}
+
+function addUtcMonths(value, amount) {
+  const next = new Date(value);
+  next.setUTCMonth(next.getUTCMonth() + Number(amount || 0));
+  return next;
+}
+
+function getAdminDashboardPeriodConfig(rawPeriod, now = new Date()) {
+  const value = normalizeAdminDashboardPeriod(rawPeriod);
+
+  if (value === 'today') {
+    return {
+      value,
+      label: 'Hoje',
+      metric_start: startOfUtcDay(now),
+      new_users_start: startOfUtcDay(now),
+      new_users_label: 'Hoje',
+      active_users_start: startOfUtcDay(now),
+      chart_granularity: 'hour',
+      chart_bucket_count: 24,
+    };
+  }
+
+  if (value === '7d') {
+    const start = startOfUtcDay(addUtcDays(now, -6));
+    return {
+      value,
+      label: 'Últimos 7 dias',
+      metric_start: start,
+      new_users_start: start,
+      new_users_label: 'Últimos 7 dias',
+      active_users_start: start,
+      chart_granularity: 'day',
+      chart_bucket_count: 7,
+    };
+  }
+
+  if (value === '30d') {
+    const start = startOfUtcDay(addUtcDays(now, -29));
+    return {
+      value,
+      label: 'Últimos 30 dias',
+      metric_start: start,
+      new_users_start: start,
+      new_users_label: 'Últimos 30 dias',
+      active_users_start: start,
+      chart_granularity: 'day',
+      chart_bucket_count: 30,
+    };
+  }
+
+  return {
+    value,
+    label: 'Todo o período',
+    metric_start: null,
+    new_users_start: startOfUtcWeek(now),
+    new_users_label: 'Esta semana',
+    active_users_start: null,
+    chart_granularity: 'month',
+    chart_bucket_count: 6,
+  };
+}
+
+function getAdminDashboardBucketKey(value, granularity) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(date.getUTCDate()).padStart(2, '0');
+  const hour = String(date.getUTCHours()).padStart(2, '0');
+
+  if (granularity === 'hour') {
+    return `${year}-${month}-${day}T${hour}`;
+  }
+
+  if (granularity === 'day') {
+    return `${year}-${month}-${day}`;
+  }
+
+  return `${year}-${month}`;
+}
+
+function formatAdminDashboardBucketLabel(value, granularity) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return '—';
+  }
+
+  if (granularity === 'hour') {
+    return `${String(date.getUTCHours()).padStart(2, '0')}h`;
+  }
+
+  if (granularity === 'day') {
+    return new Intl.DateTimeFormat('pt-BR', {
+      day: '2-digit',
+      month: 'short',
+      timeZone: 'UTC',
+    }).format(date).replace('.', '');
+  }
+
+  return new Intl.DateTimeFormat('pt-BR', {
+    month: 'short',
+    year: '2-digit',
+    timeZone: 'UTC',
+  }).format(date);
+}
+
+function createAdminDashboardSeriesBuckets(periodConfig, now = new Date()) {
+  const buckets = [];
+
+  if (periodConfig.chart_granularity === 'hour') {
+    let cursor = startOfUtcDay(now);
+    for (let index = 0; index < periodConfig.chart_bucket_count; index += 1) {
+      buckets.push({
+        key: getAdminDashboardBucketKey(cursor, 'hour'),
+        label: formatAdminDashboardBucketLabel(cursor, 'hour'),
+        value: 0,
+      });
+      cursor = addUtcHours(cursor, 1);
+    }
+    return buckets;
+  }
+
+  if (periodConfig.chart_granularity === 'day') {
+    let cursor = new Date(periodConfig.metric_start);
+    for (let index = 0; index < periodConfig.chart_bucket_count; index += 1) {
+      buckets.push({
+        key: getAdminDashboardBucketKey(cursor, 'day'),
+        label: formatAdminDashboardBucketLabel(cursor, 'day'),
+        value: 0,
+      });
+      cursor = addUtcDays(cursor, 1);
+    }
+    return buckets;
+  }
+
+  let cursor = startOfUtcMonth(addUtcMonths(now, -(periodConfig.chart_bucket_count - 1)));
+  for (let index = 0; index < periodConfig.chart_bucket_count; index += 1) {
+    buckets.push({
+      key: getAdminDashboardBucketKey(cursor, 'month'),
+      label: formatAdminDashboardBucketLabel(cursor, 'month'),
+      value: 0,
+    });
+    cursor = addUtcMonths(cursor, 1);
+  }
+
+  return buckets;
+}
+
+function normalizeAdminDashboardSubscriptionState(value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (!normalized) {
+    return null;
+  }
+
+  if (['approved', 'active', 'ativo', 'paid', 'premium', 'success', 'completed'].includes(normalized)) {
+    return 'active';
+  }
+
+  if (['trial', 'teste'].includes(normalized)) {
+    return 'trial';
+  }
+
+  if (['pending', 'pendente', 'waiting', 'awaiting_payment', 'waiting_payment', 'processing', 'created', 'pix_gerado', 'boleto_gerado'].includes(normalized)) {
+    return 'pending';
+  }
+
+  if (['cancelled', 'canceled', 'cancelado'].includes(normalized)) {
+    return 'cancelled';
+  }
+
+  if (['expired', 'expirado', 'vencido', 'ended', 'overdue'].includes(normalized)) {
+    return 'expired';
+  }
+
+  if (['inactive', 'inativo'].includes(normalized)) {
+    return 'inactive';
+  }
+
+  return normalized;
+}
+
+function normalizeAdminDashboardAmount(value) {
+  const amount = Number(value || 0);
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return 0;
+  }
+
+  const normalized = amount > 999 ? amount / 100 : amount;
+  return Number(normalized.toFixed(2));
+}
+
+function getAdminDashboardSubscriptionAmount(user) {
+  const details = readSubscriptionDetails(isPlainObject(user?.subscription_metadata) ? user.subscription_metadata : {});
+  return normalizeAdminDashboardAmount(details.amount);
+}
+
+function hasAdminDashboardCompletedProfile(user) {
+  if (user?.cadastro_finalizado_em) {
+    return true;
+  }
+
+  const hasName = Boolean(String(user?.nome_completo || `${user?.first_name || ''} ${user?.last_name || ''}`).trim());
+  const hasContact = Boolean(String(user?.email || '').trim()) && Boolean(String(user?.telefone || '').trim());
+  const hasDocument = Boolean(String(user?.documento || '').trim());
+  const hasAddress = Boolean(String(user?.cidade || '').trim()) && Boolean(String(user?.estado || '').trim());
+  return hasName && hasContact && hasDocument && hasAddress;
+}
+
+function getAdminDashboardSubscriptionBucket(user, now = new Date()) {
+  const subscriptionState = normalizeAdminDashboardSubscriptionState(user?.subscription_status);
+  const userState = normalizeAdminDashboardSubscriptionState(user?.status_da_assinatura);
+  const planType = String(user?.plan_type || '').trim().toLowerCase();
+  const expiresAt = asIsoDate(user?.subscription_expires_at);
+  const expiresAtTime = expiresAt ? new Date(expiresAt).getTime() : null;
+
+  if (planType === 'trial' || subscriptionState === 'trial' || userState === 'trial') {
+    return 'trial';
+  }
+
+  if (subscriptionState === 'active' || userState === 'active') {
+    return 'active';
+  }
+
+  if (subscriptionState === 'cancelled' || userState === 'cancelled') {
+    return 'cancelled';
+  }
+
+  if (subscriptionState === 'expired' || userState === 'expired') {
+    return 'expired';
+  }
+
+  if (subscriptionState === 'inactive' || userState === 'inactive') {
+    return expiresAtTime && expiresAtTime < now.getTime() ? 'expired' : 'cancelled';
+  }
+
+  if (expiresAtTime && expiresAtTime < now.getTime() && subscriptionState !== 'pending') {
+    return 'expired';
+  }
+
+  return 'free';
+}
+
+function isAdminDashboardPendingPayment(user) {
+  const subscriptionState = normalizeAdminDashboardSubscriptionState(user?.subscription_status);
+  const userState = normalizeAdminDashboardSubscriptionState(user?.status_da_assinatura);
+  return subscriptionState === 'pending' || userState === 'pending';
+}
+
+function isAdminDashboardActiveUser(user, periodConfig) {
+  const lastSignInAt = asIsoDate(user?.last_sign_in_at);
+  if (!lastSignInAt) {
+    return false;
+  }
+
+  if (!periodConfig.active_users_start) {
+    return true;
+  }
+
+  return new Date(lastSignInAt).getTime() >= periodConfig.active_users_start.getTime();
+}
+
+function isAdminDashboardNewUser(user, periodConfig) {
+  const createdAt = asIsoDate(user?.created_at);
+  if (!createdAt || !periodConfig.new_users_start) {
+    return false;
+  }
+
+  return new Date(createdAt).getTime() >= periodConfig.new_users_start.getTime();
+}
+
+function getAdminDashboardRevenueDate(user) {
+  return asIsoDate(user?.subscription_starts_at)
+    || asIsoDate(user?.subscription_created_at)
+    || asIsoDate(user?.subscription_updated_at)
+    || null;
+}
+
+function buildAdminDashboardTopBuckets(items, normalizeLabel, limit = 5) {
+  const counts = new Map();
+
+  for (const item of items) {
+    const label = normalizeLabel(item);
+    counts.set(label, Number(counts.get(label) || 0) + 1);
+  }
+
+  return [...counts.entries()]
+    .sort((left, right) => Number(right[1]) - Number(left[1]))
+    .slice(0, limit)
+    .map(([label, value]) => ({ label, value }));
+}
+
+function getAdminDashboardAgeRange(user) {
+  const age = Number(user?.idade);
+  if (!Number.isFinite(age) || age <= 0) {
+    return 'Nao informado';
+  }
+
+  if (age <= 24) return '18-24';
+  if (age <= 34) return '25-34';
+  if (age <= 44) return '35-44';
+  if (age <= 54) return '45-54';
+  if (age <= 64) return '55-64';
+  return '65+';
+}
+
+function buildAdminDashboardAudienceMetrics(users) {
+  return {
+    by_origin: buildAdminDashboardTopBuckets(users, (user) => formatOriginLabel(user?.origem_cadastro), 6),
+    by_region: buildAdminDashboardTopBuckets(users, (user) => String(user?.regiao || 'Nao informado').trim() || 'Nao informado', 6),
+    by_sex: buildAdminDashboardTopBuckets(users, (user) => {
+      const normalized = String(user?.sexo || '').trim().toLowerCase();
+      if (normalized === 'feminino') return 'Feminino';
+      if (normalized === 'masculino') return 'Masculino';
+      if (normalized === 'outro') return 'Outro';
+      if (normalized === 'prefiro_nao_informar') return 'Prefiro nao informar';
+      return 'Nao informado';
+    }, 5),
+    by_profession: buildAdminDashboardTopBuckets(users, (user) => String(user?.profissao || 'Nao informado').trim() || 'Nao informado', 8),
+    by_age_range: buildAdminDashboardTopBuckets(users, (user) => getAdminDashboardAgeRange(user), 6),
+  };
+}
+
+function getAdminDashboardActionWindowStart(periodConfig, now = new Date()) {
+  if (periodConfig.metric_start) {
+    return periodConfig.metric_start;
+  }
+
+  return addUtcDays(now, -30);
+}
+
+async function ensurePlatformActionEventsTable() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS public.platform_action_events (
+      id BIGSERIAL PRIMARY KEY,
+      user_id UUID,
+      action TEXT NOT NULL,
+      label TEXT,
+      channel TEXT,
+      metadata JSONB,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE INDEX IF NOT EXISTS platform_action_events_created_at_idx
+    ON public.platform_action_events (created_at DESC);
+
+    CREATE INDEX IF NOT EXISTS platform_action_events_user_id_idx
+    ON public.platform_action_events (user_id);
+  `);
+}
+
+function readPlatformActionEventsFromRuntime(windowStart) {
+  const threshold = windowStart.getTime();
+
+  return runtimeMonitor.recentEvents
+    .filter((event) => {
+      if (event.type !== 'platform_action') {
+        return false;
+      }
+
+      const eventTime = new Date(event.timestamp).getTime();
+      return Number.isFinite(eventTime) && eventTime >= threshold;
+    })
+    .map((event) => ({
+      id: event.id,
+      user_id: String(event.user_id || '').trim() || null,
+      action: String(event.action || '').trim() || 'unknown',
+      label: String(event.label || '').trim() || null,
+      channel: String(event.channel || '').trim() || null,
+      metadata: isPlainObject(event.metadata) ? event.metadata : null,
+      created_at: event.timestamp,
+    }));
+}
+
+async function listPlatformActionEvents(windowStart) {
+  const runtimeRows = readPlatformActionEventsFromRuntime(windowStart);
+
+  if (!hasDatabaseUrl) {
+    return runtimeRows;
+  }
+
+  const startIso = windowStart.toISOString();
+
+  const databaseRows = await withDatabaseFallback(
+    'adminDashboardPlatformActions',
+    async () => {
+      await ensurePlatformActionEventsTable();
+      const result = await pool.query(
+        `
+        SELECT id, user_id, action, label, channel, metadata, created_at
+        FROM public.platform_action_events
+        WHERE created_at >= $1
+        ORDER BY created_at DESC
+        LIMIT 500
+        `,
+        [startIso]
+      );
+
+      return result.rows || [];
+    },
+    async () => {
+      if (!supabaseAdminClient) {
+        return [];
+      }
+
+      const response = await supabaseAdminClient
+        .from('platform_action_events')
+        .select('id, user_id, action, label, channel, metadata, created_at')
+        .gte('created_at', startIso)
+        .order('created_at', { ascending: false })
+        .limit(500);
+
+      if (response.error) {
+        if (isMissingRelationFromSchemaCacheError(response.error, 'platform_action_events')) {
+          return [];
+        }
+
+        throw createSupabaseFallbackError(response.error, 'Erro ao carregar ações da plataforma');
+      }
+
+      return response.data || [];
+    }
+  );
+
+  return databaseRows.length > 0 ? databaseRows : runtimeRows;
+}
+
+async function recordPlatformActionEvent({ userId, action, label, channel, metadata }) {
+  const normalizedUserId = String(userId || '').trim() || null;
+  const normalizedAction = String(action || '').trim().toLowerCase();
+  const normalizedLabel = String(label || '').trim() || null;
+  const normalizedChannel = String(channel || '').trim().toLowerCase() || null;
+  const safeMetadata = isPlainObject(metadata) ? metadata : null;
+
+  const runtimeEvent = pushRuntimeEvent('platform_action', {
+    user_id: normalizedUserId,
+    action: normalizedAction,
+    label: normalizedLabel,
+    channel: normalizedChannel,
+    metadata: safeMetadata,
+  });
+
+  if (!normalizedAction || !hasDatabaseUrl) {
+    return runtimeEvent;
+  }
+
+  return withDatabaseFallback(
+    'recordPlatformActionEvent',
+    async () => {
+      await ensurePlatformActionEventsTable();
+      const result = await pool.query(
+        `
+        INSERT INTO public.platform_action_events (user_id, action, label, channel, metadata)
+        VALUES ($1, $2, $3, $4, $5)
+        RETURNING id, user_id, action, label, channel, metadata, created_at
+        `,
+        [normalizedUserId, normalizedAction, normalizedLabel, normalizedChannel, safeMetadata]
+      );
+
+      return result.rows?.[0] || runtimeEvent;
+    },
+    async () => {
+      if (!supabaseAdminClient) {
+        return runtimeEvent;
+      }
+
+      const response = await supabaseAdminClient
+        .from('platform_action_events')
+        .insert({
+          user_id: normalizedUserId,
+          action: normalizedAction,
+          label: normalizedLabel,
+          channel: normalizedChannel,
+          metadata: safeMetadata,
+        })
+        .select('id, user_id, action, label, channel, metadata, created_at')
+        .maybeSingle();
+
+      if (response.error) {
+        if (isMissingRelationFromSchemaCacheError(response.error, 'platform_action_events')) {
+          return runtimeEvent;
+        }
+
+        throw createSupabaseFallbackError(response.error, 'Erro ao registrar ação da plataforma');
+      }
+
+      return response.data || runtimeEvent;
+    }
+  );
+}
+
+async function buildAdminDashboardActionMetrics(users, periodConfig, now = new Date()) {
+  const windowStart = getAdminDashboardActionWindowStart(periodConfig, now);
+  const rows = await listPlatformActionEvents(windowStart);
+  const usersById = new Map(users.map((user) => [String(user.id || '').trim(), user]));
+  const byAction = new Map();
+  const byChannel = new Map();
+  const uniqueUsers = new Set();
+
+  for (const row of rows) {
+    const action = String(row.action || 'unknown').trim() || 'unknown';
+    const channel = String(row.channel || 'app').trim() || 'app';
+    const userId = String(row.user_id || '').trim();
+
+    byAction.set(action, Number(byAction.get(action) || 0) + 1);
+    byChannel.set(channel, Number(byChannel.get(channel) || 0) + 1);
+    if (userId) {
+      uniqueUsers.add(userId);
+    }
+  }
+
+  return {
+    total_events: rows.length,
+    active_users: uniqueUsers.size,
+    by_action: [...byAction.entries()]
+      .sort((left, right) => Number(right[1]) - Number(left[1]))
+      .slice(0, 8)
+      .map(([label, value]) => ({ label, value })),
+    by_channel: [...byChannel.entries()]
+      .sort((left, right) => Number(right[1]) - Number(left[1]))
+      .slice(0, 6)
+      .map(([label, value]) => ({ label, value })),
+    recent_events: rows.slice(0, 10).map((row) => {
+      const user = usersById.get(String(row.user_id || '').trim());
+      const userName = user?.nome_completo
+        || [user?.first_name, user?.last_name].filter(Boolean).join(' ')
+        || user?.email
+        || 'Usuário';
+
+      return {
+        label: String(row.label || row.action || 'Ação').trim() || 'Ação',
+        action: String(row.action || '').trim() || 'unknown',
+        channel: String(row.channel || '').trim() || 'app',
+        user_name: userName,
+        created_at: row.created_at || null,
+      };
+    }),
+  };
+}
+
+async function buildAdminDashboardSummary(periodValue) {
+  const now = new Date();
+  const periodConfig = getAdminDashboardPeriodConfig(periodValue, now);
+  const users = await listAdminUsersViaSupabase();
+  const totalUsers = users.length;
+  const userGrowth = createAdminDashboardSeriesBuckets(periodConfig, now);
+  const revenueGrowth = createAdminDashboardSeriesBuckets(periodConfig, now);
+  const userGrowthByKey = new Map(userGrowth.map((bucket) => [bucket.key, bucket]));
+  const revenueGrowthByKey = new Map(revenueGrowth.map((bucket) => [bucket.key, bucket]));
+
+  const subscriptionStatus = {
+    free: 0,
+    trial: 0,
+    active: 0,
+    cancelled: 0,
+    expired: 0,
+  };
+
+  let activeUsers = 0;
+  let newUsers = 0;
+  let pendingPayments = 0;
+  let completedProfiles = 0;
+  let mrr = 0;
+
+  for (const user of users) {
+    if (isAdminDashboardActiveUser(user, periodConfig)) {
+      activeUsers += 1;
+    }
+
+    if (isAdminDashboardNewUser(user, periodConfig)) {
+      newUsers += 1;
+    }
+
+    if (isAdminDashboardPendingPayment(user)) {
+      pendingPayments += 1;
+    }
+
+    if (hasAdminDashboardCompletedProfile(user)) {
+      completedProfiles += 1;
+    }
+
+    const bucket = getAdminDashboardSubscriptionBucket(user, now);
+    if (bucket !== 'free') {
+      subscriptionStatus[bucket] += 1;
+    }
+
+    const createdAt = asIsoDate(user?.created_at);
+    const userGrowthKey = createdAt ? getAdminDashboardBucketKey(createdAt, periodConfig.chart_granularity) : null;
+    if (userGrowthKey && userGrowthByKey.has(userGrowthKey)) {
+      userGrowthByKey.get(userGrowthKey).value += 1;
+    }
+
+    const revenueDate = getAdminDashboardRevenueDate(user);
+    const revenueAmount = getAdminDashboardSubscriptionAmount(user);
+    const revenueBucketKey = revenueDate ? getAdminDashboardBucketKey(revenueDate, periodConfig.chart_granularity) : null;
+    if (revenueAmount > 0 && revenueBucketKey && revenueGrowthByKey.has(revenueBucketKey)) {
+      revenueGrowthByKey.get(revenueBucketKey).value = Number((revenueGrowthByKey.get(revenueBucketKey).value + revenueAmount).toFixed(2));
+    }
+
+    if (bucket === 'active') {
+      mrr += revenueAmount;
+    }
+  }
+
+  subscriptionStatus.free = Math.max(
+    totalUsers - subscriptionStatus.trial - subscriptionStatus.active - subscriptionStatus.cancelled - subscriptionStatus.expired,
+    0
+  );
+
+  const completedProfilesPercent = totalUsers > 0
+    ? Number(((completedProfiles / totalUsers) * 100).toFixed(0))
+    : 0;
+  const conversionRate = totalUsers > 0
+    ? Number(((subscriptionStatus.active / totalUsers) * 100).toFixed(0))
+    : 0;
+  const averageTicket = subscriptionStatus.active > 0
+    ? Number((mrr / subscriptionStatus.active).toFixed(2))
+    : 0;
+  const inactiveUsers = Math.max(totalUsers - activeUsers, 0);
+  const demographics = buildAdminDashboardAudienceMetrics(users);
+  const actionMetrics = await buildAdminDashboardActionMetrics(users, periodConfig, now);
+
+  return {
+    period: periodConfig.value,
+    period_label: periodConfig.label,
+    new_users_label: periodConfig.new_users_label,
+    generated_at: now.toISOString(),
+    summary: {
+      mrr: Number(mrr.toFixed(2)),
+      total_users: totalUsers,
+      active_users: activeUsers,
+      new_users: newUsers,
+      pending_payments: pendingPayments,
+      subscription_status: subscriptionStatus,
+      completed_profiles: {
+        count: completedProfiles,
+        percent: completedProfilesPercent,
+      },
+      quick_summary: {
+        conversion_rate: conversionRate,
+        average_ticket: averageTicket,
+        inactive_users: inactiveUsers,
+      },
+      demographics,
+      action_metrics: actionMetrics,
+    },
+    charts: {
+      user_growth: userGrowth.map((bucket) => ({
+        label: bucket.label,
+        value: bucket.value,
+      })),
+      revenue: revenueGrowth.map((bucket) => ({
+        label: bucket.label,
+        value: Number(bucket.value.toFixed(2)),
+      })),
+    },
+  };
 }
 
 async function createAdminUserViaSupabase(payload = {}) {
@@ -3000,6 +4171,7 @@ async function createAdminUserViaSupabase(payload = {}) {
   const password = String(payload.password || '');
   const documento = String(payload.documento || '').trim() || null;
   const telefone = String(payload.telefone || '').trim() || null;
+  const profissao = normalizeAccountProfession(payload.profissao || payload.profession);
   const ramosAtuacao = Array.isArray(payload.practice_areas || payload.practiceAreas)
     ? (payload.practice_areas || payload.practiceAreas).map((item) => String(item || '').trim()).filter(Boolean)
     : String(payload.practice_areas || payload.practiceAreas || '').split(/[\n,;|]+/).map((item) => item.trim()).filter(Boolean);
@@ -3019,7 +4191,6 @@ async function createAdminUserViaSupabase(payload = {}) {
   const expiresAt = !lifetimeAccess && expiresAtRaw ? new Date(`${expiresAtRaw}T23:59:59`).toISOString() : null;
   const planType = normalizeManagedPlanType(payload.plan_type || payload.planType);
   const { firstName, lastName } = splitAccountFullName(fullName);
-  const logradouroCompleto = formatManagedAddress(logradouro, numero, complemento);
 
   if (!email || !password) {
     throw new Error('Email e senha são obrigatórios.');
@@ -3033,7 +4204,7 @@ async function createAdminUserViaSupabase(payload = {}) {
     email,
     password,
     email_confirm: true,
-    user_metadata: { first_name: firstName, last_name: lastName, role, full_name: fullName },
+    user_metadata: { first_name: firstName, last_name: lastName, role, full_name: fullName, profession: profissao },
   });
 
   if (createUserError || !newUser?.user?.id) {
@@ -3068,9 +4239,11 @@ async function createAdminUserViaSupabase(payload = {}) {
       nome_completo: fullName || [firstName, lastName].filter(Boolean).join(' ') || null,
       documento,
       telefone,
-      ramos_atuacao: ramosAtuacao,
+      ramos_atuacao: buildAccountStoredPracticeAreas(ramosAtuacao, profissao),
       cep,
-      logradouro: logradouroCompleto || logradouro,
+      logradouro: logradouro,
+      numero,
+      complemento,
       bairro,
       cidade,
       estado,
@@ -3130,6 +4303,7 @@ async function updateAdminUserViaSupabase(userId, payload = {}) {
   const role = String(payload.role || 'user').trim().toLowerCase() === 'admin' ? 'admin' : 'user';
   const documento = String(payload.documento || '').trim() || null;
   const telefone = String(payload.telefone || '').trim() || null;
+  const profissao = normalizeAccountProfession(payload.profissao || payload.profession);
   const ramosAtuacao = Array.isArray(payload.practice_areas || payload.practiceAreas)
     ? (payload.practice_areas || payload.practiceAreas).map((item) => String(item || '').trim()).filter(Boolean)
     : String(payload.practice_areas || payload.practiceAreas || '').split(/[\n,;|]+/).map((item) => item.trim()).filter(Boolean);
@@ -3149,7 +4323,6 @@ async function updateAdminUserViaSupabase(userId, payload = {}) {
   const expiresAt = !lifetimeAccess && expiresAtRaw ? new Date(`${expiresAtRaw}T23:59:59`).toISOString() : null;
   const planType = normalizeManagedPlanType(payload.plan_type || payload.planType);
   const { firstName, lastName } = splitAccountFullName(fullName);
-  const logradouroCompleto = formatManagedAddress(logradouro, numero, complemento);
   const password = String(payload.password || '').trim();
   const nowIso = new Date().toISOString();
 
@@ -3158,6 +4331,7 @@ async function updateAdminUserViaSupabase(userId, payload = {}) {
     first_name: firstName,
     last_name: lastName,
     full_name: fullName,
+    profession: profissao,
     role,
   };
 
@@ -3197,9 +4371,11 @@ async function updateAdminUserViaSupabase(userId, payload = {}) {
       nome_completo: fullName || [firstName, lastName].filter(Boolean).join(' ') || null,
       documento,
       telefone,
-      ramos_atuacao: ramosAtuacao,
+      ramos_atuacao: buildAccountStoredPracticeAreas(ramosAtuacao, profissao),
       cep,
-      logradouro: logradouroCompleto || logradouro,
+      logradouro: logradouro,
+      numero,
+      complemento,
       bairro,
       cidade,
       estado,
@@ -4197,6 +5373,33 @@ app.put('/api/account/profile', async (req, res) => {
   }
 });
 
+app.post('/api/platform-events', async (req, res) => {
+  try {
+    const userId = String(req.header('x-user-id') || '').trim();
+    if (!userId) {
+      return res.status(401).json({ error: 'Usuário não autenticado' });
+    }
+
+    const action = String(req.body?.action || '').trim();
+    if (!action) {
+      return res.status(400).json({ error: 'A ação é obrigatória' });
+    }
+
+    const event = await recordPlatformActionEvent({
+      userId,
+      action,
+      label: req.body?.label,
+      channel: req.body?.channel,
+      metadata: isPlainObject(req.body?.metadata) ? req.body.metadata : null,
+    });
+
+    return res.json({ success: true, event });
+  } catch (error) {
+    console.error('[PLATFORM_EVENTS] POST /api/platform-events error:', error);
+    return res.status(500).json({ error: error.message || 'Erro ao registrar evento da plataforma' });
+  }
+});
+
 app.get('/api/account/subscription', async (req, res) => {
   try {
     const userId = String(req.header('x-user-id') || '').trim();
@@ -5087,9 +6290,70 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
 });
 
 app.use((req, res, next) => {
-  if (req.path.startsWith('/api/')) {
-    console.log(`[API] ${req.method} ${req.path}`);
+  const startedAt = Date.now();
+  const isApiRequest = req.path.startsWith('/api/');
+  const shouldLogApiRequest = isApiRequest && !(req.method === 'GET' && req.path === '/api/notifications');
+
+  runtimeMonitor.activeRequests += 1;
+  runtimeMonitor.totalRequests += 1;
+  runtimeMonitor.lastRequestAt = new Date().toISOString();
+
+  if (isApiRequest) {
+    runtimeMonitor.totalApiRequests += 1;
+    if (shouldLogApiRequest) {
+      console.log(`[API] ${req.method} ${req.path}`);
+    }
   }
+
+  res.on('finish', () => {
+    runtimeMonitor.activeRequests = Math.max(0, runtimeMonitor.activeRequests - 1);
+
+    if (!isApiRequest) {
+      return;
+    }
+
+    const durationMs = Date.now() - startedAt;
+    const routeKey = `${req.method} ${req.path}`;
+    const currentStats = runtimeMonitor.routeStats.get(routeKey) || {
+      count: 0,
+      errors: 0,
+      last_status: null,
+      last_duration_ms: null,
+      last_seen_at: null,
+    };
+
+    currentStats.count += 1;
+    currentStats.last_status = res.statusCode;
+    currentStats.last_duration_ms = durationMs;
+    currentStats.last_seen_at = new Date().toISOString();
+    if (res.statusCode >= 500) {
+      currentStats.errors += 1;
+    }
+    runtimeMonitor.routeStats.set(routeKey, currentStats);
+
+    pushRuntimeEvent('api_request', {
+      route: routeKey,
+      status_code: res.statusCode,
+      duration_ms: durationMs,
+    });
+
+    if (durationMs >= RUNTIME_MONITOR_SLOW_REQUEST_MS) {
+      pushRuntimeEvent('slow_request', {
+        route: routeKey,
+        status_code: res.statusCode,
+        duration_ms: durationMs,
+      });
+    }
+
+    if (res.statusCode >= 500) {
+      pushRuntimeEvent('api_error', {
+        route: routeKey,
+        status_code: res.statusCode,
+        duration_ms: durationMs,
+      });
+    }
+  });
+
   next();
 });
 
@@ -5198,119 +6462,128 @@ app.get('/api/admin/ai-usage', async (req, res) => {
       ? Math.min(Math.max(Math.floor(requestedDays), 1), 365)
       : 30;
 
-    if (!hasDatabaseUrl) {
-      return res.json({
-        range_days: rangeDays,
-        summary: {
-          tokens_today: 0,
-          cost_today: 0,
-          requests: 0,
-          errors: 0,
-          error_rate: 0,
-          tokens_month: 0,
-          cost_month: 0,
-          total_tokens_range: 0,
-          total_cost_range: 0,
-        },
-        by_user: [],
-        requests: [],
-      });
-    }
+    const payload = hasDatabaseUrl
+      ? await withDatabaseFallback(
+          'GET /api/admin/ai-usage',
+          async () => {
+            await ensureAiUsageTable();
 
-    await ensureAiUsageTable();
+            const summaryQuery = await pool.query(
+              `
+              SELECT
+                COALESCE(SUM(CASE WHEN created_at >= CURRENT_DATE THEN total_tokens ELSE 0 END), 0)::int AS tokens_today,
+                COALESCE(SUM(CASE WHEN created_at >= CURRENT_DATE THEN cost_usd ELSE 0 END), 0)::numeric(12,6) AS cost_today,
+                COALESCE(SUM(CASE WHEN created_at >= date_trunc('month', NOW()) THEN total_tokens ELSE 0 END), 0)::int AS tokens_month,
+                COALESCE(SUM(CASE WHEN created_at >= date_trunc('month', NOW()) THEN cost_usd ELSE 0 END), 0)::numeric(12,6) AS cost_month,
+                COALESCE(COUNT(*) FILTER (WHERE created_at >= NOW() - ($1 || ' days')::interval), 0)::int AS requests,
+                COALESCE(COUNT(*) FILTER (WHERE created_at >= NOW() - ($1 || ' days')::interval AND status = 'error'), 0)::int AS errors,
+                COALESCE(SUM(total_tokens) FILTER (WHERE created_at >= NOW() - ($1 || ' days')::interval), 0)::int AS total_tokens_range,
+                COALESCE(SUM(cost_usd) FILTER (WHERE created_at >= NOW() - ($1 || ' days')::interval), 0)::numeric(12,6) AS total_cost_range
+              FROM ai_request_logs
+              `,
+              [rangeDays]
+            );
 
-    const summaryQuery = await pool.query(
-      `
-      SELECT
-        COALESCE(SUM(CASE WHEN created_at >= CURRENT_DATE THEN total_tokens ELSE 0 END), 0)::int AS tokens_today,
-        COALESCE(SUM(CASE WHEN created_at >= CURRENT_DATE THEN cost_usd ELSE 0 END), 0)::numeric(12,6) AS cost_today,
-        COALESCE(SUM(CASE WHEN created_at >= date_trunc('month', NOW()) THEN total_tokens ELSE 0 END), 0)::int AS tokens_month,
-        COALESCE(SUM(CASE WHEN created_at >= date_trunc('month', NOW()) THEN cost_usd ELSE 0 END), 0)::numeric(12,6) AS cost_month,
-        COALESCE(COUNT(*) FILTER (WHERE created_at >= NOW() - ($1 || ' days')::interval), 0)::int AS requests,
-        COALESCE(COUNT(*) FILTER (WHERE created_at >= NOW() - ($1 || ' days')::interval AND status = 'error'), 0)::int AS errors,
-        COALESCE(SUM(total_tokens) FILTER (WHERE created_at >= NOW() - ($1 || ' days')::interval), 0)::int AS total_tokens_range,
-        COALESCE(SUM(cost_usd) FILTER (WHERE created_at >= NOW() - ($1 || ' days')::interval), 0)::numeric(12,6) AS total_cost_range
-      FROM ai_request_logs
-      `,
-      [rangeDays]
-    );
+            const usersQuery = await pool.query(
+              `
+              SELECT
+                COALESCE(l.user_id, 'desconhecido') AS user_id,
+                COALESCE(
+                  NULLIF(trim(concat_ws(' ', p.first_name, p.last_name)), ''),
+                  NULLIF(u.nome_completo, ''),
+                  NULLIF(u.email, ''),
+                  l.user_id,
+                  'Sem identificação'
+                ) AS nome,
+                COALESCE(NULLIF(u.email, ''), '—') AS email,
+                COUNT(*)::int AS requests,
+                COALESCE(SUM(l.total_tokens), 0)::int AS total_tokens,
+                COALESCE(SUM(l.cost_usd), 0)::numeric(12,6) AS total_cost_usd,
+                MAX(l.created_at) AS ultima_atividade
+              FROM ai_request_logs l
+              LEFT JOIN profiles p ON p.id::text = l.user_id
+              LEFT JOIN usuarios u ON u.user_id = l.user_id
+              WHERE l.created_at >= NOW() - ($1 || ' days')::interval
+              GROUP BY l.user_id, p.first_name, p.last_name, u.nome_completo, u.email
+              ORDER BY total_tokens DESC
+              LIMIT 200
+              `,
+              [rangeDays]
+            );
 
-    const usersQuery = await pool.query(
-      `
-      SELECT
-        COALESCE(l.user_id, 'desconhecido') AS user_id,
-        COALESCE(
-          NULLIF(trim(concat_ws(' ', p.first_name, p.last_name)), ''),
-          NULLIF(u.nome_completo, ''),
-          NULLIF(u.email, ''),
-          l.user_id,
-          'Sem identificação'
-        ) AS nome,
-        COALESCE(NULLIF(u.email, ''), '—') AS email,
-        COUNT(*)::int AS requests,
-        COALESCE(SUM(l.total_tokens), 0)::int AS total_tokens,
-        COALESCE(SUM(l.cost_usd), 0)::numeric(12,6) AS total_cost_usd,
-        MAX(l.created_at) AS ultima_atividade
-      FROM ai_request_logs l
-      LEFT JOIN profiles p ON p.id::text = l.user_id
-      LEFT JOIN usuarios u ON u.user_id = l.user_id
-      WHERE l.created_at >= NOW() - ($1 || ' days')::interval
-      GROUP BY l.user_id, p.first_name, p.last_name, u.nome_completo, u.email
-      ORDER BY total_tokens DESC
-      LIMIT 200
-      `,
-      [rangeDays]
-    );
+            const requestsQuery = await pool.query(
+              `
+              SELECT
+                l.id,
+                l.created_at,
+                COALESCE(
+                  NULLIF(trim(concat_ws(' ', p.first_name, p.last_name)), ''),
+                  NULLIF(u.email, ''),
+                  l.user_id,
+                  'Sem identificação'
+                ) AS usuario,
+                l.request_type AS tipo,
+                l.total_tokens AS tokens,
+                l.cost_usd,
+                l.status
+              FROM ai_request_logs l
+              LEFT JOIN profiles p ON p.id::text = l.user_id
+              LEFT JOIN usuarios u ON u.user_id = l.user_id
+              WHERE l.created_at >= NOW() - ($1 || ' days')::interval
+              ORDER BY l.created_at DESC
+              LIMIT 200
+              `,
+              [rangeDays]
+            );
 
-    const requestsQuery = await pool.query(
-      `
-      SELECT
-        l.id,
-        l.created_at,
-        COALESCE(
-          NULLIF(trim(concat_ws(' ', p.first_name, p.last_name)), ''),
-          NULLIF(u.email, ''),
-          l.user_id,
-          'Sem identificação'
-        ) AS usuario,
-        l.request_type AS tipo,
-        l.total_tokens AS tokens,
-        l.cost_usd,
-        l.status
-      FROM ai_request_logs l
-      LEFT JOIN profiles p ON p.id::text = l.user_id
-      LEFT JOIN usuarios u ON u.user_id = l.user_id
-      WHERE l.created_at >= NOW() - ($1 || ' days')::interval
-      ORDER BY l.created_at DESC
-      LIMIT 200
-      `,
-      [rangeDays]
-    );
+            const summaryRow = summaryQuery.rows?.[0] || {};
+            const requests = Number(summaryRow.requests || 0);
+            const errors = Number(summaryRow.errors || 0);
+            const errorRate = requests > 0 ? Number(((errors / requests) * 100).toFixed(2)) : 0;
 
-    const summaryRow = summaryQuery.rows?.[0] || {};
-    const requests = Number(summaryRow.requests || 0);
-    const errors = Number(summaryRow.errors || 0);
-    const errorRate = requests > 0 ? Number(((errors / requests) * 100).toFixed(2)) : 0;
+            return {
+              range_days: rangeDays,
+              summary: {
+                tokens_today: Number(summaryRow.tokens_today || 0),
+                cost_today: Number(summaryRow.cost_today || 0),
+                requests,
+                errors,
+                error_rate: errorRate,
+                tokens_month: Number(summaryRow.tokens_month || 0),
+                cost_month: Number(summaryRow.cost_month || 0),
+                total_tokens_range: Number(summaryRow.total_tokens_range || 0),
+                total_cost_range: Number(summaryRow.total_cost_range || 0),
+              },
+              by_user: usersQuery.rows || [],
+              requests: requestsQuery.rows || [],
+            };
+          },
+          () => getAiUsageViaSupabase(rangeDays)
+        )
+      : await getAiUsageViaSupabase(rangeDays);
 
-    return res.json({
-      range_days: rangeDays,
-      summary: {
-        tokens_today: Number(summaryRow.tokens_today || 0),
-        cost_today: Number(summaryRow.cost_today || 0),
-        requests,
-        errors,
-        error_rate: errorRate,
-        tokens_month: Number(summaryRow.tokens_month || 0),
-        cost_month: Number(summaryRow.cost_month || 0),
-        total_tokens_range: Number(summaryRow.total_tokens_range || 0),
-        total_cost_range: Number(summaryRow.total_cost_range || 0),
-      },
-      by_user: usersQuery.rows || [],
-      requests: requestsQuery.rows || [],
-    });
+    return res.json(payload);
   } catch (error) {
     console.error('[AI USAGE] Error:', error);
     return res.status(500).json({ error: error?.message || 'Erro ao carregar consumo de IA' });
+  }
+});
+
+app.get('/api/admin/runtime-status', async (req, res) => {
+  try {
+    const requesterId = String(req.header('x-user-id') || '').trim();
+    if (!requesterId) {
+      return res.status(401).json({ error: 'Usuário não autenticado' });
+    }
+
+    if (!(await isAdminUser(requesterId))) {
+      return res.status(403).json({ error: 'Acesso negado' });
+    }
+
+    return res.json(getRuntimeStatusSnapshot());
+  } catch (error) {
+    console.error('[ADMIN][RUNTIME_STATUS] Error:', error);
+    return res.status(500).json({ error: error?.message || 'Erro ao carregar status operacional' });
   }
 });
 
@@ -5502,6 +6775,16 @@ app.get('/api/admin/financial-summary', async (req, res) => {
       async () => {
         const result = await pool.query(
           `
+          WITH latest_subscriptions AS (
+            SELECT DISTINCT ON (s.user_id)
+              s.user_id,
+              s.plan_type,
+              s.expires_at,
+              s.updated_at,
+              s.created_at
+            FROM subscriptions s
+            ORDER BY s.user_id, s.updated_at DESC NULLS LAST, s.created_at DESC NULLS LAST
+          )
           SELECT
             u.id,
             u.user_id,
@@ -5509,9 +6792,10 @@ app.get('/api/admin/financial-summary', async (req, res) => {
             u.email,
             u.status_da_assinatura,
             u.updated_at,
-            COALESCE(s.plan_type, 'basic') AS plan_type
+            ls.plan_type,
+            ls.expires_at AS subscription_expires_at
           FROM usuarios u
-          LEFT JOIN subscriptions s ON s.user_id = u.user_id
+          LEFT JOIN latest_subscriptions ls ON ls.user_id = u.user_id
           ORDER BY u.updated_at DESC NULLS LAST
           LIMIT 500
           `
@@ -5528,7 +6812,9 @@ app.get('/api/admin/financial-summary', async (req, res) => {
             .limit(500),
           supabaseAdminClient
             .from('subscriptions')
-            .select('user_id, plan_type')
+            .select('user_id, plan_type, expires_at, updated_at, created_at')
+            .order('updated_at', { ascending: false, nullsFirst: false })
+            .order('created_at', { ascending: false, nullsFirst: false })
             .limit(1000)
         ]);
 
@@ -5544,13 +6830,17 @@ app.get('/api/admin/financial-summary', async (req, res) => {
         for (const subscription of subscriptionsResponse.data || []) {
           const key = String(subscription.user_id || '').trim();
           if (key && !subscriptionsByUser.has(key)) {
-            subscriptionsByUser.set(key, String(subscription.plan_type || 'basic').trim() || 'basic');
+            subscriptionsByUser.set(key, {
+              plan_type: String(subscription.plan_type || '').trim() || null,
+              subscription_expires_at: subscription.expires_at || null,
+            });
           }
         }
 
         return (usuariosResponse.data || []).map((usuario) => ({
           ...usuario,
-          plan_type: subscriptionsByUser.get(String(usuario.user_id || '').trim()) || 'basic',
+          plan_type: subscriptionsByUser.get(String(usuario.user_id || '').trim())?.plan_type || null,
+          subscription_expires_at: subscriptionsByUser.get(String(usuario.user_id || '').trim())?.subscription_expires_at || null,
         }));
       }
     );
@@ -5559,6 +6849,25 @@ app.get('/api/admin/financial-summary', async (req, res) => {
   } catch (error) {
     console.error('[FINANCEIRO] Error:', error);
     return res.status(500).json({ error: error?.message || 'Erro ao carregar dados financeiros' });
+  }
+});
+
+app.get('/api/admin/dashboard-summary', async (req, res) => {
+  try {
+    const requesterId = String(req.header('x-user-id') || '').trim();
+    if (!requesterId) {
+      return res.status(401).json({ error: 'Usuário não autenticado' });
+    }
+
+    if (!(await isAdminUser(requesterId))) {
+      return res.status(403).json({ error: 'Acesso negado' });
+    }
+
+    const payload = await buildAdminDashboardSummary(req.query.period);
+    return res.json(payload);
+  } catch (error) {
+    console.error('[ADMIN][DASHBOARD_SUMMARY] Error:', error);
+    return res.status(500).json({ error: error?.message || 'Erro ao carregar resumo administrativo' });
   }
 });
 
@@ -5691,7 +7000,7 @@ async function getUserPlatformAccessState(userId, fallbackEmail) {
           LIMIT 1
           `,
           [userId]
-        ).catch(() => ({ rows: [] })),
+        ),
         pool.query(
           `
           SELECT status, plan_type
@@ -5701,7 +7010,7 @@ async function getUserPlatformAccessState(userId, fallbackEmail) {
           LIMIT 1
           `,
           [userId]
-        ).catch(() => ({ rows: [] }))
+        )
       ]);
 
       const userRow = userResult.rows?.[0] || {};
@@ -5739,16 +7048,14 @@ async function getUserPlatformAccessStateViaSupabase(userId, fallbackEmail) {
       .eq('user_id', userId)
       .order('updated_at', { ascending: false, nullsFirst: false })
       .order('created_at', { ascending: false, nullsFirst: false })
-      .limit(1)
-      .maybeSingle(),
+      .limit(1),
     client
       .from('subscriptions')
       .select('status, plan_type')
       .eq('user_id', userId)
       .order('updated_at', { ascending: false, nullsFirst: false })
       .order('created_at', { ascending: false, nullsFirst: false })
-      .limit(1)
-      .maybeSingle(),
+      .limit(1),
   ]);
 
   if (userResponse.error) {
@@ -5759,8 +7066,8 @@ async function getUserPlatformAccessStateViaSupabase(userId, fallbackEmail) {
     throw createSupabaseFallbackError(subscriptionResponse.error, 'Erro ao carregar assinatura do usuário');
   }
 
-  const userRow = userResponse.data || {};
-  const subscriptionRow = subscriptionResponse.data || {};
+  const userRow = Array.isArray(userResponse.data) ? (userResponse.data[0] || {}) : {};
+  const subscriptionRow = Array.isArray(subscriptionResponse.data) ? (subscriptionResponse.data[0] || {}) : {};
   const userStatus = String(userRow.status_da_assinatura || '').trim() || null;
   const subscriptionStatus = String(subscriptionRow.status || '').trim() || null;
   const effectiveStatus = userStatus || subscriptionStatus;

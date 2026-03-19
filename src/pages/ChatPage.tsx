@@ -18,6 +18,9 @@ import { extractUuidFromRouteKey, makeAgentRouteKey, toSlug } from "@/lib/slug";
 import { normalizeAgentTitle } from "@/lib/agentText";
 import { toast } from "sonner";
 import { buildApiUrl, getApiBaseUrl } from "@/lib/api";
+import { ShareActions } from "@/components/share/ShareActions";
+import { showAssertiveDone } from "@/lib/brandFeedback";
+import { trackPlatformEvent } from "@/lib/platformEvents";
 
 interface Message {
   role: "assistant" | "user";
@@ -98,6 +101,9 @@ const ChatPage = () => {
   const [pendingAttachment, setPendingAttachment] = useState<File | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const latestAssistantMessage = [...messages].reverse().find((message) => message.role === "assistant")?.content || "";
+  const sharePreview = latestAssistantMessage.trim().slice(0, 220);
+  const shareUrl = typeof window !== "undefined" ? `${window.location.origin}/` : "https://flixprev.com";
 
   // Use agent shortcuts or default shortcuts
   const shortcuts = agent?.shortcuts || ["Resumir docs", "Extrair cláusulas", "Analisar risco", "Dúvidas"];
@@ -396,6 +402,17 @@ const ChatPage = () => {
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
+    showAssertiveDone("Feito", "Resultado exportado por Assertive Mind.");
+    void trackPlatformEvent({
+      userId,
+      action: 'chat_export',
+      label: displayAgentTitle || 'Chat',
+      channel: 'download',
+      metadata: {
+        conversationId,
+        agentId: resolvedAgentId,
+      },
+    });
   };
 
   return (
@@ -445,6 +462,18 @@ const ChatPage = () => {
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
+          {messages.length > 0 && sharePreview ? (
+            <div className="mt-3 flex justify-end">
+              <ShareActions
+                userId={userId}
+                shareUrl={shareUrl}
+                shareTitle={`Resultado ${displayAgentTitle || 'FlixPrev'}`}
+                shareText={`${sharePreview}${latestAssistantMessage.length > 220 ? '...' : ''}`}
+                eventBaseName="chat_result"
+                compact
+              />
+            </div>
+          ) : null}
         </div>
 
         {/* Chat Area */}

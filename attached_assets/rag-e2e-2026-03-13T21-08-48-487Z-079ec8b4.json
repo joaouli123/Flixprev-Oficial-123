@@ -1,0 +1,362 @@
+{
+  "run_id": "rag-e2e-2026-03-13T21-08-48-487Z-079ec8b4",
+  "base_url": "https://flixprev-oficial-123-production.up.railway.app",
+  "user_id": "4a2e1967-12ce-4850-9e93-c2a761f2b779",
+  "total": 10,
+  "passed": 0,
+  "failed": 10,
+  "results": [
+    {
+      "slug": "gemini-31-preview",
+      "title": "Teste E2E Gemini 3.1",
+      "mode": "in-context",
+      "instruction": "Responder somente com o conteúdo do agente. Se a informação não estiver na base lida, diga claramente que ela não foi encontrada.",
+      "url": "https://ai.google.dev/gemini-api/docs/models/gemini-3.1-pro-preview?hl=pt-br",
+      "question": "Qual é o código do modelo mostrado na documentação da URL?",
+      "started_at": "2026-03-13T21:08:48.512Z",
+      "passed": false,
+      "agent_id": "5342ce8a-77cb-4fc5-afbd-f18a3d9a1030",
+      "upload": {
+        "success": true,
+        "path": "/agent-attachments/gemini-31-preview.txt",
+        "filename": "gemini-31-preview.txt"
+      },
+      "sync": {
+        "success": true,
+        "attachments": [],
+        "extra_links": [],
+        "failures": [],
+        "reindex": {
+          "processedCount": 0,
+          "skippedCount": 0,
+          "totalChunks": 0
+        }
+      },
+      "chunk_count": 0,
+      "conversation_id": 17,
+      "answer": "A informação sobre o código do modelo na documentação da URL não foi encontrada na base de conhecimento fornecida.",
+      "missing": [
+        "gemini-3.1-pro-preview",
+        "Nenhum chunk foi gerado"
+      ],
+      "finished_at": "2026-03-13T21:08:55.097Z"
+    },
+    {
+      "slug": "railway-cli",
+      "title": "Teste E2E Railway CLI",
+      "mode": "in-context",
+      "instruction": "Use só o conteúdo indexado do agente. Nunca complemente com conhecimento externo.",
+      "url": "https://docs.railway.com/cli",
+      "question": "Quais comandos a documentação mostra para login e para linkar um diretório?",
+      "started_at": "2026-03-13T21:08:56.640Z",
+      "passed": false,
+      "agent_id": "0b3325f1-7abf-4615-a3b9-f9a6d2b10141",
+      "upload": {
+        "success": true,
+        "path": "/agent-attachments/railway-cli.txt",
+        "filename": "railway-cli.txt"
+      },
+      "sync": {
+        "success": true,
+        "attachments": [],
+        "extra_links": [],
+        "failures": [],
+        "reindex": {
+          "processedCount": 0,
+          "skippedCount": 0,
+          "totalChunks": 0
+        }
+      },
+      "chunk_count": 0,
+      "conversation_id": 18,
+      "answer": "Não tenho acesso a essa informação na minha documentação atual. Por favor, forneça mais contexto ou a documentação específica para que eu possa ajudar.",
+      "missing": [
+        "railway login",
+        "railway link",
+        "Nenhum chunk foi gerado"
+      ],
+      "finished_at": "2026-03-13T21:09:00.022Z"
+    },
+    {
+      "slug": "vite-env-mode",
+      "title": "Teste E2E Vite Env",
+      "mode": "in-context",
+      "instruction": "Responda apenas com base no que estiver nos links e anexos treinados.",
+      "url": "https://vite.dev/guide/env-and-mode",
+      "question": "Qual prefixo uma variável precisa ter para ser exposta ao código do cliente no Vite?",
+      "started_at": "2026-03-13T21:09:01.547Z",
+      "passed": false,
+      "agent_id": "54a7a424-d775-4f67-bc7d-0c05967da4e2",
+      "upload": {
+        "success": true,
+        "path": "/agent-attachments/vite-env-mode.txt",
+        "filename": "vite-env-mode.txt"
+      },
+      "sync": {
+        "success": true,
+        "attachments": [],
+        "extra_links": [],
+        "failures": [],
+        "reindex": {
+          "processedCount": 0,
+          "skippedCount": 0,
+          "totalChunks": 0
+        }
+      },
+      "chunk_count": 0,
+      "conversation_id": 19,
+      "answer": "Para que uma variável de ambiente seja exposta ao código do cliente no Vite, ela precisa ter o prefixo `VITE_`.",
+      "missing": [
+        "Nenhum chunk foi gerado"
+      ],
+      "finished_at": "2026-03-13T21:09:04.554Z"
+    },
+    {
+      "slug": "react-deferred-value",
+      "title": "Teste E2E React Deferred",
+      "mode": "in-context",
+      "instruction": "Sua resposta deve sair exclusivamente do conteúdo processado pelo RAG deste agente.",
+      "url": "https://react.dev/reference/react/useDeferredValue",
+      "question": "Qual identificador exclusivo aparece no arquivo complementar deste agente?",
+      "started_at": "2026-03-13T21:09:06.141Z",
+      "passed": false,
+      "agent_id": "d2ba9dd0-32fe-4b88-af85-dd319e07aecc",
+      "upload": {
+        "success": true,
+        "path": "/agent-attachments/react-deferred-value.txt",
+        "filename": "react-deferred-value.txt"
+      },
+      "sync": {
+        "success": true,
+        "attachments": [],
+        "extra_links": [],
+        "failures": [],
+        "reindex": {
+          "processedCount": 0,
+          "skippedCount": 0,
+          "totalChunks": 0
+        }
+      },
+      "chunk_count": 0,
+      "conversation_id": 20,
+      "answer": "Não tenho essa informação no contexto que me foi fornecido. Por favor, forneça o conteúdo do arquivo complementar para que eu possa identificar o dado.",
+      "missing": [
+        "orquidea-reativa-44",
+        "Nenhum chunk foi gerado"
+      ],
+      "finished_at": "2026-03-13T21:09:10.129Z"
+    },
+    {
+      "slug": "supabase-rls",
+      "title": "Teste E2E Supabase RLS",
+      "mode": "in-context",
+      "instruction": "Fale só com base no conteúdo que foi lido. Se a resposta não estiver nele, recuse com transparência.",
+      "url": "https://supabase.com/docs/guides/database/postgres/row-level-security",
+      "question": "Qual marcador reservado foi gravado no arquivo complementar deste agente?",
+      "started_at": "2026-03-13T21:09:11.754Z",
+      "passed": false,
+      "agent_id": "5a7ae3ec-15e8-4381-8f73-85de2b7cb1bd",
+      "upload": {
+        "success": true,
+        "path": "/agent-attachments/supabase-rls.txt",
+        "filename": "supabase-rls.txt"
+      },
+      "sync": {
+        "success": true,
+        "attachments": [],
+        "extra_links": [],
+        "failures": [],
+        "reindex": {
+          "processedCount": 0,
+          "skippedCount": 0,
+          "totalChunks": 0
+        }
+      },
+      "chunk_count": 0,
+      "conversation_id": 21,
+      "answer": "Não tenho essa informação no conteúdo que me foi fornecido. Por favor, forneça o arquivo complementar ou o contexto onde essa informação está presente.",
+      "missing": [
+        "prisma-rls-55",
+        "Nenhum chunk foi gerado"
+      ],
+      "finished_at": "2026-03-13T21:09:16.057Z"
+    },
+    {
+      "slug": "mdn-http",
+      "title": "Teste E2E MDN HTTP",
+      "mode": "out-of-context",
+      "instruction": "Responda somente usando o conteúdo da base do agente. Fora disso, diga que não encontrou essa informação na base.",
+      "url": "https://developer.mozilla.org/pt-BR/docs/Web/HTTP/Overview",
+      "question": "Quem venceu a Copa do Mundo de 2002?",
+      "started_at": "2026-03-13T21:09:17.669Z",
+      "passed": false,
+      "agent_id": "fcdb9439-a17b-439b-b919-4a3db4e1612e",
+      "upload": {
+        "success": true,
+        "path": "/agent-attachments/mdn-http.txt",
+        "filename": "mdn-http.txt"
+      },
+      "sync": {
+        "success": true,
+        "attachments": [],
+        "extra_links": [],
+        "failures": [],
+        "reindex": {
+          "processedCount": 0,
+          "skippedCount": 0,
+          "totalChunks": 0
+        }
+      },
+      "chunk_count": 0,
+      "conversation_id": 22,
+      "answer": "Não encontrei essa informação na base.",
+      "missing": [
+        "base do agente",
+        "Nenhum chunk foi gerado"
+      ],
+      "finished_at": "2026-03-13T21:09:21.138Z"
+    },
+    {
+      "slug": "node-fetch",
+      "title": "Teste E2E Node Fetch",
+      "mode": "out-of-context",
+      "instruction": "Use apenas o contexto lido pelo agente. Não use memória do modelo nem responda por fora do material.",
+      "url": "https://nodejs.org/api/globals.html#fetch",
+      "question": "Qual é a capital da Austrália?",
+      "started_at": "2026-03-13T21:09:22.645Z",
+      "passed": false,
+      "agent_id": "855db9aa-4c0b-449e-96d6-69479a47f008",
+      "upload": {
+        "success": true,
+        "path": "/agent-attachments/node-fetch.txt",
+        "filename": "node-fetch.txt"
+      },
+      "sync": {
+        "success": true,
+        "attachments": [],
+        "extra_links": [],
+        "failures": [],
+        "reindex": {
+          "processedCount": 0,
+          "skippedCount": 0,
+          "totalChunks": 0
+        }
+      },
+      "chunk_count": 0,
+      "conversation_id": 23,
+      "answer": "Não tenho essa informação no contexto fornecido. Por favor, forneça mais contexto.",
+      "missing": [
+        "não encontrei",
+        "conteúdo",
+        "Nenhum chunk foi gerado"
+      ],
+      "finished_at": "2026-03-13T21:09:26.014Z"
+    },
+    {
+      "slug": "openai-embeddings",
+      "title": "Teste E2E OpenAI Embeddings",
+      "mode": "out-of-context",
+      "instruction": "A sua única fonte é o conteúdo treinado. Se faltar contexto, admita isso sem tentar completar.",
+      "url": "https://platform.openai.com/docs/guides/embeddings",
+      "question": "Quantos lados tem um hexágono regular?",
+      "started_at": "2026-03-13T21:09:27.524Z",
+      "passed": false,
+      "agent_id": "2438ac5b-da04-421a-8430-bac576c18c81",
+      "upload": {
+        "success": true,
+        "path": "/agent-attachments/openai-embeddings.txt",
+        "filename": "openai-embeddings.txt"
+      },
+      "sync": {
+        "success": true,
+        "attachments": [],
+        "extra_links": [],
+        "failures": [],
+        "reindex": {
+          "processedCount": 0,
+          "skippedCount": 0,
+          "totalChunks": 0
+        }
+      },
+      "chunk_count": 0,
+      "conversation_id": 24,
+      "answer": "Um hexágono regular possui seis lados.",
+      "missing": [
+        "não encontrei",
+        "informação",
+        "Nenhum chunk foi gerado"
+      ],
+      "finished_at": "2026-03-13T21:09:30.773Z"
+    },
+    {
+      "slug": "python-datetime",
+      "title": "Teste E2E Python Datetime",
+      "mode": "out-of-context",
+      "instruction": "Só responda o que estiver na base lida por URL e arquivos. Nada de completar com conhecimento geral.",
+      "url": "https://docs.python.org/3/library/datetime.html",
+      "question": "Quem descobriu o Brasil?",
+      "started_at": "2026-03-13T21:09:32.308Z",
+      "passed": false,
+      "agent_id": "630e1ad1-e2cc-43ca-8ea5-7cfc45889700",
+      "upload": {
+        "success": true,
+        "path": "/agent-attachments/python-datetime.txt",
+        "filename": "python-datetime.txt"
+      },
+      "sync": {
+        "success": true,
+        "attachments": [],
+        "extra_links": [],
+        "failures": [],
+        "reindex": {
+          "processedCount": 0,
+          "skippedCount": 0,
+          "totalChunks": 0
+        }
+      },
+      "chunk_count": 0,
+      "conversation_id": 25,
+      "answer": "Não tenho acesso a essa informação na minha base de dados atual. Por favor, forneça o contexto ou a base de conhecimento específica para que eu possa responder.",
+      "missing": [
+        "não encontrei",
+        "Nenhum chunk foi gerado"
+      ],
+      "finished_at": "2026-03-13T21:09:35.627Z"
+    },
+    {
+      "slug": "w3c-html",
+      "title": "Teste E2E W3C HTML",
+      "mode": "out-of-context",
+      "instruction": "Responda apenas com base no RAG deste agente. Se a pergunta não estiver nos materiais, informe isso explicitamente.",
+      "url": "https://html.spec.whatwg.org/multipage/",
+      "question": "Qual é o maior planeta do sistema solar?",
+      "started_at": "2026-03-13T21:09:37.194Z",
+      "passed": false,
+      "agent_id": "fc92a589-fb90-4cb5-9af8-ea8427038e42",
+      "upload": {
+        "success": true,
+        "path": "/agent-attachments/w3c-html.txt",
+        "filename": "w3c-html.txt"
+      },
+      "sync": {
+        "success": true,
+        "attachments": [],
+        "extra_links": [],
+        "failures": [],
+        "reindex": {
+          "processedCount": 0,
+          "skippedCount": 0,
+          "totalChunks": 0
+        }
+      },
+      "chunk_count": 0,
+      "conversation_id": 26,
+      "answer": "Não possuo essa informação em meus materiais de referência. Para responder a essa pergunta, seria necessário consultar uma base de dados sobre astronomia.",
+      "missing": [
+        "não encontrei",
+        "Nenhum chunk foi gerado"
+      ],
+      "finished_at": "2026-03-13T21:09:41.379Z"
+    }
+  ]
+}

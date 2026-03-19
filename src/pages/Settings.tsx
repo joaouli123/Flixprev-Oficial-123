@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useSession } from "@/components/SessionContextProvider";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,18 +12,29 @@ import { Button } from "@/components/ui/button";
 import { Lock, Loader2, MapPin } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import FacebookSettingsCard from "@/components/admin/FacebookSettingsCard";
+import { showAssertiveDone } from "@/lib/brandFeedback";
+import { trackPlatformEvent } from "@/lib/platformEvents";
+
+interface AppSettings {
+  facebook_pixel_id: string | null;
+  facebook_capi_token: string | null;
+}
 
 const Settings: React.FC = () => {
-  const { session, profile, refreshProfile } = useSession();
+  const { session, profile, refreshProfile, isAdmin } = useSession();
   const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || "").trim().replace(/\/$/, "");
 
   const [fullName, setFullName] = useState("");
   const [billingEmail, setBillingEmail] = useState("");
   const [documento, setDocumento] = useState("");
   const [telefone, setTelefone] = useState("");
+  const [profissao, setProfissao] = useState("");
   const [practiceAreasInput, setPracticeAreasInput] = useState("");
   const [cep, setCep] = useState("");
   const [logradouro, setLogradouro] = useState("");
+  const [numero, setNumero] = useState("");
+  const [complemento, setComplemento] = useState("");
   const [bairro, setBairro] = useState("");
   const [cidade, setCidade] = useState("");
   const [estado, setEstado] = useState("");
@@ -34,6 +45,7 @@ const Settings: React.FC = () => {
   const [avatarPreviewUrl, setAvatarPreviewUrl] = useState<string | null>(profile?.avatar_url || null);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [isLookingUpCep, setIsLookingUpCep] = useState(false);
+  const [appSettings, setAppSettings] = useState<AppSettings | null>(null);
 
   // Estados para troca de senha
   const [currentPassword, setCurrentPassword] = useState("");
@@ -49,9 +61,12 @@ const Settings: React.FC = () => {
       setBillingEmail((prev) => prev || profile.email || session?.user?.email || "");
       setDocumento((prev) => prev || profile.documento || "");
       setTelefone((prev) => prev || profile.telefone || "");
+      setProfissao((prev) => prev || profile.profissao || "");
       setPracticeAreasInput((prev) => prev || formatPracticeAreas(profile.ramos_atuacao));
       setCep((prev) => prev || profile.cep || "");
       setLogradouro((prev) => prev || profile.logradouro || "");
+      setNumero((prev) => prev || profile.numero || "");
+      setComplemento((prev) => prev || profile.complemento || "");
       setBairro((prev) => prev || profile.bairro || "");
       setCidade((prev) => prev || profile.cidade || "");
       setEstado((prev) => prev || profile.estado || "");
@@ -89,13 +104,17 @@ const Settings: React.FC = () => {
         const data = payload?.profile;
 
         if (data) {
-          setFullName(data.nome_completo || "");
+          const resolvedFullName = [data.first_name, data.last_name].filter(Boolean).join(" ").trim() || data.nome_completo || "";
+          setFullName(resolvedFullName);
           setBillingEmail(data.email || session.user.email || "");
           setDocumento(data.documento || "");
           setTelefone(data.telefone || "");
+          setProfissao(data.profissao || "");
           setPracticeAreasInput(formatPracticeAreas(data.ramos_atuacao));
           setCep(data.cep || "");
           setLogradouro(data.logradouro || "");
+          setNumero(data.numero || "");
+          setComplemento(data.complemento || "");
           setBairro(data.bairro || "");
           setCidade(data.cidade || "");
           setEstado(data.estado || "");
@@ -110,6 +129,37 @@ const Settings: React.FC = () => {
 
     fetchBillingInfo();
   }, [apiBaseUrl, session?.user?.id, session?.user?.email]);
+
+  const fetchAppSettings = useCallback(async () => {
+    if (!isAdmin || !session?.user?.id) {
+      setAppSettings(null);
+      return;
+    }
+
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/admin/app-settings`, {
+        headers: {
+          "Content-Type": "application/json",
+          "x-user-id": session.user.id,
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Erro ${response.status}`);
+      }
+
+      const payload = await response.json();
+      setAppSettings((payload?.settings || { facebook_pixel_id: null, facebook_capi_token: null }) as AppSettings);
+    } catch (error) {
+      console.error("Erro ao carregar configurações de marketing:", error);
+      setAppSettings({ facebook_pixel_id: null, facebook_capi_token: null });
+    }
+  }, [apiBaseUrl, isAdmin, session?.user?.id]);
+
+  useEffect(() => {
+    void fetchAppSettings();
+  }, [fetchAppSettings]);
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -141,9 +191,12 @@ const Settings: React.FC = () => {
       email: billingEmail.trim().toLowerCase(),
       documento: documento.trim(),
       telefone: telefone.trim(),
+      profissao: profissao.trim(),
       practiceAreas: parsePracticeAreas(practiceAreasInput),
       cep: cep.trim(),
       logradouro: logradouro.trim(),
+      numero: numero.trim(),
+      complemento: complemento.trim(),
       bairro: bairro.trim(),
       cidade: cidade.trim(),
       estado: estado.trim().toUpperCase(),
@@ -172,9 +225,12 @@ const Settings: React.FC = () => {
           email: billingEmail.trim().toLowerCase(),
           documento: documento.trim() || null,
           telefone: telefone.trim() || null,
+          profissao: profissao.trim() || null,
           ramos_atuacao: parsePracticeAreas(practiceAreasInput),
           cep: cep.trim() || null,
           logradouro: logradouro.trim() || null,
+          numero: numero.trim() || null,
+          complemento: complemento.trim() || null,
           bairro: bairro.trim() || null,
           cidade: cidade.trim() || null,
           estado: estado.trim().toUpperCase() || null,
@@ -198,9 +254,12 @@ const Settings: React.FC = () => {
         setBillingEmail(savedProfile.email || billingEmail.trim().toLowerCase());
         setDocumento(savedProfile.documento || "");
         setTelefone(savedProfile.telefone || "");
+        setProfissao(savedProfile.profissao || "");
         setPracticeAreasInput(formatPracticeAreas(savedProfile.ramos_atuacao));
         setCep(savedProfile.cep || "");
         setLogradouro(savedProfile.logradouro || "");
+        setNumero(savedProfile.numero || "");
+        setComplemento(savedProfile.complemento || "");
         setBairro(savedProfile.bairro || "");
         setCidade(savedProfile.cidade || "");
         setEstado(savedProfile.estado || "");
@@ -210,7 +269,18 @@ const Settings: React.FC = () => {
       }
 
       await refreshProfile();
-      toast.success("Configurações atualizadas com sucesso!");
+      showAssertiveDone("Feito", "Perfil atualizado por Assertive Mind.");
+      void trackPlatformEvent({
+        userId: session.user.id,
+        action: 'profile_update',
+        label: 'Perfil atualizado',
+        channel: 'settings',
+        metadata: {
+          profissao: profissao.trim() || null,
+          regiao: regiao.trim() || null,
+          sexo,
+        },
+      });
       setAvatarFile(null);
     } catch (error: any) {
       toast.error("Erro ao salvar perfil: " + (error?.message || "falha desconhecida"));
@@ -314,16 +384,15 @@ const Settings: React.FC = () => {
   return (
     <div className="flex flex-col gap-8 animate-in fade-in duration-500 max-w-4xl mx-auto w-full">
       <div className="flex flex-col gap-2">
-        <h1 className="text-3xl font-bold tracking-tight text-gray-900">Configurações</h1>
-        <p className="text-gray-500">Gerencie suas preferências e segurança da conta.</p>
+        <h1 className="text-3xl font-bold tracking-tight text-gray-900">Perfil</h1>
+        <p className="text-gray-500">Gerencie seus dados pessoais, endereço e segurança da conta.</p>
       </div>
 
-      {/* Seção de Configurações do Perfil do Usuário */}
       <Card className="overflow-hidden border-gray-200/60 bg-white/80 backdrop-blur-sm shadow-sm">
         <CardHeader className="border-b border-gray-100 bg-gray-50/50 px-6 py-4">
-          <CardTitle className="text-xl font-semibold text-gray-900">Informações Pessoais</CardTitle>
+          <CardTitle className="text-xl font-semibold text-gray-900">Informações do Perfil</CardTitle>
           <CardDescription className="text-gray-500">
-            Atualize seus detalhes pessoais e foto de perfil.
+            Atualize seus dados de cadastro e mantenha seu perfil completo.
           </CardDescription>
         </CardHeader>
         <CardContent className="p-6 space-y-6">
@@ -387,6 +456,16 @@ const Settings: React.FC = () => {
                     className="bg-gray-50/50 border-gray-200 focus:bg-white transition-colors"
                   />
                 </div>
+                <div className="space-y-2 md:col-span-2">
+                  <Label htmlFor="profissao" className="text-gray-700">Profissão</Label>
+                  <Input
+                    id="profissao"
+                    value={profissao}
+                    onChange={(e) => setProfissao(e.target.value)}
+                    placeholder="Ex: Advogado Previdenciarista"
+                    className="bg-gray-50/50 border-gray-200 focus:bg-white transition-colors"
+                  />
+                </div>
               </div>
 
               <div className="space-y-2">
@@ -437,6 +516,27 @@ const Settings: React.FC = () => {
                     onChange={(e) => setLogradouro(e.target.value)}
                     className="bg-white border-gray-200 focus:bg-white transition-colors"
                   />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="numero" className="text-gray-700">Número</Label>
+                    <Input
+                      id="numero"
+                      value={numero}
+                      onChange={(e) => setNumero(e.target.value)}
+                      className="bg-white border-gray-200 focus:bg-white transition-colors"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="complemento" className="text-gray-700">Complemento</Label>
+                    <Input
+                      id="complemento"
+                      value={complemento}
+                      onChange={(e) => setComplemento(e.target.value)}
+                      className="bg-white border-gray-200 focus:bg-white transition-colors"
+                    />
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -532,7 +632,7 @@ const Settings: React.FC = () => {
           
           <div className="pt-4 border-t border-gray-100 flex justify-end">
             <Button onClick={handleSaveProfile} disabled={isSavingProfile} className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm">
-              {isSavingProfile ? "Salvando..." : "Salvar Configurações"}
+              {isSavingProfile ? "Salvando..." : "Salvar Perfil"}
             </Button>
           </div>
         </CardContent>
@@ -602,6 +702,20 @@ const Settings: React.FC = () => {
           </div>
         </CardContent>
       </Card>
+
+      {isAdmin && (
+        <Card className="overflow-hidden border-gray-200/60 bg-white/80 backdrop-blur-sm shadow-sm">
+          <CardHeader className="border-b border-gray-100 bg-gray-50/50 px-6 py-4">
+            <CardTitle className="text-xl font-semibold text-gray-900">Marketing</CardTitle>
+            <CardDescription className="text-gray-500">
+              Configure Pixel e CAPI do Facebook dentro das configurações da plataforma.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="p-6">
+            <FacebookSettingsCard initialSettings={appSettings} onSettingsSaved={fetchAppSettings} />
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };

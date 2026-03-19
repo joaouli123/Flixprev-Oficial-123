@@ -18,7 +18,7 @@ export type Agent = {
   shortcuts?: string[]; // Novo: atalhos personalizados para o agente
   instructions?: string; // Instruções do sistema
   attachments?: string[]; // Caminhos dos arquivos anexados
-  userId: string;
+  userId: string | null;
   created_at: string;
 };
 
@@ -33,6 +33,7 @@ export type Profile = {
   email?: string | null;
   documento?: string | null;
   telefone?: string | null;
+  profissao?: string | null;
   ramos_atuacao?: string[] | null;
   cep?: string | null;
   logradouro?: string | null;
@@ -62,6 +63,7 @@ export type AdminUser = {
   status_da_assinatura: string | null;
   documento: string | null;
   telefone: string | null;
+  profissao: string | null;
   ramos_atuacao: string[] | null;
   cep: string | null;
   logradouro: string | null;

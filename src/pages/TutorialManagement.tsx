@@ -30,6 +30,7 @@ import { createTutorial, deleteTutorial, fetchTutorials, Tutorial, updateTutoria
 const TutorialManagement: React.FC = () => {
   const { isAdmin, session } = useSession();
   const navigate = useNavigate();
+  const adminUserId = session?.user?.id || null;
   const [tutorials, setTutorials] = useState<Tutorial[]>([]);
   const [loading, setLoading] = useState(true);
   const [isCreateTutorialDialogOpen, setIsCreateTutorialDialogOpen] = useState(false);
@@ -51,7 +52,7 @@ const TutorialManagement: React.FC = () => {
 
   const loadTutorials = useCallback(async () => {
     setLoading(true);
-    if (!isAdmin || !user?.id) {
+    if (!isAdmin || !adminUserId) {
       setLoading(false);
       return;
     }
@@ -64,7 +65,7 @@ const TutorialManagement: React.FC = () => {
       toast.error("Erro ao carregar tutoriais: " + (error?.message || "falha desconhecida"));
     }
     setLoading(false);
-  }, [isAdmin, user?.id]);
+  }, [adminUserId, isAdmin]);
 
   useEffect(() => {
     if (isAdmin) {
@@ -73,13 +74,13 @@ const TutorialManagement: React.FC = () => {
   }, [isAdmin, loadTutorials]);
 
   const handleCreateTutorial = async (title: string, description: string, url: string, order: number) => {
-    if (!user?.id) {
+    if (!adminUserId) {
       toast.error("Usuário administrador não identificado.");
       return;
     }
 
     try {
-      await createTutorial(user.id, { title, description, url, display_order: order });
+      await createTutorial(adminUserId, { title, description, url, display_order: order });
       toast.success(`Tutorial '${title}' criado com sucesso!`);
       loadTutorials();
     } catch (error: any) {
@@ -89,13 +90,13 @@ const TutorialManagement: React.FC = () => {
   };
 
   const handleEditTutorial = async (tutorialId: string, title: string, description: string, url: string, order: number) => {
-    if (!user?.id) {
+    if (!adminUserId) {
       toast.error("Usuário administrador não identificado.");
       return;
     }
 
     try {
-      await updateTutorial(user.id, tutorialId, { title, description, url, display_order: order });
+      await updateTutorial(adminUserId, tutorialId, { title, description, url, display_order: order });
       toast.success(`Tutorial '${title}' atualizado com sucesso!`);
       loadTutorials();
     } catch (error: any) {
@@ -112,13 +113,13 @@ const TutorialManagement: React.FC = () => {
   const handleDeleteTutorial = async () => {
     if (!tutorialToDeleteId) return;
 
-    if (!user?.id) {
+    if (!adminUserId) {
       toast.error("Usuário administrador não identificado.");
       return;
     }
 
     try {
-      await deleteTutorial(user.id, tutorialToDeleteId);
+      await deleteTutorial(adminUserId, tutorialToDeleteId);
       toast.success("Tutorial removido com sucesso!");
       loadTutorials();
     } catch (error: any) {

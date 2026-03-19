@@ -15,14 +15,32 @@ type UsuarioFinanceiro = {
   status_da_assinatura?: string | null;
   updated_at?: string | null;
   plan_type?: string | null;
-};
-
-type SubscriptionFinanceiro = {
-  user_id?: string | null;
-  plan_type?: string | null;
+  subscription_expires_at?: string | null;
 };
 
 const normalizeStatus = (status?: string | null) => (status || "").trim().toLowerCase();
+
+const normalizeFinancialPlanValue = (usuario: UsuarioFinanceiro) => {
+  const planType = String(usuario.plan_type || "").trim().toLowerCase();
+  if (!planType || planType === "basic") {
+    return "none" as const;
+  }
+
+  return usuario.subscription_expires_at ? ("cakto" as const) : ("vitalicio" as const);
+};
+
+const formatFinancialPlanLabel = (usuario: UsuarioFinanceiro) => {
+  const plan = normalizeFinancialPlanValue(usuario);
+  if (plan === "cakto") {
+    return "Plano Cakto";
+  }
+
+  if (plan === "vitalicio") {
+    return "Vitalício";
+  }
+
+  return "—";
+};
 
 const isActiveSubscription = (status?: string | null) => {
   const normalized = normalizeStatus(status);
@@ -83,7 +101,7 @@ const Financeiro: React.FC = () => {
   const filteredUsuarios = useMemo(() => {
     return usuarios.filter((usuario) => {
       const status = normalizeStatus(usuario.status_da_assinatura);
-      const plan = (usuario.plan_type || "basic").toString().toLowerCase();
+      const plan = normalizeFinancialPlanValue(usuario);
       const updatedAt = usuario.updated_at ? new Date(usuario.updated_at) : null;
 
       const statusMatches = statusFilter === "all" || status === statusFilter;
@@ -119,8 +137,8 @@ const Financeiro: React.FC = () => {
   const planOptions = useMemo(() => {
     const set = new Set<string>();
     usuarios.forEach((usuario) => {
-      const plan = (usuario.plan_type || "basic").toString().toLowerCase();
-      if (plan) set.add(plan);
+      const plan = normalizeFinancialPlanValue(usuario);
+      if (plan !== "none") set.add(plan);
     });
     return Array.from(set).sort();
   }, [usuarios]);
@@ -225,7 +243,7 @@ const Financeiro: React.FC = () => {
               <option value="all">Todos os planos</option>
               {planOptions.map((plan) => (
                 <option key={plan} value={plan}>
-                  {plan.toUpperCase()}
+                  {plan === "vitalicio" ? "Vitalício" : "Plano Cakto"}
                 </option>
               ))}
             </select>
@@ -264,7 +282,7 @@ const Financeiro: React.FC = () => {
                     <TableCell className="font-medium">{usuario.nome_completo || "Sem nome"}</TableCell>
                     <TableCell>{usuario.email || "—"}</TableCell>
                     <TableCell>{usuario.status_da_assinatura || "—"}</TableCell>
-                    <TableCell>{(usuario.plan_type || "basic").toString().toUpperCase()}</TableCell>
+                    <TableCell>{formatFinancialPlanLabel(usuario)}</TableCell>
                     <TableCell>{usuario.updated_at ? new Date(usuario.updated_at).toLocaleString("pt-BR") : "—"}</TableCell>
                   </TableRow>
                 ))

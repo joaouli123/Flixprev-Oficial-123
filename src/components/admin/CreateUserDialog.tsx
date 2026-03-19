@@ -43,6 +43,7 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
   const [password, setPassword] = useState("");
   const [documento, setDocumento] = useState("");
   const [telefone, setTelefone] = useState("");
+  const [profissao, setProfissao] = useState("");
   const [practiceAreasInput, setPracticeAreasInput] = useState("");
   const [cep, setCep] = useState("");
   const [logradouro, setLogradouro] = useState("");
@@ -78,6 +79,7 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
     setPassword("");
     setDocumento(userToEdit.documento || "");
     setTelefone(userToEdit.telefone || "");
+    setProfissao(userToEdit.profissao || "");
     setPracticeAreasInput(Array.isArray(userToEdit.ramos_atuacao) ? userToEdit.ramos_atuacao.join(", ") : "");
     setCep(userToEdit.cep || "");
     setLogradouro(userToEdit.logradouro || "");
@@ -101,6 +103,7 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
     setRole('user');
     setDocumento("");
     setTelefone("");
+    setProfissao("");
     setPracticeAreasInput("");
     setCep("");
     setLogradouro("");
@@ -152,6 +155,7 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
       role: role,
       documento: documento.trim(),
       telefone: telefone.trim(),
+      profissao: profissao.trim(),
       practiceAreas: parsePracticeAreas(practiceAreasInput),
       cep: cep.trim(),
       logradouro: logradouro.trim(),
@@ -279,6 +283,19 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
                 className="w-full transition-all border-slate-200 focus:border-indigo-500 focus:ring-indigo-500/20"
               />
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="profissao" className="text-sm font-medium text-slate-700">
+              Profissão <span className="text-red-500">*</span>
+            </Label>
+            <Input
+              id="profissao"
+              value={profissao}
+              onChange={(e) => setProfissao(e.target.value)}
+              placeholder="Ex: Advogado Previdenciarista"
+              className="w-full transition-all border-slate-200 focus:border-indigo-500 focus:ring-indigo-500/20"
+            />
           </div>
 
           <div className="space-y-2">

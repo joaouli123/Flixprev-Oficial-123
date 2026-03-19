@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Input } from "@/components/ui/input";
 import { Search, Menu, UserCircle, Settings as SettingsIcon, LogOut, Bell, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -17,6 +17,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Profile } from "@/types/app";
 import FlixPrevLogo from "@/components/ui/FlixPrevLogo";
+import { buildApiUrl } from "@/lib/api";
 
 interface HeaderProps {
   searchTerm: string;
@@ -39,29 +40,119 @@ const Header: React.FC<HeaderProps> = ({
   const navigate = useNavigate();
   const [notifications, setNotifications] = useState<any[]>([]);
   const [lastReadTimestamp, setLastReadTimestamp] = useState<number>(0);
+  const notificationsRequestInFlight = useRef(false);
+  const notificationPollTabId = useRef(
+    typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random()}`
+  );
 
   useEffect(() => {
+    if (!session) {
+      setNotifications([]);
+      return;
+    }
+
     // Load local storage last read 
     const saved = localStorage.getItem("lastUnreadNotifications");
     if (saved) setLastReadTimestamp(parseInt(saved, 10));
 
-    const fetchNotifications = async () => {
+    const pollLeaseKey = "flixprev.notifications.poll.leader";
+    const pollLeaseDurationMs = 70000;
+
+    const readLease = () => {
       try {
-        const res = await fetch('/api/notifications');
+        const raw = localStorage.getItem(pollLeaseKey);
+        return raw ? JSON.parse(raw) as { tabId?: string; expiresAt?: number } : null;
+      } catch {
+        return null;
+      }
+    };
+
+    const claimLease = (force = false) => {
+      const now = Date.now();
+      const currentLease = readLease();
+      const isCurrentOwner = currentLease?.tabId === notificationPollTabId.current;
+      const leaseExpired = !currentLease?.expiresAt || currentLease.expiresAt < now;
+
+      if (!force && !isCurrentOwner && !leaseExpired) {
+        return false;
+      }
+
+      localStorage.setItem(
+        pollLeaseKey,
+        JSON.stringify({
+          tabId: notificationPollTabId.current,
+          expiresAt: now + pollLeaseDurationMs,
+        })
+      );
+      return true;
+    };
+
+    const releaseLease = () => {
+      const currentLease = readLease();
+      if (currentLease?.tabId === notificationPollTabId.current) {
+        localStorage.removeItem(pollLeaseKey);
+      }
+    };
+
+    const isCurrentTabLeader = () => {
+      const now = Date.now();
+      const currentLease = readLease();
+      return currentLease?.tabId === notificationPollTabId.current && Number(currentLease?.expiresAt || 0) >= now;
+    };
+
+    const fetchNotifications = async () => {
+      if (notificationsRequestInFlight.current || document.hidden || !isCurrentTabLeader()) {
+        return;
+      }
+
+      try {
+        notificationsRequestInFlight.current = true;
+        const res = await fetch(buildApiUrl('/api/notifications'));
         if (res.ok) {
           const data = await res.json();
           setNotifications(data);
         }
       } catch (err) {
         console.error("Erro ao carregar notificações", err);
+      } finally {
+        notificationsRequestInFlight.current = false;
       }
     };
+
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        claimLease(true);
+        void fetchNotifications();
+      }
+    };
+
+    const handleBeforeUnload = () => {
+      releaseLease();
+    };
+
+    claimLease();
+
     fetchNotifications();
-    
-    // Poll every 30 seconds
-    const interval = setInterval(fetchNotifications, 30000);
-    return () => clearInterval(interval);
-  }, []);
+
+    const interval = setInterval(fetchNotifications, 60000);
+    const leaseRefreshInterval = setInterval(() => {
+      if (!document.hidden) {
+        claimLease();
+      }
+    }, 20000);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => {
+      clearInterval(interval);
+      clearInterval(leaseRefreshInterval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      releaseLease();
+    };
+  }, [session]);
 
   const hasUnread = notifications.some(n => new Date(n.created_at).getTime() > lastReadTimestamp);
 
@@ -78,11 +169,11 @@ const Header: React.FC<HeaderProps> = ({
   };
 
   const handleProfile = () => {
-    navigate("/app/profile");
+    navigate("/app/perfil");
   };
 
   const handleSettings = () => {
-    navigate("/app/settings");
+    navigate("/app/perfil");
   };
 
   return (
@@ -220,7 +311,7 @@ const Header: React.FC<HeaderProps> = ({
               <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-slate-100 text-slate-600 mr-3">
                 <SettingsIcon className="h-4 w-4" />
               </div>
-              <span className="text-sm font-medium">Configurações</span>
+              <span className="text-sm font-medium">Perfil</span>
             </DropdownMenuItem>
             <DropdownMenuSeparator className="bg-slate-100 my-1" />
             <DropdownMenuItem 
