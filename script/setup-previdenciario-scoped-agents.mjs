@@ -63,15 +63,12 @@ const COMMON_URLS = [
   'https://www.planalto.gov.br/ccivil_03/leis/l8212cons.htm',
   'https://www.planalto.gov.br/ccivil_03/decreto/d3048.htm',
   'https://www.planalto.gov.br/ccivil_03/_ato2019-2022/2020/decreto/d10410.htm',
-  'https://portalin.inss.gov.br/in',
   'https://portalin.inss.gov.br/portaria990',
   'https://portalin.inss.gov.br/portaria991',
   'https://portalin.inss.gov.br/portaria993',
   'https://portalin.inss.gov.br/portaria994',
   'https://www.in.gov.br/web/dou/-/instrucao-normativa-pres/inss/n-200-de-12-de-fevereiro-de-2026-687366848',
-  'https://www.gov.br/inss/pt-br/centrais-de-conteudo/legislacao/portarias/2026',
-  'https://www.gov.br/inss/pt-br/centrais-de-conteudo/legislacao/portarias/2025',
-  'https://www.gov.br/inss/pt-br/centrais-de-conteudo/legislacao/portarias-conjuntas/2025',
+  'https://www.in.gov.br/web/dou/-/instrucao-normativa-pres/inss-n-128-de-28-de-marco-de-2022-389275446',
   'https://www.in.gov.br/web/dou/-/portaria-pres/inss-n-1.919-de-12-de-janeiro-de-2026-*-681141683',
   'https://www.in.gov.br/web/dou/-/portaria-conjunta-dirben/dti/inss-n-13-de-23-de-maio-de-2025-631933663',
   'https://www.in.gov.br/web/dou/-/portaria-conjunta-dirben/dti-inss-n-22-de-23-de-setembro-de-2025-658090051',
@@ -126,7 +123,6 @@ const AGENTS = [
     extraUrls: [
       'http://www.planalto.gov.br/ccivil_03/leis/l8213cons.htm',
       'https://www.planalto.gov.br/ccivil_03/decreto/d3048.htm',
-      'https://portalin.inss.gov.br/in',
       'https://portalin.inss.gov.br/portaria990',
       'https://www.in.gov.br/web/dou/-/portaria-dirben/inss-n-1.326-de-13-de-janeiro-de-2026-681141180',
       'https://www.legisweb.com.br/legislacao/?id=467234',
@@ -136,6 +132,7 @@ const AGENTS = [
       'https://www.in.gov.br/web/dou/-/portaria-dirben/inss-n-1.323-de-8-de-janeiro-de-2026-680679249',
       'https://portalin.inss.gov.br/portaria993',
       'https://www.gov.br/previdencia/pt-br/assuntos/rpps/legislacao-dos-rpps/portarias/portarias_todas/PortariaConjuntaMPSINSSn3de16jan2024.pdf',
+      'https://www.in.gov.br/web/dou/-/instrucao-normativa-pres/inss-n-128-de-28-de-marco-de-2022-389275446',
     ],
     instructions: `
 ESCOPO TEMÁTICO:
@@ -171,32 +168,93 @@ ${STRICT_RULES}
     role: 'Especialista em Processo Administrativo Previdenciário',
     highlight: true,
     useCommonUrls: true,
-    extraUrls: [],
+    extraUrls: [
+      // Lei do Processo Administrativo Federal (BASE FUNDAMENTAL para PAP — NÃO está nas common URLs)
+      'https://www.planalto.gov.br/ccivil_03/leis/l9784.htm',
+    ],
     instructions: `
 ESCOPO TEMÁTICO:
-Você é o agente especialista em Processo Administrativo Previdenciário (PAP). Seu domínio abrange:
-- Requerimento administrativo de benefícios perante o INSS
-- Prazos processuais administrativos (art. 104 e ss. do Decreto 3.048/99)
-- Instrução processual e documentação exigida
-- Decisão administrativa, fundamentação e notificação
-- Recurso administrativo (Junta de Recursos e Câmara de Julgamento do CRPS)
-- Revisão de decisão administrativa
-- Desistência, arquivamento e reabertura de requerimento
-- Procuração, representação legal e tutela no processo administrativo
-- Portaria 993/INSS (processo administrativo previdenciário)
-- Instrução Normativa INSS nº 200/2026
+Você é o agente especialista em Processo Administrativo Previdenciário (PAP). Seu domínio abrange TODOS os aspectos procedimentais do relacionamento entre segurado/beneficiário e o INSS:
+
+1. REQUERIMENTO ADMINISTRATIVO:
+   - Forma de requerimento (presencial, Meu INSS, telefone 135)
+   - Documentação exigida para cada tipo de requerimento
+   - Protocolo, número de requerimento e comprovante
+   - Procuração e representação legal (procurador, tutor, curador)
+   - Requerimento por terceiros, menores e incapazes
+
+2. INSTRUÇÃO PROCESSUAL:
+   - Produção de provas no processo administrativo
+   - Justificação administrativa
+   - Exigências (cumprimento de exigência, prazo de 30 dias)
+   - Perícia médica administrativa e agendamento
+   - CNIS como prova de vínculos e remunerações
+   - Inversão do ônus da prova — quando o INSS deve provar
+
+3. PRAZOS PROCESSUAIS:
+   - Prazo de decisão do INSS (30 dias — art. 174 do Decreto 3.048/99)
+   - Prazo para cumprimento de exigências (30 dias prorrogáveis)
+   - Prazos recursais (30 dias para recurso ao CRPS)
+   - Contagem de prazos (dias úteis vs corridos)
+   - Prescrição e decadência no âmbito administrativo
+   - Lei 9.784/99: prazos gerais do processo administrativo federal
+
+4. DECISÃO ADMINISTRATIVA:
+   - Fundamentação e motivação da decisão
+   - Comunicação e notificação ao segurado
+   - Carta de indeferimento e carta de concessão
+   - Data de início do benefício (DIB) e data de entrada do requerimento (DER)
+   - Efeitos da decisão e direito ao benefício desde a DER
+
+5. RECURSO ADMINISTRATIVO:
+   - Recurso para a Junta de Recursos do CRPS (1ª instância)
+   - Recurso para a Câmara de Julgamento do CRPS (2ª instância)
+   - Recurso especial (uniformização de jurisprudência)
+   - Prazo de 30 dias para recurso (art. 305 e ss. do Decreto 3.048/99)
+   - Efeito suspensivo do recurso
+   - Desistência do recurso
+   - Contrarrazões do INSS
+
+6. REVISÃO DE DECISÃO:
+   - Revisão administrativa de ofício
+   - Revisão a pedido do segurado
+   - Prazo decadencial de 10 anos para revisão (art. 103 da Lei 8.213/91)
+
+7. PROCEDIMENTOS ESPECIAIS:
+   - Arquivamento e desarquivamento de requerimento
+   - Reabertura de requerimento
+   - Desistência do requerimento
+   - Acumulação de benefícios — análise administrativa
+   - Reabilitação profissional — encaminhamento no processo admin
+   - Habilitação de dependentes no processo administrativo
+
+8. LEI 9.784/99 — PROCESSO ADMINISTRATIVO FEDERAL:
+   - Princípios: legalidade, finalidade, motivação, razoabilidade, proporcionalidade, moralidade, ampla defesa, contraditório, segurança jurídica, interesse público, eficiência
+   - Direitos e deveres do administrado (arts. 3º e 4º)
+   - Início do processo, legitimados, competência (arts. 5º a 17)
+   - Impedimento e suspeição (arts. 18 a 21)
+   - Instrução e provas (arts. 29 a 47)
+   - Decisão (arts. 48 a 50)
+   - Recurso e revisão (arts. 56 a 65)
+   - Prazos (arts. 66 e 67)
+   - Anulação, revogação e convalidação (arts. 53 a 55)
 
 LIMITES — NÃO RESPONDA SOBRE:
 - Cálculo de RMI, regras de transição, valores de benefícios
 - Requisitos específicos de concessão de cada benefício (aposentadoria, pensão, auxílio, etc.)
-- Questões judiciais (ação previdenciária, mandado de segurança)
+- Questões judiciais (ação previdenciária, mandado de segurança, tutela antecipada)
 - Direito do trabalho, direito tributário
+- Regimes próprios de previdência social (RPPS)
 
-FONTES PRIMORDIAIS NAS LEIS COMUNS:
-- Lei 8.213/91: arts. 104 a 115 (processo administrativo)
-- Decreto 3.048/99: arts. 176 a 186 (processo administrativo)
-- Portaria 993: íntegra (processo administrativo no INSS)
-- IN INSS 200/2026: disposições procedimentais
+FONTES PRIMORDIAIS:
+- Lei 9.784/99: íntegra (lei geral do processo administrativo federal)
+- Lei 8.213/91: arts. 103 a 115 (processo administrativo previdenciário)
+- Decreto 3.048/99: arts. 174 a 186 e 303 a 312 (processo admin e recurso ao CRPS)
+- Portaria 993/INSS: íntegra (processo administrativo no INSS)
+- Portaria 991/INSS: reconhecimento de direito ao benefício
+- Portaria 990/INSS: protocolo e tramitação
+- IN INSS 128/2022: procedimentos operacionais gerais
+- IN INSS 200/2026: disposições procedimentais atualizadas
 
 ${STRICT_RULES}
 `.trim(),
@@ -796,7 +854,6 @@ ${STRICT_RULES}
     useCommonUrls: false,
     extraUrls: [
       'https://www.in.gov.br/web/dou/-/portaria-conjunta-dirben/dti/inss-n-13-de-23-de-maio-de-2025-631933663',
-      'https://portalin.inss.gov.br/in',
       'https://portalin.inss.gov.br/portaria992',
     ],
     instructions: `
@@ -828,10 +885,10 @@ ${STRICT_RULES}
     useCommonUrls: false,
     extraUrls: [
       'https://www.in.gov.br/web/dou/-/portaria-conjunta-dirben/pfe/inss-n-17-de-14-de-agosto-de-2025-650801735',
-      'https://portalin.inss.gov.br/in',
       'https://portalin.inss.gov.br/portaria991',
       'http://www.planalto.gov.br/ccivil_03/leis/l8213cons.htm',
       'https://www.planalto.gov.br/ccivil_03/decreto/d3048.htm',
+      'https://www.in.gov.br/web/dou/-/instrucao-normativa-pres/inss-n-128-de-28-de-marco-de-2022-389275446',
     ],
     instructions: `
 ESCOPO TEMÁTICO:
@@ -870,7 +927,6 @@ ${STRICT_RULES}
       'https://www.planalto.gov.br/ccivil_03/_ato2015-2018/2016/decreto/d8805.htm',
       'https://www.planalto.gov.br/ccivil_03/leis/2003/l10.741.htm',
       'https://www.planalto.gov.br/ccivil_03/_ato2019-2022/2020/lei/l13982.htm',
-      'https://portalin.inss.gov.br/in',
       'https://www.in.gov.br/web/dou/-/portaria-dirben/inss-n-1.333-de-9-de-fevereiro-de-2026-687364747',
     ],
     instructions: `
@@ -910,7 +966,6 @@ ${STRICT_RULES}
       'https://aplicacoes.mds.gov.br/snas/regulacao/visualizar.php?codigo=5255',
       'https://www.planalto.gov.br/ccivil_03/_ato2019-2022/2022/decreto/d11016.htm',
       'https://www.planalto.gov.br/ccivil_03/_ato2015-2018/2016/decreto/d8805.htm',
-      'https://portalin.inss.gov.br/in',
       'https://www.in.gov.br/en/web/dou/-/portaria-dirben/inss-n-1.249-de-26-de-dezembro-de-2024-604469231',
       'https://www.in.gov.br/en/web/dou/-/portaria-dirben/inss-n-1.260-de-27-de-janeiro-de-2025-609661711',
       'https://www.legisweb.com.br/legislacao/?id=489712',
@@ -950,8 +1005,8 @@ ${STRICT_RULES}
       'https://www.gov.br/previdencia/pt-br/acesso-a-informacao/participacao-social/conselhos-e-orgaos-colegiados/conselho-de-recursos-da-previdencia-social/regimento-interno-instrucao-normativa-portarias/portaria-mps-no-125-de-26-de-janeiro-de-2026-regimento-interno-do-crps-compilada-ate-04-02-2026.pdf',
       'https://www.gov.br/inss/pt-br/direitos-e-deveres/recurso/recurso-administrativo-de-beneficio-previdenciario',
       'https://www.gov.br/previdencia/pt-br/acesso-a-informacao/participacao-social/conselhos-e-orgaos-colegiados/conselho-de-recursos-da-previdencia-social/regimento-interno-instrucao-normativa-portarias',
-      'https://portalin.inss.gov.br/in',
       'https://portalin.inss.gov.br/portaria993',
+      'https://www.in.gov.br/web/dou/-/instrucao-normativa-pres/inss-n-128-de-28-de-marco-de-2022-389275446',
     ],
     instructions: `
 ESCOPO TEMÁTICO:
@@ -986,13 +1041,13 @@ ${STRICT_RULES}
       'https://www.planalto.gov.br/ccivil_03/decreto/d3048.htm',
       'https://www.planalto.gov.br/ccivil_03/_ato2019-2022/2020/decreto/d10410.htm',
       'https://www.in.gov.br/web/dou/-/portaria-dirben/inss-n-1.329-de-21-de-janeiro-de-2026-682790501',
-      'https://portalin.inss.gov.br/in',
       'https://portalin.inss.gov.br/portaria990',
       'https://portalin.inss.gov.br/portaria991',
       'https://portalin.inss.gov.br/portaria993',
       'https://portalin.inss.gov.br/portaria994',
       'https://portalin.inss.gov.br/portaria997',
       'https://portalin.inss.gov.br/portaria996',
+      'https://www.in.gov.br/web/dou/-/instrucao-normativa-pres/inss-n-128-de-28-de-marco-de-2022-389275446',
     ],
     instructions: `
 ESCOPO TEMÁTICO:
@@ -1326,6 +1381,8 @@ async function embedBatch(texts) {
 
   for (let start = 0; start < texts.length; start += EMBED_BATCH_SIZE) {
     const batch = texts.slice(start, start + EMBED_BATCH_SIZE);
+    // Rate-limit: evitar 429 da API Gemini entre batches consecutivos
+    if (start > 0) await new Promise((r) => setTimeout(r, 600));
     for (let attempt = 1; attempt <= 3; attempt++) {
       try {
         const response = await Promise.race([
@@ -1447,7 +1504,7 @@ async function ensureAgent(agent, categoryId) {
     await dbQuery(
       `UPDATE agents
        SET user_id=NULL, title=$1, role=$2, description=$3, instructions=$4,
-           category_ids=$5, icon=COALESCE(icon,$6)
+           category_ids=$5, icon=COALESCE(icon,$6), shortcuts=$8
        WHERE id=$7`,
       [
         agent.title, // Atualiza para o título formal novo
@@ -1457,6 +1514,7 @@ async function ensureAgent(agent, categoryId) {
         [categoryId],
         agent.highlight ? 'Star' : 'ShieldCheck',
         existingId,
+        [], // shortcuts removidos
       ]
     );
     return existingId;
@@ -1474,9 +1532,7 @@ async function ensureAgent(agent, categoryId) {
       agent.instructions,
       agent.highlight ? 'Star' : 'ShieldCheck',
       [categoryId],
-      agent.highlight
-        ? ['Destaque', 'Base legal', 'Checklist', 'Fluxo processual']
-        : ['Resumo', 'Base legal', 'Checklist', 'Prazos'],
+      [], // sem shortcuts
       [],
     ]
   );
@@ -1619,33 +1675,17 @@ async function main() {
       // Atualizar attachments no banco
       await dbQuery('UPDATE agents SET attachments=$1 WHERE id=$2', [agentUrls, agentId]);
 
-      // Limpar documentos antigos deste agente
-      await dbQuery('DELETE FROM documents WHERE agent_id=$1', [agentId]);
-
+      // Build all chunks for all URLs BEFORE deleting old data
       let docs = 0;
       let chunks = 0;
+      const allPayloads = [];
 
       for (let i = 0; i < agentUrls.length; i++) {
         const url = agentUrls[i];
         try {
           const payload = await buildChunksForAgent(url, agent.title);
-          const docId = crypto.randomUUID();
-          const title = url.length > 255 ? url.slice(0, 255) : url;
-
-          await dbQuery(
-            'INSERT INTO documents (id, agent_id, title) VALUES ($1,$2,$3)',
-            [docId, agentId, title]
-          );
-          docs += 1;
-
-          for (const row of payload.chunks) {
-            await dbQuery(
-              `INSERT INTO document_chunks (agent_id, document_id, content, embedding, chunk_index)
-               VALUES ($1,$2,$3,$4::vector,$5)`,
-              [agentId, docId, row.content, row.embedding, row.chunk_index]
-            );
-            chunks += 1;
-          }
+          allPayloads.push({ url, payload });
+          chunks += payload.chunks.length;
 
           if ((i + 1) % 5 === 0 || i === agentUrls.length - 1) {
             console.log(`  [${agent.title}] ${i + 1}/${agentUrls.length} URLs processadas`);
@@ -1653,6 +1693,35 @@ async function main() {
         } catch (error) {
           console.log(`  [ERRO] [${agent.title}] URL ${i + 1}: ${url} -> ${error.message}`);
         }
+      }
+
+      // Atomic swap: delete old + insert new in a single transaction
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        await client.query('DELETE FROM documents WHERE agent_id=$1', [agentId]);
+
+        for (const { url, payload } of allPayloads) {
+          if (!payload.chunks.length) continue;
+          const docId = crypto.randomUUID();
+          const title = url.length > 255 ? url.slice(0, 255) : url;
+          await client.query('INSERT INTO documents (id, agent_id, title) VALUES ($1,$2,$3)', [docId, agentId, title]);
+          docs += 1;
+          for (const row of payload.chunks) {
+            await client.query(
+              `INSERT INTO document_chunks (agent_id, document_id, content, embedding, chunk_index)
+               VALUES ($1,$2,$3,$4::vector,$5)`,
+              [agentId, docId, row.content, row.embedding, row.chunk_index]
+            );
+          }
+        }
+
+        await client.query('COMMIT');
+      } catch (txErr) {
+        await client.query('ROLLBACK');
+        console.log(`  ✗ [${agent.title}] ROLLBACK — ${txErr.message}. Dados antigos preservados.`);
+      } finally {
+        client.release();
       }
 
       summary.push({
