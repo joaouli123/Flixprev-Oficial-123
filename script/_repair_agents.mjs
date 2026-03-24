@@ -26,7 +26,7 @@ const { Pool } = pkg;
 const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
 
 // ---- Target: agents with fewer chunks than expected ----
-const MIN_EXPECTED_CHUNKS = 400; // agents with common URLs should have ~1072
+const MIN_EXPECTED_CHUNKS = 700; // agents with common URLs should have ~1072
 
 // ---------------------------------------------------------------------------
 // Utility functions (copied from main script)
