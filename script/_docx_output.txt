@@ -1,0 +1,685 @@
+﻿Installing adm-zip...
+node : npm warn Unknown project config "shamefully-hoist". This will stop 
+working in the next major version of npm.
+At line:1 char:106
++ ... icial-1--ATUALIZADO-"; node script/_extract_all_docx.cjs 2>&1 | Out-F ...
++                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (npm warn Unknow...version of npm. 
+   :String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+npm warn Unknown project config "strict-peer-dependencies". This will stop 
+working in the next major version of npm.
+npm warn Unknown project config "auto-install-peers". This will stop working 
+in the next major version of npm.
+
+added 1 package, removed 3 packages, and audited 538 packages in 3s
+
+110 packages are looking for funding
+  run `npm fund` for details
+
+12 vulnerabilities (4 moderate, 8 high)
+
+To address all issues, run:
+  npm audit fix
+
+Run `npm audit` for details.
+
+================================================================================
+­ƒôä Ag. Dir. Trabalhista ok / Agentes Trabalhistas.docx
+================================================================================
+
+1- DirTrab -  Direito Trabalhista
+2-AtosTr
+3- NR.s Pro 
+4- S├║mulas 
+5- Precedente	
+6- JurisPrud├¬ncia 
+
+AGENTES DA CATEGORIA DIREITO TRABALHISTA 
+
+Agente Direito Trabalhista Macro
+
+http://www.planalto.gov.br/ccivil_03/constituicao/constituicao.htm
+http://www.planalto.gov.br/ccivil_03/decreto-lei/del5452.htm
+
+http://www.planalto.gov.br/ccivil_03/_ato2015-2018/2017/lei/l13467.htm
+
+https://www.planalto.gov.br/ccivil_03/leis/l8036consol.htm
+
+http://www.planalto.gov.br/ccivil_03/leis/l6019.htm
+
+http://www.planalto.gov.br/ccivil_03/leis/l5889.htm
+
+https://www3.mte.gov.br/sistemas/mediador/
+
+NORMAS SUBSDI├üRIAS DO DIREITO TRABALHISTA
+https://www.planalto.gov.br/ccivil_03/leis/2002/l10406compilada.htm
+
+http://www.planalto.gov.br/ccivil_03/_ato2015-2018/2015/lei/l13105.htm
+
+https://www.planalto.gov.br/ccivil_03/decreto-lei/1937-1946/del1608.htm
+
+http://www.planalto.gov.br/ccivil_03/leis/l8213cons.htm
+https://www.cnj.jus.br/poder-judiciario/governanca-de-gestao-de-pessoas/contatos-de-gestao-de-pessoas-do-poder-judiciario/tribunais-regionais-do-trabalho/
+
+2-Atos Institucionais
+├ë o n├║cleo de busca e organiza├º├úo de atos administrativos e instru├º├Áes normativas na ├írea trabalhista. Ele identifica normas vigentes, altera├º├Áes e revoga├º├Áes com precis├úo t├®cnica. Entrega a base normativa certa para fundamentar decis├Áes e estrat├®gias com seguran├ºa.
+
+https://juslaboris.tst.jus.br/handle/20.500.12178/1/discover?filtertype_1=especieato&filter_relational_operator_1=equals&filter_1=Ato+Conjunto&filtertype_2=author&filter_relational_operator_2=equals&filter_2=Brasil.+Tribunal+Superior+do+Trabalho+%28TST%29&submit_apply_filter=&rpp=20&sort_by=dc.identifier.yearandnumber_sort&order=desc#main-container
+
+https://juslaboris.tst.jus.br/handle/20.500.12178/1/discover?order=desc&rpp=20&sort_by=dc.identifier.yearandnumber_sort&page=1&group_by=none&etal=0&filtertype_0=author&filtertype_1=especieato&filter_0=Brasil.+Tribunal+Superior+do+Trabalho+%28TST%29.+Gabinete+da+Presid%C3%AAncia+%28GP%29&filter_relational_operator_1=equals&filter_1=Ato&filter_relational_operator_0=equals#main-container
+
+https://juslaboris.tst.jus.br/handle/20.500.12178/1/discover?filtertype_1=author&filter_relational_operator_1=equals&filter_1=Brasil.+Tribunal+Superior+do+Trabalho+%28TST%29.+Gabinete+da+Vice-Presid%C3%AAncia+%28GVP%29&filtertype_2=author&filter_relational_operator_2=notequals&filter_2=Brasil.+Tribunal+Superior+do+Trabalho+%28TST%29.+Gabinete+da+Presid%C3%AAncia+%28GP%29&filtertype_3=author&filter_relational_operator_3=notcontains&filter_3=csjt&filtertype_4=especieato&filter_relational_operator_4=equals&filter_4=Ato&submit_apply_filter=&rpp=20&sort_by=dc.identifier.yearandnumber_sort&order=desc#main-container
+
+https://juslaboris.tst.jus.br/handle/20.500.12178/1/discover?filtertype_1=author&filter_relational_operator_1=equals&filter_1=Escola+Nacional+de+Forma%C3%A7%C3%A3o+e+Aperfei%C3%A7oamento+de+Magistrados+do+Trabalho+%28Brasil%29+%28Enamat%29&submit_apply_filter=&rpp=20&sort_by=dc.identifier.yearandnumber_sort&order=desc#main-container
+
+https://juslaboris.tst.jus.br/handle/20.500.12178/1/discover?filtertype_1=especieato&filter_relational_operator_1=equals&filter_1=Ato+Regimental&filtertype_2=author&filter_relational_operator_2=equals&filter_2=Brasil.+Tribunal+Superior+do+Trabalho+%28TST%29&submit_apply_filter=&rpp=20&sort_by=dc.identifier.yearandnumber_sort&order=desc#main-container
+
+https://juslaboris.tst.jus.br/handle/20.500.12178/1/discover?filtertype_1=especieato&filter_relational_operator_1=equals&filter_1=Ato+Deliberativo&filtertype_2=author&filter_relational_operator_2=equals&filter_2=Brasil.+Tribunal+Superior+do+Trabalho+%28TST%29&submit_apply_filter=&rpp=20&sort_by=dc.identifier.yearandnumber_sort&order=desc#main-container#main-container
+
+https://juslaboris.tst.jus.br/discover?order=asc&rpp=15&sort_by=dc.date.issued_dt&page=1&group_by=none&etal=0&filtertype_0=especieato&filtertype_1=author&filter_0=Instru%C3%A7%C3%A3o+Normativa+-+IN&filter_relational_operator_1=equals&filter_1=Brasil.+Tribunal+Superior+do+Trabalho+%28TST%29&filter_relational_operator_0=equals#aspect_discovery_SimpleSearch_div_search-controls-gear
+
+https://juslaboris.tst.jus.br/discover?rpp=15&etal=0&group_by=none&page=2&sort_by=dc.date.issued_dt&order=asc&filtertype_0=especieato&filtertype_1=author&filter_relational_operator_1=equals&filter_relational_operator_0=equals&filter_1=Brasil.+Tribunal+Superior+do+Trabalho+%28TST%29&filter_0=Instru%C3%A7%C3%A3o+Normativa+-+IN
+
+https://juslaboris.tst.jus.br/discover?rpp=15&etal=0&group_by=none&page=3&sort_by=dc.date.issued_dt&order=asc&filtertype_0=especieato&filtertype_1=author&filter_relational_operator_1=equals&filter_relational_operator_0=equals&filter_1=Brasil.+Tribunal+Superior+do+Trabalho+%28TST%29&filter_0=Instru%C3%A7%C3%A3o+Normativa+-+IN
+
+https://juslaboris.tst.jus.br/handle/20.500.12178/107030
+
+https://juslaboris.tst.jus.br/handle/20.500.12178/116169
+
+3- NR.s - Normas Regulamentadores
+├ë o agente especializado nas Normas Regulamentadoras aplic├íveis ao Direito do Trabalho.
+Ele localiza, organiza e atualiza exig├¬ncias de sa├║de e seguran├ºa com base nas NRs vigentes. Entrega refer├¬ncia t├®cnica precisa para fundamenta├º├úo jur├¡dica, compliance e estrat├®gia processual.
+
+https://www.gov.br/trabalho-e-emprego/pt-br/acesso-a-informacao/participacao-social/conselhos-e-orgaos-colegiados/comissao-tripartite-partitaria-permanente/normas-regulamentadora/normas-regulamentadoras-vigentes/nr-01-atualizada-2024-i-1.pdf
+https://www.gov.br/trabalho-e-emprego/pt-br/acesso-a-informacao/participacao-social/conselhos-e-orgaos-colegiados/comissao-tripartite-partitaria-permanente/arquivos/normas-regulamentadoras/nr-02_atualizada_2019.pdf
+https://www.gov.br/trabalho-e-emprego/pt-br/acesso-a-informacao/participacao-social/conselhos-e-orgaos-colegiados/comissao-tripartite-partitaria-permanente/arquivos/normas-regulamentadoras/nr-03_atualizada_2019.pdf
+
+	https://www.gov.br/trabalho-e-emprego/pt-br/acesso-a-informacao/participacao-social/conselhos-e-orgaos-colegiados/comissao-tripartite-partitaria-permanente/normas-regulamentadora/normas-regulamentadoras-vigentes/nr-04-atualizada-2023.pdf
+https://www.gov.br/trabalho-e-emprego/pt-br/acesso-a-informacao/participacao-social/conselhos-e-orgaos-colegiados/comissao-tripartite-partitaria-permanente/normas-regulamentadora/normas-regulamentadoras-vigentes/NR05atualizada2023.pdf
+https://www.gov.br/trabalho-e-emprego/pt-br/acesso-a-informacao/participacao-social/conselhos-e-orgaos-colegiados/comissao-tripartite-partitaria-permanente/normas-regulamentadora/normas-regulamentadoras-vigentes/nr-06-atualizada-2025-ii.pdf
+https://www.gov.br/trabalho-e-emprego/pt-br/acesso-a-informacao/participacao-social/conselhos-e-orgaos-colegiados/comissao-tripartite-partitaria-permanente/normas-regulamentadora/normas-regulamentadoras-vigentes/nr-07-atualizada-2022-1.pdf
+https://www.gov.br/trabalho-e-emprego/pt-br/acesso-a-informacao/participacao-social/conselhos-e-orgaos-colegiados/comissao-tripartite-partitaria-permanente/arquivos/normas-regulamentadoras/nr-08-atualizada-2022.pdf
+https://www.gov.br/trabalho-e-emprego/pt-br/acesso-a-informacao/participacao-social/conselhos-e-orgaos-colegiados/comissao-tripartite-partitaria-permanente/normas-regulamentadora/normas-regulamentadoras-vigentes/nr-09-atualizada-2021.pdf
+https://www.gov.br/trabalho-e-emprego/pt-br/acesso-a-informacao/participacao-social/conselhos-e-orgaos-colegiados/comissao-tripartite-partitaria-permanente/arquivos/normas-regulamentadoras/nr-10.pdf
+
+https://www.gov.br/trabalho-e-emprego/pt-br/acesso-a-informacao/participacao-social/conselhos-e-orgaos-colegiados/comissao-tripartite-partitaria-permanente/normas-regulamentadora/normas-regulamentadoras-vigentes/nr-11-atualizada-2016.pdf
+
+https://www.gov.br/trabalho-e-emprego/pt-br/acesso-a-informacao/participacao-social/conselhos-e-orgaos-colegiados/comissao-tripartite-partitaria-permanente/arquivos/normas-regulamentadoras/nr-11-anexo-01.pdf
+
+https://www.gov.br/trabalho-e-emprego/pt-br/acesso-a-informacao/participacao-social/conselhos-e-orgaos-colegiados/comissao-tripartite-partitaria-permanente/normas-regulamentadora/normas-regulamentadoras-vigentes/nr-12-atualizada-2025.pdf
+
+https://www.gov.br/trabalho-e-emprego/pt-br/assuntos/inspecao-do-trabalho/manuais-e-publicacoes/manual-de-aplicacao-da-nr-12.pdf
+
+https://www.gov.br/trabalho-e-emprego/pt-br/assuntos/inspecao-do-trabalho/seguranca-e-saude-no-trabalho/sst-notas-tecnicas/nota_tecnica_2347-manual-aplicacao-nr-12.pdf
+
+https://www.gov.br/trabalho-e-emprego/pt-br/acesso-a-informacao/participacao-social/conselhos-e-orgaos-colegiados/comissao-tripartite-partitaria-permanente/arquivos/normas-regulamentadoras/nr-12_avaliacao_de_conformidade_de_componentes_de_sistemas_de_seguranca_de_maquinas_no_brasil.pdf
+
+https://www.gov.br/trabalho-e-emprego/pt-br/acesso-a-informacao/participacao-social/conselhos-e-orgaos-colegiados/comissao-tripartite-partitaria-permanente/arquivos/normas-regulamentadoras/nr-12_cartilha_nr_12_segurana_em_mquinas_para_couro_e_tratamento_de_efluentes.pdf
+
+https://www.gov.br/trabalho-e-emprego/pt-br/acesso-a-informacao/participacao-social/conselhos-e-orgaos-colegiados/comissao-tripartite-partitaria-permanente/normas-regulamentadora/normas-regulamentadoras-vigentes/nr-13-atualizada-2023-b.pdf
+
+https://www.gov.br/trabalho-e-emprego/pt-br/acesso-a-informacao/participacao-social/conselhos-e-orgaos-colegiados/comissao-tripartite-partitaria-permanente/normas-regulamentadora/normas-regulamentadoras-vigentes/perguntas-e-respostas-nr13_2023_04_28.pdf
+
+https://www.gov.br/trabalho-e-emprego/pt-br/acesso-a-informacao/participacao-social/conselhos-e-orgaos-colegiados/comissao-tripartite-partitaria-permanente/arquivos/normas-regulamentadoras/nr-14-atualizada-2022.pdf
+
+https://www.gov.br/trabalho-e-emprego/pt-br/acesso-a-informacao/participacao-social/conselhos-e-orgaos-colegiados/comissao-tripartite-partitaria-permanente/normas-regulamentadora/normas-regulamentadoras-vigentes/nr-15-atualizada-2025.pdf
+
+https://www.gov.br/trabalho-e-emprego/pt-br/acesso-a-informacao/participacao-social/conselhos-e-orgaos-colegiados/comissao-tripartite-partitaria-permanente/arquivos/normas-regulamentadoras/nr-15-anexo-01.pdf
+
+https://www.gov.br/trabalho-e-emprego/pt-br/acesso-a-informacao/participacao-social/conselhos-e-orgaos-colegiados/comissao-tripartite-partitaria-permanente/arquivos/normas-regulamentadoras/nr-15-anexo-02.pdf
+
+https://www.gov.br/trabalho-e-emprego/pt-br/assuntos/inspecao-do-trabalho/seguranca-e-saude-no-trabalho/sst-portarias/2021/portaria-mtp-no-426-anexos-i-vibracao-e-iii-calor-da-nr-09.pdf
+
+https://www.gov.br/trabalho-e-emprego/pt-br/acesso-a-informacao/participacao-social/conselhos-e-orgaos-colegiados/comissao-tripartite-partitaria-permanente/arquivos/normas-regulamentadoras/nr-15-anexo-03.pdf
+https://www.gov.br/trabalho-e-emprego/pt-br/acesso-a-informacao/participacao-social/conselhos-e-orgaos-colegiados/comissao-tripartite-partitaria-permanente/arquivos/normas-regulamentadoras/nr-15-anexo-04.pdf
+
+https://www.gov.br/trabalho-e-emprego/pt-br/acesso-a-informacao/participacao-social/conselhos-e-orgaos-colegiados/comissao-tripartite-partitaria-permanente/arquivos/normas-regulamentadoras/nr-15-anexo-05.pdf
+
+https://www.gov.br/trabalho-e-emprego/pt-br/acesso-a-informacao/participacao-social/conselhos-e-orgaos-colegiados/comissao-tripartite-partitaria-permanente/normas-regulamentadora/normas-regulamentadoras-vigentes/nr-15-anexo-6-trabalho-sob-condicoes-hiperbaricas.pdf
+
+https://www.gov.br/trabalho-e-emprego/pt-br/acesso-a-informacao/participacao-social/conselhos-e-orgaos-colegiados/comissao-tripartite-partitaria-permanente/arquivos/normas-regulamentadoras/nr-15-anexo-07.pdf
+
+https://www.gov.br/trabalho-e-emprego/pt-br/assuntos/inspecao-do-trabalho/seguranca-e-saude-no-trabalho/sst-portarias/2021/portaria-mtp-no-426-anexos-i-vibracao-e-iii-calor-da-nr-09.pdf
+
+https://www.gov.br/trabalho-e-emprego/pt-br/acesso-a-informacao/participacao-social/conselhos-e-orgaos-colegiados/comissao-tripartite-partitaria-permanente/arquivos/normas-regulamentadoras/nr-15-anexo-08.pdf
+
+https://www.gov.br/trabalho-e-emprego/pt-br/acesso-a-informacao/participacao-social/conselhos-e-orgaos-colegiados/comissao-tripartite-partitaria-permanente/arquivos/normas-regulamentadoras/nr-15-anexo-09.pdf
+
+https://www.gov.br/trabalho-e-emprego/pt-br/acesso-a-informacao/participacao-social/conselhos-e-orgaos-colegiados/comissao-tripartite-partitaria-permanente/arquivos/normas-regulamentadoras/nr-15-anexo-10.pdf
+
+https://www.gov.br/trabalho-e-emprego/pt-br/acesso-a-informacao/participacao-social/conselhos-e-orgaos-colegiados/comissao-tripartite-partitaria-permanente/arquivos/normas-regulamentadoras/nr-15-anexo-11.pdf
+
+https://www.gov.br/trabalho-e-emprego/pt-br/acesso-a-informacao/participacao-social/conselhos-e-orgaos-colegiados/comissao-tripartite-partitaria-permanente/arquivos/normas-regulamentadoras/nr-15-anexo-12.pdf
+
+https://www.gov.br/trabalho-e-emprego/pt-br/acesso-a-informacao/participacao-social/conselhos-e-orgaos-colegiados/comissao-tripartite-partitaria-permanente/arquivos/normas-regulamentadoras/nr-15-anexo-13.pdf
+
+https://www.gov.br/trabalho-e-emprego/pt-br/acesso-a-informacao/participacao-social/conselhos-e-orgaos-colegiados/comissao-tripartite-partitaria-permanente/arquivos/normas-regulamentadoras/nr-15-anexo-13a-atualizado-2022-1.pdf
+
+https://www.gov.br/trabalho-e-emprego/pt-br/acesso-a-informacao/participacao-social/conselhos-e-orgaos-colegiados/comissao-tripartite-partitaria-permanente/arquivos/normas-regulamentadoras/nr-15-anexo-14.pdf
+
+https://www.gov.br/trabalho-e-emprego/pt-br/acesso-a-informacao/participacao-social/conselhos-e-orgaos-colegiados/comissao-tripartite-partitaria-permanente/normas-regulamentadora/normas-regulamentadoras-vigentes/nr-16-atualizada-2025-ii.pdf
+
+https://www.gov.br/trabalho-e-emprego/pt-br/acesso-a-informacao/participacao-social/conselhos-e-orgaos-colegiados/comissao-tripartite-partitaria-permanente/normas-regulamentadora/normas-regulamentadoras-vigentes/nr-17-atualizada-2023.pdf
+
+https://www.gov.br/trabalho-e-emprego/pt-br/acesso-a-informacao/participacao-social/conselhos-e-orgaos-colegiados/comissao-tripartite-partitaria-permanente/normas-regulamentadora/normas-regulamentadoras-vigentes/nr-17-anexo-i-checkout-atualizado-2023.pdf
+
+https://www.gov.br/trabalho-e-emprego/pt-br/acesso-a-informacao/participacao-social/conselhos-e-orgaos-colegiados/comissao-tripartite-partitaria-permanente/normas-regulamentadora/normas-regulamentadoras-vigentes/nr-17-anexo-ii-teleatendimento-atualizado-2023.pdf
+
+https://www.gov.br/trabalho-e-emprego/pt-br/acesso-a-informacao/participacao-social/conselhos-e-orgaos-colegiados/comissao-tripartite-partitaria-permanente/arquivos/normas-regulamentadoras/nr-18_historico_reformulacao_nr_18.pdf
+
+https://www.gov.br/trabalho-e-emprego/pt-br/acesso-a-informacao/participacao-social/conselhos-e-orgaos-colegiados/comissao-tripartite-partitaria-permanente/normas-regulamentadora/normas-regulamentadoras-vigentes/nr-18-atualizada-2025-1.pdf
+
+https://www.gov.br/trabalho-e-emprego/pt-br/acesso-a-informacao/participacao-social/conselhos-e-orgaos-colegiados/comissao-tripartite-partitaria-permanente/normas-regulamentadora/normas-regulamentadoras-vigentes/nr-19-atualizada-2023.pdf
+
+https://www.gov.br/trabalho-e-emprego/pt-br/acesso-a-informacao/participacao-social/conselhos-e-orgaos-colegiados/comissao-tripartite-partitaria-permanente/normas-regulamentadora/normas-regulamentadoras-vigentes/nr-20-atualizada-2025.pdf
+
+https://www.gov.br/trabalho-e-emprego/pt-br/acesso-a-informacao/participacao-social/conselhos-e-orgaos-colegiados/comissao-tripartite-partitaria-permanente/arquivos/normas-regulamentadoras/nr-20-perguntas_respostas_nr_20.pdf
+
+https://www.gov.br/trabalho-e-emprego/pt-br/acesso-a-informacao/participacao-social/conselhos-e-orgaos-colegiados/comissao-tripartite-partitaria-permanente/arquivos/normas-regulamentadoras/nr-21.pdf
+
+https://www.gov.br/trabalho-e-emprego/pt-br/acesso-a-informacao/participacao-social/conselhos-e-orgaos-colegiados/comissao-tripartite-partitaria-permanente/normas-regulamentadora/normas-regulamentadoras-vigentes/nr-22-atualizada-2024-iii.pdf
+
+https://www.gov.br/trabalho-e-emprego/pt-br/acesso-a-informacao/participacao-social/conselhos-e-orgaos-colegiados/comissao-tripartite-partitaria-permanente/arquivos/normas-regulamentadoras/nr-23-atualizada-2022.pdf
+
+https://www.gov.br/trabalho-e-emprego/pt-br/acesso-a-informacao/participacao-social/conselhos-e-orgaos-colegiados/comissao-tripartite-partitaria-permanente/arquivos/normas-regulamentadoras/nr-24-atualizada-2022.pdf
+
+https://www.gov.br/trabalho-e-emprego/pt-br/acesso-a-informacao/participacao-social/conselhos-e-orgaos-colegiados/comissao-tripartite-partitaria-permanente/arquivos/normas-regulamentadoras/nr-25-atualizada-2022-1.pdf
+
+https://www.gov.br/trabalho-e-emprego/pt-br/acesso-a-informacao/participacao-social/conselhos-e-orgaos-colegiados/comissao-tripartite-partitaria-permanente/arquivos/normas-regulamentadoras/nr-26-atualizada-2022.pdf
+
+https://www.gov.br/trabalho-e-emprego/pt-br/acesso-a-informacao/participacao-social/conselhos-e-orgaos-colegiados/comissao-tripartite-partitaria-permanente/arquivos/normas-regulamentadoras/nr_27_revogada_2008.pdf
+
+https://www.gov.br/trabalho-e-emprego/pt-br/acesso-a-informacao/participacao-social/conselhos-e-orgaos-colegiados/comissao-tripartite-partitaria-permanente/normas-regulamentadora/normas-regulamentadoras-vigentes/nr-28-atualizada-2024-i.pdf
+
+https://www.gov.br/trabalho-e-emprego/pt-br/acesso-a-informacao/participacao-social/conselhos-e-orgaos-colegiados/comissao-tripartite-partitaria-permanente/normas-regulamentadora/normas-regulamentadoras-vigentes/nr-29-atualizada-2023.pdf
+
+https://www.gov.br/trabalho-e-emprego/pt-br/acesso-a-informacao/participacao-social/conselhos-e-orgaos-colegiados/comissao-tripartite-partitaria-permanente/arquivos/normas-regulamentadoras/NR29_GUIA_DE_BOAS_PRATICAS_PARA_TRABALHO_EM_ALTURAS_NAS_ATIVIDADES_PORTURIAS.pdf
+
+https://www.gov.br/trabalho-e-emprego/pt-br/acesso-a-informacao/participacao-social/conselhos-e-orgaos-colegiados/comissao-tripartite-partitaria-permanente/normas-regulamentadora/normas-regulamentadoras-vigentes/manual-do-usuario-sesstp-versao-1-0-publicar.pdf
+
+https://www.gov.br/trabalho-e-emprego/pt-br/acesso-a-informacao/participacao-social/conselhos-e-orgaos-colegiados/comissao-tripartite-partitaria-permanente/normas-regulamentadora/normas-regulamentadoras-vigentes/nr-30-atualizada-2023.pdf
+
+https://www.gov.br/trabalho-e-emprego/pt-br/acesso-a-informacao/participacao-social/conselhos-e-orgaos-colegiados/comissao-tripartite-partitaria-permanente/normas-regulamentadora/normas-regulamentadoras-vigentes/nr-31-atualizada-2024-2.pdf
+
+https://www.gov.br/trabalho-e-emprego/pt-br/acesso-a-informacao/participacao-social/conselhos-e-orgaos-colegiados/comissao-tripartite-partitaria-permanente/normas-regulamentadora/normas-regulamentadoras-vigentes/manual-do-usuario-sestr-versao-11-10-2023-para-publicacao.pdf
+
+https://www.gov.br/trabalho-e-emprego/pt-br/acesso-a-informacao/participacao-social/conselhos-e-orgaos-colegiados/comissao-tripartite-partitaria-permanente/normas-regulamentadora/normas-regulamentadoras-vigentes/nr-32-atualizada-2023-1.pdf
+
+https://www.gov.br/trabalho-e-emprego/pt-br/acesso-a-informacao/participacao-social/conselhos-e-orgaos-colegiados/comissao-tripartite-partitaria-permanente/arquivos/normas-regulamentadoras/nr-32_guia_tecnico_de_riscos_biologicos_nr_32.pdf
+
+https://www.gov.br/trabalho-e-emprego/pt-br/acesso-a-informacao/participacao-social/conselhos-e-orgaos-colegiados/comissao-tripartite-partitaria-permanente/arquivos/normas-regulamentadoras/nr-33-atualizada-2022-_retificada.pdf
+
+https://www.gov.br/trabalho-e-emprego/pt-br/acesso-a-informacao/participacao-social/conselhos-e-orgaos-colegiados/comissao-tripartite-partitaria-permanente/arquivos/normas-regulamentadoras/nr-33_guia_tecnico_da_nr_33.pdf
+
+https://www.gov.br/trabalho-e-emprego/pt-br/acesso-a-informacao/participacao-social/conselhos-e-orgaos-colegiados/comissao-tripartite-partitaria-permanente/normas-regulamentadora/normas-regulamentadoras-vigentes/nr-34-atualizada-2023-2.pdf
+
+https://www.gov.br/trabalho-e-emprego/pt-br/acesso-a-informacao/participacao-social/conselhos-e-orgaos-colegiados/comissao-tripartite-partitaria-permanente/normas-regulamentadora/normas-regulamentadoras-vigentes/nr-35-atualizada-2025-1.pdf
+
+https://www.gov.br/trabalho-e-emprego/pt-br/assuntos/inspecao-do-trabalho/manuais-e-publicacoes/manual_consolidado_da_nr_35.pdf
+
+https://www.gov.br/trabalho-e-emprego/pt-br/acesso-a-informacao/participacao-social/conselhos-e-orgaos-colegiados/comissao-tripartite-partitaria-permanente/normas-regulamentadora/normas-regulamentadoras-vigentes/nr-36-atualizada-2024-1.pdf
+
+https://www.gov.br/trabalho-e-emprego/pt-br/acesso-a-informacao/participacao-social/conselhos-e-orgaos-colegiados/comissao-tripartite-partitaria-permanente/arquivos/normas-regulamentadoras/nr-36_manual_nr_36_compilado.pdf
+
+https://www.gov.br/trabalho-e-emprego/pt-br/assuntos/inspecao-do-trabalho/seguranca-e-saude-no-trabalho/ctpp-nrs/nr-37-atualizada-2023.pdf
+
+https://www.gov.br/trabalho-e-emprego/pt-br/acesso-a-informacao/participacao-social/conselhos-e-orgaos-colegiados/comissao-tripartite-partitaria-permanente/normas-regulamentadora/normas-regulamentadoras-vigentes/nr-38-atualizada-2025-3.pdf
+
+https://www.gov.br/trabalho-e-emprego/pt-br/acesso-a-informacao/participacao-social/conselhos-e-orgaos-colegiados/comissao-tripartite-partitaria-permanente/arquivos/normas-regulamentadoras/tabela-de-classificacao-tipificacao-de-nrs-e-anexos-2022_12_14.pdf
+
+4- S├║mulas 
+├ë o agente central de consulta e organiza├º├úo das s├║mulas trabalhistas, ativas e canceladas. Ele identifica o status, hist├│rico e aplicabilidade de cada enunciado. Entrega base segura para fundamenta├º├úo t├®cnica e atualiza├º├úo estrat├®gica.
+
+S├║mulas cancelada: https://www.tst.jus.br/cancelamento-de-sumulas-ojs-e-precedentes-normativos
+TST: S├║mulas/Precedentes -  https://www.tst.jus.br/documents/d/guest/livrointernet-12-pdf
+https://jurisprudencia.tst.jus.br/?tipoJuris=SUM&orgao=TST&pesquisar=1
+
+TRT4- S├║mulas : https://www.trt4.jus.br/portais/trt4/sumulas
+TRT1:  https://trt1.jus.br/documents/22365/3111637/S%C3%BAmulas+arquivo+completo+26.9.2023.pdf/7cbb62d6-020e-b1ac-bb7f-7160a4aa491b
+https://trt1.jus.br/documents/22365/3111637/TESES+JUR%C3%8DDICAS+PREVALECENTES+-+26.9.2023.pdf/1849a028-ac7d-b435-2a34-5bdb42a2be7a
+
+TRT2: https://www.trt2.jus.br/geral/tribunal2/SUM_TRT2/Sumulas_trt02.html
+TRT3: https://portal.trt3.jus.br/internet/jurisprudencia/uniformizacao-de-jurisprudencia/sumulas
+TRT4: https://www.trt4.jus.br/portais/trt4/sumulas
+TRT5: https://www.trt5.jus.br/sumulas/todas
+TRT6: https://www.trt6.jus.br/portal/jurisprudencia/sumulas-trt6
+TRT7: https://www.trt7.jus.br/index.php/jurisprudencia/jurisprudencia-consolidada-trt7/sumulas-do-trt7
+TRT8: https://www.trt8.jus.br/jurisprudencia/sumulas-em-lista
+https://www.trt8.jus.br/jurisprudencia/sumulas
+TRT9:  https://www.trt9.jus.br/bancojurisprudencia/publico/listagemPorCategoria_visualizadorHtml.xhtml
+TRT10: https://vlex.com.br/vid/sumulas-do-trt-10-567352362
+TRT11: https://portal.trt11.jus.br/index.php/main/11-servicos/15-sumulas
+TRT12: https://portal.trt12.jus.br/uniformiza%C3%A7%C3%A3odejurisprud%C3%AAncias%C3%BAmulastrtsc
+TRT13: https://www.trt13.jus.br/institucional/nugep/sumulas
+TRT14: https://portal.trt14.jus.br/portal/sumulas
+TRT15: https://trt15.jus.br/sites/portal/files/roles/servicos/atas-julgamento/s%C3%BAmulas/versao-compilada_SUMULAS_13-02-2026.pdf
+https://trt15.jus.br/sites/portal/files/roles/servicos/atas-julgamento/s%C3%BAmulas/versao-completa_SUMULAS_13-02-2026.pdf
+TRT16: https://www.trt16.jus.br/sites/portal/files/roles/jurisprudencia/S%C3%BAmulas%20do%20TRT16.pdf
+TRT17: https://www.trt17.jus.br/w/sumulas
+TRT18: https://www.trt18.jus.br/portal/jurisprudencia/sumula-trt18/
+TRT19: https://site.trt19.jus.br/sumulastrt19
+TRT20: https://www.trt20.jus.br/jurisprudencia/sumulas-do-trt-20-regiao?view=article&id=9330:integra-sumulas&catid=2
+TRT21: https://www.trt21.jus.br/jurisprudencia/sumulas
+TRT22: https://www.trt22.jus.br/jurisprudencia/sumulas?page=0
+https://www.trt22.jus.br/jurisprudencia/sumulas?page=1
+https://www.trt22.jus.br/jurisprudencia/sumulas?page=2
+https://www.trt22.jus.br/jurisprudencia/sumulas?page=3
+https://www.trt22.jus.br/jurisprudencia/sumulas?page=4 
+TRT23: https://portal.trt23.jus.br/portal/sumulas
+TRT24: https://www.trt24.jus.br/documents/20182/1472434/S%C3%9AMULAS+DO+TRT+DA+24%C2%AA+REGI%C3%83O+-+atualiza%C3%A7%C3%A3o+Julho+2025
+
+5- Precedente	
+Ele destaca decis├Áes vinculantes, repetitivas e entendimentos com for├ºa persuasiva relevante.
+Entrega direcionamento estrat├®gico para fundamenta├º├Áes consistentes e alinhadas ├á orienta├º├úo dos tribunais.
+https://www.tst.jus.br/nugep-sp/recursos-repetitivos/precedentes-vinculantes
+
+6- JurisPrud├¬ncia 
+├ë o n├║cleo de intelig├¬ncia em jurisprud├¬ncia trabalhista.
+Ele identifica precedentes dominantes, entendimentos consolidados e posi├º├Áes divergentes dos tribunais.
+Entrega base estrat├®gica para fundamenta├º├Áes seguras, atuais e alinhadas ├á pr├ítica decis├│ria.
+
+https://jurisprudencia.jt.jus.br
+https://jurisprudencia.tst.jus.br/
+
+================================================================================
+­ƒôä Ag. Dir. Tribut├írios ok / AGENTES- LINKS DIR. TRIBUTARIO.docx
+================================================================================
+
+AGENTE DE DIREITO TRIBUT├üRIO
+
+DTrib: Agente Direito Tribut├írio 
+https://www.planalto.gov.br/ccivil_03/constituicao/constituicao.htm
+https://www.planalto.gov.br/ccivil_03/leis/l5172compilado.htm
+https://www.planalto.gov.br/ccivil_03/leis/l6830.htm
+https://www.planalto.gov.br/ccivil_03/_ato2015-2018/2018/decreto/d9580.htm
+https://www.planalto.gov.br/ccivil_03/leis/2002/l10637.htm
+https://www.planalto.gov.br/ccivil_03/leis/LCP/Lcp214.htm#art507
+https://www.planalto.gov.br/ccivil_03/leis/LCP/Lcp214.htm#art496
+https://www.planalto.gov.br/ccivil_03/leis/2003/l10.833.htm
+https://www.planalto.gov.br/ccivil_03/leis/lcp/lcp123.htm
+https://www.planalto.gov.br/ccivil_03/leis/lcp/Lcp227.htm#art169
+https://www.planalto.gov.br/ccivil_03/leis/l8212cons.htm
+https://www.planalto.gov.br/ccivil_03/leis/l8213cons.htm
+https://www.planalto.gov.br/ccivil_03/_Ato2015-2018/2015/Lei/L13135.htm#art6
+https://www.planalto.gov.br/ccivil_03/leis/lcp/lcp87.htm
+https://www.al.sp.gov.br/repositorio/legislacao/decreto/2000/decreto-45490-30.11.2000.html
+https://www.planalto.gov.br/ccivil_03/leis/lcp/lcp116.htm
+https://www.planalto.gov.br/ccivil_03/constituicao/emendas/emc/emc132.htm
+https://www.in.gov.br/en/web/dou/-/instrucao-normativa-rfb-n-2.121-de-15-de-dezembro-de-2022-452045866
+
+Agente de Interpreta├º├úo Tribut├íria
+Ajuda a explicar conceitos como lan├ºamento, tributos, obriga├º├Áes acess├│rias, garantias e penalidades.
+
+https://www.planalto.gov.br/ccivil_03/leis/l5172compilado.htm?utm_source=chatgpt.com
+https://www.planalto.gov.br/ccivil_03/constituicao/constituicao.htm?utm_source=chatgpt.com
+https://www.planalto.gov.br/ccivil_03/leis/lcp/lcp104.htm?utm_source=chatgpt.com
+https://www.planalto.gov.br/ccivil_03/decreto/d70235cons.htm
+https://www.normaslegais.com.br/legislacao/instrucao-normativa-rfb-1700-2017.htm
+https://www.normaslegais.com.br/legislacao/instrucao-normativa-rfb-2201-2024.htm
+https://portal.stf.jus.br/
+https://www.stj.jus.br/sites/portalp/Inicio
+https://www2.camara.leg.br/legin/fed/leicom/2025/leicomplementar-214-16-janeiro-2025-796905-publicacaooriginal-174141-pl.html
+https://www.planalto.gov.br/ccivil_03/leis/lcp/lcp227.htm?utm_source=chatgpt.com
+https://www.planalto.gov.br/ccivil_03/constituicao/constituicao.htm
+https://www.planalto.gov.br/ccivil_03/leis/lcp/lcp214.htm
+https://normasinternet2.receita.fazenda.gov.br/#/consulta/externa/81268
+
+REFIS-IA- Agente Reforma Tribut├íria Atual
+Monitorar e interpretar as mudan├ºas da Reforma Tribut├íria (CL 214/25 e correlatas)
+Explica transi├º├úo dos tributos antigos para IBS/CBS/IS + impactos setoriais.
+
+https://www.planalto.gov.br/ccivil_03/leis/l5172compilado.htm?utm_source=chatgpt.com
+https://www.planalto.gov.br/ccivil_03/constituicao/constituicao.htm?utm_source=chatgpt.com
+https://www.planalto.gov.br/ccivil_03/leis/lcp/lcp104.htm?utm_source=chatgpt.com
+https://www.planalto.gov.br/ccivil_03/decreto/d70235cons.htm
+https://www.normaslegais.com.br/legislacao/instrucao-normativa-rfb-1700-2017.htm
+https://www.normaslegais.com.br/legislacao/instrucao-normativa-rfb-2201-2024.htm
+https://portal.stf.jus.br/
+https://www.stj.jus.br/sites/portalp/Inicio
+https://www2.camara.leg.br/legin/fed/leicom/2025/leicomplementar-214-16-janeiro-2025-796905-publicacaooriginal-174141-pl.html
+https://www.planalto.gov.br/ccivil_03/leis/lcp/lcp227.htm?utm_source=chatgpt.com
+https://www.planalto.gov.br/ccivil_03/constituicao/constituicao.htm
+https://www.planalto.gov.br/ccivil_03/leis/lcp/lcp214.htm
+https://normasinternet2.receita.fazenda.gov.br/#/consulta/externa/81268
+
+TAX-Rend- Simulador inteligente de c├ílculos, dedu├º├Áes, reten├º├Áes e al├¡quotas aplic├íveis
+Calcular tributos de renda (pessoa f├¡sica e jur├¡dica) segundo a legisla├º├úo vigente, incluindo mudan├ºas de 2026.
+https://www.planalto.gov.br/ccivil_03/leis/l7713.htm
+https://www.planalto.gov.br/ccivil_03/leis/l9250.htm?utm_source=chatgpt.com
+https://www.planalto.gov.br/ccivil_03/leis/l8981.htm
+https://www.planalto.gov.br/ccivil_03/leis/l9430.htm
+https://www.planalto.gov.br/ccivil_03/_ato2015-2018/2018/decreto/d9580.htm
+https://normasinternet2.receita.fazenda.gov.br/#/consulta/externa/52928
+https://www.planalto.gov.br/ccivil_03/leis/l9249.htm?utm_source=chatgpt.com
+https://www.planalto.gov.br/ccivil_03/leis/l9718.htm
+https://www.planalto.gov.br/ccivil_03/_ato2011-2014/2014/lei/l12973.htm
+https://normasinternet2.receita.fazenda.gov.br/#/consulta/externa/81268
+https://www.planalto.gov.br/ccivil_03/_ato2023-2026/2025/lei/l15270.htm#:~:text=L15270&text=Altera%20a%20Lei%20n%C2%BA%209.250,rendas%3B%20e%20d%C3%A1%20outras%20provid%C3%AAncias.
+
+FedTax- Guia de obriga├º├Áes, prazos de pagamento (DARF), reten├º├úo na fonte, impacto de reformas. Agrupar e explicar tributos federais administrados pela RFB (IRRF, IOF, CSLL, Cofins, etc).
+https://www.planalto.gov.br/ccivil_03/_ato2007-2010/2010/decreto/d7212.htm
+https://www.planalto.gov.br/ccivil_03/leis/l4502.htm
+https://www.planalto.gov.br/ccivil_03/_ato2007-2010/2007/decreto/d6306.htm
+https://www.planalto.gov.br/ccivil_03/leis/2002/l10637.htm
+https://www.planalto.gov.br/ccivil_03/leis/2003/l10.833.htm
+https://www.planalto.gov.br/ccivil_03/leis/l9718.htm
+https://www.planalto.gov.br/ccivil_03/leis/l7689.htm
+https://www.planalto.gov.br/ccivil_03/leis/l8212cons.htm
+https://www.planalto.gov.br/ccivil_03/leis/lcp/lcp123.htm
+https://normasinternet2.receita.fazenda.gov.br/#/consulta/externa/117257
+https://normasinternet2.receita.fazenda.gov.br/#/consulta/externa/82195
+https://siefreceitas.receita.economia.gov.br/codigos-de-receita-de-tributos-e-contribuicoes-darf-e-dje
+https://normas.receita.fazenda.gov.br/sijut2consulta/consulta.action?facetsExistentes=&orgaosSelecionados=Codac&tiposAtosSelecionados=&ordemColuna=&ordemDirecao=&tipoAtoFacet=&siglaOrgaoFacet=&anoAtoFacet=&termoBusca=&numero_at
+https://www.planalto.gov.br/ccivil_03/leis/lcp/lcp214.htm
+https://www.planalto.gov.br/ccivil_03/leis/lcp/lcp227.htm
+
+================================================================================
+­ƒôä Ag. Previdenci├írio ok / Novo arquivo providenciario - REVER TODOS OS AGENTES.docx
+================================================================================
+
+JO├âO
+
+Por gentileza, reveza todos t├¡tulos dos agentes , de todas as categorias.
+Reorganizei todos eles da forma correta.
+Me desculpe por isso. 
+
+AGENTES DA CATEGORIA DIREITO PREVIDENCI├üRIO
+
+CNIS
+Cadastro Nacional Informa├º├Áes Sociais
+http://www.planalto.gov.br/ccivil_03/leis/l8213cons.htm
+
+https://www.planalto.gov.br/ccivil_03/decreto/d3048.htm
+
+https://portalin.inss.gov.br/in
+Disciplina as regras, procedimentos e rotinas necess├írias ├á efetiva aplica├º├úo das normas de direito previdenci├írio.
+
+https://portalin.inss.gov.br/portaria990
+Disciplina os procedimentos e rotinas que versam sobre cadastro, administra├º├úo e retifica├º├úo de Informa├º├Áes dos Segurados e Benefici├írios no ├ómbito do INSS.
+https://www.in.gov.br/web/dou/-/portaria-dirben/inss-n-1.326-de-13-de-janeiro-de-2026-681141180
+
+ 
+https://www.legisweb.com.br/legislacao/?id=467234
+
+https://www.in.gov.br/web/dou/-/portaria-dirben/inss-n-1.251-de-2-de-janeiro-de-2025-605404637
+
+https://portalin.inss.gov.br/anexos
+
+https://www.in.gov.br/web/dou/-/portaria-dirben/inss-n-1.321-de-2-de-janeiro-de-2026-679342881
+https://www.in.gov.br/web/dou/-/portaria-dirben/inss-n-1.323-de-8-de-janeiro-de-2026-680679249
+https://portalin.inss.gov.br/portaria993
+
+https://www.gov.br/previdencia/pt-br/assuntos/rpps/legislacao-dos-rpps/portarias/portarias_todas/PortariaConjuntaMPSINSSn3de16jan2024.pdf
+https://www.in.gov.br/web/dou/-/portaria-dirben/inss-n-1.326-de-13-de-janeiro-de-2026-681141180 
+
+NORMAS COMUNS PARA TODOS ESTES AGENTES 
+Todos os links abaixo, abastecem os agentes que est├úo na lateral esquerda ( todos os links, para todos os agentes) 
+
+https://www.planalto.gov.br/ccivil_03/constituicao/constituicao.htm
+
+http://www.planalto.gov.br/ccivil_03/leis/l8213cons.htm
+
+https://www.planalto.gov.br/ccivil_03/leis/l8212cons.htm
+
+https://www.planalto.gov.br/ccivil_03/decreto/d3048.htm
+
+https://www.planalto.gov.br/ccivil_03/_ato2019-2022/2020/decreto/d10410.htm
+
+https://portalin.inss.gov.br/in
+Disciplina as regras, procedimentos e rotinas necess├írias ├á efetiva aplica├º├úo das normas de direito previdenci├írio.
+
+https://portalin.inss.gov.br/portaria990
+Disciplina os procedimentos e rotinas que versam sobre cadastro, administra├º├úo e retifica├º├úo de Informa├º├Áes dos Segurados e Benefici├írios no ├ómbito do INSS.
+
+https://portalin.inss.gov.br/portaria991
+Disciplina os procedimentos e rotinas de reconhecimento de benef├¡cios do Regime Geral de Previd├¬ncia Social - RGPS no ├ómbito do INSS.
+
+https://portalin.inss.gov.br/portaria993
+Disciplina a aplica├º├úo pr├ítica do Processo Administrativo Previdenci├írio no ├ómbito do INSS.
+
+https://portalin.inss.gov.br/portaria994
+Disciplina os procedimentos acerca da Acumula├º├úo de Benef├¡cios no ├ómbito do INSS.
+
+https://www.in.gov.br/web/dou/-/instrucao-normativa-pres/inss/n-200-de-12-de-fevereiro-de-2026-687366848
+
+https://www.gov.br/inss/pt-br/centrais-de-conteudo/legislacao/portarias/2026
+
+https://www.gov.br/inss/pt-br/centrais-de-conteudo/legislacao/portarias/2025
+
+https://www.gov.br/inss/pt-br/centrais-de-conteudo/legislacao/portarias-conjuntas/2025
+
+https://www.in.gov.br/web/dou/-/portaria-pres/inss-n-1.919-de-12-de-janeiro-de-2026-*-681141683
+
+https://www.in.gov.br/web/dou/-/portaria-conjunta-dirben/dti/inss-n-13-de-23-de-maio-de-2025-631933663
+
+https://www.in.gov.br/web/dou/-/portaria-conjunta-dirben/dti-inss-n-22-de-23-de-setembro-de-2025-658090051
+
+https://www.in.gov.br/web/dou/-/portaria-conjunta-dirben-inss/dpmf-mps-n-4-de-4-de-dezembro-de-2025-673663306
+
+https://www.in.gov.br/web/dou/-/portaria-conjunta-mps/inss-n-83-de-4-de-dezembro-de-2025-673690090
+
+https://www.in.gov.br/web/dou/-/portaria-conjunta-dirben/dti/pfe-inss-n-26-de-20-de-outubro-de-2025-667430319
+
+https://www.planalto.gov.br/ccivil_03/_ato2023-2026/2025/lei/L15157.htm
+
+https://www.in.gov.br/en/web/dou/-/portaria-conjunta-mps/inss-n-72-de-16-de-outubro-de-2025-663094301
+
+https://www.in.gov.br/en/web/dou/-/portaria-conjunta-mps/inss-n-60-de-17-de-junho-de-2025-636848467
+
+https://www.in.gov.br/web/dou/-/portaria-pres/inss-n-1.630-de-17-de-novembro-de-2023-524262179
+
+2.  P.A.P
+Processo Adm. Previdenci├írio
+( d├¬ um destaque para este agente )  
+
+3. Aposentadoria Pr├® EC103
+
+4. Aposentadoria Idade Urbana
+
+5. Aposentadoria Especial
+
+6. PCD
+Aposentadoria da Pessoa Com Defici├¬ncia
+
+7.  Aposentadoria Rural 
+
+8. Aux├¡lio-Reclus├úo
+
+9. Pens├úo por Morte
+
+10. Sal├írio-Maternidade
+
+11.  Aposentadoria Incapacidade Permanente
+
+12. Incapacidade Tempor├íria
+
+13. AA
+ Aux├¡lio-Acidente
+
+14. Viabilidade Judicial- Aux. Incapacidade Tempor├íria
+
+15. 25% Sobre Aposentadoria  Incapacidade Permanente
+
+16. Sal├írio-Fam├¡lia
+
+17. Regras de Transi├º├úo
+
+18. RMI
+C├ílculo de RMI
+
+19. Manuten├º├úo de Benef├¡cios
+https://www.in.gov.br/web/dou/-/portaria-conjunta-dirben/dti/inss-n-13-de-23-de-maio-de-2025-631933663
+
+https://portalin.inss.gov.br/in
+
+https://portalin.inss.gov.br/portaria992
+Normas Procedimentais em Mat├®ria de Manuten├º├úo de Benef├¡cios e Servi├ºos, tais como:
+Procura├º├Áes, tutelas, curatelas, representa├º├Áes, descontos, consignados, saques de res├¡duos de benef├¡cios, suspens├úo, cessa├º├úo ou reativa├º├úo de benef├¡cios, 
+
+20- CQS
+Car├¬ncia & Qualidade de Segurado
+https://www.in.gov.br/web/dou/-/portaria-conjunta-dirben/pfe/inss-n-17-de-14-de-agosto-de-2025-650801735
+
+https://portalin.inss.gov.br/in
+Disciplina as regras, procedimentos e rotinas necess├írias ├á efetiva aplica├º├úo das normas de direito previdenci├írio.
+
+https://portalin.inss.gov.br/portaria991
+Disciplina os procedimentos e rotinas de reconhecimento de benef├¡cios do Regime Geral de Previd├¬ncia Social - RGPS no ├ómbito do INSS.
+
+http://www.planalto.gov.br/ccivil_03/leis/l8213cons.htm
+
+https://www.planalto.gov.br/ccivil_03/decreto/d3048.htm
+
+21. Assist├¬ncia Social
+https://portalin.inss.gov.br/portaria1208
+Disciplina os procedimentos e rotinas de Servi├ºo Social no ├ómbito do INSS.
+
+https://www.planalto.gov.br/ccivil_03/constituicao/constituicao.htm
+https://www.planalto.gov.br/ccivil_03/_ato2011-2014/2011/lei/l12435.htm
+https://www.planalto.gov.br/ccivil_03/_ato2015-2018/2015/lei/l13146.htm
+https://www.planalto.gov.br/ccivil_03/_ato2019-2022/2021/lei/l14176.htm
+https://www.planalto.gov.br/ccivil_03/_ato2019-2022/2022/decreto/d11016.htm
+https://www.planalto.gov.br/ccivil_03/_ato2015-2018/2016/decreto/d8805.htm
+https://www.planalto.gov.br/ccivil_03/leis/2003/l10.741.htm
+https://www.planalto.gov.br/ccivil_03/_ato2019-2022/2020/lei/l13982.htm
+https://portalin.inss.gov.br/in
+https://portalin.inss.gov.br/portaria1208
+https://www.in.gov.br/web/dou/-/portaria-dirben/inss-n-1.333-de-9-de-fevereiro-de-2026-687364747
+
+22. BPC - Idoso/PCD
+Benef├¡cio Presta├º├úo Continuada 
+https://www.planalto.gov.br/ccivil_03/constituicao/constituicao.htm
+
+https://www.planalto.gov.br/ccivil_03/leis/l8742.htm
+
+ https://www.planalto.gov.br/ccivil_03/_ato2007-2010/2007/decreto/d6214.htm
+
+https://www.planalto.gov.br/ccivil_03/_ato2023-2026/2025/decreto/d12534.htm?utm_source=chatgpt.com
+
+https://www.planalto.gov.br/ccivil_03/_ato2019-2022/2020/lei/l13982.htm
+
+https://www.in.gov.br/en/web/dou/-/portaria-conjunta-mds/inss-n-34-de-9-de-outubro-de-2025-661903103
+https://aplicacoes.mds.gov.br/snas/regulacao/visualizar.php?codigo=5255
+https://www.planalto.gov.br/ccivil_03/_ato2019-2022/2022/decreto/d11016.htm
+https://www.planalto.gov.br/ccivil_03/_ato2015-2018/2016/decreto/d8805.htm
+https://portalin.inss.gov.br/in
+ https://www.in.gov.br/en/web/dou/-/portaria-dirben/inss-n-1.249-de-26-de-dezembro-de-2024-604469231
+https://www.in.gov.br/en/web/dou/-/portaria-dirben/inss-n-1.260-de-27-de-janeiro-de-2025-609661711
+https://www.legisweb.com.br/legislacao/?id=489712
+https://www.in.gov.br/web/dou/-/portaria-conjunta-mds/inss-n-36-de-10-de-fevereiro-de-2026-686545425
+
+23. CRPS
+Conselho Recursos Previd├¬ncia Social
+https://www.planalto.gov.br/ccivil_03/leis/l8213cons.htm?utm_source=chatgpt.com
+
+https://www.gov.br/previdencia/pt-br/acesso-a-informacao/participacao-social/conselhos-e-orgaos-colegiados/conselho-de-recursos-da-previdencia-social/regimento-interno-instrucao-normativa-portarias/portaria-mps-no-125-de-26-de-janeiro-de-2026-regimento-interno-do-crps-compilada-ate-04-02-2026.pdf
+https://www.gov.br/inss/pt-br/direitos-e-deveres/recurso/recurso-administrativo-de-beneficio-previdenciario
+
+https://www.gov.br/previdencia/pt-br/acesso-a-informacao/participacao-social/conselhos-e-orgaos-colegiados/conselho-de-recursos-da-previdencia-social/regimento-interno-instrucao-normativa-portarias
+
+https://portalin.inss.gov.br/in
+Disciplina as regras, procedimentos e rotinas necess├írias ├á efetiva aplica├º├úo das normas de direito previdenci├írio.
+https://portalin.inss.gov.br/portaria993
+Disciplina a aplica├º├úo pr├ítica do Processo Administrativo Previdenci├írio no ├ómbito do INSS.
+
+24. Revis├úo de Benef├¡cios 
+http://www.planalto.gov.br/ccivil_03/leis/l8213cons.htm
+
+https://www.planalto.gov.br/ccivil_03/leis/l8212cons.htm
+
+https://www.planalto.gov.br/ccivil_03/decreto/d3048.htm
+
+https://www.planalto.gov.br/ccivil_03/_ato2019-2022/2020/decreto/d10410.htm
+
+https://www.in.gov.br/web/dou/-/portaria-dirben/inss-n-1.329-de-21-de-janeiro-de-2026-682790501
+
+https://portalin.inss.gov.br/in
+Disciplina as regras, procedimentos e rotinas necess├írias ├á efetiva aplica├º├úo das normas de direito previdenci├írio.
+
+https://portalin.inss.gov.br/portaria990
+Disciplina os procedimentos e rotinas que versam sobre cadastro, administra├º├úo e retifica├º├úo de Informa├º├Áes dos Segurados e Benefici├írios no ├ómbito do INSS.
+
+https://portalin.inss.gov.br/portaria991
+Disciplina os procedimentos e rotinas de reconhecimento de benef├¡cios do Regime Geral de Previd├¬ncia Social - RGPS no ├ómbito do INSS.
+
+https://portalin.inss.gov.br/portaria993
+Disciplina a aplica├º├úo pr├ítica do Processo Administrativo Previdenci├írio no ├ómbito do INSS.
+
+https://portalin.inss.gov.br/portaria994
+Disciplina os procedimentos acerca da Acumula├º├úo de Benef├¡cios no ├ómbito do INSS.
+
+https://portalin.inss.gov.br/portaria997
+Disciplina os procedimentos e rotinas de Revis├úo no ├ómbito do INSS.
+
+https://portalin.inss.gov.br/portaria996
+Disciplina os procedimentos e rotinas de Recurso no ├ómbito do INSS.
+file:///G:/DIREITO/MBI-%20MASTER%20INCAPACIDADE/NORMAS-%20ASSISTENTES/ASSISTENTE%20FLIX%20PREV/Revis%C3%A3o%20Artigo%2029-%20ofcirc6DIRBEN-INSS.pdf
+
+25. RPPS
+Regime Pr├│prio de Previd├¬ncia Social 
+https://www.planalto.gov.br/ccivil_03/constituicao/constituicao.htm
+
+http://www.planalto.gov.br/ccivil_03/leis/l8213cons.htm
+
+https://www.planalto.gov.br/ccivil_03/leis/l8212cons.htm
+
+https://www.planalto.gov.br/ccivil_03/decreto/d3048.htm
+
+https://www.planalto.gov.br/ccivil_03/leis/l9717.htm
+https://portalin.inss.gov.br/portaria998
+Disciplina os procedimentos e rotinas de Compensa├º├úo Previdenci├íria no ├ómbito do INSS.
+
+https://www.planalto.gov.br/ccivil_03/leis/l9717.htm
+https://www.planalto.gov.br/ccivil_03/leis/lcp/lcp226.htm
+file:///C:/Users/Admin/Desktop/DOC_PARTICIPANTE_EVT_6237_1571141126767_KComissaoPermanenteCDH20191015EXT115_parte11782_RESULTADO_1571141126767.pdf
+https://portal.stf.jus.br/constituicao-supremo/artigo.asp?abrirArtigo=40&abrirBase=CF&utm_source=chatgpt.com
+https://www.gov.br/previdencia/pt-br/assuntos/rpps/legislacao-dos-rpps/NotaTcnicaSEIn1852022MTP.pdf?utm_source=chatgpt.com
+https://www.gov.br/previdencia/pt-br/assuntos/rpps/legislacao-dos-rpps/leis-1/copy4_of_27CONSOLIDAOLEGISLAORPPSatualizadaatde29dedezembrode2025.pdf
+https://www.gov.br/previdencia/pt-br/assuntos/rpps/legislacao-dos-rpps/portarias/portarias_todas/12PortariaMTPn1.467de02jun2022Atualizadaat29dez2025.pdf
+https://www.gov.br/previdencia/pt-br/assuntos/rpps/legislacao-dos-rpps/Decreton10.620de05fev2021.pdf
+
+https://www.gov.br/previdencia/pt-br/assuntos/rpps/legislacao-dos-rpps/portarias/arquivos/2020/decreto-no-10-418_de_7_-de_-julho_-de_-2020_.pdf
+https://www.gov.br/previdencia/pt-br/outros/imagens/2016/06/Decreton3.788de11abr2001-1.pdf
+https://www.gov.br/previdencia/pt-br/outros/imagens/2016/06/Decreton3.112de06jul1999atualizadoate16jul2009-1.pdf
+
+https://www.gov.br/previdencia/pt-br/assuntos/rpps/legislacao-dos-rpps/emenda-constitucional-rpps
+
+https://www.gov.br/previdencia/pt-br/assuntos/rpps/legislacao-dos-rpps/orientacao-normativa-rpps
+https://www.gov.br/previdencia/pt-br/assuntos/rpps/legislacao-dos-rpps/leis
+https://www.gov.br/previdencia/pt-br/assuntos/rpps/legislacao-dos-rpps/medida-provisoria
+https://www.gov.br/previdencia/pt-br/assuntos/rpps/legislacao-dos-rpps/portarias_secao
+https://www.gov.br/previdencia/pt-br/assuntos/rpps/legislacao-dos-rpps/portarias_secao
+https://www.gov.br/previdencia/pt-br/assuntos/rpps/legislacao-dos-rpps/recomedacao/recomendacoes
+https://www.gov.br/previdencia/pt-br/assuntos/rpps/legislacao-dos-rpps/resolucoes
+https://www.gov.br/previdencia/pt-br/assuntos/rpps/legislacao-dos-rpps/oficios-circulares-conjuntos-cvm-sprev
+https://www.gov.br/previdencia/pt-br/assuntos/rpps/legislacao-dos-rpps/oficios-circulares-conjuntos-cvm-sprev
+https://www.gov.br/previdencia/pt-br/assuntos/rpps/comunicados/comunicados
+https://www.planalto.gov.br/ccivil_03/_ato2019-2022/2019/lei/l13954.htm
+https://www.planalto.gov.br/ccivil_03/_ato2019-2022/2020/decreto/D10418.htm
+
+26. A├º├Áes Civis P├║blicas INSS
+https://portalin.inss.gov.br/portaria94
+https://www.in.gov.br/web/dou/-/portaria-conjunta-dirben/pfe/inss-n-17-de-14-de-agosto-de-2025-650801735
+
+ 27.   S├║mulas Federais  ( Tribunais Regionais Federais: 
+https://www.trt2.jus.br/geral/tribunal2/Trib_Sup/STJ/SUM_CJF.html
+TRF 1: https://www.trf1.jus.br/sjba/conteudo/files/SumulasTurec0110.pdf
+
+TRF2: https://www.trf2.jus.br/trf2/consultas-e-servicos/sumulas-do-trf2
+TRF3: https://www.trf3.jus.br/diretoria-geral/biblioteca/setor-de-apoio-a-jurisprudencia/sumulas-do-trf3
+TRF4: https://www.trf4.jus.br/trf4/controlador.php?acao=sumulas_trf4&seq=194%7C967
+TRF5: https://www.trf5.jus.br/index.php/institucional/181-legislacao/legislacao-trf5/sumulas/281-sumulas-artigo
+
+28. TNU
+Turma Nacional de Uniformiza├º├úo
+https://www.cjf.jus.br/phpdoc/virtus/
+https://sicom.cjf.jus.br/arquivos/pdf/manual_de_calculos_2025_vf.pdf
+https://www.cjf.jus.br/publico/rpvs_precatorios/cartilha-precatorios-2024.pdf
+
+================================================================================
+­ƒôä Ag. STJ- Superior Tribunal de Justi├ºa - ok / Documento sem t├¡tulo.docx
+================================================================================
+
+Agente STJSum; https://www.trt2.jus.br/geral/tribunal2/Trib_Sup/STJ/SUM_STJ.html
