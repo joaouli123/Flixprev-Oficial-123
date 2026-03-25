@@ -619,6 +619,13 @@ const pool = hasDatabaseUrl
       }
     };
 
+if (hasDatabaseUrl && pool.on) {
+  pool.on('error', (err) => {
+    console.error('[DB POOL] Erro em cliente ocioso:', err?.message || err);
+    pushRuntimeEvent('db_pool_error', { message: String(err?.message || err || '').trim() });
+  });
+}
+
 const memoryChatStore = {
   nextConversationId: 1,
   nextMessageId: 1,
@@ -637,12 +644,14 @@ function isPostgresUnavailableError(error) {
     'ETIMEDOUT',
     'EHOSTUNREACH',
     'EAI_AGAIN',
-    'ECONNRESET'
+    'ECONNRESET',
+    'ENOTFOUND'
   ].includes(code) || [
     'ENETUNREACH',
     'ECONNREFUSED',
     'ETIMEDOUT',
     'EHOSTUNREACH',
+    'ENOTFOUND',
     'FAILED TO FETCH',
     'TIMEOUT EXPIRED',
     'CONNECT'

@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { SessionContextProvider } from "./components/SessionContextProvider";
 import { AppSettingsProvider } from "./components/AppSettingsProvider";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import AdminRoute from "./components/AdminRoute";
 
 // Lazy load pages for code splitting
@@ -44,6 +45,7 @@ const PageLoader = () => (
 const queryClient = new QueryClient();
 
 const App = () => (
+  <ErrorBoundary>
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Sonner />
@@ -111,6 +113,7 @@ const App = () => (
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
+  </ErrorBoundary>
 );
 
 export default App;
