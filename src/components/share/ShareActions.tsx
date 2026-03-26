@@ -93,21 +93,21 @@ export const ShareActions: React.FC<ShareActionsProps> = ({
 
   return (
     <div className={`flex flex-wrap items-center gap-2 ${compact ? "justify-end" : ""}`}>
-      <Button type="button" variant="outline" size={compact ? "sm" : "default"} onClick={() => void handleNativeShare()}>
-        <Share2 className="mr-2 h-4 w-4" />
-        Compartilhar
+      <Button type="button" variant="outline" size={compact ? "sm" : "default"} onClick={() => void handleNativeShare()} title="Compartilhar">
+        <Share2 className="md:mr-2 h-4 w-4" />
+        <span className="hidden md:inline">Compartilhar</span>
       </Button>
-      <Button type="button" variant="outline" size={compact ? "sm" : "default"} onClick={handleWhatsApp}>
-        <MessageCircle className="mr-2 h-4 w-4" />
-        WhatsApp
+      <Button type="button" variant="outline" size={compact ? "sm" : "default"} onClick={handleWhatsApp} title="WhatsApp">
+        <MessageCircle className="md:mr-2 h-4 w-4" />
+        <span className="hidden md:inline">WhatsApp</span>
       </Button>
-      <Button type="button" variant="outline" size={compact ? "sm" : "default"} onClick={handleLinkedIn}>
-        <Linkedin className="mr-2 h-4 w-4" />
-        LinkedIn
+      <Button type="button" variant="outline" size={compact ? "sm" : "default"} onClick={handleLinkedIn} title="LinkedIn">
+        <Linkedin className="md:mr-2 h-4 w-4" />
+        <span className="hidden md:inline">LinkedIn</span>
       </Button>
-      <Button type="button" variant="outline" size={compact ? "sm" : "default"} onClick={() => void handleCopy()}>
-        <Copy className="mr-2 h-4 w-4" />
-        Copiar
+      <Button type="button" variant="outline" size={compact ? "sm" : "default"} onClick={() => void handleCopy()} title="Copiar">
+        <Copy className="md:mr-2 h-4 w-4" />
+        <span className="hidden md:inline">Copiar</span>
       </Button>
     </div>
   );
