@@ -118,7 +118,7 @@ async function geminiGenerate({ model, systemPrompt, userPrompt, temperature = 0
     const text = data.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('') || '';
     if (!text.trim()) throw new Error('Resposta vazia do Gemini');
     return text;
-  }, { retries: 4, minTimeout: 4000, maxTimeout: 20000, factor: 2 });
+  }, { retries: 6, minTimeout: 5000, maxTimeout: 60000, factor: 3 });
 }
 
 async function batchEmbed(texts, batchSize) {
