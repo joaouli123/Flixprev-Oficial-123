@@ -1,0 +1,87 @@
+{
+  "generatedAt": "2026-03-26T10:56:48.788Z",
+  "config": {
+    "limit": 50,
+    "seeds": 15,
+    "questionsPerSeed": 5,
+    "topK": 8,
+    "answerConcurrency": 2,
+    "judgeBatchSize": 10,
+    "answerModel": "gemini-2.5-flash",
+    "generationModel": "gemini-2.0-flash",
+    "judgeModel": "gemini-2.0-flash",
+    "embeddingBatchSize": 50,
+    "minChunks": 10,
+    "agentId": "a52473d6-0152-49f9-b4b1-5bec4eee058c",
+    "reportDir": "C:\\Users\\joao lucas\\Desktop\\Contratos e projetos\\Flixprev - Valdir\\Flixprev-Oficial-1--ATUALIZADO-\\attached_assets\\qa_all_agents"
+  },
+  "globalTotals": {
+    "agents": 1,
+    "questions": 50,
+    "passed": 48,
+    "failed": 2,
+    "passRate": 96,
+    "perfect": 0,
+    "above95": 1,
+    "below80": 0
+  },
+  "agents": [
+    {
+      "agentId": "a52473d6-0152-49f9-b4b1-5bec4eee058c",
+      "title": "DTrib",
+      "chunks": 3363,
+      "questions": 50,
+      "passed": 48,
+      "failed": 2,
+      "passRate": 96,
+      "durationSeconds": 315.1,
+      "seedInjections": 10,
+      "groundedOverrides": 48,
+      "failureReasons": {
+        "resposta_nao_alinhada_ao_seed": 2
+      },
+      "failures": [
+        {
+          "question": "Poderiam me explicar o que a Diretoria de Revisão do Crédito Tributário faz, em termos de planejamento e coordenação?",
+          "expectedFocus": "Funções de planejamento e coordenação da Diretoria de Revisão do Crédito Tributário.",
+          "seedDocumentTitle": "https://www.planalto.gov.br/ccivil_03/leis/lcp/Lcp227.htm#art169",
+          "seedChunkIndex": 21,
+          "answer": "Não localizei essa informação na base normativa deste agente.",
+          "judgeVerdict": "FAIL",
+          "finalVerdict": "FAIL",
+          "judgeReason": "Resposta negativa sem justificativa.",
+          "heuristicFlags": [
+            "resposta_nao_alinhada_ao_seed"
+          ],
+          "supportMetrics": {
+            "seedOverlap": 0,
+            "focusCoverage": 0,
+            "referenceCoverage": 0
+          },
+          "seedInjected": false,
+          "groundedOverride": false
+        },
+        {
+          "question": "Quais so os documentos aceitos para cancelar a inscrio do cnjuge na Previdncia Social em caso de separao ou divrcio?",
+          "expectedFocus": "Documentos necessrios para o cancelamento da inscrio do cnjuge.",
+          "seedDocumentTitle": "https://www.planalto.gov.br/ccivil_03/leis/l8213cons.htm",
+          "seedChunkIndex": 16,
+          "answer": "Não localizei essa informação na base normativa deste agente.",
+          "judgeVerdict": "FAIL",
+          "finalVerdict": "FAIL",
+          "judgeReason": "Resposta negativa sem justificativa.",
+          "heuristicFlags": [
+            "resposta_nao_alinhada_ao_seed"
+          ],
+          "supportMetrics": {
+            "seedOverlap": 0,
+            "focusCoverage": 0,
+            "referenceCoverage": 0
+          },
+          "seedInjected": false,
+          "groundedOverride": false
+        }
+      ]
+    }
+  ]
+}

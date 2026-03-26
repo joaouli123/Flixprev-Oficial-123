@@ -1,0 +1,879 @@
+{
+  "generatedAt": "2026-03-26T10:31:46.367Z",
+  "config": {
+    "limit": 10,
+    "seeds": 4,
+    "questionsPerSeed": 4,
+    "topK": 8,
+    "answerConcurrency": 2,
+    "judgeBatchSize": 10,
+    "answerModel": "gemini-2.5-flash",
+    "generationModel": "gemini-2.0-flash",
+    "judgeModel": "gemini-2.0-flash",
+    "embeddingBatchSize": 50,
+    "minChunks": 10,
+    "agentId": null,
+    "reportDir": "C:\\Users\\joao lucas\\Desktop\\Contratos e projetos\\Flixprev - Valdir\\Flixprev-Oficial-1--ATUALIZADO-\\attached_assets\\qa_all_agents"
+  },
+  "globalTotals": {
+    "agents": 39,
+    "questions": 390,
+    "passed": 376,
+    "failed": 14,
+    "passRate": 96.41,
+    "perfect": 30,
+    "above95": 30,
+    "below80": 0
+  },
+  "agents": [
+    {
+      "agentId": "259e4cd9-ef63-4f8f-a7a0-8e2ac170c81f",
+      "title": "25% Sobre Aposentadoria por Incapacidade Permanente",
+      "chunks": 1297,
+      "questions": 10,
+      "passed": 8,
+      "failed": 2,
+      "passRate": 80,
+      "durationSeconds": 76,
+      "seedInjections": 3,
+      "groundedOverrides": 8,
+      "failureReasons": {
+        "resposta_curta": 1,
+        "resposta_nao_alinhada_ao_seed": 2
+      },
+      "failures": [
+        {
+          "question": "Como é definido 'acidente de qualquer natureza ou causa' para fins de benefícios, segundo este decreto?",
+          "expectedFocus": "Definição de acidente de qualquer natureza ou causa como evento de origem traumática ou exposição a agentes exógenos que cause lesão ou perturbação funcional, resultando em morte ou perda/redução da capacidade laborativa.",
+          "seedDocumentTitle": "https://www.planalto.gov.br/ccivil_03/decreto/d3048.htm",
+          "seedChunkIndex": 50,
+          "answer": "Conforme o Decreto nº 10.410, de 2020",
+          "judgeVerdict": "FAIL",
+          "finalVerdict": "FAIL",
+          "judgeReason": "A resposta não define acidente, apenas cita o decreto.",
+          "heuristicFlags": [
+            "resposta_curta",
+            "resposta_nao_alinhada_ao_seed"
+          ],
+          "supportMetrics": {
+            "seedOverlap": 0.02,
+            "focusCoverage": 0,
+            "referenceCoverage": 0
+          },
+          "seedInjected": false,
+          "groundedOverride": false
+        },
+        {
+          "question": "O que acontece com a lista de doenças que garante auxílio por incapacidade se o segurado contrair alguma delas após se filiar ao RGPS?",
+          "expectedFocus": "Auxílio por incapacidade temporária e aposentadoria por incapacidade permanente para segurados com doenças especificadas em lista dos Ministérios da Saúde e da Economia.",
+          "seedDocumentTitle": "https://www.planalto.gov.br/ccivil_03/decreto/d3048.htm",
+          "seedChunkIndex": 50,
+          "answer": "Se o segurado, após filiar-se ao Regime Geral de Previdência Social",
+          "judgeVerdict": "FAIL",
+          "finalVerdict": "FAIL",
+          "judgeReason": "A resposta está incompleta e não explica o que acontece.",
+          "heuristicFlags": [
+            "resposta_nao_alinhada_ao_seed"
+          ],
+          "supportMetrics": {
+            "seedOverlap": 0.03,
+            "focusCoverage": 0,
+            "referenceCoverage": 0
+          },
+          "seedInjected": false,
+          "groundedOverride": false
+        }
+      ]
+    },
+    {
+      "agentId": "a95028ee-c331-44e1-a7d9-6465c6fece0b",
+      "title": "Auxílio-Acidente",
+      "chunks": 1263,
+      "questions": 10,
+      "passed": 8,
+      "failed": 2,
+      "passRate": 80,
+      "durationSeconds": 80.9,
+      "seedInjections": 1,
+      "groundedOverrides": 8,
+      "failureReasons": {
+        "A resposta se recusa a responder sem motivo aparente.": 1,
+        "resposta_nao_alinhada_ao_seed": 1
+      },
+      "failures": [
+        {
+          "question": "Como fica o limite do art. 37, XI, quando se acumulam proventos de inatividade com outras atividades que contribuem para a previdência?",
+          "expectedFocus": "O limite do art. 37, XI, aplica-se à soma total dos proventos de inatividade, inclusive quando decorrentes da acumulação de cargos ou empregos públicos, bem como de outras atividades sujeitas a contribuição para o regime geral de previdência social.",
+          "seedDocumentTitle": "https://www.planalto.gov.br/ccivil_03/constituicao/constituicao.htm",
+          "seedChunkIndex": 44,
+          "answer": "Esta pergunta está fora do meu escopo. Por favor, consulte o agente especializado no tema Regime Próprio de Previdência Social ou Acumulação de Benefícios Previdenciários.",
+          "judgeVerdict": "FAIL",
+          "finalVerdict": "FAIL",
+          "judgeReason": "A resposta se recusa a responder sem motivo aparente.",
+          "heuristicFlags": [],
+          "supportMetrics": {
+            "seedOverlap": 0.08,
+            "focusCoverage": 0.2,
+            "referenceCoverage": 0.33
+          },
+          "seedInjected": false,
+          "groundedOverride": false
+        },
+        {
+          "question": "Se um segurado não tiver como comprovar a data de encerramento da sua empresa, o que acontece?",
+          "expectedFocus": "Aplicar-se-á o disposto no inciso I do caput do Artigo 93",
+          "seedDocumentTitle": "https://www.in.gov.br/web/dou/-/instrucao-normativa-pres/inss-n-128-de-28-de-marco-de-2022-389275446",
+          "seedChunkIndex": 43,
+          "answer": "Esta pergunta está fora do meu escopo. Por favor, consulte o agente especializado no tema reconhecimento de períodos de atividade e contribuição.",
+          "judgeVerdict": "FAIL",
+          "finalVerdict": "FAIL",
+          "judgeReason": "A resposta se recusa a responder sem motivo aparente.",
+          "heuristicFlags": [
+            "resposta_nao_alinhada_ao_seed"
+          ],
+          "supportMetrics": {
+            "seedOverlap": 0.03,
+            "focusCoverage": 0,
+            "referenceCoverage": 0
+          },
+          "seedInjected": false,
+          "groundedOverride": false
+        }
+      ]
+    },
+    {
+      "agentId": "6b4d83cb-f026-469d-ab4b-497eb525adc7",
+      "title": "Aposentadoria da Pessoa com Deficiência",
+      "chunks": 1165,
+      "questions": 10,
+      "passed": 8,
+      "failed": 2,
+      "passRate": 80,
+      "durationSeconds": 69,
+      "seedInjections": 2,
+      "groundedOverrides": 8,
+      "failureReasons": {
+        "Recusa responder sem justificativa.": 1,
+        "resposta_nao_alinhada_ao_seed": 1
+      },
+      "failures": [
+        {
+          "question": "Se uma mulher tiver um parto prematuro, como isso afeta o período de carência para o salário-maternidade? O período de carência é reduzido?",
+          "expectedFocus": "A redução do período de carência em caso de parto antecipado para salário-maternidade.",
+          "seedDocumentTitle": "https://www.planalto.gov.br/ccivil_03/decreto/d3048.htm",
+          "seedChunkIndex": 49,
+          "answer": "Esta pergunta está fora do meu escopo. Por favor, consulte o agente especializado no tema Salário-Maternidade.",
+          "judgeVerdict": "FAIL",
+          "finalVerdict": "FAIL",
+          "judgeReason": "Recusa responder sem justificativa.",
+          "heuristicFlags": [],
+          "supportMetrics": {
+            "seedOverlap": 0.03,
+            "focusCoverage": 0.25,
+            "referenceCoverage": 0.25
+          },
+          "seedInjected": false,
+          "groundedOverride": false
+        },
+        {
+          "question": "Quais benefícios previdenciários podem ser concedidos sem exigência de um período de carência mínimo?",
+          "expectedFocus": "As prestações que independem de carência, como pensão por morte e auxílio-reclusão.",
+          "seedDocumentTitle": "https://www.planalto.gov.br/ccivil_03/decreto/d3048.htm",
+          "seedChunkIndex": 49,
+          "answer": "Os benefícios previdenciários que podem ser concedidos sem a exigência de um",
+          "judgeVerdict": "FAIL",
+          "finalVerdict": "FAIL",
+          "judgeReason": "Resposta incompleta e abrupta.",
+          "heuristicFlags": [
+            "resposta_nao_alinhada_ao_seed"
+          ],
+          "supportMetrics": {
+            "seedOverlap": 0,
+            "focusCoverage": 0,
+            "referenceCoverage": 0
+          },
+          "seedInjected": false,
+          "groundedOverride": false
+        }
+      ]
+    },
+    {
+      "agentId": "58fb247b-1ead-4697-b1bb-a14a533f9285",
+      "title": "Benefício de Prestação Continuada - Idoso e Pessoa com Deficiência",
+      "chunks": 436,
+      "questions": 10,
+      "passed": 8,
+      "failed": 2,
+      "passRate": 80,
+      "durationSeconds": 69.3,
+      "seedInjections": 1,
+      "groundedOverrides": 8,
+      "failureReasons": {
+        "Resposta se recusa a responder a pergunta.": 2
+      },
+      "failures": [
+        {
+          "question": "Como funciona o limite do art. 37, XI, quando se acumulam proventos de inatividade com outras fontes de renda, como cargos públicos ou atividades sujeitas à previdência?",
+          "expectedFocus": "O limite do art. 37, XI, aplica-se à soma total dos proventos de inatividade, incluindo acumulações de cargos, empregos públicos e outras atividades sujeitas à contribuição para o regime geral de previdência social.",
+          "seedDocumentTitle": "https://www.planalto.gov.br/ccivil_03/constituicao/constituicao.htm",
+          "seedChunkIndex": 44,
+          "answer": "Esta pergunta está fora do meu escopo. Por favor, consulte o agente especializado no tema Regime de Previdência dos Servidores Públicos e Limite Remuneratório Constitucional.",
+          "judgeVerdict": "FAIL",
+          "finalVerdict": "FAIL",
+          "judgeReason": "Resposta se recusa a responder a pergunta.",
+          "heuristicFlags": [],
+          "supportMetrics": {
+            "seedOverlap": 0.09,
+            "focusCoverage": 0.21,
+            "referenceCoverage": 0
+          },
+          "seedInjected": false,
+          "groundedOverride": false
+        },
+        {
+          "question": "Quais são os requisitos e critérios do regime geral de previdência social que também devem ser observados no regime de previdência dos servidores públicos?",
+          "expectedFocus": "O regime de previdência dos servidores públicos titulares de cargo efetivo deve observar, no que couber, os requisitos e critérios fixados para o regime geral de previdência social.",
+          "seedDocumentTitle": "https://www.planalto.gov.br/ccivil_03/constituicao/constituicao.htm",
+          "seedChunkIndex": 44,
+          "answer": "Esta pergunta está fora do meu escopo. Por favor, consulte o agente especializado no tema Regime Geral de Previdência Social e Regime Próprio de Previdência Social.",
+          "judgeVerdict": "FAIL",
+          "finalVerdict": "FAIL",
+          "judgeReason": "Resposta se recusa a responder a pergunta.",
+          "heuristicFlags": [],
+          "supportMetrics": {
+            "seedOverlap": 0.08,
+            "focusCoverage": 0.27,
+            "referenceCoverage": 0.25
+          },
+          "seedInjected": false,
+          "groundedOverride": false
+        }
+      ]
+    },
+    {
+      "agentId": "9c29230d-4d27-46c5-a8d1-ca8478e57773",
+      "title": "Agente AtosTr",
+      "chunks": 36,
+      "questions": 10,
+      "passed": 8,
+      "failed": 2,
+      "passRate": 80,
+      "durationSeconds": 58.6,
+      "seedInjections": 1,
+      "groundedOverrides": 8,
+      "failureReasons": {
+        "citacao_errada_do_contexto": 2
+      },
+      "failures": [
+        {
+          "question": "Quais são os autores mais frequentes dos documentos indexados na JusLaboris?",
+          "expectedFocus": "Autores mais comuns na JusLaboris",
+          "seedDocumentTitle": "https://juslaboris.tst.jus.br/handle/20.500.12178/1/discover?filtertype_1=author&filter_relational_operator_1=equals&filter_1=Escola+Nacional+de+Forma%C3%A7%C3%A3o+e+Aperfei%C3%A7oamento+de+Magistrados+do+Trabalho+%28Brasil%29+%28Enamat%29&submit_apply_fi",
+          "seedChunkIndex": 0,
+          "answer": "Os autores mais frequentes dos documentos indexados na JusLaboris, conforme o contexto fornecido, são o Brasil. Tribunal Superior do Trabalho (TST).",
+          "judgeVerdict": "PASS",
+          "finalVerdict": "FAIL",
+          "judgeReason": "A resposta identifica o autor mais frequente.",
+          "heuristicFlags": [
+            "citacao_errada_do_contexto"
+          ],
+          "supportMetrics": {
+            "seedOverlap": 0.07,
+            "focusCoverage": 0.67,
+            "referenceCoverage": 0.5
+          },
+          "seedInjected": false,
+          "groundedOverride": false
+        },
+        {
+          "question": "Quais são as tags mais utilizadas nos documentos da JusLaboris?",
+          "expectedFocus": "Tags frequentes nos documentos da JusLaboris",
+          "seedDocumentTitle": "https://juslaboris.tst.jus.br/handle/20.500.12178/1/discover?filtertype_1=author&filter_relational_operator_1=equals&filter_1=Escola+Nacional+de+Forma%C3%A7%C3%A3o+e+Aperfei%C3%A7oamento+de+Magistrados+do+Trabalho+%28Brasil%29+%28Enamat%29&submit_apply_fi",
+          "seedChunkIndex": 0,
+          "answer": "Na JusLaboris, as tags mais utilizadas nos documentos, conforme o contexto fornecido, são: expediente (156), prazo processual (35), recesso forense (15), trabalho presencial (14), segurança da informação (13), trabalho remoto (12), atividade presencial (10) e processo judicial eletrônico (pje) (10).",
+          "judgeVerdict": "PASS",
+          "finalVerdict": "FAIL",
+          "judgeReason": "A resposta lista as tags mais utilizadas.",
+          "heuristicFlags": [
+            "citacao_errada_do_contexto"
+          ],
+          "supportMetrics": {
+            "seedOverlap": 0.04,
+            "focusCoverage": 0.75,
+            "referenceCoverage": 0.25
+          },
+          "seedInjected": false,
+          "groundedOverride": false
+        }
+      ]
+    },
+    {
+      "agentId": "09e0ecf2-cc5f-4cca-8260-971f5faecf0b",
+      "title": "Aposentadoria por Idade Urbana",
+      "chunks": 1263,
+      "questions": 10,
+      "passed": 9,
+      "failed": 1,
+      "passRate": 90,
+      "durationSeconds": 98.7,
+      "seedInjections": 3,
+      "groundedOverrides": 9,
+      "failureReasons": {
+        "A resposta se recusa a responder sem motivo aparente.": 1
+      },
+      "failures": [
+        {
+          "question": "No caso de uma segurada contribuinte individual que deseja receber salário-maternidade, quantas contribuições mensais são necessárias e a quais artigos devo prestar atenção?",
+          "expectedFocus": "O número de contribuições mensais para salário-maternidade e as referências aos artigos 93 e 101.",
+          "seedDocumentTitle": "https://www.planalto.gov.br/ccivil_03/decreto/d3048.htm",
+          "seedChunkIndex": 49,
+          "answer": "Esta pergunta está fora do meu escopo. Por favor, consulte o agente especializado no tema Salário-Maternidade.",
+          "judgeVerdict": "FAIL",
+          "finalVerdict": "FAIL",
+          "judgeReason": "A resposta se recusa a responder sem motivo aparente.",
+          "heuristicFlags": [],
+          "supportMetrics": {
+            "seedOverlap": 0.03,
+            "focusCoverage": 0.29,
+            "referenceCoverage": 0.2
+          },
+          "seedInjected": true,
+          "groundedOverride": false
+        }
+      ]
+    },
+    {
+      "agentId": "02d01ad9-ce89-4cdb-bfc4-7330735526ab",
+      "title": "Salário-Família",
+      "chunks": 1116,
+      "questions": 10,
+      "passed": 9,
+      "failed": 1,
+      "passRate": 90,
+      "durationSeconds": 73.4,
+      "seedInjections": 1,
+      "groundedOverrides": 9,
+      "failureReasons": {
+        "resposta_nao_alinhada_ao_seed": 1
+      },
+      "failures": [
+        {
+          "question": "Como ficam os benefícios previdenciários de um servidor público que se afasta para exercer um mandato eletivo? Os valores são calculados de forma diferente?",
+          "expectedFocus": "Cálculo de benefícios previdenciários durante afastamento para mandato eletivo.",
+          "seedDocumentTitle": "https://www.planalto.gov.br/ccivil_03/constituicao/constituicao.htm",
+          "seedChunkIndex": 37,
+          "answer": "Esta pergunta está fora do meu escopo. Por favor, consulte o agente especializado no tema Regime Próprio de Previdência Social.",
+          "judgeVerdict": "FAIL",
+          "finalVerdict": "FAIL",
+          "judgeReason": "A resposta se recusa a responder sem motivo.",
+          "heuristicFlags": [
+            "resposta_nao_alinhada_ao_seed"
+          ],
+          "supportMetrics": {
+            "seedOverlap": 0.04,
+            "focusCoverage": 0,
+            "referenceCoverage": 0
+          },
+          "seedInjected": false,
+          "groundedOverride": false
+        }
+      ]
+    },
+    {
+      "agentId": "a09891a5-b241-4fa7-aa72-07ae956f76f8",
+      "title": "Carência e Qualidade de Segurado",
+      "chunks": 749,
+      "questions": 10,
+      "passed": 9,
+      "failed": 1,
+      "passRate": 90,
+      "durationSeconds": 70.9,
+      "seedInjections": 1,
+      "groundedOverrides": 9,
+      "failureReasons": {
+        "resposta_curta": 1,
+        "resposta_nao_alinhada_ao_seed": 1
+      },
+      "failures": [
+        {
+          "question": "Como o decreto define 'acidente de qualquer natureza ou causa' e quais as suas consequências?",
+          "expectedFocus": "Definição de acidente de qualquer natureza ou causa como evento traumático ou exposição a agentes exógenos, resultando em lesão ou perturbação funcional, com consequências como morte, perda ou redução da capacidade laborativa.",
+          "seedDocumentTitle": "https://www.planalto.gov.br/ccivil_03/decreto/d3048.htm",
+          "seedChunkIndex": 50,
+          "answer": "O Decreto nº 3.048/99, em seu Art.",
+          "judgeVerdict": "FAIL",
+          "finalVerdict": "FAIL",
+          "judgeReason": "Resposta incompleta, não define acidente.",
+          "heuristicFlags": [
+            "resposta_curta",
+            "resposta_nao_alinhada_ao_seed"
+          ],
+          "supportMetrics": {
+            "seedOverlap": 0.01,
+            "focusCoverage": 0,
+            "referenceCoverage": 0
+          },
+          "seedInjected": false,
+          "groundedOverride": false
+        }
+      ]
+    },
+    {
+      "agentId": "0dca81de-7964-458b-8b0d-7c55c8ee8c20",
+      "title": "Manutenção de Benefícios",
+      "chunks": 15,
+      "questions": 10,
+      "passed": 9,
+      "failed": 1,
+      "passRate": 90,
+      "durationSeconds": 58.8,
+      "seedInjections": 0,
+      "groundedOverrides": 8,
+      "failureReasons": {
+        "resposta_nao_alinhada_ao_seed": 1
+      },
+      "failures": [
+        {
+          "question": "Quais documentos são considerados essenciais para dar entrada em um pedido de benefício no INSS, visando evitar exigências adicionais?",
+          "expectedFocus": "Documentos essenciais na entrada do requerimento",
+          "seedDocumentTitle": "BASE SUPLEMENTAR PORTALIN - PORTARIA 991 - Reconhecimento de Direitos no RGPS",
+          "seedChunkIndex": 0,
+          "answer": "Esta pergunta está fora do meu escopo. Por favor, consulte o agente especializado no tema Concessão Inicial de Benefícios.",
+          "judgeVerdict": "FAIL",
+          "finalVerdict": "FAIL",
+          "judgeReason": "A resposta se recusa a responder sem motivo aparente.",
+          "heuristicFlags": [
+            "resposta_nao_alinhada_ao_seed"
+          ],
+          "supportMetrics": {
+            "seedOverlap": 0,
+            "focusCoverage": 0,
+            "referenceCoverage": 0
+          },
+          "seedInjected": false,
+          "groundedOverride": false
+        }
+      ]
+    },
+    {
+      "agentId": "a52473d6-0152-49f9-b4b1-5bec4eee058c",
+      "title": "DTrib",
+      "chunks": 3363,
+      "questions": 10,
+      "passed": 10,
+      "failed": 0,
+      "passRate": 100,
+      "durationSeconds": 54.4,
+      "seedInjections": 0,
+      "groundedOverrides": 10,
+      "failureReasons": {},
+      "failures": []
+    },
+    {
+      "agentId": "80da08d1-1a2d-4ca8-b866-ede83ba0e4d0",
+      "title": "Regime Próprio de Previdência Social",
+      "chunks": 1915,
+      "questions": 10,
+      "passed": 10,
+      "failed": 0,
+      "passRate": 100,
+      "durationSeconds": 74.5,
+      "seedInjections": 2,
+      "groundedOverrides": 10,
+      "failureReasons": {},
+      "failures": []
+    },
+    {
+      "agentId": "f66b73e0-bde0-4505-8ea6-223b9ad716db",
+      "title": "FedTax",
+      "chunks": 1333,
+      "questions": 10,
+      "passed": 10,
+      "failed": 0,
+      "passRate": 100,
+      "durationSeconds": 59.4,
+      "seedInjections": 6,
+      "groundedOverrides": 10,
+      "failureReasons": {},
+      "failures": []
+    },
+    {
+      "agentId": "c0587932-c183-4edd-9f08-8615eda3d535",
+      "title": "Regras de Transição",
+      "chunks": 1297,
+      "questions": 10,
+      "passed": 10,
+      "failed": 0,
+      "passRate": 100,
+      "durationSeconds": 59.8,
+      "seedInjections": 4,
+      "groundedOverrides": 10,
+      "failureReasons": {},
+      "failures": []
+    },
+    {
+      "agentId": "7ac4a472-bc57-4d89-8605-cbc15037fcc8",
+      "title": "Agente NR.sPro",
+      "chunks": 1279,
+      "questions": 10,
+      "passed": 10,
+      "failed": 0,
+      "passRate": 100,
+      "durationSeconds": 69,
+      "seedInjections": 0,
+      "groundedOverrides": 10,
+      "failureReasons": {},
+      "failures": []
+    },
+    {
+      "agentId": "a339adc5-570e-49a8-80eb-81fa4e117112",
+      "title": "CTN Expert",
+      "chunks": 1267,
+      "questions": 10,
+      "passed": 10,
+      "failed": 0,
+      "passRate": 100,
+      "durationSeconds": 44.8,
+      "seedInjections": 1,
+      "groundedOverrides": 10,
+      "failureReasons": {},
+      "failures": []
+    },
+    {
+      "agentId": "1cec0667-dff2-4f12-9c13-b72f9daa5bb8",
+      "title": "REFIS-IA",
+      "chunks": 1266,
+      "questions": 10,
+      "passed": 10,
+      "failed": 0,
+      "passRate": 100,
+      "durationSeconds": 87.9,
+      "seedInjections": 2,
+      "groundedOverrides": 10,
+      "failureReasons": {},
+      "failures": []
+    },
+    {
+      "agentId": "c4d4f66e-32c5-4eef-b95d-7e70ae0c0406",
+      "title": "Cálculo de RMI",
+      "chunks": 1263,
+      "questions": 10,
+      "passed": 10,
+      "failed": 0,
+      "passRate": 100,
+      "durationSeconds": 88,
+      "seedInjections": 1,
+      "groundedOverrides": 10,
+      "failureReasons": {},
+      "failures": []
+    },
+    {
+      "agentId": "2b7ece53-f20d-4464-8d2f-f482bac21599",
+      "title": "Aposentadoria Pré EC 103",
+      "chunks": 1263,
+      "questions": 10,
+      "passed": 10,
+      "failed": 0,
+      "passRate": 100,
+      "durationSeconds": 101.9,
+      "seedInjections": 2,
+      "groundedOverrides": 9,
+      "failureReasons": {},
+      "failures": []
+    },
+    {
+      "agentId": "ac3f75e4-6961-4549-aa75-5b1bb9e83601",
+      "title": "Aposentadoria por Incapacidade Permanente",
+      "chunks": 1263,
+      "questions": 10,
+      "passed": 10,
+      "failed": 0,
+      "passRate": 100,
+      "durationSeconds": 74.1,
+      "seedInjections": 1,
+      "groundedOverrides": 10,
+      "failureReasons": {},
+      "failures": []
+    },
+    {
+      "agentId": "87d3ce4b-3830-47e3-bdde-564fc5478073",
+      "title": "Aposentadoria Especial",
+      "chunks": 1263,
+      "questions": 10,
+      "passed": 10,
+      "failed": 0,
+      "passRate": 100,
+      "durationSeconds": 63.8,
+      "seedInjections": 2,
+      "groundedOverrides": 10,
+      "failureReasons": {},
+      "failures": []
+    },
+    {
+      "agentId": "6532876a-172e-411d-9cd9-8e66eec9384f",
+      "title": "Viabilidade Judicial - Auxílio por Incapacidade Temporária",
+      "chunks": 1263,
+      "questions": 10,
+      "passed": 10,
+      "failed": 0,
+      "passRate": 100,
+      "durationSeconds": 75.6,
+      "seedInjections": 2,
+      "groundedOverrides": 10,
+      "failureReasons": {},
+      "failures": []
+    },
+    {
+      "agentId": "f0524fea-e2bf-49fb-b4ce-8c672050ed04",
+      "title": "Processo Administrativo Previdenciário",
+      "chunks": 1249,
+      "questions": 10,
+      "passed": 10,
+      "failed": 0,
+      "passRate": 100,
+      "durationSeconds": 94.2,
+      "seedInjections": 3,
+      "groundedOverrides": 10,
+      "failureReasons": {},
+      "failures": []
+    },
+    {
+      "agentId": "8f904216-cd19-4a9b-b0ed-33bb74927e73",
+      "title": "Pensão por Morte",
+      "chunks": 1214,
+      "questions": 10,
+      "passed": 10,
+      "failed": 0,
+      "passRate": 100,
+      "durationSeconds": 73,
+      "seedInjections": 1,
+      "groundedOverrides": 10,
+      "failureReasons": {},
+      "failures": []
+    },
+    {
+      "agentId": "5110fa3e-6143-4d83-b984-27defb9cf69d",
+      "title": "Salário-Maternidade",
+      "chunks": 1214,
+      "questions": 10,
+      "passed": 10,
+      "failed": 0,
+      "passRate": 100,
+      "durationSeconds": 91.9,
+      "seedInjections": 1,
+      "groundedOverrides": 10,
+      "failureReasons": {},
+      "failures": []
+    },
+    {
+      "agentId": "fda4edc2-5f63-4d0a-a961-22a9865ef729",
+      "title": "Auxílio-Reclusão",
+      "chunks": 1214,
+      "questions": 10,
+      "passed": 10,
+      "failed": 0,
+      "passRate": 100,
+      "durationSeconds": 57.8,
+      "seedInjections": 1,
+      "groundedOverrides": 8,
+      "failureReasons": {},
+      "failures": []
+    },
+    {
+      "agentId": "069686a5-cf9d-4748-8b1d-d6ee8e11a51e",
+      "title": "Auxílio por Incapacidade Temporária",
+      "chunks": 1165,
+      "questions": 10,
+      "passed": 10,
+      "failed": 0,
+      "passRate": 100,
+      "durationSeconds": 112.8,
+      "seedInjections": 1,
+      "groundedOverrides": 10,
+      "failureReasons": {},
+      "failures": []
+    },
+    {
+      "agentId": "37eae488-f7df-49d6-a8fb-06d6b93fb79b",
+      "title": "Aposentadoria Rural",
+      "chunks": 1067,
+      "questions": 10,
+      "passed": 10,
+      "failed": 0,
+      "passRate": 100,
+      "durationSeconds": 62.6,
+      "seedInjections": 1,
+      "groundedOverrides": 10,
+      "failureReasons": {},
+      "failures": []
+    },
+    {
+      "agentId": "f0c30fef-7f08-4e96-9f14-4025ea8fa623",
+      "title": "Revisão de Benefícios",
+      "chunks": 959,
+      "questions": 10,
+      "passed": 10,
+      "failed": 0,
+      "passRate": 100,
+      "durationSeconds": 70.2,
+      "seedInjections": 2,
+      "groundedOverrides": 10,
+      "failureReasons": {},
+      "failures": []
+    },
+    {
+      "agentId": "f9bf498d-1a09-4b64-bd81-6309a3d48e4c",
+      "title": "Cadastro Nacional de Informações Sociais",
+      "chunks": 777,
+      "questions": 10,
+      "passed": 10,
+      "failed": 0,
+      "passRate": 100,
+      "durationSeconds": 71.5,
+      "seedInjections": 1,
+      "groundedOverrides": 10,
+      "failureReasons": {},
+      "failures": []
+    },
+    {
+      "agentId": "56ff344e-3d3d-45c7-8392-b4fd1e8e045a",
+      "title": "Agente S?mulasCore",
+      "chunks": 774,
+      "questions": 10,
+      "passed": 10,
+      "failed": 0,
+      "passRate": 100,
+      "durationSeconds": 65.9,
+      "seedInjections": 0,
+      "groundedOverrides": 10,
+      "failureReasons": {},
+      "failures": []
+    },
+    {
+      "agentId": "34ba2606-60e9-451a-9983-2757cce68d1a",
+      "title": "TAX-Rend",
+      "chunks": 717,
+      "questions": 10,
+      "passed": 10,
+      "failed": 0,
+      "passRate": 100,
+      "durationSeconds": 75.4,
+      "seedInjections": 1,
+      "groundedOverrides": 10,
+      "failureReasons": {},
+      "failures": []
+    },
+    {
+      "agentId": "589581b6-a6e5-4960-8970-d5aa84b5e250",
+      "title": "Conselho de Recursos da Previdência Social",
+      "chunks": 427,
+      "questions": 10,
+      "passed": 10,
+      "failed": 0,
+      "passRate": 100,
+      "durationSeconds": 78,
+      "seedInjections": 0,
+      "groundedOverrides": 10,
+      "failureReasons": {},
+      "failures": []
+    },
+    {
+      "agentId": "2b02e410-8ef0-4d0b-ba24-cd72751bfb9f",
+      "title": "Assistência Social",
+      "chunks": 400,
+      "questions": 10,
+      "passed": 10,
+      "failed": 0,
+      "passRate": 100,
+      "durationSeconds": 64.8,
+      "seedInjections": 0,
+      "groundedOverrides": 10,
+      "failureReasons": {},
+      "failures": []
+    },
+    {
+      "agentId": "ca732308-78ab-48e3-bd1d-3d3cc7d8d87f",
+      "title": "Agente DirTrab",
+      "chunks": 224,
+      "questions": 10,
+      "passed": 10,
+      "failed": 0,
+      "passRate": 100,
+      "durationSeconds": 60.4,
+      "seedInjections": 0,
+      "groundedOverrides": 10,
+      "failureReasons": {},
+      "failures": []
+    },
+    {
+      "agentId": "0f024f8d-082d-45d5-85bf-3a02fc3baa11",
+      "title": "STJSum",
+      "chunks": 56,
+      "questions": 10,
+      "passed": 10,
+      "failed": 0,
+      "passRate": 100,
+      "durationSeconds": 49.5,
+      "seedInjections": 0,
+      "groundedOverrides": 10,
+      "failureReasons": {},
+      "failures": []
+    },
+    {
+      "agentId": "951691d7-2fde-484f-87c1-994d11c417d5",
+      "title": "Turma Nacional de Uniformização",
+      "chunks": 54,
+      "questions": 10,
+      "passed": 10,
+      "failed": 0,
+      "passRate": 100,
+      "durationSeconds": 45.2,
+      "seedInjections": 1,
+      "groundedOverrides": 10,
+      "failureReasons": {},
+      "failures": []
+    },
+    {
+      "agentId": "0035be15-81a2-498a-bcdf-2f12a9ee8169",
+      "title": "Agente PrecedentX",
+      "chunks": 42,
+      "questions": 10,
+      "passed": 10,
+      "failed": 0,
+      "passRate": 100,
+      "durationSeconds": 59.3,
+      "seedInjections": 0,
+      "groundedOverrides": 10,
+      "failureReasons": {},
+      "failures": []
+    },
+    {
+      "agentId": "1ee99601-6722-4744-a6b4-be7aa71a7984",
+      "title": "Súmulas Federais",
+      "chunks": 39,
+      "questions": 10,
+      "passed": 10,
+      "failed": 0,
+      "passRate": 100,
+      "durationSeconds": 41.7,
+      "seedInjections": 0,
+      "groundedOverrides": 9,
+      "failureReasons": {},
+      "failures": []
+    },
+    {
+      "agentId": "c079494b-3725-4807-8721-4b27c3dd815e",
+      "title": "O Prompt Perfeito",
+      "chunks": 11,
+      "questions": 10,
+      "passed": 10,
+      "failed": 0,
+      "passRate": 100,
+      "durationSeconds": 39.6,
+      "seedInjections": 0,
+      "groundedOverrides": 10,
+      "failureReasons": {},
+      "failures": []
+    }
+  ]
+}

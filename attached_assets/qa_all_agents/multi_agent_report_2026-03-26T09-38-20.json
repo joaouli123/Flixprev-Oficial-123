@@ -1,0 +1,87 @@
+{
+  "generatedAt": "2026-03-26T09:38:20.390Z",
+  "config": {
+    "limit": 10,
+    "seeds": 4,
+    "questionsPerSeed": 4,
+    "topK": 8,
+    "answerConcurrency": 2,
+    "judgeBatchSize": 10,
+    "answerModel": "gemini-2.5-flash",
+    "generationModel": "gemini-2.0-flash",
+    "judgeModel": "gemini-2.0-flash",
+    "embeddingBatchSize": 50,
+    "minChunks": 10,
+    "agentId": "87d3ce4b-3830-47e3-bdde-564fc5478073",
+    "reportDir": "C:\\Users\\joao lucas\\Desktop\\Contratos e projetos\\Flixprev - Valdir\\Flixprev-Oficial-1--ATUALIZADO-\\attached_assets\\qa_all_agents"
+  },
+  "globalTotals": {
+    "agents": 1,
+    "questions": 10,
+    "passed": 8,
+    "failed": 2,
+    "passRate": 80,
+    "perfect": 0,
+    "above95": 0,
+    "below80": 0
+  },
+  "agents": [
+    {
+      "agentId": "87d3ce4b-3830-47e3-bdde-564fc5478073",
+      "title": "Aposentadoria Especial",
+      "chunks": 1263,
+      "questions": 10,
+      "passed": 8,
+      "failed": 2,
+      "passRate": 80,
+      "durationSeconds": 61,
+      "seedInjections": 2,
+      "groundedOverrides": 8,
+      "failureReasons": {
+        "resposta_nao_alinhada_ao_seed": 2
+      },
+      "failures": [
+        {
+          "question": "Quais benefícios previdenciários podem ser concedidos sem exigência de um período mínimo de carência?",
+          "expectedFocus": "As prestações que independem de carência, como pensão por morte, auxílio-reclusão, salário-família e auxílio-acidente.",
+          "seedDocumentTitle": "https://www.planalto.gov.br/ccivil_03/decreto/d3048.htm",
+          "seedChunkIndex": 49,
+          "answer": "Esta pergunta está fora do meu escopo. Por favor, consulte o agente especializado no tema benefícios previdenciários em geral.",
+          "judgeVerdict": "FAIL",
+          "finalVerdict": "FAIL",
+          "judgeReason": "A resposta se recusa a responder sem motivo aparente, pois o trecho-fonte contém informações relevantes para responder à pergunta.",
+          "heuristicFlags": [
+            "resposta_nao_alinhada_ao_seed"
+          ],
+          "supportMetrics": {
+            "seedOverlap": 0.01,
+            "focusCoverage": 0,
+            "referenceCoverage": 0
+          },
+          "seedInjected": false,
+          "groundedOverride": false
+        },
+        {
+          "question": "Se um servidor ocupa apenas um cargo em comissão de livre nomeação, qual regime de previdência se aplica a ele?",
+          "expectedFocus": "Ao servidor ocupante, exclusivamente, de cargo em comissão declarado em lei de livre nomeação e exoneração bem como de outro cargo temporário ou de emprego público, aplica-se o regime geral de previdência social.",
+          "seedDocumentTitle": "https://www.planalto.gov.br/ccivil_03/constituicao/constituicao.htm",
+          "seedChunkIndex": 44,
+          "answer": "A partir de 16 de dezembro de 1998, com a publicação da Em",
+          "judgeVerdict": "FAIL",
+          "finalVerdict": "FAIL",
+          "judgeReason": "A resposta está incompleta e não fornece informações sobre o regime de previdência aplicável a servidores comissionados.",
+          "heuristicFlags": [
+            "resposta_nao_alinhada_ao_seed"
+          ],
+          "supportMetrics": {
+            "seedOverlap": 0,
+            "focusCoverage": 0,
+            "referenceCoverage": 0
+          },
+          "seedInjected": false,
+          "groundedOverride": false
+        }
+      ]
+    }
+  ]
+}
