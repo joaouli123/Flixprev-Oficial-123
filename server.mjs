@@ -214,6 +214,27 @@ function createAiClient() {
   });
 }
 
+/**
+ * Retry wrapper for Gemini/OpenAI API calls that handles 429 rate limiting.
+ * Retries up to maxRetries times with exponential backoff.
+ */
+async function withRetry429(fn, { maxRetries = 4, baseDelayMs = 2000, label = 'AI call' } = {}) {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      const status = error?.status || error?.statusCode || error?.response?.status;
+      const is429 = status === 429 || String(error?.message || '').includes('429');
+      if (!is429 || attempt >= maxRetries) {
+        throw error;
+      }
+      const delay = baseDelayMs * Math.pow(2, attempt) + Math.random() * 1000;
+      console.warn(`[RETRY] ${label} - 429 rate limit, tentativa ${attempt + 1}/${maxRetries}, aguardando ${Math.round(delay)}ms...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+}
+
 const AI_INPUT_COST_PER_1K = Number(process.env.AI_INPUT_COST_PER_1K || 0.005);
 const AI_OUTPUT_COST_PER_1K = Number(process.env.AI_OUTPUT_COST_PER_1K || 0.015);
 const AI_EMBEDDING_COST_PER_1K = Number(process.env.AI_EMBEDDING_COST_PER_1K || 0.00013);
@@ -552,7 +573,12 @@ const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const hasSupabaseAuth = Boolean(supabaseUrl && supabaseAnonKey);
-const hasSupabaseAdmin = Boolean(supabaseUrl && supabaseServiceRoleKey);
+const hasSupabaseAdmin = Boolean(supabaseUrl && (supabaseServiceRoleKey || supabaseAnonKey));
+
+// If service_role key is not a valid JWT (e.g. sb_secret_...), fall back to anon key
+const effectiveAdminKey = (supabaseServiceRoleKey && supabaseServiceRoleKey.startsWith('eyJ'))
+  ? supabaseServiceRoleKey
+  : supabaseAnonKey;
 
 const supabaseAuthClient = hasSupabaseAuth
   ? createClient(supabaseUrl, supabaseAnonKey, {
@@ -561,7 +587,7 @@ const supabaseAuthClient = hasSupabaseAuth
   : null;
 
 const supabaseAdminClient = hasSupabaseAdmin
-  ? createClient(supabaseUrl, supabaseServiceRoleKey, {
+  ? createClient(supabaseUrl, effectiveAdminKey, {
       auth: { persistSession: false, autoRefreshToken: false }
     })
   : null;
@@ -1237,10 +1263,13 @@ async function generateEmbeddings(chunks, logContext = {}) {
 
   for (let i = 0; i < chunks.length; i++) {
     try {
-      const res = await openai.embeddings.create({
-        model: cfg.embeddingModel,
-        input: chunks[i]
-      });
+      const res = await withRetry429(
+        () => openai.embeddings.create({
+          model: cfg.embeddingModel,
+          input: chunks[i]
+        }),
+        { label: `embedding_chunk_${i}` }
+      );
       embeddings.push(res.data[0].embedding);
       if ((i + 1) % 5 === 0 || i === chunks.length - 1) {
         console.log(`[EMB] Progresso: ${i + 1}/${chunks.length}`);
@@ -5003,10 +5032,13 @@ async function handleSupabaseConversationMessageFallback({ res, userId, cid, con
           } else {
             const aiCfg = getAiRuntimeConfig();
             const openai = createAiClient();
-            const queryEmbedding = await openai.embeddings.create({
-              model: aiCfg.embeddingModel,
-              input: retrievalQuery || userText,
-            });
+            const queryEmbedding = await withRetry429(
+              () => openai.embeddings.create({
+                model: aiCfg.embeddingModel,
+                input: retrievalQuery || userText,
+              }),
+              { label: 'embedding_supabase_fallback' }
+            );
 
             const embeddingTokens = estimateTokens(retrievalQuery || userText);
             logAiUsageSafe({
@@ -5055,67 +5087,92 @@ async function handleSupabaseConversationMessageFallback({ res, userId, cid, con
 
   let assistantText = directPdfAnswer && directPdfAnswer.trim().length > 0 ? directPdfAnswer : '';
 
-  if (!assistantText) {
-    const aiCfg = getAiRuntimeConfig();
-    const openai = createAiClient();
-    const msgs = [
-      { role: 'system', content: prompt },
-      ...historyRows.slice(-10).map((message) => ({ role: message.role, content: message.content })),
-    ];
+  try {
+    if (!assistantText) {
+      const aiCfg = getAiRuntimeConfig();
+      const openai = createAiClient();
+      const msgs = [
+        { role: 'system', content: prompt },
+        ...historyRows.slice(-10).map((message) => ({ role: message.role, content: message.content })),
+      ];
 
-    const stream = await openai.chat.completions.create({
-      model: aiCfg.chatModel,
-      messages: msgs,
-      stream: true,
-      temperature: 0,
-    });
+      const stream = await withRetry429(
+        () => openai.chat.completions.create({
+          model: aiCfg.chatModel,
+          messages: msgs,
+          stream: true,
+          temperature: 0,
+        }),
+        { label: 'chat_completion_supabase_fallback' }
+      );
 
-    for await (const chunk of stream) {
-      const delta = chunk.choices?.[0]?.delta?.content || '';
-      if (delta) {
-        assistantText += delta;
+      for await (const chunk of stream) {
+        const delta = chunk.choices?.[0]?.delta?.content || '';
+        if (delta) {
+          assistantText += delta;
+        }
       }
+
+      const promptTokens = estimateTokens(JSON.stringify(msgs));
+      const completionTokens = estimateTokens(assistantText);
+      logAiUsageSafe({
+        userId,
+        conversationId: cid,
+        requestType: 'chat_completion_supabase_fallback',
+        model: aiCfg.chatModel,
+        status: 'success',
+        promptTokens,
+        completionTokens,
+        totalTokens: promptTokens + completionTokens,
+        costUsd: estimateCompletionCostUsd(promptTokens, completionTokens),
+      });
     }
 
-    const promptTokens = estimateTokens(JSON.stringify(msgs));
-    const completionTokens = estimateTokens(assistantText);
+    const finalAssistantText = validateOutput(
+      assistantText.trim() || 'Não consegui gerar uma resposta agora.',
+      hasContext,
+      userText,
+      questionType,
+      contextSize,
+      chunksUsed,
+      relevantContext,
+    );
+    await insertConversationMessageViaSupabase(cid, 'assistant', finalAssistantText);
+
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    if (res.flushHeaders) res.flushHeaders();
+
+    const chunkSize = 50;
+    for (let index = 0; index < finalAssistantText.length; index += chunkSize) {
+      const chunk = finalAssistantText.substring(index, index + chunkSize);
+      res.write(`data: ${JSON.stringify({ content: chunk })}\n\n`);
+    }
+
+    res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+    return res.end();
+  } catch (fallbackError) {
+    console.error('[CHAT][SUPABASE-FALLBACK] Erro na geração de resposta:', fallbackError?.message || fallbackError);
     logAiUsageSafe({
       userId,
       conversationId: cid,
       requestType: 'chat_completion_supabase_fallback',
-      model: aiCfg.chatModel,
-      status: 'success',
-      promptTokens,
-      completionTokens,
-      totalTokens: promptTokens + completionTokens,
-      costUsd: estimateCompletionCostUsd(promptTokens, completionTokens),
+      model: getAiRuntimeConfig().chatModel,
+      status: 'error',
+      promptTokens: 0,
+      completionTokens: 0,
+      totalTokens: 0,
+      costUsd: 0,
+      errorMessage: fallbackError?.message || 'Falha no chat fallback',
     });
+    if (!res.headersSent) {
+      res.status(500).json({ error: fallbackError?.message || 'Erro interno no chat' });
+    } else {
+      res.write(`data: ${JSON.stringify({ error: fallbackError?.message || 'Erro interno' })}\n\n`);
+      res.end();
+    }
   }
-
-  const finalAssistantText = validateOutput(
-    assistantText.trim() || 'Não consegui gerar uma resposta agora.',
-    hasContext,
-    userText,
-    questionType,
-    contextSize,
-    chunksUsed,
-    relevantContext,
-  );
-  await insertConversationMessageViaSupabase(cid, 'assistant', finalAssistantText);
-
-  res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache');
-  res.setHeader('Connection', 'keep-alive');
-  if (res.flushHeaders) res.flushHeaders();
-
-  const chunkSize = 50;
-  for (let index = 0; index < finalAssistantText.length; index += chunkSize) {
-    const chunk = finalAssistantText.substring(index, index + chunkSize);
-    res.write(`data: ${JSON.stringify({ content: chunk })}\n\n`);
-  }
-
-  res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
-  return res.end();
 }
 
 async function listTutorialsViaSupabase() {
@@ -5928,8 +5985,8 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
   const userId = req.headers['x-user-id'];
   if (!userId) return res.status(401).json({ error: "x-user-id header is required" });
 
+  const cid = parseInt(req.params.id);
   try {
-    const cid = parseInt(req.params.id);
     const { content, agentId, attachment } = req.body;
     const userText = String(content || '').trim();
     let attachmentContext = '';
@@ -6000,11 +6057,14 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
 
           const openai = createAiClient();
 
-          const completion = await openai.chat.completions.create({
-            model: aiCfg.fastChatModel,
-            messages: [{ role: 'system', content: localPrompt }],
-            temperature: 0,
-          });
+          const completion = await withRetry429(
+            () => openai.chat.completions.create({
+              model: aiCfg.fastChatModel,
+              messages: [{ role: 'system', content: localPrompt }],
+              temperature: 0,
+            }),
+            { label: 'chat_local_fallback' }
+          );
 
           const generated = completion.choices?.[0]?.message?.content?.trim();
           if (generated) {
@@ -6159,10 +6219,13 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
                 const aiCfg = getAiRuntimeConfig();
                 const openai = createAiClient();
 
-                const queryEmbedding = await openai.embeddings.create({
-                  model: aiCfg.embeddingModel,
-                  input: retrievalQuery || userText
-                });
+                const queryEmbedding = await withRetry429(
+                  () => openai.embeddings.create({
+                    model: aiCfg.embeddingModel,
+                    input: retrievalQuery || userText
+                  }),
+                  { label: 'chat_embedding_query' }
+                );
 
                 const embeddingTokens = estimateTokens(retrievalQuery || userText);
                 logAiUsageSafe({
@@ -6234,12 +6297,15 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
     const aiCfg = getAiRuntimeConfig();
     const openai = createAiClient();
 
-    const stream = await openai.chat.completions.create({
-      model: aiCfg.chatModel,
-      messages: msgs,
-      stream: true,
-      temperature: 0
-    });
+    const stream = await withRetry429(
+      () => openai.chat.completions.create({
+        model: aiCfg.chatModel,
+        messages: msgs,
+        stream: true,
+        temperature: 0
+      }),
+      { label: 'chat_completion_main' }
+    );
 
     let fullResp = "";
 
