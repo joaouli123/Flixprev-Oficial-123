@@ -3919,6 +3919,12 @@ function getAdminDashboardAgeRange(user) {
   return '65+';
 }
 
+function formatOriginLabel(value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (!normalized) return 'Nao informado';
+  return String(value).trim().replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 function buildAdminDashboardAudienceMetrics(users) {
   return {
     by_origin: buildAdminDashboardTopBuckets(users, (user) => formatOriginLabel(user?.origem_cadastro), 6),
