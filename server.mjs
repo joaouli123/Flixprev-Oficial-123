@@ -1296,8 +1296,8 @@ async function generateEmbeddings(chunks, logContext = {}) {
   return embeddings;
 }
 
-// 4️⃣ Busca semântica com pgvector - CONFIGURAÇÃO NUCLEAR (Limit 25)
-async function searchSimilarChunks(queryEmbedding, agentId, limit = 25, queryText = '') {
+// 4️⃣ Busca semântica com pgvector - CONFIGURAÇÃO OTIMIZADA (Limit 12, Sim >= 0.40)
+async function searchSimilarChunks(queryEmbedding, agentId, limit = 12, queryText = '') {
   try {
     return await withDatabaseFallback(
       'searchSimilarChunks',
@@ -1312,24 +1312,28 @@ async function searchSimilarChunks(queryEmbedding, agentId, limit = 25, queryTex
           LIMIT $3
         `, [agentId, embeddingString, limit]);
 
-        console.log('--- TESTE DE RECUPERAÇÃO (RAG NUCLEAR) ---');
+        console.log('--- RAG OTIMIZADO ---');
         console.log(`Agente: ${agentId}`);
-        console.log(`Chunks encontrados: ${result.rows.length}/${limit}`);
+        console.log(`Chunks brutos: ${result.rows.length}/${limit}`);
 
         if (result.rows.length > 0) {
           result.rows.slice(0, 3).forEach((r, i) => {
             console.log(`Chunk ${i + 1} (Sim: ${r.similarity.toFixed(3)}): ${r.content.substring(0, 60)}...`);
           });
         }
-        console.log('----------------------------------');
 
         const bestSimilarity = result.rows?.[0]?.similarity ?? 0;
-        if (bestSimilarity < 0.35) {
-          console.log(`[SEARCH] Similaridade baixa (${bestSimilarity.toFixed(3)}). Ignorando contexto documental nesta pergunta.`);
+        if (bestSimilarity < 0.45) {
+          console.log(`[SEARCH] Similaridade baixa (${bestSimilarity.toFixed(3)}). Ignorando contexto documental.`);
           return '';
         }
 
-        return result.rows.map(r => `[Trecho ID: ${r.chunk_index}]\n${r.content}`).join('\n\n---\n\n');
+        // Filtra chunks com similaridade >= 0.40 (remove ruído)
+        const relevantRows = result.rows.filter(r => r.similarity >= 0.40);
+        console.log(`Chunks após filtro (sim>=0.40): ${relevantRows.length}`);
+        console.log('----------------------------------');
+
+        return relevantRows.map(r => `[Trecho ID: ${r.chunk_index}]\n${r.content}`).join('\n\n---\n\n');
       },
       () => searchSimilarChunksViaSupabase(queryText, agentId, limit)
     );
@@ -1641,7 +1645,7 @@ RESPONDA AGORA:`;
 Você é um especialista direto, elegante e organizado.
 
 ### REGRAS CRÍTICAS (MODO VISÃO PANORÂMICA):
-1. **LEITURA COMPLETA**: Você recebeu um volume GRANDE de contexto (aprox. 25 trechos). Você DEVE ler e considerar TODOS os fragmentos antes de responder. A resposta pode estar no fragmento 1 ou no fragmento 25.
+1. **LEITURA COMPLETA**: Você recebeu um volume de contexto relevante (até 12 trechos pré-filtrados por similaridade). Você DEVE ler e considerar TODOS os fragmentos antes de responder.
 2. **SÍNTESE OBRIGATÓRIA**: Informações complexas podem estar divididas entre vários trechos. Una os pontos.
 3. **FIDELIDADE**: Priorize os trechos abaixo quando a pergunta estiver relacionada aos anexos, URLs e documentos.
 4. **LIMPEZA**: Não mencione [Trecho ID] na resposta.
@@ -4868,14 +4872,14 @@ function scoreChunkAgainstQuery(content = '', queryText = '') {
   return tokens.reduce((score, token) => score + (normalizedContent.includes(token) ? token.length : 0), 0);
 }
 
-async function searchSimilarChunksViaSupabase(queryText, agentId, limit = 25) {
+async function searchSimilarChunksViaSupabase(queryText, agentId, limit = 12) {
   const client = ensureSupabaseAdminAvailable();
   const response = await client
     .from('document_chunks')
     .select('content, chunk_index')
     .eq('agent_id', agentId)
     .order('chunk_index', { ascending: true })
-    .limit(Math.max(limit * 4, 80));
+    .limit(Math.max(limit * 3, 50));
 
   if (response.error) {
     throw createSupabaseFallbackError(response.error, 'Erro ao recuperar chunks do agente');
@@ -4887,15 +4891,16 @@ async function searchSimilarChunksViaSupabase(queryText, agentId, limit = 25) {
       chunk_index: row.chunk_index,
       score: scoreChunkAgainstQuery(row.content, queryText),
     }))
+    .filter((row) => row.score > 0)
     .sort((a, b) => (b.score - a.score) || (a.chunk_index - b.chunk_index))
     .slice(0, limit);
 
-  const bestScore = rankedRows[0]?.score || 0;
-  if (bestScore <= 0) {
+  if (rankedRows.length === 0) {
     console.log(`[SEARCH][SUPABASE] Nenhum chunk lexicalmente relevante para o agente ${agentId}.`);
     return '';
   }
 
+  console.log(`[SEARCH][SUPABASE] ${rankedRows.length} chunks relevantes (de ${response.data.length} total) para agente ${agentId}.`);
   return rankedRows.map((row) => row.content).join('\n\n---\n\n');
 }
 
@@ -5056,13 +5061,13 @@ async function handleSupabaseConversationMessageFallback({ res, userId, cid, con
             relevantContext = await searchSimilarChunks(
               queryEmbedding.data[0].embedding,
               effectiveAgentId,
-              25,
+              12,
               retrievalQuery || userText
             );
 
             const keywords = userText.match(/[A-ZÁÉÍÓÚ][a-zàéíóúç]+/g) || [];
             if (keywords.length > 0) {
-              const keywordContext = await searchKeywordChunks(keywords[0], effectiveAgentId, 3);
+              const keywordContext = await searchKeywordChunks(keywords[0], effectiveAgentId, 2);
               if (keywordContext) {
                 relevantContext = [keywordContext, relevantContext].filter(Boolean).join('\n\n---\n\n');
               }
@@ -5980,7 +5985,7 @@ app.post('/api/admin/reprocess-agent-attachments/:agentId', async (req, res) => 
   }
 });
 
-// 💬 CHAT com RAG NUCLEAR (Top-K 25)
+// 💬 CHAT com RAG OTIMIZADO (Top-K 12)
 app.post("/api/conversations/:id/messages", async (req, res) => {
   const userId = req.headers['x-user-id'];
   if (!userId) return res.status(401).json({ error: "x-user-id header is required" });
@@ -6240,18 +6245,18 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
                   costUsd: estimateEmbeddingCostUsd(embeddingTokens),
                 });
 
-                // 🔥 BUSCA NUCLEAR: TOP-K 25
+                // 🎯 BUSCA OTIMIZADA: TOP-K 12 + filtro similaridade
                 relevantContext = await searchSimilarChunks(
                   queryEmbedding.data[0].embedding,
                   effectiveAgentId,
-                  25,
+                  12,
                   retrievalQuery || userText
                 );
 
-                // Busca híbrida (keyword)
+                // Busca híbrida (keyword) - complementar
                 const keywords = userText.match(/[A-ZÁÉÍÓÚ][a-zàéíóúç]+/g) || [];
                 if (keywords.length > 0) {
-                  const keywordContext = await searchKeywordChunks(keywords[0], effectiveAgentId, 3);
+                  const keywordContext = await searchKeywordChunks(keywords[0], effectiveAgentId, 2);
                   if (keywordContext) {
                     relevantContext = keywordContext + "\n\n---\n\n" + relevantContext;
                   }
@@ -8095,7 +8100,7 @@ if (isProduction) {
 const PORT = process.env.PORT || 5000;
 const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ Server on http://localhost:${PORT} (${isProduction ? 'PRODUCTION' : 'DEVELOPMENT'})`);
-  console.log(`🧠 RAG NUCLEAR ATIVADO (Chunk: 4000 | Overlap: 1000 | Top-K: 25)`);
+  console.log(`🧠 RAG OTIMIZADO (Chunk: 4000 | Overlap: 1000 | Top-K: 12 | Sim >= 0.40)`);
 });
 
 // ✅ CORREÇÃO 3: Aumentar timeout para processar PDFs pesados (10 minutos)
