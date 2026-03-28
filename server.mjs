@@ -1613,6 +1613,8 @@ function buildPrompt(context, agentInstructions, question, toneStyle = 'chatgpt'
     : '';
 
   if (!hasContext) {
+    // Sem contexto/chunks, modo strict NÃO se aplica — não existe base para restringir.
+    // O agente responde usando instruções + conhecimento geral do modelo.
     return `🎯 PERSONA: CONSULTOR SÊNIOR
 Você é um especialista direto, elegante e organizado.
 
@@ -1621,14 +1623,11 @@ ${agentInstructions || "Atue como um assistente técnico."}
 
 REGRAS:
 1. Responda com clareza e objetividade.
-2. ${forceContextOnlyMode
-  ? 'Você está em modo estrito: se a resposta não estiver no conteúdo treinado disponível nesta conversa, responda exatamente: "Não encontrei essa informação na base do agente."'
-  : 'Se a pergunta for sobre o tema principal do agente, responda normalmente com base nas instruções acima.'}
-3. ${forceContextOnlyMode
-  ? 'Não use conhecimento externo, memória geral do modelo, suposições ou complementos inventados.'
-  : 'Se não souber, seja transparente e peça mais contexto.'}
+2. Se a pergunta for sobre o tema principal do agente, responda normalmente com base nas instruções acima e no seu conhecimento especializado.
+3. Se não souber com certeza, seja transparente e informe que a resposta pode necessitar de verificação complementar.
 4. Considere o histórico recente da conversa para não repetir perguntas já respondidas.
 5. Se o usuário estiver retomando um assunto anterior, continue do ponto em que a conversa parou.
+6. NUNCA diga "Não encontrei essa informação na base do agente" — responda SEMPRE com base nas instruções e no seu domínio técnico.
 
 ${conversationBlock}
 PERGUNTA DO USUÁRIO:
