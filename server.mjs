@@ -3402,29 +3402,39 @@ async function saveAppSettings(payload = {}) {
 
 async function listAdminUsersViaSupabase() {
   const client = ensureSupabaseAdminAvailable();
-  const authUsers = [];
-  let page = 1;
+  let authUsers = [];
+  let authUsersAvailable = false;
 
-  while (true) {
-    const { data, error } = await client.auth.admin.listUsers({ page, perPage: 200 });
-    if (error) {
-      throw new Error(error.message || 'Erro ao listar usuários de autenticação');
+  // Try auth.admin.listUsers — requires service_role key (JWT).
+  // When the key is invalid / anon key fallback, Supabase returns "User not allowed".
+  try {
+    let page = 1;
+    while (true) {
+      const { data, error } = await client.auth.admin.listUsers({ page, perPage: 200 });
+      if (error) {
+        throw new Error(error.message || 'Erro ao listar usuários de autenticação');
+      }
+
+      const currentPageUsers = data?.users || [];
+      authUsers.push(...currentPageUsers);
+
+      if (currentPageUsers.length < 200) {
+        break;
+      }
+
+      page += 1;
     }
-
-    const currentPageUsers = data?.users || [];
-    authUsers.push(...currentPageUsers);
-
-    if (currentPageUsers.length < 200) {
-      break;
-    }
-
-    page += 1;
+    authUsersAvailable = true;
+  } catch (authListError) {
+    console.warn('[ADMIN][DASHBOARD] auth.admin.listUsers indisponível (service_role key inválida?), usando fallback via tabelas profiles+usuarios:', authListError?.message);
+    authUsers = [];
+    authUsersAvailable = false;
   }
 
   const [profilesResponse, subscriptionsResponse, usuariosPrimaryResponse] = await Promise.all([
-    client.from('profiles').select('id, first_name, last_name, avatar_url, role, updated_at'),
+    client.from('profiles').select('id, first_name, last_name, avatar_url, role, updated_at, created_at'),
     client.from('subscriptions').select('user_id, status, plan_type, starts_at, expires_at, metadata, created_at, updated_at'),
-    client.from('usuarios').select('user_id, status_da_assinatura, documento, telefone, nome_completo, email, ramos_atuacao, cep, logradouro, numero, complemento, bairro, cidade, estado, regiao, sexo, idade, data_nascimento, origem_cadastro, cadastro_finalizado_em')
+    client.from('usuarios').select('user_id, status_da_assinatura, documento, telefone, nome_completo, email, ramos_atuacao, cep, logradouro, numero, complemento, bairro, cidade, estado, regiao, sexo, idade, data_nascimento, origem_cadastro, cadastro_finalizado_em, created_at')
   ]);
 
   let usuariosRows = usuariosPrimaryResponse.data || [];
@@ -3452,24 +3462,83 @@ async function listAdminUsersViaSupabase() {
   const usuariosById = new Map((usuariosRows || []).map((usuario) => [String(usuario.user_id), usuario]));
   const subscriptionsById = new Map((subscriptionsResponse.data || []).map((subscription) => [String(subscription.user_id), subscription]));
 
-  return authUsers
-    .map((authUser) => {
-      const userId = String(authUser.id || '').trim();
+  // When auth.admin.listUsers is available, use auth users as the base list
+  if (authUsersAvailable && authUsers.length > 0) {
+    return authUsers
+      .map((authUser) => {
+        const userId = String(authUser.id || '').trim();
+        const profile = profilesById.get(userId) || {};
+        const usuario = usuariosById.get(userId) || {};
+        const subscription = subscriptionsById.get(userId) || {};
+        const userMetadata = authUser.user_metadata || {};
+        const parsedAddress = parseManagedAddressSafe(usuario.logradouro || null);
+        const accountStoredFields = extractAccountStoredFields(usuario.ramos_atuacao);
+
+        return {
+          id: userId,
+          email: String(authUser.email || usuario.email || '').trim() || null,
+          created_at: authUser.created_at || null,
+          last_sign_in_at: authUser.last_sign_in_at || null,
+          first_name: profile.first_name || userMetadata.first_name || null,
+          last_name: profile.last_name || userMetadata.last_name || null,
+          role: String(profile.role || userMetadata.role || 'user').trim().toLowerCase() === 'admin' ? 'admin' : 'user',
+          avatar_url: profile.avatar_url || null,
+          status_da_assinatura: String(usuario.status_da_assinatura || '').trim() || null,
+          documento: usuario.documento || null,
+          telefone: usuario.telefone || null,
+          profissao: accountStoredFields.profissao,
+          ramos_atuacao: accountStoredFields.practiceAreas,
+          cep: usuario.cep || null,
+          logradouro: usuario.logradouro ? (parsedAddress.logradouro || usuario.logradouro) : null,
+          numero: usuario.numero || parsedAddress.numero,
+          complemento: usuario.complemento || parsedAddress.complemento,
+          bairro: usuario.bairro || null,
+          cidade: usuario.cidade || null,
+          estado: usuario.estado || null,
+          regiao: usuario.regiao || null,
+          sexo: usuario.sexo || null,
+          idade: Number.isFinite(Number(usuario.idade)) ? Number(usuario.idade) : null,
+          data_nascimento: usuario.data_nascimento || null,
+          origem_cadastro: usuario.origem_cadastro || null,
+          cadastro_finalizado_em: usuario.cadastro_finalizado_em || null,
+          plan_type: subscription.plan_type || null,
+          subscription_status: subscription.status || null,
+          subscription_starts_at: subscription.starts_at || null,
+          subscription_expires_at: subscription.expires_at || null,
+          subscription_created_at: subscription.created_at || null,
+          subscription_updated_at: subscription.updated_at || null,
+          subscription_metadata: isPlainObject(subscription.metadata) ? subscription.metadata : null,
+          nome_completo: usuario.nome_completo || userMetadata.full_name || [profile.first_name, profile.last_name].filter(Boolean).join(' ') || null,
+        };
+      })
+      .sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
+  }
+
+  // Fallback: build user list from profiles + usuarios tables (no auth.admin required)
+  const allUserIds = new Set();
+  for (const profile of (profilesResponse.data || [])) {
+    allUserIds.add(String(profile.id));
+  }
+  for (const usuario of usuariosRows) {
+    if (usuario.user_id) allUserIds.add(String(usuario.user_id));
+  }
+
+  return [...allUserIds]
+    .map((userId) => {
       const profile = profilesById.get(userId) || {};
       const usuario = usuariosById.get(userId) || {};
       const subscription = subscriptionsById.get(userId) || {};
-      const userMetadata = authUser.user_metadata || {};
       const parsedAddress = parseManagedAddressSafe(usuario.logradouro || null);
       const accountStoredFields = extractAccountStoredFields(usuario.ramos_atuacao);
 
       return {
         id: userId,
-        email: String(authUser.email || usuario.email || '').trim() || null,
-        created_at: authUser.created_at || null,
-        last_sign_in_at: authUser.last_sign_in_at || null,
-        first_name: profile.first_name || userMetadata.first_name || null,
-        last_name: profile.last_name || userMetadata.last_name || null,
-        role: String(profile.role || userMetadata.role || 'user').trim().toLowerCase() === 'admin' ? 'admin' : 'user',
+        email: String(usuario.email || '').trim() || null,
+        created_at: profile.created_at || usuario.created_at || null,
+        last_sign_in_at: null,
+        first_name: profile.first_name || null,
+        last_name: profile.last_name || null,
+        role: String(profile.role || 'user').trim().toLowerCase() === 'admin' ? 'admin' : 'user',
         avatar_url: profile.avatar_url || null,
         status_da_assinatura: String(usuario.status_da_assinatura || '').trim() || null,
         documento: usuario.documento || null,
@@ -3496,7 +3565,7 @@ async function listAdminUsersViaSupabase() {
         subscription_created_at: subscription.created_at || null,
         subscription_updated_at: subscription.updated_at || null,
         subscription_metadata: isPlainObject(subscription.metadata) ? subscription.metadata : null,
-        nome_completo: usuario.nome_completo || userMetadata.full_name || [profile.first_name, profile.last_name].filter(Boolean).join(' ') || null,
+        nome_completo: usuario.nome_completo || [profile.first_name, profile.last_name].filter(Boolean).join(' ') || null,
       };
     })
     .sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
