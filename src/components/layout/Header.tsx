@@ -112,7 +112,12 @@ const Header: React.FC<HeaderProps> = ({
         const res = await fetch(buildApiUrl('/api/notifications'));
         if (res.ok) {
           const data = await res.json();
-          setNotifications(data);
+          const nextNotifications = Array.isArray(data)
+            ? data
+            : Array.isArray(data?.notifications)
+              ? data.notifications
+              : [];
+          setNotifications(nextNotifications);
         }
       } catch (err) {
         console.error("Erro ao carregar notificações", err);
@@ -154,7 +159,10 @@ const Header: React.FC<HeaderProps> = ({
     };
   }, [session]);
 
-  const hasUnread = notifications.some(n => new Date(n.created_at).getTime() > lastReadTimestamp);
+  const hasUnread = notifications.some((notification) => {
+    const createdAt = new Date(notification?.created_at || 0).getTime();
+    return Number.isFinite(createdAt) && createdAt > lastReadTimestamp;
+  });
 
   const handleOpenNotifications = () => {
     const now = Date.now();

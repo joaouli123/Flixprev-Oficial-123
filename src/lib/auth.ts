@@ -130,8 +130,23 @@ export function getSession() {
 
   try {
     const parsedUser = JSON.parse(userStr);
+    const hasValidId = typeof parsedUser?.id === 'string' && parsedUser.id.trim().length > 0;
+
+    if (!parsedUser || typeof parsedUser !== 'object' || !hasValidId) {
+      localStorage.removeItem('user');
+      localStorage.removeItem('sessionToken');
+      return null;
+    }
+
+    const normalizedUser = {
+      ...parsedUser,
+      id: String(parsedUser.id).trim(),
+      email: String(parsedUser.email || '').trim(),
+      role: String(parsedUser.role || '').trim().toLowerCase() === 'admin' ? 'admin' : 'user',
+    };
+
     const isMockAdminSession =
-      String(parsedUser?.email || '').trim().toLowerCase() === 'admin@admin.com' &&
+      String(normalizedUser.email || '').trim().toLowerCase() === 'admin@admin.com' &&
       String(token || '').startsWith('token_admin_');
 
     if (isMockAdminSession && !isDevAdminSessionAllowed()) {
@@ -141,11 +156,13 @@ export function getSession() {
     }
 
     return {
-      user: parsedUser,
+      user: normalizedUser,
       token,
       access_token: token,
     };
   } catch {
+    localStorage.removeItem('user');
+    localStorage.removeItem('sessionToken');
     return null;
   }
 }

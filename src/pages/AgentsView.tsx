@@ -17,7 +17,7 @@ const CATEGORY_COLORS: Record<string, { bg: string; bgLight: string; border: str
 };
 
 function getCategoryTheme(name: string) {
-  const key = name.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/direito\s*/i, "");
+  const key = String(name || "").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/direito\s*/i, "");
   for (const [k, v] of Object.entries(CATEGORY_COLORS)) {
     if (key.includes(k)) return v;
   }
@@ -25,7 +25,7 @@ function getCategoryTheme(name: string) {
 }
 
 function isVisibleCategory(rawName: string) {
-  const normalized = rawName
+  const normalized = String(rawName || "")
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
@@ -38,7 +38,7 @@ function isVisibleCategory(rawName: string) {
 }
 
 function normalizeCategoryName(rawName: string) {
-  return rawName
+  return String(rawName || "")
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
@@ -100,7 +100,7 @@ const AgentsView: React.FC = () => {
   const filteredCategories = React.useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
     if (!term) return visibleCategories;
-    return visibleCategories.filter((category) => category.name.toLowerCase().includes(term));
+    return visibleCategories.filter((category) => String(category.name || "").toLowerCase().includes(term));
   }, [visibleCategories, searchTerm]);
 
   const agentsCountByCategory = React.useMemo(() => {

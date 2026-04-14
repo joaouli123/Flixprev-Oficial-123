@@ -78,6 +78,23 @@ const AppLayout = () => {
     attachments: Array.isArray(agent.attachments) ? agent.attachments : [],
   }) as Agent, []);
 
+  const normalizeCategoryRecord = useCallback((category: any): Category | null => {
+    const id = String(category?.id ?? "").trim();
+    const name = String(category?.name ?? "").trim();
+
+    if (!id || !name) {
+      return null;
+    }
+
+    return {
+      ...category,
+      id,
+      name,
+      userId: String(category?.userId ?? category?.user_id ?? ""),
+      created_at: String(category?.created_at ?? ""),
+    } as Category;
+  }, []);
+
   const extractMissingColumnFromSchemaCacheError = useCallback((error: any) => {
     const message = String(error?.message || "");
     const match = message.match(/Could not find the '([^']+)' column/i);
@@ -190,10 +207,19 @@ const AppLayout = () => {
       toast.error("Erro ao carregar categorias: " + error.message);
       setCategories([]);
     } else {
-      setCategories((data || []) as Category[]);
+      const rawCategories = Array.isArray(data) ? data : [];
+      const normalizedCategories = rawCategories
+        .map((category) => normalizeCategoryRecord(category))
+        .filter((category): category is Category => Boolean(category));
+
+      if (normalizedCategories.length !== rawCategories.length) {
+        console.warn("[AppLayout] Registros de categorias inválidos foram ignorados.");
+      }
+
+      setCategories(normalizedCategories);
     }
     setLoading(false);
-  }, [userId]);
+  }, [normalizeCategoryRecord, userId]);
 
   const fetchAgents = useCallback(async () => {
     if (!userId) return;
