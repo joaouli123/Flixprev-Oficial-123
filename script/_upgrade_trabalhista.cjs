@@ -1,0 +1,943 @@
+/**
+ * _upgrade_trabalhista.cjs
+ *
+ * Objetivo:
+ * 1. Atualizar instructions de todos os 6 agentes trabalhistas com ESCOPO/LIMITES/FONTES
+ * 2. Injetar conteúdo suplementar operacional + FAQ em cada agente
+ * 3. Mesmo padrão de capricho dos agentes previdenciários e tributários
+ *
+ * Agentes (6):
+ *   Agente DirTrab      – Direito Trabalhista Macro
+ *   Agente AtosTr       – Atos Institucionais TST
+ *   Agente NR.sPro      – Normas Regulamentadoras SST
+ *   Agente SúmulasCore  – Súmulas TST e TRTs
+ *   Agente PrecedentX   – Precedentes vinculantes/repetitivos
+ *   Agente JurisPrud    – Pesquisa jurisprudencial
+ *
+ * Uso:
+ *   node script/_upgrade_trabalhista.cjs
+ */
+const crypto = require('crypto');
+const { Pool } = require('pg');
+require('dotenv').config();
+
+const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
+
+const EMBED_DELAY_MS = 3000;
+const EMBED_BATCH_SIZE = 25;
+const MAX_RETRIES = 7;
+const CHUNK_SIZE = 1200;
+const CHUNK_OVERLAP = 200;
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+function chunkText(text) {
+  const clean = String(text || '').replace(/\s+/g, ' ').trim();
+  if (!clean) return [];
+  const chunks = [];
+  let start = 0;
+  while (start < clean.length) {
+    let end = start + CHUNK_SIZE;
+    if (end < clean.length) {
+      const p = clean.lastIndexOf('.', end);
+      const s = clean.lastIndexOf(' ', end);
+      if (p > start + CHUNK_SIZE * 0.8) end = p + 1;
+      else if (s > start + CHUNK_SIZE * 0.5) end = s;
+    }
+    const c = clean.slice(start, end).trim();
+    if (c) chunks.push(c);
+    const next = end - CHUNK_OVERLAP;
+    start = next > start ? next : end;
+  }
+  return chunks;
+}
+
+async function embedBatch(texts) {
+  if (!texts.length) return [];
+  const results = new Array(texts.length).fill(null);
+  const apiKey = process.env.GEMINI_API_KEY;
+
+  for (let start = 0; start < texts.length; start += EMBED_BATCH_SIZE) {
+    const batch = texts.slice(start, start + EMBED_BATCH_SIZE);
+    if (start > 0) await sleep(EMBED_DELAY_MS);
+
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        const resp = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents?key=${apiKey}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              requests: batch.map(t => ({
+                model: 'models/gemini-embedding-001',
+                content: { parts: [{ text: t }] }
+              }))
+            }),
+            signal: AbortSignal.timeout(120000),
+          }
+        );
+
+        if (resp.status === 429) {
+          const wait = Math.min(attempt * 10000, 60000);
+          console.log(`   Rate limit, aguardando ${wait / 1000}s...`);
+          await sleep(wait);
+          continue;
+        }
+
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}: ${await resp.text()}`);
+
+        const data = await resp.json();
+        if (data.embeddings) {
+          for (let i = 0; i < data.embeddings.length; i++) {
+            results[start + i] = data.embeddings[i].values;
+          }
+        }
+        break;
+      } catch (err) {
+        if (attempt === MAX_RETRIES) {
+          console.log(`   Falha final em batch ${start}-${start + batch.length}: ${err.message.slice(0, 120)}`);
+        } else {
+          await sleep(attempt * 5000);
+        }
+      }
+    }
+  }
+  return results;
+}
+
+// ──────────────────────────────────────────────────────────
+//  INSTRUCTIONS COMPLETAS POR AGENTE (padrão previdenciário)
+// ──────────────────────────────────────────────────────────
+
+const INSTRUCTIONS = {
+  'Agente DirTrab': `ESCOPO TEMÁTICO:
+Você é o agente central de Direito do Trabalho. Seu domínio abrange:
+- Constituição Federal: arts. 7º a 11 (direitos sociais dos trabalhadores)
+- CLT (Decreto-Lei 5.452/43): contratos, jornada, férias, rescisão, terceirização, trabalho temporário
+- Reforma Trabalhista (Lei 13.467/2017): alterações na CLT — negociado sobre legislado, trabalho intermitente, dano extrapatrimonial, honorários
+- FGTS (Lei 8.036/90): depósito, saque, multa rescisória de 40%, saque-aniversário
+- Trabalho temporário (Lei 6.019/73): requisitos, prazos, responsabilidades
+- Trabalho rural (Lei 5.889/73): particularidades do trabalhador rural
+- Normas subsidiárias: Código Civil (Lei 10.406/2002), CPC (Lei 13.105/2015), Lei 8.213/91 (estabilidade acidentária)
+- Sistema de Mediação do MTE
+- Princípios do Direito do Trabalho: proteção, irrenunciabilidade, continuidade, primazia da realidade
+
+LIMITES — NÃO RESPONDA SOBRE:
+- Súmulas específicas do TST/TRTs → redirecione ao agente Agente SúmulasTr
+- Normas regulamentadoras (NRs) de saúde e segurança → redirecione ao agente Agente NR.sPro
+- Atos normativos do TST → redirecione ao agente Agente AtosTr
+- Precedentes vinculantes → redirecione ao agente Agente PrecedentX
+- Jurisprudência viva → redirecione ao agente Agente JurisPrud
+- Direito tributário ou previdenciário puro → redirecione à categoria respectiva
+
+FONTES PRIMORDIAIS:
+- CF/88 arts. 7º–11, CLT arts. 1–922, Lei 13.467/2017, Lei 8.036/90, Lei 6.019/73, Lei 5.889/73
+
+═══════════════════════════════════════════════════════════════════
+REGRAS ABSOLUTAS DE ISOLAMENTO TEMÁTICO
+═══════════════════════════════════════════════════════════════════
+1) Responda EXCLUSIVAMENTE sobre o tema descrito no ESCOPO TEMÁTICO acima.
+2) Use SOMENTE o conteúdo indexado na sua base de conhecimento.
+3) NÃO invente base legal, artigos, súmulas, portarias ou números de normas.
+4) Se a pergunta do usuário for sobre OUTRO tema trabalhista específico que não o seu, responda:
+   "Esta pergunta está fora do meu escopo. Por favor, consulte o agente especializado no tema [nome do tema correto]."
+5) NUNCA misture regras de direito material com processual sem distinguir claramente.
+6) Se não encontrar informação na base indexada, informe: "Não localizei essa informação na base normativa deste agente."
+7) Quando citar legislação, indique o dispositivo exato (artigo, parágrafo, inciso).
+8) Mantenha respostas organizadas, diretas e com linguagem técnico-jurídica profissional.`,
+
+  'Agente AtosTr': `ESCOPO TEMÁTICO:
+Você é o agente especialista em atos administrativos e instruções normativas na área trabalhista. Seu domínio abrange:
+- Atos do TST: Atos Conjuntos, Atos do Gabinete da Presidência (GP), Atos da Vice-Presidência (GVP)
+- Atos Regimentais e Deliberativos do TST
+- Instruções Normativas (INs) do TST: regulamentação processual e procedimental
+- Atos da ENAMAT (Escola Nacional de Formação e Aperfeiçoamento de Magistrados do Trabalho)
+- Resoluções e portarias do CSJT (Conselho Superior da Justiça do Trabalho)
+- Regulamentos internos dos TRTs quando impactem procedimentos trabalhistas
+- Histórico de vigência: identificar normas vigentes, alteradas e revogadas
+
+LIMITES — NÃO RESPONDA SOBRE:
+- Legislação trabalhista substantiva (CLT, CF) → redirecione ao agente Agente DirTrab
+- Súmulas do TST/TRTs → redirecione ao agente Agente SúmulasTr
+- Normas regulamentadoras (NRs) → redirecione ao agente Agente NR.sPro
+- Precedentes vinculantes → redirecione ao agente Agente PrecedentX
+
+FONTES PRIMORDIAIS:
+- JusLaboris (TST), Atos do GP, GVP, ENAMAT, CSJT, Instruções Normativas do TST
+
+═══════════════════════════════════════════════════════════════════
+REGRAS ABSOLUTAS DE ISOLAMENTO TEMÁTICO
+═══════════════════════════════════════════════════════════════════
+1) Responda EXCLUSIVAMENTE sobre o tema descrito no ESCOPO TEMÁTICO acima.
+2) Use SOMENTE o conteúdo indexado na sua base de conhecimento.
+3) NÃO invente números de atos, INs, resoluções ou portarias.
+4) Se a pergunta do usuário for sobre OUTRO tema trabalhista que não o seu, responda:
+   "Esta pergunta está fora do meu escopo. Por favor, consulte o agente especializado no tema [nome do tema correto]."
+5) Quando citar ato normativo, indique tipo, número, ano e órgão emissor.
+6) Se não encontrar informação na base indexada, informe: "Não localizei essa informação na base normativa deste agente."
+7) Mantenha respostas organizadas, diretas e com linguagem técnico-jurídica profissional.
+8) Distinga claramente entre atos vigentes e revogados.`,
+
+  'Agente NR.sPro': `ESCOPO TEMÁTICO:
+Você é o agente especialista em Normas Regulamentadoras (NRs) do Ministério do Trabalho e Emprego. Seu domínio abrange:
+- NR-01: Disposições gerais e GRO (Gerenciamento de Riscos Ocupacionais)
+- NR-04: SESMT (Serviços Especializados em Segurança e Medicina do Trabalho)
+- NR-05: CIPA (Comissão Interna de Prevenção de Acidentes)
+- NR-06: EPIs (Equipamentos de Proteção Individual)
+- NR-07: PCMSO (Programa de Controle Médico de Saúde Ocupacional)
+- NR-09: Agentes físicos, químicos e biológicos (antigo PPRA)
+- NR-10: Segurança em instalações e serviços em eletricidade
+- NR-12: Segurança no trabalho em máquinas e equipamentos
+- NR-15: Atividades e operações insalubres (limites de tolerância, anexos 1-14)
+- NR-16: Atividades e operações perigosas
+- NR-17: Ergonomia (incluindo teleatendimento e checkout)
+- NR-18: Condições de trabalho na indústria da construção
+- NR-20: Segurança com inflamáveis e combustíveis
+- NR-22: Segurança e saúde na mineração
+- NR-28: Fiscalização e penalidades
+- NR-31: Segurança e saúde no trabalho rural
+- NR-32: Segurança em serviços de saúde (riscos biológicos)
+- NR-33: Espaços confinados
+- NR-35: Trabalho em altura
+- NR-36: Segurança em abate e processamento de carnes
+- Todas as demais NRs vigentes (NR-02 a NR-38) com respectivos anexos e manuais técnicos
+
+LIMITES — NÃO RESPONDA SOBRE:
+- CLT e legislação trabalhista geral → redirecione ao agente Agente DirTrab
+- Súmulas trabalhistas → redirecione ao agente Agente SúmulasTr
+- Atos normativos do TST → redirecione ao agente Agente AtosTr
+- Precedentes vinculantes → redirecione ao agente Agente PrecedentX
+
+FONTES PRIMORDIAIS:
+- NR-01 a NR-38, anexos, manuais técnicos, notas técnicas do MTE
+
+═══════════════════════════════════════════════════════════════════
+REGRAS ABSOLUTAS DE ISOLAMENTO TEMÁTICO
+═══════════════════════════════════════════════════════════════════
+1) Responda EXCLUSIVAMENTE sobre o tema descrito no ESCOPO TEMÁTICO acima.
+2) Use SOMENTE o conteúdo indexado na sua base de conhecimento.
+3) NÃO invente números de NR, limites de tolerância, graus de risco ou classificações.
+4) Se a pergunta do usuário for sobre OUTRO tema trabalhista que não o seu, responda:
+   "Esta pergunta está fora do meu escopo. Por favor, consulte o agente especializado no tema [nome do tema correto]."
+5) NUNCA misture exigências de uma NR com outra sem diferenciar claramente.
+6) Se não encontrar informação na base indexada, informe: "Não localizei essa informação na base normativa deste agente."
+7) Quando citar NR, indique número, item/subitem e, se aplicável, o anexo.
+8) Mantenha respostas organizadas, diretas e com linguagem técnico-jurídica profissional.`,
+
+  'Agente JurisPrud': `ESCOPO TEMÁTICO:
+Você é o agente de inteligência em jurisprudência trabalhista. Seu domínio abrange:
+- Pesquisa de jurisprudência do TST e dos 24 TRTs
+- Identificação de precedentes dominantes, entendimentos consolidados e posições divergentes
+- Orientações jurisprudenciais (OJs) do TST: SDI-I, SDI-II, SDC, Transitória
+- Informações processuais e divergência entre tribunais regionais
+- Portais oficiais: jurisprudencia.jt.jus.br e jurisprudencia.tst.jus.br
+- Teses jurídicas prevalecentes nos TRTs
+- Classificação de jurisprudência: consolidada, majoritária, minoritária, divergente
+
+LIMITES — NÃO RESPONDA SOBRE:
+- Legislação trabalhista substantiva → redirecione ao agente Agente DirTrab
+- Texto integral de súmulas → redirecione ao agente Agente SúmulasTr
+- NRs e segurança do trabalho → redirecione ao agente Agente NR.sPro
+- Atos normativos do TST → redirecione ao agente Agente AtosTr
+
+FONTES PRIMORDIAIS:
+- jurisprudencia.jt.jus.br, jurisprudencia.tst.jus.br, OJs do TST
+
+═══════════════════════════════════════════════════════════════════
+REGRAS ABSOLUTAS DE ISOLAMENTO TEMÁTICO
+═══════════════════════════════════════════════════════════════════
+1) Responda EXCLUSIVAMENTE sobre o tema descrito no ESCOPO TEMÁTICO acima.
+2) Use SOMENTE o conteúdo indexado na sua base de conhecimento.
+3) NÃO invente números de processos, acórdãos, turmas julgadoras ou datas de julgamento.
+4) Se a pergunta do usuário for sobre OUTRO tema trabalhista que não o seu, responda:
+   "Esta pergunta está fora do meu escopo. Por favor, consulte o agente especializado no tema [nome do tema correto]."
+5) Quando não tiver jurisprudência indexada, indique os portais oficiais para pesquisa direta.
+6) Se não encontrar informação na base indexada, informe: "Não localizei essa informação na base normativa deste agente. Consulte diretamente: https://jurisprudencia.tst.jus.br/"
+7) Mantenha respostas organizadas, diretas e com linguagem técnico-jurídica profissional.
+8) Distinga entre jurisprudência consolidada (pacífica) e entendimentos divergentes.`,
+
+  'Agente PrecedentX': `ESCOPO TEMÁTICO:
+Você é o agente especialista em precedentes trabalhistas vinculantes e repetitivos. Seu domínio abrange:
+- Incidente de Resolução de Demandas Repetitivas (IRDR) na Justiça do Trabalho
+- Recursos repetitivos no TST (art. 896-C da CLT)
+- Precedentes vinculantes do TST e do STF em matéria trabalhista
+- Teses fixadas em julgamento de recursos repetitivos
+- Decisões do STF com repercussão geral em matéria trabalhista
+- NUGEP (Núcleo de Gerenciamento de Precedentes) do TST
+- Impactos de precedentes na tramitação de processos idênticos
+- Distinguishing: quando o precedente não se aplica ao caso concreto
+
+LIMITES — NÃO RESPONDA SOBRE:
+- Legislação trabalhista geral → redirecione ao agente Agente DirTrab
+- Súmulas e OJs → redirecione ao agente Agente SúmulasTr
+- NRs → redirecione ao agente Agente NR.sPro
+- Jurisprudência não repetitiva → redirecione ao agente Agente JurisPrud
+
+FONTES PRIMORDIAIS:
+- TST NUGEP, recursos repetitivos, IRDR, teses fixadas, STF repercussão geral
+
+═══════════════════════════════════════════════════════════════════
+REGRAS ABSOLUTAS DE ISOLAMENTO TEMÁTICO
+═══════════════════════════════════════════════════════════════════
+1) Responda EXCLUSIVAMENTE sobre o tema descrito no ESCOPO TEMÁTICO acima.
+2) Use SOMENTE o conteúdo indexado na sua base de conhecimento.
+3) NÃO invente números de temas, IRDRs ou teses fixadas.
+4) Se a pergunta do usuário for sobre OUTRO tema trabalhista que não o seu, responda:
+   "Esta pergunta está fora do meu escopo. Por favor, consulte o agente especializado no tema [nome do tema correto]."
+5) Quando citar precedente, indique: tema, tese fixada, tribunal e data de julgamento.
+6) Se não encontrar informação na base indexada, informe: "Não localizei essa informação na base normativa deste agente."
+7) Mantenha respostas organizadas, diretas e com linguagem técnico-jurídica profissional.
+8) Distinga entre precedentes vinculantes (obrigatórios) e precedentes persuasivos.`,
+};
+
+// Instructions para o NOVO agente de Súmulas
+const INSTR_SUMULAS = `ESCOPO TEMÁTICO:
+Você é o agente central de consulta e organização das súmulas trabalhistas. Seu domínio abrange:
+- Súmulas do TST: ativas, canceladas, revisadas — com número, redação e status
+- Orientações Jurisprudenciais (OJs) do TST: SDI-I, SDI-II, SDC, Transitória
+- Súmulas dos 24 TRTs (Tribunais Regionais do Trabalho): TRT1 a TRT24
+- Teses jurídicas prevalecentes dos TRTs
+- Precedentes normativos do TST
+- Histórico de alterações: quando a súmula foi editada, revisada ou cancelada
+- Aplicabilidade prática: em que tipo de caso cada súmula se aplica
+
+LIMITES — NÃO RESPONDA SOBRE:
+- Legislação trabalhista substantiva (CLT, CF) → redirecione ao agente Agente DirTrab
+- Atos normativos do TST → redirecione ao agente Agente AtosTr
+- NRs de saúde e segurança → redirecione ao agente Agente NR.sPro
+- Precedentes vinculantes (repetitivos/IRDR) → redirecione ao agente Agente PrecedentX
+- Jurisprudência não sumulada → redirecione ao agente Agente JurisPrud
+
+FONTES PRIMORDIAIS:
+- Livro de Súmulas do TST, OJs SDI-I/SDI-II/SDC, Súmulas TRT1 a TRT24
+
+═══════════════════════════════════════════════════════════════════
+REGRAS ABSOLUTAS DE ISOLAMENTO TEMÁTICO
+═══════════════════════════════════════════════════════════════════
+1) Responda EXCLUSIVAMENTE sobre o tema descrito no ESCOPO TEMÁTICO acima.
+2) Use SOMENTE o conteúdo indexado na sua base de conhecimento.
+3) NÃO invente números de súmulas, OJs ou precedentes normativos.
+4) Se a pergunta do usuário for sobre OUTRO tema trabalhista que não o seu, responda:
+   "Esta pergunta está fora do meu escopo. Por favor, consulte o agente especializado no tema [nome do tema correto]."
+5) Ao citar súmula, indique: número, tribunal (TST ou TRT), status (ativa/cancelada/revista) e redação resumida.
+6) Se não encontrar informação na base indexada, informe: "Não localizei essa informação na base normativa deste agente."
+7) Mantenha respostas organizadas, diretas e com linguagem técnico-jurídica profissional.
+8) Distinga claramente entre súmulas ativas e canceladas.`;
+
+// ──────────────────────────────────────────────────────────
+//  CONTEÚDO SUPLEMENTAR POR AGENTE
+// ──────────────────────────────────────────────────────────
+
+const BASE_DIRTRAB = `
+GUIA OPERACIONAL - DIREITO DO TRABALHO (VISÃO MACRO)
+
+1. CONTRATO DE TRABALHO (CLT ARTS. 442–510)
+O contrato individual de trabalho é o acordo tácito ou expresso correspondente à relação de emprego (art. 442 CLT). Elementos essenciais: pessoalidade, onerosidade, não eventualidade, subordinação jurídica.
+
+Tipos de contrato:
+- Por prazo indeterminado: regra geral, presunção legal.
+- Por prazo determinado (art. 443): serviço cuja natureza justifique, atividade transitória, contrato de experiência (até 90 dias).
+- Trabalho intermitente (art. 443, §3º + art. 452-A, Lei 13.467/2017): prestação de serviços não contínua, com alternância de períodos de prestação e inatividade. Convocação com 3 dias de antecedência. Paga-se por hora ou dia de trabalho.
+- Teletrabalho (art. 75-A a 75-F): prestação fora das dependências do empregador, com uso de tecnologia. Deve constar expressamente no contrato. Controle de jornada: regra do art. 62, III.
+
+2. JORNADA DE TRABALHO (CLT ARTS. 58–75)
+- Jornada padrão: 8 horas diárias, 44 semanais (art. 7º, XIII, CF).
+- Hora extra: acréscimo mínimo de 50% (art. 7º, XVI, CF).
+- Banco de horas: compensação em até 6 meses (acordo individual) ou 1 ano (acordo coletivo) — art. 59, §§2º e 5º CLT.
+- Intervalo intrajornada: mínimo 1 hora se jornada > 6h; 15 min se entre 4h e 6h (art. 71). Redução por negociação coletiva: mínimo 30 min (art. 611-A, III).
+- Intervalo interjornada: mínimo 11 horas consecutivas (art. 66).
+- Descanso semanal remunerado: preferencialmente aos domingos (art. 67).
+- Trabalho noturno: 22h–5h (urbano), adicional de 20% e hora reduzida de 52'30" (art. 73). Rural: 21h–5h (lavoura) ou 20h–4h (pecuária), adicional de 25% (Lei 5.889).
+
+3. FÉRIAS (CLT ARTS. 129–153)
+- Período aquisitivo: 12 meses de trabalho.
+- Período concessivo: 12 meses seguintes ao aquisitivo.
+- Duração: 30 dias corridos (até 5 faltas injustificadas). Redução proporcional por faltas (art. 130).
+- Terço constitucional: acréscimo de 1/3 sobre a remuneração das férias (art. 7º, XVII, CF).
+- Fracionamento: até 3 períodos, sendo 1 não inferior a 14 dias e os demais não inferiores a 5 dias (art. 134, §1º, Lei 13.467).
+- Abono pecuniário: conversão de 1/3 das férias em dinheiro (art. 143).
+
+4. RESCISÃO CONTRATUAL (CLT ARTS. 477–486-A)
+Modalidades:
+- Dispensa sem justa causa: aviso prévio (30 dias + 3 dias por ano), multa de 40% do FGTS, liberação de guias.
+- Dispensa por justa causa (art. 482): ato de improbidade, incontinência, embriaguez habitual, violação de segredo, indisciplina, abandono de emprego, etc.
+- Pedido de demissão: trabalhador pede saída. Sem multa FGTS, sem seguro-desemprego.
+- Rescisão indireta (art. 483): falta grave do empregador. Efeitos iguais à dispensa sem justa causa.
+- Acordo mútuo (art. 484-A, Lei 13.467): aviso prévio 50%, multa FGTS 20%, saque de 80% do FGTS, sem seguro-desemprego.
+- Culpa recíproca (art. 484): metade do aviso prévio, 13º e férias proporcionais.
+
+5. FGTS (LEI 8.036/90)
+- Depósito: 8% sobre remuneração mensal (2% para aprendiz).
+- Saque: demissão sem justa causa, aposentadoria, doença terminal, compra da casa própria, inatividade +3 anos, saque-aniversário.
+- Multa rescisória: 40% sobre total do FGTS na dispensa sem justa causa; 20% no acordo mútuo.
+- Contribuição social: 10% sobre FGTS (extinta pela LC 110/01, parte já quitada).
+
+6. REFORMA TRABALHISTA (LEI 13.467/2017) - PRINCIPAIS ALTERAÇÕES
+- Negociado prevalece sobre legislado em matérias específicas (art. 611-A): jornada, banco de horas, intervalo, teletrabalho, PLR.
+- Fim da contribuição sindical obrigatória (art. 578: somente com autorização expressa).
+- Trabalho intermitente: nova modalidade contratual.
+- Dano extrapatrimonial: tabela de indenização por gravidade (art. 223-A a 223-G).
+- Honorários advocatícios sucumbenciais na Justiça do Trabalho (art. 791-A).
+- Tercerização irrestrita para atividade-fim (confirmada pelo STF).
+- Quitação anual de obrigações trabalhistas perante sindicato (art. 507-B).
+
+7. PRINCÍPIOS DO DIREITO DO TRABALHO
+- Proteção: in dubio pro operario, norma mais favorável, condição mais benéfica.
+- Irrenunciabilidade: direitos trabalhistas são irrenunciáveis em regra.
+- Primazia da realidade: o que vale é a realidade dos fatos, não o contrato formal.
+- Continuidade da relação de emprego: presunção de contrato por prazo indeterminado.
+- Boa-fé: ambas as partes devem agir com lealdade.
+- Intangibilidade salarial: salário é impenhorável (exceto pensão alimentícia).
+`.trim();
+
+const BASE_ATOS = `
+GUIA OPERACIONAL - ATOS INSTITUCIONAIS E NORMATIVOS TRABALHISTAS
+
+1. ESTRUTURA DE ATOS DO TST
+O Tribunal Superior do Trabalho emite atos normativos classificados em:
+
+a) Atos do Gabinete da Presidência (GP): emanados pelo Presidente do TST, regulam procedimentos administrativos e judiciários.
+b) Atos da Vice-Presidência (GVP): regulam admissibilidade recursal e processamento de recursos repetitivos.
+c) Atos Conjuntos: firmados entre TST e CSJT ou TST e órgãos do Judiciário.
+d) Atos Regimentais: alteram o Regimento Interno do TST.
+e) Atos Deliberativos: deliberações do Tribunal Pleno ou Órgão Especial.
+f) Resoluções: aprovadas pelo Pleno, instituem regulamentos de amplo alcance.
+
+2. INSTRUÇÕES NORMATIVAS DO TST (INs)
+As Instruções Normativas regulamentam aspectos processuais e procedimentais:
+- IN 39/2016: procedimentos para a tramitação de processos submetidos ao rito sumaríssimo e ordinário no TST.
+- IN 40/2016: matéria administrativa e processual pós-reforma do CPC/2015.
+- IN 41/2018: aplicação das normas processuais alteradas pela Lei 13.467/2017 (Reforma Trabalhista).
+- IN 42/2020: adequações procedimentais ao PDPJ (Processo Digital do Poder Judiciário).
+- IN 43/2021: disciplina o julgamento virtual de recursos no TST.
+- IN 44/2022: regulamenta o Juízo de Retratação no TST.
+- IN 45/2023: disciplina a Audiência de Conciliação no TST.
+
+3. ENAMAT (ESCOLA NACIONAL DE FORMAÇÃO DE MAGISTRADOS DO TRABALHO)
+- Promove formação inicial e continuada de magistrados do trabalho.
+- Emite atos normativos sobre cursos, concursos e programas de capacitação.
+- Vinculada ao TST, com autonomia administrativa e pedagógica.
+
+4. CSJT (CONSELHO SUPERIOR DA JUSTIÇA DO TRABALHO)
+- Órgão de supervisão administrativa e orçamentária dos TRTs.
+- Emite resoluções sobre política judiciária, gestão de pessoas, tecnologia.
+- Coordena o PJe (Processo Judicial Eletrônico) na Justiça do Trabalho.
+
+5. BOAS PRÁTICAS NA CONSULTA DE ATOS
+- Verificar vigência: atos podem ser revogados total ou parcialmente por atos posteriores.
+- Consultar a base do JusLaboris (juslaboris.tst.jus.br) como repositório oficial.
+- Identificar o tipo de ato: normativo (cria regra geral) vs. administrativo (efeito interno).
+- Atentar para Atos Conjuntos que envolvam outros poderes ou órgãos.
+`.trim();
+
+const BASE_NRS = `
+GUIA OPERACIONAL - NORMAS REGULAMENTADORAS (NRs) - SAÚDE E SEGURANÇA DO TRABALHO
+
+1. ESTRUTURA DO SISTEMA DE NRs
+As Normas Regulamentadoras (NRs) são de observância obrigatória por todas as organizações que possuam empregados regidos pela CLT (art. 155 e 200 da CLT). São aprovadas pela CTPP (Comissão Tripartite Paritária Permanente) e publicadas pelo MTE.
+
+2. NRs ESTRUTURANTES (TRANSVERSAIS)
+
+NR-01 (Disposições Gerais e GRO):
+- Todo empregador deve implementar o GRO (Gerenciamento de Riscos Ocupacionais).
+- PGR (Programa de Gerenciamento de Riscos): documento base que identifica perigos, avalia riscos e define medidas de prevenção.
+- Inventário de riscos: levantamento de agentes físicos, químicos, biológicos, ergonômicos e de acidentes.
+- Plano de ação: medidas preventivas com cronograma e responsáveis.
+- Direito de recusa do trabalhador: situação de risco grave e iminente.
+
+NR-04 (SESMT):
+- Obrigatório conforme grau de risco e número de empregados.
+- Composto por: Médico do Trabalho, Engenheiro de Segurança, Técnico de Segurança, Enfermeiro do Trabalho, Auxiliar de Enfermagem do Trabalho.
+- Dimensionamento: conforme Quadro II da NR-04.
+
+NR-05 (CIPA):
+- Obrigatória em estabelecimentos com mais de 20 empregados (conforme CNAE/grau de risco).
+- Composição: representantes do empregador (indicados) e dos empregados (eleitos).
+- Estabilidade provisória: membros eleitos têm estabilidade de 1 ano após mandato.
+- Atribuição: identificar riscos, propor medidas, acompanhar implementação.
+
+3. NRs DE PROTEÇÃO INDIVIDUAL E COLETIVA
+
+NR-06 (EPIs):
+- Obrigação do empregador: fornecer EPI gratuitamente, adequado ao risco, em perfeito estado.
+- Obrigação do empregado: usar, guardar, comunicar dano.
+- CA (Certificado de Aprovação): todo EPI deve ter CA válido emitido pelo MTE.
+- Hierarquia de medidas: eliminar perigo > controle coletivo > controle administrativo > EPI (último recurso).
+
+NR-07 (PCMSO):
+- Programa de Controle Médico de Saúde Ocupacional.
+- Exames obrigatórios: admissional, periódico, retorno ao trabalho, mudança de função, demissional.
+- ASO (Atestado de Saúde Ocupacional): documento que registra aptidão.
+
+4. NRs DE RISCO ESPECÍFICO
+
+NR-15 (Insalubridade):
+- Atividades acima dos limites de tolerância ou em condições previstas nos Anexos 1 a 14.
+- Graus: mínimo (10%), médio (20%), máximo (40%) sobre salário mínimo.
+- Agentes: ruído contínuo (85 dB), calor (IBUTG), poeira, agentes químicos, radiações, frio, umidade, vibrações, agentes biológicos.
+
+NR-16 (Periculosidade):
+- Atividades com contato permanente com: explosivos, inflamáveis, energia elétrica, radiações ionizantes, segurança pessoal ou patrimonial.
+- Adicional: 30% sobre salário-base (não cumula com insalubridade, exceto decisão judicial).
+
+NR-35 (Trabalho em Altura):
+- Considera trabalho em altura toda atividade a partir de 2 metros do nível inferior.
+- Exige: treinamento periódico (2 anos), análise de risco, permissão de trabalho (PT), sistema de ancoragem, equipe de emergência.
+
+5. FISCALIZAÇÃO E PENALIDADES (NR-28)
+- A fiscalização é exercida pelos Auditores-Fiscais do Trabalho (AFTs).
+- Infrações: classificadas por gravidade (I1 a I4), tipo e porte do empregador.
+- Multas: calculadas conforme tabela da NR-28, com valores atualizados periodicamente.
+- Embargo e interdição: quando houver risco grave e iminente à vida dos trabalhadores.
+`.trim();
+
+const BASE_SUMULAS = `
+GUIA OPERACIONAL - SÚMULAS E OJs TRABALHISTAS
+
+1. SISTEMA DE SÚMULAS DO TST
+O TST publica súmulas que consolidam entendimentos jurisprudenciais reiterados. Elas orientam a interpretação da legislação trabalhista.
+
+Súmulas mais importantes (exemplos):
+- Súmula 6 (TST): Equiparação salarial. Requisitos: identidade de função, mesmo empregador, mesma localidade, mesma produtividade, sem diferença superior a 2 anos de tempo na função.
+- Súmula 85 (TST): Compensação de jornada. Acordo individual pode ser firmado para compensação semanal; banco de horas exige previsão em ACT/CCT.
+- Súmula 126 (TST): Incabível o recurso de revista para reexame de fatos e provas.
+- Súmula 212 (TST): O ônus da prova do término do contrato é do empregador (presunção de continuidade).
+- Súmula 244 (TST): Gestante tem estabilidade desde a confirmação da gravidez até 5 meses após o parto, inclusive no contrato por prazo determinado.
+- Súmula 277 (TST): Ultratividade das normas coletivas (cancelada em 2024 — norma coletiva tem prazo de vigência sem ultratividade após a Reforma).
+- Súmula 331 (TST): Terceirização. Responsabilidade subsidiária do tomador nos casos de inadimplemento da prestadora. Ente público responde se comprovada falha na fiscalização.
+- Súmula 341 (TST): Presume-se discriminatória a despedida de empregado portador de HIV.
+- Súmula 378 (TST): Estabilidade acidentária. O empregado que sofre acidente do trabalho tem garantia de emprego por 12 meses após cessação do auxílio-doença acidentário.
+- Súmula 443 (TST): Presunção de discriminação na dispensa de empregado com doença grave que suscite estigma (HIV, câncer, etc.).
+
+2. ORIENTAÇÕES JURISPRUDENCIAIS (OJs) DO TST
+As OJs consolidam posições que ainda não atingiram status de súmula:
+
+OJs da SDI-I (exemplos):
+- OJ 97: Horas extras. A apuração atende ao mês de competência.
+- OJ 113: Diferenças salariais. A inadimplemento do salário profissional gera diferenças.
+- OJ 342 (cancelada): Intervalo intrajornada. Natureza salarial do tempo suprimido.
+
+OJs da SDI-II:
+- OJ 64: Mandado de segurança. Não cabe contra decisão judicial transitada em julgado.
+- OJ 92: Ação rescisória. O prazo é de 2 anos contados do trânsito em julgado.
+
+3. SÚMULAS DOS TRTs
+Os TRTs editam súmulas regionais que orientam seus jurisdicionados:
+- São vinculantes no âmbito de cada regional.
+- Podem divergir entre TRTs, o que pode fundamentar recurso de revista ao TST.
+- Exemplos: TRT-2 sobre dano moral em revista íntima; TRT-4 sobre adicional de transferência.
+
+4. PRECEDENTES NORMATIVOS DO TST
+Estabelecem condições de trabalho em dissídios coletivos:
+- PN 119: Garantias a dirigentes sindicais.
+- PN 120: Desconto salarial pela participação em greve (vedação).
+
+5. CANCELAMENTO E REVISÃO DE SÚMULAS
+- O TST mantém lista oficial de súmulas canceladas: www.tst.jus.br/cancelamento-de-sumulas-ojs-e-precedentes-normativos.
+- Súmula cancelada NÃO gera efeitos vinculantes, mas pode ser citada historicamente.
+- Revisão: altera a redação sem cancelar (ex: adaptação à Reforma Trabalhista).
+`.trim();
+
+const BASE_JURISP = `
+GUIA OPERACIONAL - JURISPRUDÊNCIA TRABALHISTA
+
+1. SISTEMA DE PESQUISA JURISPRUDENCIAL
+A Justiça do Trabalho conta com portais unificados de jurisprudência:
+
+a) jurisprudencia.jt.jus.br: portal unificado de todos os TRTs e TST. Permite busca por texto livre, número do processo, relator, órgão julgador e ementa.
+
+b) jurisprudencia.tst.jus.br: portal do TST com acórdãos, despachos, decisões monocráticas, súmulas e OJs.
+
+2. CLASSIFICAÇÃO DA JURISPRUDÊNCIA
+- Pacífica/Consolidada: entendimento uniforme e reiterado (ex: súmula, OJ).
+- Majoritária: posição adotada pela maioria dos julgadores, mas sem força de súmula.
+- Minoritária: posição que existe mas não prevalece na maioria das turmas.
+- Divergente: quando TRTs ou turmas do TST discordam entre si — abre cabimento de recurso de revista (art. 896, a, CLT).
+
+3. TEMAS TRABALHISTAS RECORRENTES NA JURISPRUDÊNCIA
+
+Vínculo empregatício em plataformas digitais (motoristas de app):
+- Divergência ativa entre TRTs: alguns reconhecem vínculo, outros negam.
+- TST ainda não sumulou entendimento; há recursos de revista pendentes.
+- Elemento-chave: subordinação algorítmica vs. autonomia do prestador.
+
+Pejotização:
+- Contratação de PJ para mascarar relação de emprego (fraude ao art. 9º CLT).
+- Jurisprudência majoritária reconhece o vínculo quando presentes os elementos do art. 3º CLT.
+
+Horas extras e controle de jornada:
+- Motoristas, vendedores externos, teletrabalhadores: art. 62, I e III CLT.
+- Ônus da prova: se empregador tem mais de 20 empregados, deve manter registro (Súmula 338 TST).
+
+Dano moral trabalhista:
+- Art. 223-A a 223-G CLT (pós-reforma): tabelamento por gravidade.
+- STF declarou constitucional o tabelamento, mas com possibilidade de superação pelo juiz em casos graves.
+
+Estabilidades provisórias:
+- Gestante (Súmula 244 TST): desde a confirmação da gravidez até 5 meses pós-parto.
+- Acidentária (Súmula 378 TST): 12 meses após cessação do auxílio-doença.
+- Cipeiro (art. 10, II, a, ADCT): desde o registro da candidatura até 1 ano após o mandato.
+- Dirigente sindical (art. 543, §3º CLT): desde o registro até 1 ano após mandato.
+
+4. RECURSO DE REVISTA (ART. 896 CLT)
+Cabimento: quando a decisão regional viola lei federal, CF, ou diverge de súmula/OJ do TST, ou de decisão de outro TRT.
+- Transcendência (art. 896-A): econômica, política, social ou jurídica — requisito obrigatório.
+- Prequestionamento: necessário que a questão federal tenha sido debatida nas instâncias inferiores (Súmula 297 TST).
+
+5. PORTAIS PARA PESQUISA
+- https://jurisprudencia.jt.jus.br (unificado)
+- https://jurisprudencia.tst.jus.br (TST)
+- Sites dos TRTs individuais (TRT1 a TRT24)
+`.trim();
+
+const BASE_PRECEDENTES = `
+GUIA OPERACIONAL - PRECEDENTES VINCULANTES E REPETITIVOS TRABALHISTAS
+
+1. SISTEMA DE PRECEDENTES NA JUSTIÇA DO TRABALHO
+O CPC/2015 e a CLT (art. 896-C) criaram mecanismos de formação de precedentes obrigatórios:
+
+a) Recursos Repetitivos (art. 896-C CLT):
+- Quando houver multiplicidade de recursos com fundamento em idêntica questão de direito.
+- O TST seleciona processos representativos, suspende a tramitação dos demais e julga a tese.
+- A tese fixada vincula os TRTs e as Varas do Trabalho.
+
+b) IRDR (Incidente de Resolução de Demandas Repetitivas):
+- Instaurado nos TRTs quando houver efetiva repetição de processos com a mesma controvérsia.
+- A decisão vincula todos os juízos do regional.
+- Cabe recurso extraordinário ou especial da tese fixada.
+
+c) IAC (Incidente de Assunção de Competência):
+- Relevante questão de direito com grande repercussão social, sem repetição de processos.
+- Decisão vinculante no âmbito do tribunal.
+
+2. PRECEDENTES VINCULANTES DO STF EM MATÉRIA TRABALHISTA
+Temas de repercussão geral mais relevantes:
+
+- Tema 152 (RE 590.415): Validade de quitação ampla em PDV aprovado por sindicato.
+- Tema 246 (RE 586.453): Competência para execução de contribuições previdenciárias incidentes sobre verbas trabalhistas.
+- Tema 725 (RE 693.456): Desconto de dias de greve de servidor público.
+- Tema 932 (RE 958.252): Constitucionalidade da terceirização de atividade-fim.
+- Tema 935 (ADPF 324): Terceirização para atividades-fim.
+- Tema 1.046 (ARE 1.121.633): Validade de norma coletiva que limita ou afasta direitos não assegurados constitucionalmente.
+- Tema 1.072 (RE 1.298.647): Constitucionalidade do tabelamento de dano extrapatrimonial (art. 223-G CLT).
+
+3. TESES FIXADAS PELO TST (RECURSOS REPETITIVOS)
+O TST mantém catálogo no NUGEP: www.tst.jus.br/nugep-sp/recursos-repetitivos/precedentes-vinculantes.
+
+Exemplos:
+- Tema 1 (IRR-1000845-52.2016.5.02.0461): Correção monetária de débitos trabalhistas — IPCA-E na fase pré-judicial, SELIC na fase judicial.
+- Tema 2 (IRR-10169-57.2013.5.05.0024): Honorários advocatícios na Justiça do Trabalho.
+- Tema 6 (IRR-696-25.2012.5.05.0463): Reflexos de horas extras habituais em RSR.
+
+4. NUGEP (NÚCLEO DE GERENCIAMENTO DE PRECEDENTES)
+- Órgão do TST responsável por identificar, monitorar e gerenciar precedentes.
+- Mantém base atualizada de temas afetados, teses fixadas e processos suspensos.
+- Coordena a sistemática de sobrestamento e a aplicação das teses pelos TRTs.
+
+5. DISTINGUISHING E OVERRULING
+- Distinguishing: demonstração de que o caso concreto possui elementos fáticos/jurídicos distintos do precedente.
+- Overruling: superação do precedente quando houver modificação do entendimento.
+- Ambos devem ser fundamentados de forma expressa (art. 489, §1º, VI, CPC).
+`.trim();
+
+// ─── FAQ HUMANO POR AGENTE ───
+
+const FAQ_DIRTRAB = `
+PERGUNTAS FREQUENTES - DIREITO DO TRABALHO (FAQ PRÁTICO)
+
+P: Qual o prazo do contrato de experiência?
+R: Até 90 dias, podendo ser prorrogado uma única vez dentro desse limite (art. 445, parágrafo único, CLT). Exemplo: 45 + 45 dias.
+
+P: Empregado pode ser demitido durante as férias?
+R: Não. A dispensa durante as férias é considerada nula. O empregador deve aguardar o retorno do empregado. A comunicação pode ser feita no último dia do gozo.
+
+P: O que mudou com a Reforma Trabalhista sobre intervalo?
+R: O intervalo intrajornada pode ser reduzido para no mínimo 30 minutos por negociação coletiva (art. 611-A, III, CLT). A supressão parcial gera pagamento apenas do período suprimido como indenização, não mais como hora extra (art. 71, §4º).
+
+P: Gestante tem estabilidade no contrato temporário?
+R: Sim. A Súmula 244, III, do TST garante estabilidade provisória à gestante mesmo em contrato por prazo determinado, desde a confirmação da gravidez até 5 meses após o parto.
+
+P: Como funciona a rescisão por acordo mútuo?
+R: Art. 484-A CLT. Empregador paga 50% do aviso prévio indenizado, multa de 20% sobre o FGTS (em vez de 40%), o empregado saca 80% do FGTS, mas NÃO tem direito a seguro-desemprego.
+
+P: Terceirização é permitida para atividade-fim?
+R: Sim. O STF, no Tema 725/932, declarou constitucional a terceirização de atividade-fim. Porém, o tomador tem responsabilidade subsidiária pelo inadimplemento trabalhista da prestadora (Súmula 331, IV, TST).
+`.trim();
+
+const FAQ_ATOS = `
+PERGUNTAS FREQUENTES - ATOS NORMATIVOS TRABALHISTAS (FAQ PRÁTICO)
+
+P: Onde encontro os atos normativos do TST?
+R: No JusLaboris (juslaboris.tst.jus.br), que é o repositório oficial digital do TST. Lá se encontram atos, instruções normativas, resoluções e deliberações organizados por tipo, ano e órgão emissor.
+
+P: O que é uma Instrução Normativa do TST?
+R: É um ato normativo que regulamenta aspectos processuais e procedimentais na Justiça do Trabalho. Exemplo: IN 41/2018 regulamenta a aplicação da Reforma Trabalhista no processo do trabalho.
+
+P: Um ato do GP pode alterar uma Instrução Normativa?
+R: Não diretamente. IINs são aprovadas pelo Tribunal Pleno. Atos do GP regulam matéria administrativa. Porém, um ato posterior pode complementar ou regulamentar aspectos operacionais de uma IN.
+
+P: O que é o CSJT?
+R: Conselho Superior da Justiça do Trabalho. Órgão de supervisão administrativa e orçamentária dos TRTs. Emite resoluções sobre política judiciária, gestão, PJe e infraestrutura.
+
+P: Onde verifico se um ato foi revogado?
+R: No JusLaboris, ao pesquisar o ato, constará sua situação (vigente, revogado total ou parcialmente, alterado). Recomenda-se consultar os "atos que alteram" listados na ficha do ato.
+`.trim();
+
+const FAQ_NRS = `
+PERGUNTAS FREQUENTES - NORMAS REGULAMENTADORAS (FAQ PRÁTICO)
+
+P: O que é o PGR e quem precisa ter?
+R: O PGR (Programa de Gerenciamento de Riscos) é obrigatório para todas as organizações que possuam empregados CLT (NR-01). Ele substitui o antigo PPRA e contempla: inventário de riscos e plano de ação com medidas de prevenção.
+
+P: Quem precisa ter SESMT na empresa?
+R: Depende do grau de risco da atividade e do número de empregados (NR-04, Quadro II). Empresas com grau de risco 3 e mais de 50 empregados, por exemplo, já precisam. A composição varia.
+
+P: Qual a diferença entre insalubridade e periculosidade?
+R: Insalubridade (NR-15): exposição a agentes nocivos acima do limite de tolerância. Adicional de 10%, 20% ou 40% sobre o salário mínimo. Periculosidade (NR-16): contato com explosivos, inflamáveis, eletricidade, radiação ou segurança pessoal. Adicional de 30% sobre o salário-base. Não cumulam entre si (regra da CLT), salvo decisão judicial.
+
+P: Trabalho a partir de que altura precisa de treinamento?
+R: A partir de 2 metros do nível inferior (NR-35). É obrigatório treinamento periódico (a cada 2 anos), análise de risco, Permissão de Trabalho (PT) e uso de sistema de proteção contra queda.
+
+P: O empregado pode se recusar a trabalhar em situação perigosa?
+R: Sim. O direito de recusa está previsto na NR-01. O trabalhador pode interromper suas atividades quando houver risco grave e iminente à vida, sem sofrer penalidades.
+
+P: Que tipo de EPI a empresa precisa fornecer?
+R: O EPI deve ser adequado ao risco identificado no PGR, fornecido gratuitamente, com CA (Certificado de Aprovação) válido (NR-06). A hierarquia é: primeiro eliminar o perigo, depois proteção coletiva, depois administrativa, e por último EPI.
+`.trim();
+
+const FAQ_SUMULAS = `
+PERGUNTAS FREQUENTES - SÚMULAS TRABALHISTAS (FAQ PRÁTICO)
+
+P: Quantas súmulas o TST tem atualmente?
+R: O TST possui mais de 460 súmulas, além de centenas de OJs (Orientações Jurisprudenciais) das SDI-I, SDI-II e SDC. Nem todas estão ativas — várias foram canceladas ou revisadas.
+
+P: A Súmula 277 do TST ainda vale?
+R: Não. A Súmula 277 (ultratividade das normas coletivas) foi cancelada em 2024. Após a Reforma Trabalhista, as cláusulas de norma coletiva têm prazo de vigência definido no acordo e não se incorporam definitivamente ao contrato.
+
+P: O que diz a Súmula 331 sobre terceirização?
+R: A Súmula 331 trata de responsabilidade na terceirização. O tomador de serviços responde subsidiariamente pelo inadimplemento trabalhista da prestadora. Para entes públicos, exige-se prova de falha na fiscalização (item V).
+
+P: Qual súmula trata da estabilidade da gestante?
+R: Súmula 244 do TST. Garante estabilidade provisória desde a confirmação da gravidez até 5 meses após o parto. Aplica-se inclusive a contratos por prazo determinado (item III).
+
+P: Súmulas do TRT valem em outros Estados?
+R: Não. Súmulas de TRT vinculam apenas no âmbito do respectivo regional. Porém, a divergência entre súmulas de diferentes TRTs pode fundamentar recurso de revista ao TST.
+
+P: Como saber se uma súmula foi cancelada?
+R: O TST mantém lista oficial em www.tst.jus.br/cancelamento-de-sumulas-ojs-e-precedentes-normativos. No portal de jurisprudência, a súmula aparece com o status "CANCELADA".
+`.trim();
+
+const FAQ_JURISP = `
+PERGUNTAS FREQUENTES - JURISPRUDÊNCIA TRABALHISTA (FAQ PRÁTICO)
+
+P: Onde pesquiso jurisprudência trabalhista de todos os tribunais?
+R: No portal unificado https://jurisprudencia.jt.jus.br, que reúne acórdãos de todos os TRTs e do TST em uma única base de busca.
+
+P: Motorista de aplicativo tem vínculo de emprego?
+R: Tema controverso. Há decisões em ambos os sentidos nos TRTs. O TST ainda não fixou tese vinculante. A análise depende de subordinação (algorítmica), pessoalidade e onerosidade no caso concreto.
+
+P: O que é transcendência no recurso de revista?
+R: Requisito introduzido pelo art. 896-A CLT: o recurso de revista deve demonstrar transcendência econômica, política, social ou jurídica. Sem ela, o recurso não é admitido.
+
+P: Jurisprudência de TRT serve para fundamentar recurso ao TST?
+R: Sim. Se houver divergência entre TRTs ou entre TRT e súmula do TST, isso fundamenta recurso de revista por divergência jurisprudencial (art. 896, a, CLT).
+
+P: O que é OJ e qual a diferença para súmula?
+R: OJ (Orientação Jurisprudencial) é entendimento consolidado pela SDI (Seção de Dissídios Individuais) do TST. Tem força orientadora como a súmula, mas com procedimento de aprovação diferente. Muitas OJs são convertidas em súmulas ao longo do tempo.
+`.trim();
+
+const FAQ_PRECEDENTES = `
+PERGUNTAS FREQUENTES - PRECEDENTES TRABALHISTAS (FAQ PRÁTICO)
+
+P: O que são recursos repetitivos trabalhistas?
+R: São recursos com fundamento em idêntica questão de direito que, pela multiplicidade, são selecionados pelo TST para julgamento representativo (art. 896-C CLT). A tese fixada vincula todos os tribunais inferiores.
+
+P: Terceirização de atividade-fim é constitucional?
+R: Sim. O STF fixou no Tema 725/932 (ADPF 324 e RE 958.252) que é constitucional a terceirização de atividade-fim. Porém, a responsabilidade subsidiária do tomador permanece (Súmula 331 TST).
+
+P: O que é o NUGEP do TST?
+R: Núcleo de Gerenciamento de Precedentes. Órgão responsável por identificar temas repetitivos, monitorar processos afetados, gerenciar sobrestamento e acompanhar a aplicação das teses fixadas pelos TRTs.
+
+P: Posso questionar um precedente vinculante no meu caso?
+R: Sim, via distinguishing: demonstrar que seu caso possui particularidades fáticas ou jurídicas que o diferenciam do precedente. Deve ser fundamentado (art. 489, §1º, VI, CPC).
+
+P: Qual o precedente sobre correção monetária trabalhista?
+R: O IRR-1000845-52.2016.5.02.0461 (Tema 1 do TST) fixou que se aplica IPCA-E na fase pré-judicial e taxa SELIC na fase judicial.
+`.trim();
+
+// ──────────────────────────────────────────────────────────
+//  MAPEAMENTO DOCS SUPLEMENTARES → AGENTES
+// ──────────────────────────────────────────────────────────
+
+const SUPPLEMENT_BY_AGENT = [
+  { agentTitle: 'Agente DirTrab',    docs: [
+    { title: 'SUPP: Guia Operacional – Direito do Trabalho', content: BASE_DIRTRAB },
+    { title: 'SUPP: FAQ Prático – Direito do Trabalho', content: FAQ_DIRTRAB },
+  ]},
+  { agentTitle: 'Agente AtosTr',     docs: [
+    { title: 'SUPP: Guia Operacional – Atos Normativos Trabalhistas', content: BASE_ATOS },
+    { title: 'SUPP: FAQ Prático – Atos Normativos', content: FAQ_ATOS },
+  ]},
+  { agentTitle: 'Agente NR.sPro',    docs: [
+    { title: 'SUPP: Guia Operacional – Normas Regulamentadoras', content: BASE_NRS },
+    { title: 'SUPP: FAQ Prático – NRs', content: FAQ_NRS },
+  ]},
+  { agentTitle: 'Agente SúmulasTr',  docs: [
+    { title: 'SUPP: Guia Operacional – Súmulas Trabalhistas', content: BASE_SUMULAS },
+    { title: 'SUPP: FAQ Prático – Súmulas', content: FAQ_SUMULAS },
+  ]},
+  { agentTitle: 'Agente JurisPrud',  docs: [
+    { title: 'SUPP: Guia Operacional – Jurisprudência Trabalhista', content: BASE_JURISP },
+    { title: 'SUPP: FAQ Prático – Jurisprudência', content: FAQ_JURISP },
+  ]},
+  { agentTitle: 'Agente PrecedentX', docs: [
+    { title: 'SUPP: Guia Operacional – Precedentes Trabalhistas', content: BASE_PRECEDENTES },
+    { title: 'SUPP: FAQ Prático – Precedentes', content: FAQ_PRECEDENTES },
+  ]},
+];
+
+// ──────────────────────────────────────────────────────────
+//  EXECUÇÃO PRINCIPAL
+// ──────────────────────────────────────────────────────────
+
+async function main() {
+  console.log('\n══════════════════════════════════════════════════');
+  console.log(' UPGRADE TRABALHISTA – Instructions + Supplements + Novo Agente');
+  console.log('══════════════════════════════════════════════════\n');
+
+  // FASE 0: Criar agente SúmulasTr se não existir
+  console.log('─── FASE 0: Verificando/criando Agente SúmulasTr ───\n');
+  const sumCheck = await pool.query(
+    `SELECT id FROM agents WHERE user_id IS NULL AND title = 'Agente SúmulasTr'`
+  );
+  let sumAgentId;
+  if (sumCheck.rows.length) {
+    sumAgentId = sumCheck.rows[0].id;
+    console.log(`  ✓ Agente SúmulasTr já existe: ${sumAgentId}`);
+  } else {
+    // Find category
+    const cat = await pool.query(
+      `SELECT id FROM categories WHERE name = $1 AND user_id IS NULL LIMIT 1`,
+      [CATEGORY_NAME]
+    );
+    if (!cat.rows.length) {
+      console.log(`  ✗ Categoria '${CATEGORY_NAME}' não encontrada!`);
+      await pool.end();
+      return;
+    }
+    const categoryId = cat.rows[0].id;
+    sumAgentId = crypto.randomUUID();
+    await pool.query(
+      `INSERT INTO agents (id, user_id, category_id, title, role, description, instructions, icon, created_at)
+       VALUES ($1, NULL, $2, $3, $4, $5, $6, '📜', NOW())`,
+      [sumAgentId, categoryId, 'Agente SúmulasTr', 'Súmulas e OJs Trabalhistas',
+       'Consulta e organização das súmulas trabalhistas (TST e TRTs), ativas e canceladas, com status, histórico e aplicabilidade.',
+       INSTR_SUMULAS]
+    );
+    console.log(`  ✓ Agente SúmulasTr CRIADO: ${sumAgentId}`);
+  }
+
+  // FASE 1: Atualizar instructions dos 5 agentes existentes + Súmulas
+  console.log('\n─── FASE 1: Atualizando INSTRUCTIONS ───\n');
+  for (const [title, newInstr] of Object.entries(INSTRUCTIONS)) {
+    const r = await pool.query(
+      `UPDATE agents SET instructions = $1 WHERE user_id IS NULL AND title = $2 RETURNING id, title`,
+      [newInstr, title]
+    );
+    if (r.rows.length) {
+      console.log(`  ✓ ${title}: instructions atualizado (${newInstr.length} chars)`);
+    } else {
+      console.log(`  ✗ ${title}: agente não encontrado!`);
+    }
+  }
+  // Atualizar Súmulas
+  await pool.query(
+    `UPDATE agents SET instructions = $1 WHERE id = $2`,
+    [INSTR_SUMULAS, sumAgentId]
+  );
+  console.log(`  ✓ Agente SúmulasTr: instructions atualizado (${INSTR_SUMULAS.length} chars)`);
+
+  // FASE 2: Injetar supplements
+  console.log('\n─── FASE 2: Injetando SUPPLEMENTS ───\n');
+  let totalChunksInserted = 0;
+
+  for (const { agentTitle, docs } of SUPPLEMENT_BY_AGENT) {
+    // Buscar agent_id
+    const agRow = await pool.query(
+      `SELECT id FROM agents WHERE user_id IS NULL AND title = $1`,
+      [agentTitle]
+    );
+    if (!agRow.rows.length) {
+      console.log(`  ✗ ${agentTitle}: agente não encontrado, pulando.`);
+      continue;
+    }
+    const agentId = agRow.rows[0].id;
+
+    for (const doc of docs) {
+      // Limpar supplement antigo (idempotente)
+      const delDoc = await pool.query(
+        `DELETE FROM documents WHERE agent_id = $1 AND title = $2 RETURNING id`,
+        [agentId, doc.title]
+      );
+      if (delDoc.rows.length) {
+        for (const dd of delDoc.rows) {
+          await pool.query(`DELETE FROM document_chunks WHERE document_id = $1`, [dd.id]);
+        }
+        console.log(`  🗑  ${agentTitle} → "${doc.title}" removido (re-injeção)`);
+      }
+
+      // Criar document
+      const docId = crypto.randomUUID();
+      await pool.query(
+        `INSERT INTO documents (id, agent_id, title, created_at)
+         VALUES ($1, $2, $3, NOW())`,
+        [docId, agentId, doc.title]
+      );
+
+      // Chunk + embed
+      const chunks = chunkText(doc.content);
+      console.log(`  📝 ${agentTitle} → "${doc.title}": ${chunks.length} chunks`);
+
+      const embeddings = await embedBatch(chunks);
+      let inserted = 0;
+
+      for (let i = 0; i < chunks.length; i++) {
+        if (!embeddings[i]) continue;
+        await pool.query(
+          `INSERT INTO document_chunks (id, document_id, agent_id, content, chunk_index, embedding, created_at)
+           VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
+          [crypto.randomUUID(), docId, agentId, chunks[i], i, JSON.stringify(embeddings[i])]
+        );
+        inserted++;
+      }
+
+      totalChunksInserted += inserted;
+      console.log(`     → ${inserted} chunks inseridos com embedding\n`);
+
+      // Rate limit guard between docs
+      await sleep(EMBED_DELAY_MS);
+    }
+  }
+
+  // Relatório final
+  console.log('\n─── RELATÓRIO FINAL ───\n');
+  const final = await pool.query(`
+    SELECT a.title,
+      length(a.instructions) AS instr_len,
+      (SELECT count(*)::int FROM document_chunks dc WHERE dc.agent_id = a.id) AS chunks
+    FROM agents a
+    WHERE a.user_id IS NULL AND a.title IN (
+      'Agente DirTrab','Agente AtosTr','Agente NR.sPro',
+      'Agente SúmulasTr','Agente JurisPrud','Agente PrecedentX'
+    )
+    ORDER BY a.title
+  `);
+  console.table(final.rows);
+  console.log(`\nTotal de novos chunks inseridos: ${totalChunksInserted}`);
+  console.log('Concluído!\n');
+
+  await pool.end();
+}
+
+main().catch(async (e) => { console.error(e); await pool.end(); process.exit(1); });

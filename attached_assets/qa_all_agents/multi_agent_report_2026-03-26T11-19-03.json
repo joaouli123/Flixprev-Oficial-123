@@ -1,0 +1,29 @@
+{
+  "generatedAt": "2026-03-26T11:19:03.192Z",
+  "config": {
+    "limit": 50,
+    "seeds": 15,
+    "questionsPerSeed": 5,
+    "topK": 8,
+    "answerConcurrency": 2,
+    "judgeBatchSize": 10,
+    "answerModel": "gemini-2.5-flash",
+    "generationModel": "gemini-2.0-flash",
+    "judgeModel": "gemini-2.0-flash",
+    "embeddingBatchSize": 50,
+    "minChunks": 10,
+    "agentId": "02d01ad9-2b2f-41d1-b5fe-f8f94aca7af2",
+    "reportDir": "C:\\Users\\joao lucas\\Desktop\\Contratos e projetos\\Flixprev - Valdir\\Flixprev-Oficial-1--ATUALIZADO-\\attached_assets\\qa_all_agents"
+  },
+  "globalTotals": {
+    "agents": 0,
+    "questions": 0,
+    "passed": 0,
+    "failed": 0,
+    "passRate": 0,
+    "perfect": 0,
+    "above95": 0,
+    "below80": 0
+  },
+  "agents": []
+}

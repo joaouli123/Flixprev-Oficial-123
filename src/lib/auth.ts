@@ -1,5 +1,7 @@
-import { toast } from 'sonner';
-import { supabaseAuth } from './supabase-auth';
+import { getSupabaseAuthConfigErrorMessage, hasSupabaseAuthConfig, supabaseAuth } from './supabase-auth';
+
+const DEFAULT_LOGIN_ERROR_MESSAGE = 'Erro ao fazer login';
+const AUTH_SERVICE_UNAVAILABLE_MESSAGE = 'Serviço de autenticação indisponível no momento.';
 
 function isDevAdminSessionAllowed() {
   return import.meta.env.DEV && String(import.meta.env.VITE_ALLOW_DEV_ADMIN_LOGIN || '').trim().toLowerCase() === 'true';
@@ -45,6 +47,39 @@ export function persistSupabaseSession(params: PersistedSupabaseSessionParams): 
   return loggedUser;
 }
 
+async function loginWithSupabaseFallback(email: string, password: string): Promise<LoginResponse> {
+  if (!hasSupabaseAuthConfig()) {
+    return {
+      success: false,
+      error: getSupabaseAuthConfigErrorMessage(),
+    };
+  }
+
+  try {
+    const { data: authData, error } = await supabaseAuth.auth.signInWithPassword({
+      email: String(email).trim(),
+      password: String(password),
+    });
+
+    if (error || !authData?.user) {
+      return { success: false, error: error?.message || 'Email ou senha incorretos' };
+    }
+
+    const loggedUser = persistSupabaseSession({
+      user: authData.user,
+      accessToken: authData.session?.access_token,
+      fallbackEmail: email,
+    });
+
+    return { success: true, user: loggedUser };
+  } catch (err: any) {
+    return {
+      success: false,
+      error: err?.message || DEFAULT_LOGIN_ERROR_MESSAGE,
+    };
+  }
+}
+
 export async function loginUser(email: string, password: string): Promise<LoginResponse> {
   const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || '').trim().replace(/\/$/, '');
   const loginUrl = `${apiBaseUrl}/api/login`;
@@ -68,22 +103,7 @@ export async function loginUser(email: string, password: string): Promise<LoginR
       const shouldFallbackToSupabase = response.status === 404 || response.status === 405;
 
       if (shouldFallbackToSupabase) {
-        const { data: authData, error } = await supabaseAuth.auth.signInWithPassword({
-          email: String(email).trim(),
-          password: String(password),
-        });
-
-        if (error || !authData?.user) {
-          return { success: false, error: error?.message || 'Email ou senha incorretos' };
-        }
-
-        const loggedUser = persistSupabaseSession({
-          user: authData.user,
-          accessToken: authData.session?.access_token,
-          fallbackEmail: email,
-        });
-
-        return { success: true, user: loggedUser };
+        return await loginWithSupabaseFallback(email, password);
       }
 
       return { success: false, error: data.error || `Login falhou (${response.status})` };
@@ -99,26 +119,33 @@ export async function loginUser(email: string, password: string): Promise<LoginR
 
     return { success: true, user: data.user };
   } catch (err: any) {
-    try {
-      const { data: authData, error } = await supabaseAuth.auth.signInWithPassword({
-        email: String(email).trim(),
-        password: String(password),
-      });
+    const fallbackResult = await loginWithSupabaseFallback(email, password);
 
-      if (error || !authData?.user) {
-        return { success: false, error: err?.message || error?.message || 'Erro ao fazer login' };
-      }
-
-      const loggedUser = persistSupabaseSession({
-        user: authData.user,
-        accessToken: authData.session?.access_token,
-        fallbackEmail: email,
-      });
-
-      return { success: true, user: loggedUser };
-    } catch {
-      return { success: false, error: err.message || 'Erro ao fazer login' };
+    if (fallbackResult.success) {
+      return fallbackResult;
     }
+
+    const apiErrorMessage = err?.message
+      ? `Falha ao conectar no servidor: ${err.message}`
+      : '';
+
+    if (!hasSupabaseAuthConfig()) {
+      return {
+        success: false,
+        error:
+          apiErrorMessage ||
+          fallbackResult.error ||
+          AUTH_SERVICE_UNAVAILABLE_MESSAGE,
+      };
+    }
+
+    return {
+      success: false,
+      error:
+        fallbackResult.error ||
+        apiErrorMessage ||
+        DEFAULT_LOGIN_ERROR_MESSAGE,
+    };
   }
 }
 

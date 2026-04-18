@@ -1,0 +1,120 @@
+{
+  "total": 110,
+  "passed": 106,
+  "failed": 4,
+  "errors": 0,
+  "failures": [
+    {
+      "num": 8,
+      "agent": "Aposentadoria por Idade Urbana",
+      "q": "Existe aposentadoria compulsória? Com qual idade?",
+      "status": "FAIL",
+      "reasons": [
+        "0-KW [compulsória, 75]"
+      ],
+      "response": "Esta pergunta está fora do meu escopo. Por favor, consulte o agente especializado no tema Regime Próprio de Previdência Social (RPPS).",
+      "matchedKw": []
+    },
+    {
+      "num": 9,
+      "agent": "Aposentadoria por Idade Urbana",
+      "q": "O que mudou com a Emenda Constitucional 103/2019?",
+      "status": "FAIL",
+      "reasons": [
+        "0-KW [EC 103, reforma]"
+      ],
+      "response": "A Emenda Constitucional nº 103/2019 trouxe alterações significativas para a Aposentadoria por Idade Urbana, impactando diretamente os requisitos e a forma de cálculo do benefício. As principais mudanç",
+      "matchedKw": []
+    },
+    {
+      "num": 38,
+      "agent": "Auxílio-Reclusão",
+      "q": "Preso que trabalha na prisão mantém o auxílio?",
+      "status": "FAIL",
+      "reasons": [
+        "0-KW [trabalh]"
+      ],
+      "response": "Não localizei essa informação na base normativa deste agente. As condições de cessação do Auxílio-Reclusão listadas são: soltura do segurado, passagem para regime semiaberto ou aberto, falecimento do ",
+      "matchedKw": []
+    },
+    {
+      "num": 80,
+      "agent": "Salário-Maternidade",
+      "q": "É possível prorrogar o salário-maternidade?",
+      "status": "FAIL",
+      "reasons": [
+        "0-KW [prorrog]"
+      ],
+      "response": "Não localizei essa informação na base normativa deste agente.",
+      "matchedKw": []
+    }
+  ],
+  "agentStats": {
+    "Aposentadoria por Idade Urbana": {
+      "pass": 8,
+      "fail": 2,
+      "err": 0,
+      "total": 10
+    },
+    "Aposentadoria Especial": {
+      "pass": 10,
+      "fail": 0,
+      "err": 0,
+      "total": 10
+    },
+    "Pensão por Morte": {
+      "pass": 10,
+      "fail": 0,
+      "err": 0,
+      "total": 10
+    },
+    "Auxílio-Reclusão": {
+      "pass": 9,
+      "fail": 1,
+      "err": 0,
+      "total": 10
+    },
+    "BPC Idoso e PcD": {
+      "pass": 10,
+      "fail": 0,
+      "err": 0,
+      "total": 10
+    },
+    "Processo Administrativo Previdenciário": {
+      "pass": 10,
+      "fail": 0,
+      "err": 0,
+      "total": 10
+    },
+    "Auxílio por Incapacidade Temporária": {
+      "pass": 10,
+      "fail": 0,
+      "err": 0,
+      "total": 10
+    },
+    "Salário-Maternidade": {
+      "pass": 9,
+      "fail": 1,
+      "err": 0,
+      "total": 10
+    },
+    "Regras de Transição": {
+      "pass": 10,
+      "fail": 0,
+      "err": 0,
+      "total": 10
+    },
+    "Revisão de Benefícios": {
+      "pass": 10,
+      "fail": 0,
+      "err": 0,
+      "total": 10
+    },
+    "Aposentadoria Rural": {
+      "pass": 10,
+      "fail": 0,
+      "err": 0,
+      "total": 10
+    }
+  }
+}

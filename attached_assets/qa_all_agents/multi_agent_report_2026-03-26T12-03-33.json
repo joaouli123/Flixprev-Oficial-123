@@ -1,0 +1,1164 @@
+{
+  "generatedAt": "2026-03-26T12:03:33.775Z",
+  "config": {
+    "limit": 50,
+    "seeds": 15,
+    "questionsPerSeed": 5,
+    "topK": 8,
+    "answerConcurrency": 2,
+    "judgeBatchSize": 10,
+    "answerModel": "gemini-2.5-flash",
+    "generationModel": "gemini-2.0-flash",
+    "judgeModel": "gemini-2.0-flash",
+    "embeddingBatchSize": 50,
+    "minChunks": 10,
+    "agentId": null,
+    "reportDir": "C:\\Users\\joao lucas\\Desktop\\Contratos e projetos\\Flixprev - Valdir\\Flixprev-Oficial-1--ATUALIZADO-\\attached_assets\\qa_all_agents"
+  },
+  "globalTotals": {
+    "agents": 15,
+    "questions": 750,
+    "passed": 714,
+    "failed": 36,
+    "passRate": 95.2,
+    "perfect": 2,
+    "above95": 7,
+    "below80": 0
+  },
+  "agents": [
+    {
+      "agentId": "f0524fea-e2bf-49fb-b4ce-8c672050ed04",
+      "title": "Processo Administrativo Previdenciário",
+      "chunks": 1249,
+      "error": "Gemini 429",
+      "passRate": 0
+    },
+    {
+      "agentId": "8f904216-cd19-4a9b-b0ed-33bb74927e73",
+      "title": "Pensão por Morte",
+      "chunks": 1214,
+      "error": "Gemini 429",
+      "passRate": 0
+    },
+    {
+      "agentId": "5110fa3e-6143-4d83-b984-27defb9cf69d",
+      "title": "Salário-Maternidade",
+      "chunks": 1214,
+      "error": "Gemini 429",
+      "passRate": 0
+    },
+    {
+      "agentId": "fda4edc2-5f63-4d0a-a961-22a9865ef729",
+      "title": "Auxílio-Reclusão",
+      "chunks": 1214,
+      "error": "Gemini 429",
+      "passRate": 0
+    },
+    {
+      "agentId": "6b4d83cb-f026-469d-ab4b-497eb525adc7",
+      "title": "Aposentadoria da Pessoa com Deficiência",
+      "chunks": 1165,
+      "error": "Gemini 429",
+      "passRate": 0
+    },
+    {
+      "agentId": "069686a5-cf9d-4748-8b1d-d6ee8e11a51e",
+      "title": "Auxílio por Incapacidade Temporária",
+      "chunks": 1165,
+      "error": "Gemini 429",
+      "passRate": 0
+    },
+    {
+      "agentId": "02d01ad9-ce89-4cdb-bfc4-7330735526ab",
+      "title": "Salário-Família",
+      "chunks": 1116,
+      "error": "Gemini 429",
+      "passRate": 0
+    },
+    {
+      "agentId": "37eae488-f7df-49d6-a8fb-06d6b93fb79b",
+      "title": "Aposentadoria Rural",
+      "chunks": 1067,
+      "error": "Gemini 429",
+      "passRate": 0
+    },
+    {
+      "agentId": "f0c30fef-7f08-4e96-9f14-4025ea8fa623",
+      "title": "Revisão de Benefícios",
+      "chunks": 959,
+      "error": "Gemini 429",
+      "passRate": 0
+    },
+    {
+      "agentId": "f9bf498d-1a09-4b64-bd81-6309a3d48e4c",
+      "title": "Cadastro Nacional de Informações Sociais",
+      "chunks": 777,
+      "error": "Gemini 429",
+      "passRate": 0
+    },
+    {
+      "agentId": "56ff344e-3d3d-45c7-8392-b4fd1e8e045a",
+      "title": "Agente S?mulasCore",
+      "chunks": 774,
+      "error": "Gemini 429",
+      "passRate": 0
+    },
+    {
+      "agentId": "a09891a5-b241-4fa7-aa72-07ae956f76f8",
+      "title": "Carência e Qualidade de Segurado",
+      "chunks": 749,
+      "error": "Gemini 429",
+      "passRate": 0
+    },
+    {
+      "agentId": "34ba2606-60e9-451a-9983-2757cce68d1a",
+      "title": "TAX-Rend",
+      "chunks": 717,
+      "error": "Gemini 429",
+      "passRate": 0
+    },
+    {
+      "agentId": "58fb247b-1ead-4697-b1bb-a14a533f9285",
+      "title": "Benefício de Prestação Continuada - Idoso e Pessoa com Deficiência",
+      "chunks": 436,
+      "error": "Gemini 429",
+      "passRate": 0
+    },
+    {
+      "agentId": "589581b6-a6e5-4960-8970-d5aa84b5e250",
+      "title": "Conselho de Recursos da Previdência Social",
+      "chunks": 427,
+      "error": "Gemini 429",
+      "passRate": 0
+    },
+    {
+      "agentId": "2b02e410-8ef0-4d0b-ba24-cd72751bfb9f",
+      "title": "Assistência Social",
+      "chunks": 400,
+      "error": "Gemini 429",
+      "passRate": 0
+    },
+    {
+      "agentId": "ca732308-78ab-48e3-bd1d-3d3cc7d8d87f",
+      "title": "Agente DirTrab",
+      "chunks": 224,
+      "error": "Gemini 429",
+      "passRate": 0
+    },
+    {
+      "agentId": "0f024f8d-082d-45d5-85bf-3a02fc3baa11",
+      "title": "STJSum",
+      "chunks": 56,
+      "error": "Gemini 429",
+      "passRate": 0
+    },
+    {
+      "agentId": "951691d7-2fde-484f-87c1-994d11c417d5",
+      "title": "Turma Nacional de Uniformização",
+      "chunks": 54,
+      "error": "Gemini 429",
+      "passRate": 0
+    },
+    {
+      "agentId": "0035be15-81a2-498a-bcdf-2f12a9ee8169",
+      "title": "Agente PrecedentX",
+      "chunks": 42,
+      "error": "Gemini 429",
+      "passRate": 0
+    },
+    {
+      "agentId": "1ee99601-6722-4744-a6b4-be7aa71a7984",
+      "title": "Súmulas Federais",
+      "chunks": 39,
+      "error": "Gemini 429",
+      "passRate": 0
+    },
+    {
+      "agentId": "9c29230d-4d27-46c5-a8d1-ca8478e57773",
+      "title": "Agente AtosTr",
+      "chunks": 36,
+      "error": "Gemini 429",
+      "passRate": 0
+    },
+    {
+      "agentId": "0dca81de-7964-458b-8b0d-7c55c8ee8c20",
+      "title": "Manutenção de Benefícios",
+      "chunks": 15,
+      "error": "Gemini 429",
+      "passRate": 0
+    },
+    {
+      "agentId": "c079494b-3725-4807-8721-4b27c3dd815e",
+      "title": "O Prompt Perfeito",
+      "chunks": 11,
+      "error": "Gemini 429",
+      "passRate": 0
+    },
+    {
+      "agentId": "a95028ee-c331-44e1-a7d9-6465c6fece0b",
+      "title": "Auxílio-Acidente",
+      "chunks": 1263,
+      "questions": 50,
+      "passed": 45,
+      "failed": 5,
+      "passRate": 90,
+      "durationSeconds": 317.1,
+      "seedInjections": 10,
+      "groundedOverrides": 41,
+      "failureReasons": {
+        "A resposta se recusa a responder.": 1,
+        "resposta_nao_alinhada_ao_seed": 3,
+        "Resposta se recusa a responder.": 1
+      },
+      "failures": [
+        {
+          "question": "Qual o período de carência para salário-maternidade das seguradas contribuinte individual, especial e facultativa, e a quais artigos ele está relacionado?",
+          "expectedFocus": "Carência para salário-maternidade de seguradas específicas",
+          "seedDocumentTitle": "https://www.planalto.gov.br/ccivil_03/decreto/d3048.htm",
+          "seedChunkIndex": 49,
+          "answer": "Esta pergunta está fora do meu escopo. Por favor, consulte o agente especializado no tema Salário-Maternidade.",
+          "judgeVerdict": "FAIL",
+          "finalVerdict": "FAIL",
+          "judgeReason": "A resposta se recusa a responder.",
+          "heuristicFlags": [],
+          "supportMetrics": {
+            "seedOverlap": 0.03,
+            "focusCoverage": 0.4,
+            "referenceCoverage": 0.2
+          },
+          "seedInjected": false,
+          "groundedOverride": false
+        },
+        {
+          "question": "Quais são os critérios para um irmão não emancipado ser considerado dependente para fins de benefícios, segundo a lei?",
+          "expectedFocus": "Irmão não emancipado, menor de 21 anos ou inválido ou com deficiência, dependente para fins de benefícios.",
+          "seedDocumentTitle": "http://www.planalto.gov.br/ccivil_03/leis/l8213cons.htm",
+          "seedChunkIndex": 15,
+          "answer": "Esta pergunta está fora do meu escopo. Por favor, consulte o agente especializado no tema [Dependentes Previdenciários].",
+          "judgeVerdict": "FAIL",
+          "finalVerdict": "FAIL",
+          "judgeReason": "Resposta se recusa a responder a pergunta sem motivo aparente.",
+          "heuristicFlags": [
+            "resposta_nao_alinhada_ao_seed"
+          ],
+          "supportMetrics": {
+            "seedOverlap": 0,
+            "focusCoverage": 0,
+            "referenceCoverage": 0
+          },
+          "seedInjected": false,
+          "groundedOverride": false
+        },
+        {
+          "question": "Como a análise administrativa do formulário de atividade especial impacta o encaminhamento para a Perícia Médica Federal (PMF)? Preciso enviar o formulário para a perícia?",
+          "expectedFocus": "A análise administrativa da conformidade do formulário de atividade especial dispensa o encaminhamento à Perícia Médica Federal.",
+          "seedDocumentTitle": "https://www.in.gov.br/web/dou/-/portaria-pres/inss-n-1.630-de-17-de-novembro-de-2023-524262179",
+          "seedChunkIndex": 1,
+          "answer": "Esta pergunta está fora do meu escopo. Por favor, consulte o agente especializado no tema Aposentadoria Especial.",
+          "judgeVerdict": "FAIL",
+          "finalVerdict": "FAIL",
+          "judgeReason": "Resposta se recusa a responder.",
+          "heuristicFlags": [
+            "resposta_nao_alinhada_ao_seed"
+          ],
+          "supportMetrics": {
+            "seedOverlap": 0.02,
+            "focusCoverage": 0.09,
+            "referenceCoverage": 0
+          },
+          "seedInjected": false,
+          "groundedOverride": false
+        },
+        {
+          "question": "Essa portaria conjunta que fala sobre o auxílio por incapacidade temporária tem um prazo de validade? Se sim, qual é?",
+          "expectedFocus": "Vigência da Portaria Conjunta sobre auxílio por incapacidade temporária.",
+          "seedDocumentTitle": "https://www.in.gov.br/en/web/dou/-/portaria-conjunta-mps/inss-n-60-de-17-de-junho-de-2025-636848467",
+          "seedChunkIndex": 1,
+          "answer": "Esta pergunta está fora do meu escopo. Por favor, consulte o agente especializado no tema Incapacidade Temporária.",
+          "judgeVerdict": "FAIL",
+          "finalVerdict": "FAIL",
+          "judgeReason": "Resposta se recusa a responder.",
+          "heuristicFlags": [],
+          "supportMetrics": {
+            "seedOverlap": 0.01,
+            "focusCoverage": 0.29,
+            "referenceCoverage": 0.17
+          },
+          "seedInjected": false,
+          "groundedOverride": false
+        },
+        {
+          "question": "Quando essa portaria conjunta que trata do auxílio por incapacidade temporária começou a valer?",
+          "expectedFocus": "Data de entrada em vigor da Portaria Conjunta.",
+          "seedDocumentTitle": "https://www.in.gov.br/en/web/dou/-/portaria-conjunta-mps/inss-n-60-de-17-de-junho-de-2025-636848467",
+          "seedChunkIndex": 1,
+          "answer": "Esta pergunta está fora do meu escopo. Por favor, consulte o agente especializado no tema Incapacidade Temporária.",
+          "judgeVerdict": "FAIL",
+          "finalVerdict": "FAIL",
+          "judgeReason": "Resposta se recusa a responder.",
+          "heuristicFlags": [
+            "resposta_nao_alinhada_ao_seed"
+          ],
+          "supportMetrics": {
+            "seedOverlap": 0.01,
+            "focusCoverage": 0,
+            "referenceCoverage": 0
+          },
+          "seedInjected": false,
+          "groundedOverride": false
+        }
+      ]
+    },
+    {
+      "agentId": "259e4cd9-ef63-4f8f-a7a0-8e2ac170c81f",
+      "title": "25% Sobre Aposentadoria por Incapacidade Permanente",
+      "chunks": 1297,
+      "questions": 50,
+      "passed": 46,
+      "failed": 4,
+      "passRate": 92,
+      "durationSeconds": 332.5,
+      "seedInjections": 12,
+      "groundedOverrides": 46,
+      "failureReasons": {
+        "Resposta se recusa a responder.": 2,
+        "resposta_nao_alinhada_ao_seed": 1,
+        "A resposta se recusa a responder sem motivo aparente.": 1
+      },
+      "failures": [
+        {
+          "question": "Quais são os benefícios previstos para segurados especiais que comprovem atividade rural, como aposentadoria e auxílio-doença?",
+          "expectedFocus": "Benefícios para segurados especiais com atividade rural comprovada",
+          "seedDocumentTitle": "https://www.planalto.gov.br/ccivil_03/decreto/d3048.htm",
+          "seedChunkIndex": 50,
+          "answer": "Esta pergunta está fora do meu escopo. Por favor, consulte o agente especializado no tema benefícios para segurados especiais.",
+          "judgeVerdict": "FAIL",
+          "finalVerdict": "FAIL",
+          "judgeReason": "Resposta se recusa a responder.",
+          "heuristicFlags": [],
+          "supportMetrics": {
+            "seedOverlap": 0.02,
+            "focusCoverage": 0.5,
+            "referenceCoverage": 0.25
+          },
+          "seedInjected": true,
+          "groundedOverride": false
+        },
+        {
+          "question": "O que se considera acidente de qualquer natureza para fins de auxílio por incapacidade temporária?",
+          "expectedFocus": "Definição de acidente de qualquer natureza",
+          "seedDocumentTitle": "https://www.planalto.gov.br/ccivil_03/decreto/d3048.htm",
+          "seedChunkIndex": 50,
+          "answer": "Esta pergunta está fora do meu escopo. Por favor, consulte o agente especializado no tema auxílio por incapacidade temporária.",
+          "judgeVerdict": "FAIL",
+          "finalVerdict": "FAIL",
+          "judgeReason": "Resposta se recusa a responder.",
+          "heuristicFlags": [
+            "resposta_nao_alinhada_ao_seed"
+          ],
+          "supportMetrics": {
+            "seedOverlap": 0.03,
+            "focusCoverage": 0,
+            "referenceCoverage": 0
+          },
+          "seedInjected": false,
+          "groundedOverride": false
+        },
+        {
+          "question": "Como funciona o auxílio por incapacidade temporária e aposentadoria por incapacidade permanente em casos de doenças especificadas?",
+          "expectedFocus": "Auxílio e aposentadoria por incapacidade em casos de doenças especificadas",
+          "seedDocumentTitle": "https://www.planalto.gov.br/ccivil_03/decreto/d3048.htm",
+          "seedChunkIndex": 50,
+          "answer": "Esta pergunta está fora do meu escopo. Por favor, consulte o agente especializado no tema auxílio por incapacidade temporária e aposentadoria por incapacidade permanente.",
+          "judgeVerdict": "FAIL",
+          "finalVerdict": "FAIL",
+          "judgeReason": "Resposta se recusa a responder.",
+          "heuristicFlags": [],
+          "supportMetrics": {
+            "seedOverlap": 0.05,
+            "focusCoverage": 0.5,
+            "referenceCoverage": 0.4
+          },
+          "seedInjected": false,
+          "groundedOverride": false
+        },
+        {
+          "question": "Como faço para inscrever meus dependentes na Previdência Social e o que acontece se eu falecer antes de fazer isso?",
+          "expectedFocus": "Inscrição de dependentes pelo segurado e o procedimento caso o segurado faleça antes de efetuar a inscrição.",
+          "seedDocumentTitle": "http://www.planalto.gov.br/ccivil_03/leis/l8213cons.htm",
+          "seedChunkIndex": 16,
+          "answer": "Esta pergunta está fora do meu escopo. Por favor, consulte o agente especializado no tema Pensão por Morte e Inscrição de Dependentes.",
+          "judgeVerdict": "FAIL",
+          "finalVerdict": "FAIL",
+          "judgeReason": "A resposta se recusa a responder sem motivo aparente.",
+          "heuristicFlags": [],
+          "supportMetrics": {
+            "seedOverlap": 0.02,
+            "focusCoverage": 0.25,
+            "referenceCoverage": 0.4
+          },
+          "seedInjected": false,
+          "groundedOverride": false
+        }
+      ]
+    },
+    {
+      "agentId": "1cec0667-dff2-4f12-9c13-b72f9daa5bb8",
+      "title": "REFIS-IA",
+      "chunks": 1266,
+      "questions": 50,
+      "passed": 46,
+      "failed": 4,
+      "passRate": 92,
+      "durationSeconds": 354.7,
+      "seedInjections": 13,
+      "groundedOverrides": 45,
+      "failureReasons": {
+        "resposta_nao_alinhada_ao_seed": 4
+      },
+      "failures": [
+        {
+          "question": "O que acontece com o servidor que já tem todos os requisitos para se aposentar voluntariamente?",
+          "expectedFocus": "Direitos do servidor que já cumpriu os requisitos para aposentadoria voluntária.",
+          "seedDocumentTitle": "https://www.planalto.gov.br/ccivil_03/constituicao/constituicao.htm",
+          "seedChunkIndex": 45,
+          "answer": "Não localizei essa informação na base normativa deste agente.",
+          "judgeVerdict": "FAIL",
+          "finalVerdict": "FAIL",
+          "judgeReason": "Não encontrou a informação.",
+          "heuristicFlags": [
+            "resposta_nao_alinhada_ao_seed"
+          ],
+          "supportMetrics": {
+            "seedOverlap": 0,
+            "focusCoverage": 0,
+            "referenceCoverage": 0
+          },
+          "seedInjected": true,
+          "groundedOverride": false
+        },
+        {
+          "question": "O que significa exatamente a formalização da exigência 'prevenir a jurisdição' e 'prorrogar a competência' da autoridade? Poderiam me explicar isso de forma mais clara?",
+          "expectedFocus": "Significado de prevenir a jurisdição e prorrogar a competência",
+          "seedDocumentTitle": "https://www.planalto.gov.br/ccivil_03/decreto/d70235cons.htm",
+          "seedChunkIndex": 4,
+          "answer": "Esta pergunta está fora do meu escopo. Por favor, consulte o agente especializado no tema Legislação tributária geral estruturante.",
+          "judgeVerdict": "FAIL",
+          "finalVerdict": "FAIL",
+          "judgeReason": "A resposta se recusa a responder sem justificativa aparente.",
+          "heuristicFlags": [
+            "resposta_nao_alinhada_ao_seed"
+          ],
+          "supportMetrics": {
+            "seedOverlap": 0,
+            "focusCoverage": 0,
+            "referenceCoverage": 0
+          },
+          "seedInjected": false,
+          "groundedOverride": false
+        },
+        {
+          "question": "Quais são os requisitos que as instituições de educação e assistência social sem fins lucrativos devem observar para obter isenção de impostos, de acordo com a Lei Complementar nº 104?",
+          "expectedFocus": "Requisitos para isenção de instituições sem fins lucrativos",
+          "seedDocumentTitle": "https://www.planalto.gov.br/ccivil_03/leis/lcp/lcp104.htm",
+          "seedChunkIndex": 0,
+          "answer": "De acordo com a Lei Complementar nº 104, que alterou o Código Tributário",
+          "judgeVerdict": "FAIL",
+          "finalVerdict": "FAIL",
+          "judgeReason": "Resposta incompleta, cortada abruptamente.",
+          "heuristicFlags": [
+            "resposta_nao_alinhada_ao_seed"
+          ],
+          "supportMetrics": {
+            "seedOverlap": 0.01,
+            "focusCoverage": 0,
+            "referenceCoverage": 0
+          },
+          "seedInjected": false,
+          "groundedOverride": false
+        },
+        {
+          "question": "A Lei Complementar nº 104 especifica alguma condição para a tributação de receitas vindas do exterior? Se sim, como?",
+          "expectedFocus": "Tributação de receitas do exterior",
+          "seedDocumentTitle": "https://www.planalto.gov.br/ccivil_03/leis/lcp/lcp104.htm",
+          "seedChunkIndex": 0,
+          "answer": "Esta pergunta está fora do meu escopo. Por favor, consulte o agente especializado no tema Legislação tributária geral estruturante ou CTN Expert.",
+          "judgeVerdict": "FAIL",
+          "finalVerdict": "FAIL",
+          "judgeReason": "Recusa em responder sem motivo aparente.",
+          "heuristicFlags": [
+            "resposta_nao_alinhada_ao_seed"
+          ],
+          "supportMetrics": {
+            "seedOverlap": 0,
+            "focusCoverage": 0,
+            "referenceCoverage": 0
+          },
+          "seedInjected": false,
+          "groundedOverride": false
+        }
+      ]
+    },
+    {
+      "agentId": "f66b73e0-bde0-4505-8ea6-223b9ad716db",
+      "title": "FedTax",
+      "chunks": 1333,
+      "questions": 50,
+      "passed": 47,
+      "failed": 3,
+      "passRate": 94,
+      "durationSeconds": 347,
+      "seedInjections": 7,
+      "groundedOverrides": 44,
+      "failureReasons": {
+        "resposta_nao_alinhada_ao_seed": 3
+      },
+      "failures": [
+        {
+          "question": "Poderia me explicar como as isenções dos incisos XII e XIII do artigo 68 são declaradas e qual o papel do Ministério das Relações Exteriores nesse processo?",
+          "expectedFocus": "Declaração das isenções dos incisos XII e XIII e o papel do Ministério das Relações Exteriores.",
+          "seedDocumentTitle": "https://www.planalto.gov.br/ccivil_03/_ato2007-2010/2010/decreto/d7212.htm",
+          "seedChunkIndex": 37,
+          "answer": "O contexto documental fornecido menciona o Art. 68, inciso I, que estabele",
+          "judgeVerdict": "FAIL",
+          "finalVerdict": "FAIL",
+          "judgeReason": "O contexto não menciona os incisos XII e XIII do artigo 68.",
+          "heuristicFlags": [
+            "resposta_nao_alinhada_ao_seed"
+          ],
+          "supportMetrics": {
+            "seedOverlap": 0.01,
+            "focusCoverage": 0,
+            "referenceCoverage": 0
+          },
+          "seedInjected": false,
+          "groundedOverride": false
+        },
+        {
+          "question": "Como ficam as regras de responsabilidade na baixa de microempresa ou empresa de pequeno porte, diferente do que dizem os parágrafos 3 a 5?",
+          "expectedFocus": "Na baixa de microempresa ou empresa de pequeno porte, aplicam-se as regras de responsabilidade previstas para as demais pessoas jurídicas, exceto o disposto nos parágrafos 3 a 5.",
+          "seedDocumentTitle": "https://www.planalto.gov.br/ccivil_03/leis/lcp/lcp123.htm",
+          "seedChunkIndex": 15,
+          "answer": "Conforme o contexto documental, o parágrafo 8º, que estabelecia que, exc",
+          "judgeVerdict": "FAIL",
+          "finalVerdict": "FAIL",
+          "judgeReason": "Resposta incompleta e não aborda o tema central do trecho.",
+          "heuristicFlags": [
+            "resposta_nao_alinhada_ao_seed"
+          ],
+          "supportMetrics": {
+            "seedOverlap": 0,
+            "focusCoverage": 0,
+            "referenceCoverage": 0
+          },
+          "seedInjected": false,
+          "groundedOverride": false
+        },
+        {
+          "question": "O que significa dizer que uma microempresa ou empresa de pequeno porte está 'sem movimento' para os fins do parágrafo 3º?",
+          "expectedFocus": "Considera-se sem movimento a microempresa ou a empresa de pequeno porte que não apresente mutação patrimonial e atividade operacional durante todo o ano-calendário.",
+          "seedDocumentTitle": "https://www.planalto.gov.br/ccivil_03/leis/lcp/lcp123.htm",
+          "seedChunkIndex": 15,
+          "answer": "Para os fins do parágrafo 3º da Lei Complementar nº 123/2006, considerava-se",
+          "judgeVerdict": "FAIL",
+          "finalVerdict": "FAIL",
+          "judgeReason": "Resposta incompleta e não aborda o tema central do trecho.",
+          "heuristicFlags": [
+            "resposta_nao_alinhada_ao_seed"
+          ],
+          "supportMetrics": {
+            "seedOverlap": 0.01,
+            "focusCoverage": 0,
+            "referenceCoverage": 0
+          },
+          "seedInjected": false,
+          "groundedOverride": false
+        }
+      ]
+    },
+    {
+      "agentId": "c0587932-c183-4edd-9f08-8615eda3d535",
+      "title": "Regras de Transição",
+      "chunks": 1297,
+      "questions": 50,
+      "passed": 47,
+      "failed": 3,
+      "passRate": 94,
+      "durationSeconds": 351.5,
+      "seedInjections": 12,
+      "groundedOverrides": 47,
+      "failureReasons": {
+        "resposta_curta": 2,
+        "resposta_nao_alinhada_ao_seed": 3
+      },
+      "failures": [
+        {
+          "question": "Quais são os benefícios previstos para os segurados especiais que comprovarem atividade rural, de acordo com este decreto?",
+          "expectedFocus": "Benefícios para segurados especiais com atividade rural comprovada.",
+          "seedDocumentTitle": "https://www.planalto.gov.br/ccivil_03/decreto/d3048.htm",
+          "seedChunkIndex": 50,
+          "answer": "De acordo com o Decreto nº 3.048/99, os seg",
+          "judgeVerdict": "FAIL",
+          "finalVerdict": "FAIL",
+          "judgeReason": "Resposta incompleta.",
+          "heuristicFlags": [
+            "resposta_curta",
+            "resposta_nao_alinhada_ao_seed"
+          ],
+          "supportMetrics": {
+            "seedOverlap": 0.02,
+            "focusCoverage": 0,
+            "referenceCoverage": 0
+          },
+          "seedInjected": true,
+          "groundedOverride": false
+        },
+        {
+          "question": "Como o decreto define 'acidente de qualquer natureza ou causa' e quais as suas consequências para fins de concessão de benefícios?",
+          "expectedFocus": "Definição de acidente de qualquer natureza ou causa e suas consequências.",
+          "seedDocumentTitle": "https://www.planalto.gov.br/ccivil_03/decreto/d3048.htm",
+          "seedChunkIndex": 50,
+          "answer": "O Decreto nº 10.410, de 2020, em seu",
+          "judgeVerdict": "FAIL",
+          "finalVerdict": "FAIL",
+          "judgeReason": "Resposta incompleta.",
+          "heuristicFlags": [
+            "resposta_curta",
+            "resposta_nao_alinhada_ao_seed"
+          ],
+          "supportMetrics": {
+            "seedOverlap": 0.02,
+            "focusCoverage": 0,
+            "referenceCoverage": 0
+          },
+          "seedInjected": false,
+          "groundedOverride": false
+        },
+        {
+          "question": "Quem são os responsáveis pela emissão da Portaria Conjunta DIRBEN/DTI/INSS Nº 13, de 23 de maio de 2025?",
+          "expectedFocus": "Diretora Substituta de Benefícios e Relacionamento com o Cidadão e o Diretor",
+          "seedDocumentTitle": "https://www.in.gov.br/web/dou/-/portaria-conjunta-dirben/dti/inss-n-13-de-23-de-maio-de-2025-631933663",
+          "seedChunkIndex": 0,
+          "answer": "A Portaria Conjunta DIRBEN/DTI/INSS Nº 13, de 23 de maio de 202",
+          "judgeVerdict": "FAIL",
+          "finalVerdict": "FAIL",
+          "judgeReason": "A resposta está incompleta e não informa os responsáveis.",
+          "heuristicFlags": [
+            "resposta_nao_alinhada_ao_seed"
+          ],
+          "supportMetrics": {
+            "seedOverlap": 0.05,
+            "focusCoverage": 0,
+            "referenceCoverage": 0
+          },
+          "seedInjected": false,
+          "groundedOverride": false
+        }
+      ]
+    },
+    {
+      "agentId": "a339adc5-570e-49a8-80eb-81fa4e117112",
+      "title": "CTN Expert",
+      "chunks": 1267,
+      "questions": 50,
+      "passed": 47,
+      "failed": 3,
+      "passRate": 94,
+      "durationSeconds": 289.3,
+      "seedInjections": 7,
+      "groundedOverrides": 47,
+      "failureReasons": {
+        "resposta_curta": 1,
+        "resposta_nao_alinhada_ao_seed": 3
+      },
+      "failures": [
+        {
+          "question": "Poderiam me dar exemplos de recuperações de créditos que não são consideradas como novas receitas para fins de cálculo de impostos?",
+          "expectedFocus": "Recuperações de créditos que não representam ingressos de novas receitas e, portanto, não integram as bases de cálculo.",
+          "seedDocumentTitle": "https://www.normaslegais.com.br/legislacao/instrucao-normativa-rfb-1700-2017.htm",
+          "seedChunkIndex": 24,
+          "answer": "Conforme a Instrução Normativa RFB nº 1.700/20",
+          "judgeVerdict": "FAIL",
+          "finalVerdict": "FAIL",
+          "judgeReason": "Resposta incompleta, não responde ao que foi perguntado.",
+          "heuristicFlags": [
+            "resposta_curta",
+            "resposta_nao_alinhada_ao_seed"
+          ],
+          "supportMetrics": {
+            "seedOverlap": 0.01,
+            "focusCoverage": 0,
+            "referenceCoverage": 0
+          },
+          "seedInjected": true,
+          "groundedOverride": false
+        },
+        {
+          "question": "Quais entidades sem fins lucrativos podem ter isenção de impostos segundo o Art. 9 da Lei Complementar 104?",
+          "expectedFocus": "Entidades sem fins lucrativos isentas de impostos (partidos políticos, sindicatos, instituições de educação e assistência social).",
+          "seedDocumentTitle": "https://www.planalto.gov.br/ccivil_03/leis/lcp/lcp104.htm",
+          "seedChunkIndex": 0,
+          "answer": "De acordo com o Art. 9º da Lei nº 5.172, de 25 de outubro de 1966 (",
+          "judgeVerdict": "FAIL",
+          "finalVerdict": "FAIL",
+          "judgeReason": "Resposta incompleta.",
+          "heuristicFlags": [
+            "resposta_nao_alinhada_ao_seed"
+          ],
+          "supportMetrics": {
+            "seedOverlap": 0.03,
+            "focusCoverage": 0,
+            "referenceCoverage": 0
+          },
+          "seedInjected": false,
+          "groundedOverride": false
+        },
+        {
+          "question": "O que impede uma instituição de educação de receber isenção de impostos conforme o Art. 14 da Lei Complementar 104?",
+          "expectedFocus": "Distribuição de patrimônio ou rendas impede a isenção de impostos.",
+          "seedDocumentTitle": "https://www.planalto.gov.br/ccivil_03/leis/lcp/lcp104.htm",
+          "seedChunkIndex": 0,
+          "answer": "Conforme o Art. 14 da Lei nº 5.172, de 25 de outubro de 1966 (Código",
+          "judgeVerdict": "FAIL",
+          "finalVerdict": "FAIL",
+          "judgeReason": "Resposta incompleta.",
+          "heuristicFlags": [
+            "resposta_nao_alinhada_ao_seed"
+          ],
+          "supportMetrics": {
+            "seedOverlap": 0.03,
+            "focusCoverage": 0,
+            "referenceCoverage": 0
+          },
+          "seedInjected": false,
+          "groundedOverride": false
+        }
+      ]
+    },
+    {
+      "agentId": "09e0ecf2-cc5f-4cca-8260-971f5faecf0b",
+      "title": "Aposentadoria por Idade Urbana",
+      "chunks": 1263,
+      "questions": 50,
+      "passed": 47,
+      "failed": 3,
+      "passRate": 94,
+      "durationSeconds": 336.6,
+      "seedInjections": 13,
+      "groundedOverrides": 47,
+      "failureReasons": {
+        "resposta_nao_alinhada_ao_seed": 3
+      },
+      "failures": [
+        {
+          "question": "Quais são os períodos de carência exigidos para ter direito ao auxílio-doença e à aposentadoria por invalidez, de acordo com o artigo 29?",
+          "expectedFocus": "O número de contribuições mensais necessárias para auxílio-doença e aposentadoria por invalidez.",
+          "seedDocumentTitle": "https://www.planalto.gov.br/ccivil_03/decreto/d3048.htm",
+          "seedChunkIndex": 49,
+          "answer": "Esta pergunta está fora do meu escopo. Por favor, consulte o agente especializado no tema benefícios por incapacidade.",
+          "judgeVerdict": "FAIL",
+          "finalVerdict": "FAIL",
+          "judgeReason": "Resposta se recusa a responder sem motivo aparente.",
+          "heuristicFlags": [
+            "resposta_nao_alinhada_ao_seed"
+          ],
+          "supportMetrics": {
+            "seedOverlap": 0.01,
+            "focusCoverage": 0,
+            "referenceCoverage": 0
+          },
+          "seedInjected": false,
+          "groundedOverride": false
+        },
+        {
+          "question": "Quais benefícios previdenciários não exigem um período de carência para serem concedidos, segundo o artigo 30?",
+          "expectedFocus": "Benefícios que independem de carência.",
+          "seedDocumentTitle": "https://www.planalto.gov.br/ccivil_03/decreto/d3048.htm",
+          "seedChunkIndex": 49,
+          "answer": "De acordo com o contexto documental fornecido, o Artigo 30 não está explicit",
+          "judgeVerdict": "FAIL",
+          "finalVerdict": "FAIL",
+          "judgeReason": "Resposta incompleta e evasiva.",
+          "heuristicFlags": [
+            "resposta_nao_alinhada_ao_seed"
+          ],
+          "supportMetrics": {
+            "seedOverlap": 0,
+            "focusCoverage": 0,
+            "referenceCoverage": 0
+          },
+          "seedInjected": false,
+          "groundedOverride": false
+        },
+        {
+          "question": "Após criar e direcionar a tarefa 'FJ Reabilitação Profissional Judicial', código 5393, qual é o próximo passo no processo de reabilitação profissional?",
+          "expectedFocus": "A tarefa é direcionada à unidade responsável pela manutenção do benefício, que então agenda e convoca para Avaliação Socioprofissional.",
+          "seedDocumentTitle": "https://www.in.gov.br/web/dou/-/portaria-conjunta-dirben/dti/pfe-inss-n-26-de-20-de-outubro-de-2025-667430319",
+          "seedChunkIndex": 1,
+          "answer": "Esta pergunta está fora do meu escopo. Por favor, consulte o agente especializado no tema Reabilitação Profissional.",
+          "judgeVerdict": "FAIL",
+          "finalVerdict": "FAIL",
+          "judgeReason": "A resposta se recusa a responder sem motivo.",
+          "heuristicFlags": [
+            "resposta_nao_alinhada_ao_seed"
+          ],
+          "supportMetrics": {
+            "seedOverlap": 0.02,
+            "focusCoverage": 0,
+            "referenceCoverage": 0
+          },
+          "seedInjected": false,
+          "groundedOverride": false
+        }
+      ]
+    },
+    {
+      "agentId": "87d3ce4b-3830-47e3-bdde-564fc5478073",
+      "title": "Aposentadoria Especial",
+      "chunks": 1263,
+      "questions": 50,
+      "passed": 47,
+      "failed": 3,
+      "passRate": 94,
+      "durationSeconds": 295.5,
+      "seedInjections": 11,
+      "groundedOverrides": 47,
+      "failureReasons": {
+        "A resposta se recusa a responder sem motivo aparente.": 1,
+        "resposta_nao_alinhada_ao_seed": 2
+      },
+      "failures": [
+        {
+          "question": "No caso de uma segurada contribuinte individual, especial ou facultativa, qual o período de carência para ter direito ao salário-maternidade?",
+          "expectedFocus": "Carência para salário-maternidade de contribuinte individual, especial e facultativa",
+          "seedDocumentTitle": "https://www.planalto.gov.br/ccivil_03/decreto/d3048.htm",
+          "seedChunkIndex": 49,
+          "answer": "Esta pergunta está fora do meu escopo. Por favor, consulte o agente especializado no tema Salário-Maternidade.",
+          "judgeVerdict": "FAIL",
+          "finalVerdict": "FAIL",
+          "judgeReason": "A resposta se recusa a responder sem motivo aparente.",
+          "heuristicFlags": [],
+          "supportMetrics": {
+            "seedOverlap": 0.03,
+            "focusCoverage": 0.29,
+            "referenceCoverage": 0.2
+          },
+          "seedInjected": false,
+          "groundedOverride": false
+        },
+        {
+          "question": "Quais são os critérios para um irmão não emancipado ser considerado dependente para fins de benefícios, segundo a lei?",
+          "expectedFocus": "Irmão não emancipado, menor de 21 anos ou inválido ou com deficiência, dependente para fins de benefícios.",
+          "seedDocumentTitle": "http://www.planalto.gov.br/ccivil_03/leis/l8213cons.htm",
+          "seedChunkIndex": 15,
+          "answer": "Esta pergunta está fora do meu escopo. Por favor, consulte o agente especializado no tema de dependentes previdenciários.",
+          "judgeVerdict": "FAIL",
+          "finalVerdict": "FAIL",
+          "judgeReason": "Resposta se recusa a responder sem justificativa.",
+          "heuristicFlags": [
+            "resposta_nao_alinhada_ao_seed"
+          ],
+          "supportMetrics": {
+            "seedOverlap": 0,
+            "focusCoverage": 0,
+            "referenceCoverage": 0
+          },
+          "seedInjected": false,
+          "groundedOverride": false
+        },
+        {
+          "question": "Como é feita a comprovação de dependência econômica para dependentes que não são o cônjuge ou filhos?",
+          "expectedFocus": "Comprovação de dependência econômica, presunção de dependência, início de prova material, prova testemunhal.",
+          "seedDocumentTitle": "http://www.planalto.gov.br/ccivil_03/leis/l8213cons.htm",
+          "seedChunkIndex": 15,
+          "answer": "Para dependentes que não são cônjuge ou filhos, como pais ou irmãos, a depend",
+          "judgeVerdict": "FAIL",
+          "finalVerdict": "FAIL",
+          "judgeReason": "Resposta incompleta e não aborda o tema central.",
+          "heuristicFlags": [
+            "resposta_nao_alinhada_ao_seed"
+          ],
+          "supportMetrics": {
+            "seedOverlap": 0,
+            "focusCoverage": 0,
+            "referenceCoverage": 0
+          },
+          "seedInjected": false,
+          "groundedOverride": false
+        }
+      ]
+    },
+    {
+      "agentId": "a52473d6-0152-49f9-b4b1-5bec4eee058c",
+      "title": "DTrib",
+      "chunks": 3363,
+      "questions": 50,
+      "passed": 48,
+      "failed": 2,
+      "passRate": 96,
+      "durationSeconds": 312,
+      "seedInjections": 13,
+      "groundedOverrides": 48,
+      "failureReasons": {
+        "resposta_nao_alinhada_ao_seed": 2
+      },
+      "failures": [
+        {
+          "question": "A Diretoria de Revisão do Crédito Tributário cuida de quais atividades?",
+          "expectedFocus": "Atribuições da Diretoria de Revisão do Crédito Tributário no planejamento, gestão e coordenação de atividades relacionadas ao crédito tributário.",
+          "seedDocumentTitle": "https://www.planalto.gov.br/ccivil_03/leis/lcp/lcp227.htm",
+          "seedChunkIndex": 21,
+          "answer": "Não localizei essa informação na base normativa deste agente.",
+          "judgeVerdict": "FAIL",
+          "finalVerdict": "FAIL",
+          "judgeReason": "A resposta se recusa a responder sem motivo aparente.",
+          "heuristicFlags": [
+            "resposta_nao_alinhada_ao_seed"
+          ],
+          "supportMetrics": {
+            "seedOverlap": 0,
+            "focusCoverage": 0,
+            "referenceCoverage": 0
+          },
+          "seedInjected": false,
+          "groundedOverride": false
+        },
+        {
+          "question": "Quais so os documentos necessrios para comprovar a separao ou divrcio para fins de cancelamento da inscrio do cnjuge?",
+          "expectedFocus": "Documentos aceitos para o cancelamento da inscrio do cnjuge em casos de separao ou divrcio.",
+          "seedDocumentTitle": "https://www.planalto.gov.br/ccivil_03/leis/l8213cons.htm",
+          "seedChunkIndex": 16,
+          "answer": "Conforme o contexto documental fornecido, o artigo 17, § 2º, da Lei nº 8.213/9",
+          "judgeVerdict": "FAIL",
+          "finalVerdict": "FAIL",
+          "judgeReason": "Resposta incompleta, cortada no meio da frase.",
+          "heuristicFlags": [
+            "resposta_nao_alinhada_ao_seed"
+          ],
+          "supportMetrics": {
+            "seedOverlap": 0,
+            "focusCoverage": 0,
+            "referenceCoverage": 0
+          },
+          "seedInjected": false,
+          "groundedOverride": false
+        }
+      ]
+    },
+    {
+      "agentId": "80da08d1-1a2d-4ca8-b866-ede83ba0e4d0",
+      "title": "Regime Próprio de Previdência Social",
+      "chunks": 1915,
+      "questions": 50,
+      "passed": 48,
+      "failed": 2,
+      "passRate": 96,
+      "durationSeconds": 343.6,
+      "seedInjections": 13,
+      "groundedOverrides": 48,
+      "failureReasons": {
+        "resposta_nao_alinhada_ao_seed": 2
+      },
+      "failures": [
+        {
+          "question": "Quais são os critérios para um irmão não emancipado ser considerado dependente para fins de benefícios, segundo a lei?",
+          "expectedFocus": "Irmão não emancipado, menor de 21 anos ou inválido ou com deficiência, dependente para fins de benefícios.",
+          "seedDocumentTitle": "http://www.planalto.gov.br/ccivil_03/leis/l8213cons.htm",
+          "seedChunkIndex": 15,
+          "answer": "Esta pergunta está fora do meu escopo. Por favor, consulte o agente especializado no tema Regime Geral de Previdência Social (RGPS).",
+          "judgeVerdict": "FAIL",
+          "finalVerdict": "FAIL",
+          "judgeReason": "Resposta se recusa a responder sem justificativa.",
+          "heuristicFlags": [
+            "resposta_nao_alinhada_ao_seed"
+          ],
+          "supportMetrics": {
+            "seedOverlap": 0,
+            "focusCoverage": 0,
+            "referenceCoverage": 0
+          },
+          "seedInjected": false,
+          "groundedOverride": false
+        },
+        {
+          "question": "Qual a relação entre a Defensoria Pública e o artigo 93 da Constituição Federal?",
+          "expectedFocus": "O art. 93 se aplica à Defensoria Pública no que couber, conforme mencionado no documento.",
+          "seedDocumentTitle": "https://www.gov.br/previdencia/pt-br/assuntos/rpps/legislacao-dos-rpps/NotaTcnicaSEIn1852022MTP.pdf",
+          "seedChunkIndex": 2,
+          "answer": "Não localizei essa informação na base normativa deste agente.",
+          "judgeVerdict": "FAIL",
+          "finalVerdict": "FAIL",
+          "judgeReason": "Contradiz o trecho-fonte.",
+          "heuristicFlags": [
+            "resposta_nao_alinhada_ao_seed"
+          ],
+          "supportMetrics": {
+            "seedOverlap": 0,
+            "focusCoverage": 0,
+            "referenceCoverage": 0
+          },
+          "seedInjected": false,
+          "groundedOverride": false
+        }
+      ]
+    },
+    {
+      "agentId": "ac3f75e4-6961-4549-aa75-5b1bb9e83601",
+      "title": "Aposentadoria por Incapacidade Permanente",
+      "chunks": 1263,
+      "questions": 50,
+      "passed": 48,
+      "failed": 2,
+      "passRate": 96,
+      "durationSeconds": 332.6,
+      "seedInjections": 8,
+      "groundedOverrides": 48,
+      "failureReasons": {
+        "A resposta se recusa a responder sem motivo aparente.": 1,
+        "resposta_nao_alinhada_ao_seed": 1
+      },
+      "failures": [
+        {
+          "question": "Qual o período de carência para salário-maternidade, no caso de seguradas contribuinte individual, especial e facultativa?",
+          "expectedFocus": "Carência para salário-maternidade (contribuinte individual, especial e facultativa)",
+          "seedDocumentTitle": "https://www.planalto.gov.br/ccivil_03/decreto/d3048.htm",
+          "seedChunkIndex": 49,
+          "answer": "Esta pergunta está fora do meu escopo. Por favor, consulte o agente especializado no tema Salário-Maternidade.",
+          "judgeVerdict": "FAIL",
+          "finalVerdict": "FAIL",
+          "judgeReason": "A resposta se recusa a responder sem motivo aparente.",
+          "heuristicFlags": [],
+          "supportMetrics": {
+            "seedOverlap": 0.03,
+            "focusCoverage": 0.29,
+            "referenceCoverage": 0.2
+          },
+          "seedInjected": false,
+          "groundedOverride": false
+        },
+        {
+          "question": "Como essa portaria afeta a análise de formulários de atividade especial para benefícios e outros processos no INSS?",
+          "expectedFocus": "A portaria estabelece a análise administrativa da conformidade do formulário de atividade especial.",
+          "seedDocumentTitle": "https://www.in.gov.br/web/dou/-/portaria-pres/inss-n-1.630-de-17-de-novembro-de-2023-524262179",
+          "seedChunkIndex": 1,
+          "answer": "Esta pergunta está fora do meu escopo. Por favor, consulte o agente especializado no tema Aposentadoria Especial.",
+          "judgeVerdict": "FAIL",
+          "finalVerdict": "FAIL",
+          "judgeReason": "Resposta se recusa a responder.",
+          "heuristicFlags": [
+            "resposta_nao_alinhada_ao_seed"
+          ],
+          "supportMetrics": {
+            "seedOverlap": 0.02,
+            "focusCoverage": 0.13,
+            "referenceCoverage": 0
+          },
+          "seedInjected": false,
+          "groundedOverride": false
+        }
+      ]
+    },
+    {
+      "agentId": "6532876a-172e-411d-9cd9-8e66eec9384f",
+      "title": "Viabilidade Judicial - Auxílio por Incapacidade Temporária",
+      "chunks": 1263,
+      "questions": 50,
+      "passed": 49,
+      "failed": 1,
+      "passRate": 98,
+      "durationSeconds": 312.5,
+      "seedInjections": 11,
+      "groundedOverrides": 49,
+      "failureReasons": {
+        "resposta_nao_alinhada_ao_seed": 1
+      },
+      "failures": [
+        {
+          "question": "Como o limite do art. 37, XI da Constituição se aplica aos proventos de inatividade, especialmente em casos de acumulação de cargos públicos e outras atividades?",
+          "expectedFocus": "O limite do art. 37, XI se aplica à soma total dos proventos de inatividade, inclusive quando decorrentes da acumulação de cargos ou empregos públicos, bem como de outras atividades sujeitas a contribuição para o regime geral de previdência social.",
+          "seedDocumentTitle": "https://www.planalto.gov.br/ccivil_03/constituicao/constituicao.htm",
+          "seedChunkIndex": 44,
+          "answer": "Esta pergunta está fora do meu escopo. Por favor, consulte o agente especializado no tema Direito Constitucional e Administrativo.",
+          "judgeVerdict": "FAIL",
+          "finalVerdict": "FAIL",
+          "judgeReason": "Resposta se recusa a responder sem motivo aparente.",
+          "heuristicFlags": [
+            "resposta_nao_alinhada_ao_seed"
+          ],
+          "supportMetrics": {
+            "seedOverlap": 0.03,
+            "focusCoverage": 0,
+            "referenceCoverage": 0
+          },
+          "seedInjected": false,
+          "groundedOverride": false
+        }
+      ]
+    },
+    {
+      "agentId": "2b7ece53-f20d-4464-8d2f-f482bac21599",
+      "title": "Aposentadoria Pré EC 103",
+      "chunks": 1263,
+      "questions": 50,
+      "passed": 49,
+      "failed": 1,
+      "passRate": 98,
+      "durationSeconds": 313.9,
+      "seedInjections": 9,
+      "groundedOverrides": 48,
+      "failureReasons": {
+        "resposta_nao_alinhada_ao_seed": 1
+      },
+      "failures": [
+        {
+          "question": "Se o parto acontecer antes do previsto, como fica o período de carência para o salário-maternidade? Ele muda de alguma forma?",
+          "expectedFocus": "Redução do período de carência em caso de parto antecipado",
+          "seedDocumentTitle": "https://www.planalto.gov.br/ccivil_03/decreto/d3048.htm",
+          "seedChunkIndex": 49,
+          "answer": "Esta pergunta está fora do meu escopo. Por favor, consulte o agente especializado no tema Salário-Maternidade.",
+          "judgeVerdict": "FAIL",
+          "finalVerdict": "FAIL",
+          "judgeReason": "A resposta se recusa a responder sem motivo.",
+          "heuristicFlags": [
+            "resposta_nao_alinhada_ao_seed"
+          ],
+          "supportMetrics": {
+            "seedOverlap": 0.03,
+            "focusCoverage": 0,
+            "referenceCoverage": 0.2
+          },
+          "seedInjected": false,
+          "groundedOverride": false
+        }
+      ]
+    },
+    {
+      "agentId": "7ac4a472-bc57-4d89-8605-cbc15037fcc8",
+      "title": "Agente NR.sPro",
+      "chunks": 1279,
+      "questions": 50,
+      "passed": 50,
+      "failed": 0,
+      "passRate": 100,
+      "durationSeconds": 291.5,
+      "seedInjections": 5,
+      "groundedOverrides": 50,
+      "failureReasons": {},
+      "failures": []
+    },
+    {
+      "agentId": "c4d4f66e-32c5-4eef-b95d-7e70ae0c0406",
+      "title": "Cálculo de RMI",
+      "chunks": 1263,
+      "questions": 50,
+      "passed": 50,
+      "failed": 0,
+      "passRate": 100,
+      "durationSeconds": 291.5,
+      "seedInjections": 7,
+      "groundedOverrides": 50,
+      "failureReasons": {},
+      "failures": []
+    }
+  ]
+}
