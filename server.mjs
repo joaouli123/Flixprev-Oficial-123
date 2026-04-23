@@ -7,6 +7,7 @@ import { fileURLToPath } from 'url';
 import { createRequire } from 'module';
 import pkg from 'pg';
 import OpenAI from 'openai';
+import Anthropic from '@anthropic-ai/sdk';
 import multer from 'multer';
 import pdfParse from 'pdf-parse';
 import mammoth from 'mammoth';
@@ -190,27 +191,170 @@ const chatStorage = multer.diskStorage({
 const chatUpload = multer({ storage: chatStorage });
 const hasDatabaseUrl = Boolean(process.env.DATABASE_URL && process.env.DATABASE_URL.trim());
 const GEMINI_OPENAI_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/openai/';
+const ANTHROPIC_BASE_URL = 'https://api.anthropic.com/v1/';
+const DEFAULT_RAG_VECTOR_LIMIT = Number(process.env.RAG_VECTOR_LIMIT || 36);
+const DEFAULT_RAG_RETURN_LIMIT = Number(process.env.RAG_RETURN_LIMIT || 18);
+const DEFAULT_RAG_MIN_SIMILARITY = Number(process.env.RAG_MIN_SIMILARITY || 0.18);
+const DEFAULT_RAG_KEYWORD_LIMIT = Number(process.env.RAG_KEYWORD_LIMIT || 8);
+const DEFAULT_CHAT_MAX_TOKENS = Number(process.env.CHAT_MAX_TOKENS || 2200);
+const DEFAULT_FAST_CHAT_MAX_TOKENS = Number(process.env.FAST_CHAT_MAX_TOKENS || 1400);
+
+const RETRIEVAL_STOPWORDS = new Set([
+  'a', 'ao', 'aos', 'as', 'ate', 'com', 'como', 'da', 'das', 'de', 'do', 'dos', 'e', 'ela', 'ele',
+  'em', 'entre', 'era', 'essa', 'esse', 'esta', 'este', 'eu', 'foi', 'ha', 'isso', 'ja', 'la',
+  'mais', 'mas', 'na', 'nas', 'nao', 'nem', 'no', 'nos', 'o', 'os', 'ou', 'para', 'pela', 'pelas',
+  'pelo', 'pelos', 'por', 'qual', 'quando', 'que', 'quem', 'se', 'sem', 'ser', 'seu', 'sua', 'suas',
+  'seus', 'sob', 'so', 'tambem', 'tem', 'uma', 'um'
+]);
+
+function getFirstNonEmptyEnv(...values) {
+  for (const value of values) {
+    const normalized = String(value || '').trim();
+    if (normalized) {
+      return normalized;
+    }
+  }
+
+  return '';
+}
+
+function normalizeBaseUrl(baseURL = '') {
+  const normalized = String(baseURL || '').trim();
+  if (!normalized) {
+    return undefined;
+  }
+
+  return normalized.endsWith('/') ? normalized : `${normalized}/`;
+}
+
+function normalizeRetrievalText(value = '') {
+  return String(value || '')
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+}
+
+function extractRetrievalTokens(value = '', { minLength = 3, limit = 24 } = {}) {
+  const tokens = normalizeRetrievalText(value)
+    .match(/[\p{L}\p{N}_-]{3,}/gu) || [];
+
+  return Array.from(new Set(tokens))
+    .filter((token) => token.length >= minLength && !RETRIEVAL_STOPWORDS.has(token))
+    .slice(0, limit);
+}
+
+function detectChatProvider({ model = '', baseURL = '' } = {}) {
+  const normalizedModel = String(model || '').trim().toLowerCase();
+  const normalizedBaseURL = String(baseURL || '').trim().toLowerCase();
+
+  if (normalizedModel.startsWith('claude-') || normalizedBaseURL.includes('anthropic.com') || normalizedBaseURL.includes('claude.com')) {
+    return 'anthropic';
+  }
+
+  return 'openai-compatible';
+}
+
+function detectEmbeddingProvider({ baseURL = '' } = {}) {
+  const normalizedBaseURL = String(baseURL || '').trim().toLowerCase();
+  if (normalizedBaseURL.includes('anthropic.com') || normalizedBaseURL.includes('claude.com')) {
+    return 'unsupported';
+  }
+
+  return 'openai-compatible';
+}
 
 function getAiRuntimeConfig() {
-  const apiKey = process.env.GEMINI_API_KEY || process.env.OPENAI_API_KEY || process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
-  const useGemini = Boolean(process.env.GEMINI_API_KEY);
-  const baseURL = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL || (useGemini ? GEMINI_OPENAI_BASE_URL : undefined);
+  const geminiApiKey = getFirstNonEmptyEnv(process.env.GEMINI_API_KEY);
+  const openAiApiKey = getFirstNonEmptyEnv(process.env.OPENAI_API_KEY);
+  const anthropicApiKey = getFirstNonEmptyEnv(process.env.ANTHROPIC_API_KEY);
+  const sharedOpenAiCompatibleApiKey = getFirstNonEmptyEnv(process.env.AI_INTEGRATIONS_OPENAI_API_KEY);
+  const sharedOpenAiCompatibleBaseURL = normalizeBaseUrl(process.env.AI_INTEGRATIONS_OPENAI_BASE_URL);
+  const sharedBaseLooksAnthropic = Boolean(sharedOpenAiCompatibleBaseURL && /anthropic\.com|claude\.com/i.test(sharedOpenAiCompatibleBaseURL));
+
+  const defaultChatApiKey = anthropicApiKey || geminiApiKey || openAiApiKey || sharedOpenAiCompatibleApiKey;
+  const defaultChatBaseURL = anthropicApiKey
+    ? ANTHROPIC_BASE_URL
+    : (geminiApiKey ? GEMINI_OPENAI_BASE_URL : sharedOpenAiCompatibleBaseURL);
+
+  const chatApiKey = getFirstNonEmptyEnv(
+    process.env.CHAT_API_KEY,
+    process.env.AI_CHAT_API_KEY,
+    defaultChatApiKey
+  );
+  const chatModel = getFirstNonEmptyEnv(process.env.CHAT_MODEL) || (anthropicApiKey ? 'claude-sonnet-4-6' : (geminiApiKey ? 'gemini-2.5-flash' : 'gpt-4o'));
+  const chatBaseURL = normalizeBaseUrl(getFirstNonEmptyEnv(
+    process.env.CHAT_BASE_URL,
+    process.env.AI_CHAT_BASE_URL,
+    defaultChatBaseURL
+  ));
+  const chatProvider = detectChatProvider({ model: chatModel, baseURL: chatBaseURL });
+  const fastChatModel = getFirstNonEmptyEnv(process.env.FAST_CHAT_MODEL) || chatModel;
+
+  const embeddingModel = getFirstNonEmptyEnv(process.env.EMBEDDING_MODEL) || (openAiApiKey ? 'text-embedding-3-large' : (geminiApiKey ? 'gemini-embedding-001' : 'text-embedding-3-large'));
+  const embeddingBaseURL = normalizeBaseUrl(getFirstNonEmptyEnv(
+    process.env.EMBEDDING_BASE_URL,
+    process.env.AI_EMBEDDING_BASE_URL,
+    embeddingModel.startsWith('gemini-') ? GEMINI_OPENAI_BASE_URL : (sharedBaseLooksAnthropic ? '' : sharedOpenAiCompatibleBaseURL)
+  ));
+  const embeddingApiKey = getFirstNonEmptyEnv(
+    process.env.EMBEDDING_API_KEY,
+    process.env.AI_EMBEDDING_API_KEY,
+    openAiApiKey,
+    geminiApiKey,
+    sharedBaseLooksAnthropic ? '' : sharedOpenAiCompatibleApiKey
+  );
+  const embeddingProvider = detectEmbeddingProvider({ baseURL: embeddingBaseURL });
 
   return {
+    apiKey: chatApiKey,
+    baseURL: chatBaseURL,
+    useGemini: embeddingModel.startsWith('gemini-') || chatModel.startsWith('gemini-'),
+    chatApiKey,
+    chatBaseURL,
+    chatProvider,
+    chatModel,
+    fastChatModel,
+    embeddingApiKey,
+    embeddingBaseURL,
+    embeddingProvider,
+    embeddingModel
+  };
+}
+
+function createOpenAiCompatibleClient({ apiKey, baseURL } = {}) {
+  return new OpenAI({
     apiKey,
     baseURL,
-    useGemini,
-    chatModel: process.env.CHAT_MODEL || (useGemini ? 'gemini-2.5-flash' : 'gpt-4o'),
-    fastChatModel: process.env.FAST_CHAT_MODEL || (useGemini ? 'gemini-2.5-flash' : 'gpt-4o-mini'),
-    embeddingModel: process.env.EMBEDDING_MODEL || (useGemini ? 'gemini-embedding-001' : 'text-embedding-3-large')
-  };
+  });
+}
+
+function createNativeChatClient() {
+  const cfg = getAiRuntimeConfig();
+  const anthropicOptions = { apiKey: cfg.chatApiKey };
+  if (cfg.chatBaseURL) {
+    anthropicOptions.baseURL = cfg.chatBaseURL;
+  }
+
+  return new Anthropic(anthropicOptions);
 }
 
 function createAiClient() {
   const cfg = getAiRuntimeConfig();
-  return new OpenAI({
-    apiKey: cfg.apiKey,
-    baseURL: cfg.baseURL,
+  return createOpenAiCompatibleClient({
+    apiKey: cfg.chatApiKey,
+    baseURL: cfg.chatBaseURL,
+  });
+}
+
+function createEmbeddingClient() {
+  const cfg = getAiRuntimeConfig();
+  if (!cfg.embeddingApiKey || cfg.embeddingProvider !== 'openai-compatible') {
+    return null;
+  }
+
+  return createOpenAiCompatibleClient({
+    apiKey: cfg.embeddingApiKey,
+    baseURL: cfg.embeddingBaseURL,
   });
 }
 
@@ -251,6 +395,138 @@ function estimateCompletionCostUsd(promptTokens, completionTokens) {
 
 function estimateEmbeddingCostUsd(totalTokens) {
   return Number((((Math.max(0, Number(totalTokens || 0))) / 1000) * AI_EMBEDDING_COST_PER_1K).toFixed(6));
+}
+
+function getAnthropicMaxTokens(model = '') {
+  return String(model || '').toLowerCase().includes('haiku') ? DEFAULT_FAST_CHAT_MAX_TOKENS : DEFAULT_CHAT_MAX_TOKENS;
+}
+
+function formatChatMessagesForAnthropic(messages = []) {
+  const history = Array.isArray(messages) ? messages : [];
+  const systemParts = [];
+  const conversation = [];
+
+  for (const message of history) {
+    const role = message?.role === 'assistant' ? 'assistant' : (message?.role === 'system' || message?.role === 'developer' ? 'system' : 'user');
+    const content = String(message?.content || '').trim();
+    if (!content) {
+      continue;
+    }
+
+    if (role === 'system') {
+      systemParts.push(content);
+      continue;
+    }
+
+    conversation.push({ role, content });
+  }
+
+  return {
+    system: systemParts.join('\n\n').trim(),
+    messages: conversation.length > 0 ? conversation : [{ role: 'user', content: 'Responda com base no contexto documental recebido.' }],
+  };
+}
+
+function extractTextFromAnthropicMessage(response) {
+  return (response?.content || [])
+    .map((block) => {
+      if (block?.type === 'text') {
+        return block.text || '';
+      }
+
+      return '';
+    })
+    .join('')
+    .trim();
+}
+
+async function runChatCompletion({
+  messages = [],
+  model,
+  userId = null,
+  conversationId = null,
+  requestType = 'chat_completion',
+  temperature = 0,
+  maxTokens,
+}) {
+  const cfg = getAiRuntimeConfig();
+  const effectiveModel = String(model || '').trim() || cfg.chatModel;
+  const promptTokens = estimateTokens(JSON.stringify(messages));
+
+  try {
+    if (cfg.chatProvider === 'anthropic') {
+      const anthropic = createNativeChatClient();
+      const anthropicPayload = formatChatMessagesForAnthropic(messages);
+      const response = await withRetry429(
+        () => anthropic.messages.create({
+          model: effectiveModel,
+          system: anthropicPayload.system || undefined,
+          messages: anthropicPayload.messages,
+          temperature,
+          max_tokens: Math.max(256, Number(maxTokens || getAnthropicMaxTokens(effectiveModel))),
+        }),
+        { label: requestType }
+      );
+
+      const text = extractTextFromAnthropicMessage(response);
+      const completionTokens = Number(response?.usage?.output_tokens || estimateTokens(text));
+      logAiUsageSafe({
+        userId,
+        conversationId,
+        requestType,
+        model: effectiveModel,
+        status: 'success',
+        promptTokens: Number(response?.usage?.input_tokens || promptTokens),
+        completionTokens,
+        totalTokens: Number(response?.usage?.input_tokens || promptTokens) + completionTokens,
+        costUsd: estimateCompletionCostUsd(Number(response?.usage?.input_tokens || promptTokens), completionTokens),
+      });
+
+      return text;
+    }
+
+    const openai = createAiClient();
+    const response = await withRetry429(
+      () => openai.chat.completions.create({
+        model: effectiveModel,
+        messages,
+        temperature,
+        max_tokens: Math.max(256, Number(maxTokens || DEFAULT_CHAT_MAX_TOKENS)),
+      }),
+      { label: requestType }
+    );
+
+    const text = response.choices?.[0]?.message?.content?.trim() || '';
+    const completionTokens = Number(response?.usage?.completion_tokens || estimateTokens(text));
+    const finalPromptTokens = Number(response?.usage?.prompt_tokens || promptTokens);
+    logAiUsageSafe({
+      userId,
+      conversationId,
+      requestType,
+      model: effectiveModel,
+      status: 'success',
+      promptTokens: finalPromptTokens,
+      completionTokens,
+      totalTokens: finalPromptTokens + completionTokens,
+      costUsd: estimateCompletionCostUsd(finalPromptTokens, completionTokens),
+    });
+
+    return text;
+  } catch (error) {
+    logAiUsageSafe({
+      userId,
+      conversationId,
+      requestType,
+      model: effectiveModel,
+      status: 'error',
+      promptTokens: 0,
+      completionTokens: 0,
+      totalTokens: 0,
+      costUsd: 0,
+      errorMessage: error?.message || 'Falha no provedor de chat',
+    });
+    throw error;
+  }
 }
 
 let aiUsageLoggingDisabled = false;
@@ -907,7 +1183,7 @@ async function extractPdfText(filePath) {
     return text;
   } catch (e) {
     console.error('[PDF] Erro ao extrair:', e.message);
-    return '';
+    return [];
   }
 }
 
@@ -1077,7 +1353,17 @@ function htmlToPlainText(html = '') {
       .replace(/<[^>]+>/g, ' ')
       .replace(/[ \t]+/g, ' ')
       .replace(/\n{3,}/g, '\n\n')
-  ).trim();
+  )
+    .replace(/PortalVisitorsCounterWeb/gi, ' ')
+    .replace(/Voltar ao topo da p[aá]gina/gi, ' ')
+    .replace(/Reportar Erro/gi, ' ')
+    .replace(/Todo o conte[úu]do deste site est[aá] publicado[\s\S]*$/i, ' ')
+    .replace(/REDES SOCIAIS[\s\S]*$/i, ' ')
+    .replace(/Facebook|Instagram|YouTube|Twitter|LinkedIn/gi, ' ')
+    .replace(/Termo de Uso e Pol[ií]tica de Privacidade/gi, ' ')
+    .replace(/Texto ou tabela desconfigurados|Omiss[aã]o de anexo ou figura|Mat[eé]ria n[aã]o localizada|Problema de acesso ao conte[uú]do/gi, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 }
 
 async function fetchLinkKnowledgeSource(rawUrl) {
@@ -1211,7 +1497,7 @@ Responda de forma objetiva em português. Se possível, traga resumo e pontos pr
 }
 
 // 2️⃣ Chunking Inteligente - CONFIGURAÇÃO NUCLEAR (4000/1000)
-function chunkText(text, size = 4000, overlap = 1000) {
+function chunkText(text, size = 1800, overlap = 250) {
   if (!text || text.trim().length === 0) {
     console.warn('[CHUNK] Texto vazio, nenhum chunk criado.');
     return [];
@@ -1249,14 +1535,54 @@ function chunkText(text, size = 4000, overlap = 1000) {
     if (start >= end) start = end;
   }
 
-  console.log(`[CHUNK NUCLEAR] Gerados ${chunks.length} chunks de aprox ${size} chars.`);
+  console.log(`[CHUNK] Gerados ${chunks.length} chunks de aprox ${size} chars.`);
   return chunks;
 }
 
 // 3️⃣ Gerar embeddings (OpenAI/Gemini)
+async function generateQueryEmbedding(input, logContext = {}) {
+  const cfg = getAiRuntimeConfig();
+  const embeddingClient = createEmbeddingClient();
+  if (!embeddingClient) {
+    console.warn('[EMB] Nenhum provedor de embeddings configurado para consulta.');
+    return null;
+  }
+
+  const normalizedInput = String(input || '').trim();
+  if (!normalizedInput) {
+    return null;
+  }
+
+  const response = await withRetry429(
+    () => embeddingClient.embeddings.create({
+      model: cfg.embeddingModel,
+      input: normalizedInput,
+    }),
+    { label: logContext.label || 'embedding_query' }
+  );
+
+  const embeddingTokens = estimateTokens(normalizedInput);
+  logAiUsageSafe({
+    userId: logContext.userId,
+    conversationId: logContext.conversationId,
+    requestType: logContext.requestType || 'embedding_query',
+    model: cfg.embeddingModel,
+    status: 'success',
+    promptTokens: embeddingTokens,
+    completionTokens: 0,
+    totalTokens: embeddingTokens,
+    costUsd: estimateEmbeddingCostUsd(embeddingTokens),
+  });
+
+  return response?.data?.[0]?.embedding || null;
+}
+
 async function generateEmbeddings(chunks, logContext = {}) {
   const cfg = getAiRuntimeConfig();
-  const openai = createAiClient();
+  const embeddingClient = createEmbeddingClient();
+  if (!embeddingClient) {
+    throw new Error('Nenhum provedor de embeddings compatível configurado para indexação.');
+  }
 
   const embeddings = [];
   console.log(`[EMB] Gerando embeddings para ${chunks.length} chunks...`);
@@ -1264,7 +1590,7 @@ async function generateEmbeddings(chunks, logContext = {}) {
   for (let i = 0; i < chunks.length; i++) {
     try {
       const res = await withRetry429(
-        () => openai.embeddings.create({
+        () => embeddingClient.embeddings.create({
           model: cfg.embeddingModel,
           input: chunks[i]
         }),
@@ -1297,7 +1623,77 @@ async function generateEmbeddings(chunks, logContext = {}) {
 }
 
 // 4️⃣ Busca semântica com pgvector - CONFIGURAÇÃO OTIMIZADA (Limit 12, Sim >= 0.40)
-async function searchSimilarChunks(queryEmbedding, agentId, limit = 12, queryText = '') {
+function computeChunkLexicalScore(content = '', queryText = '') {
+  const normalizedContent = normalizeRetrievalText(content);
+  const tokens = extractRetrievalTokens(queryText, { limit: 32 });
+  if (!normalizedContent || tokens.length === 0) {
+    return 0;
+  }
+
+  let score = 0;
+  for (const token of tokens) {
+    if (normalizedContent.includes(token)) {
+      score += Math.min(token.length, 12);
+    }
+  }
+
+  const quotedPhrases = Array.from(String(queryText || '').matchAll(/"([^"]{4,})"/g))
+    .map((match) => normalizeRetrievalText(match[1]));
+  for (const phrase of quotedPhrases) {
+    if (phrase && normalizedContent.includes(phrase)) {
+      score += 20;
+    }
+  }
+
+  return score;
+}
+
+function dedupeRetrievedRows(rows = []) {
+  const seen = new Set();
+  return (Array.isArray(rows) ? rows : []).filter((row) => {
+    const key = `${row?.documentId || 'sem-doc'}:${row?.chunkIndex}:${String(row?.content || '').slice(0, 80)}`;
+    if (seen.has(key)) {
+      return false;
+    }
+
+    seen.add(key);
+    return true;
+  });
+}
+
+function rerankRetrievedRows(rows = [], queryText = '', limit = DEFAULT_RAG_RETURN_LIMIT) {
+  return dedupeRetrievedRows(rows)
+    .map((row) => {
+      const similarity = Number(row?.similarity || 0);
+      const lexicalScore = computeChunkLexicalScore(row?.content || '', queryText);
+      const finalScore = (similarity * 100) + lexicalScore + (row?.injected ? 6 : 0);
+      return {
+        ...row,
+        lexicalScore,
+        finalScore,
+      };
+    })
+    .filter((row) => row.similarity >= DEFAULT_RAG_MIN_SIMILARITY || row.lexicalScore > 0)
+    .sort((a, b) => (b.finalScore - a.finalScore) || (b.similarity - a.similarity) || (a.chunkIndex - b.chunkIndex))
+    .slice(0, Math.max(1, limit));
+}
+
+function formatRetrievedContext(rows = []) {
+  return (Array.isArray(rows) ? rows : [])
+    .map((row, index) => {
+      const title = String(row?.documentTitle || 'Documento sem título').replace(/\s+/g, ' ').trim();
+      const similarityTag = Number.isFinite(row?.similarity) ? ` | sim ${Number(row.similarity).toFixed(3)}` : '';
+      return `[Fonte ${index + 1} | ${title} | trecho ${row?.chunkIndex ?? '?'}${similarityTag}]\n${row?.content || ''}`.trim();
+    })
+    .filter(Boolean)
+    .join('\n\n---\n\n');
+}
+
+async function searchSimilarChunks(queryEmbedding, agentId, limit = DEFAULT_RAG_VECTOR_LIMIT, queryText = '') {
+  if (!Array.isArray(queryEmbedding) || queryEmbedding.length === 0) {
+    return [];
+  }
+
   try {
     return await withDatabaseFallback(
       'searchSimilarChunks',
@@ -1305,35 +1701,51 @@ async function searchSimilarChunks(queryEmbedding, agentId, limit = 12, queryTex
         const embeddingString = '[' + queryEmbedding.join(',') + ']';
 
         const result = await pool.query(`
-          SELECT content, chunk_index, 1 - (embedding <=> $2::vector) as similarity
-          FROM document_chunks
-          WHERE agent_id = $1
-          ORDER BY embedding <=> $2::vector
+          SELECT
+            dc.document_id,
+            dc.content,
+            dc.chunk_index,
+            COALESCE(d.title, 'Documento sem título') AS document_title,
+            1 - (dc.embedding <=> $2::vector) as similarity
+          FROM document_chunks dc
+          LEFT JOIN documents d ON d.id = dc.document_id
+          WHERE dc.agent_id = $1
+            AND dc.embedding IS NOT NULL
+          ORDER BY dc.embedding <=> $2::vector
           LIMIT $3
         `, [agentId, embeddingString, limit]);
 
-        console.log('--- RAG OTIMIZADO ---');
+        console.log('--- RAG PROFUNDO ---');
         console.log(`Agente: ${agentId}`);
         console.log(`Chunks brutos: ${result.rows.length}/${limit}`);
 
         if (result.rows.length > 0) {
-          result.rows.slice(0, 3).forEach((r, i) => {
-            console.log(`Chunk ${i + 1} (Sim: ${r.similarity.toFixed(3)}): ${r.content.substring(0, 60)}...`);
+          result.rows.slice(0, 3).forEach((row, index) => {
+            console.log(`Chunk ${index + 1} (Sim: ${Number(row.similarity || 0).toFixed(3)}): ${String(row.content || '').substring(0, 60)}...`);
           });
         }
 
-        const bestSimilarity = result.rows?.[0]?.similarity ?? 0;
-        if (bestSimilarity < 0.45) {
-          console.log(`[SEARCH] Similaridade baixa (${bestSimilarity.toFixed(3)}). Ignorando contexto documental.`);
-          return '';
+        const bestSimilarity = Number(result.rows?.[0]?.similarity || 0);
+        if (bestSimilarity < DEFAULT_RAG_MIN_SIMILARITY) {
+          console.log(`[SEARCH] Similaridade vetorial baixa (${bestSimilarity.toFixed(3)}). Mantendo reranking lexical.`);
         }
 
         // Filtra chunks com similaridade >= 0.40 (remove ruído)
-        const relevantRows = result.rows.filter(r => r.similarity >= 0.40);
+        const relevantRows = rerankRetrievedRows(
+          result.rows.map((row) => ({
+            documentId: row.document_id,
+            documentTitle: row.document_title,
+            content: row.content,
+            chunkIndex: row.chunk_index,
+            similarity: Number(row.similarity || 0),
+          })),
+          queryText,
+          DEFAULT_RAG_RETURN_LIMIT
+        );
         console.log(`Chunks após filtro (sim>=0.40): ${relevantRows.length}`);
         console.log('----------------------------------');
 
-        return relevantRows.map(r => `[Trecho ID: ${r.chunk_index}]\n${r.content}`).join('\n\n---\n\n');
+        return relevantRows;
       },
       () => searchSimilarChunksViaSupabase(queryText, agentId, limit)
     );
@@ -1344,26 +1756,48 @@ async function searchSimilarChunks(queryEmbedding, agentId, limit = 12, queryTex
 }
 
 // 4B️⃣ Busca por palavra-chave (fallback)
-async function searchKeywordChunks(keyword, agentId, limit = 5) {
+async function searchKeywordChunks(queryText, agentId, limit = DEFAULT_RAG_KEYWORD_LIMIT) {
+  const keywords = extractRetrievalTokens(queryText, { limit: DEFAULT_RAG_KEYWORD_LIMIT });
+  if (keywords.length === 0) {
+    return [];
+  }
+
   try {
     return await withDatabaseFallback(
       'searchKeywordChunks',
       async () => {
+        const likeClauses = keywords.map((_, index) => `dc.content ILIKE $${index + 2}`);
         const result = await pool.query(`
-          SELECT content
-          FROM document_chunks
-          WHERE agent_id = $1 AND content ILIKE $2
-          LIMIT $3
-        `, [agentId, '%' + keyword + '%', limit]);
+          SELECT
+            dc.document_id,
+            dc.content,
+            dc.chunk_index,
+            COALESCE(d.title, 'Documento sem título') AS document_title
+          FROM document_chunks dc
+          LEFT JOIN documents d ON d.id = dc.document_id
+          WHERE dc.agent_id = $1
+            AND (${likeClauses.join(' OR ')})
+          LIMIT $${keywords.length + 2}
+        `, [agentId, ...keywords.map((keyword) => `%${keyword}%`), Math.max(limit * 5, 20)]);
 
-        console.log(`[KEYWORD_SEARCH] Encontrados ${result.rows.length} chunks com palavra-chave: "${keyword}"`);
-        return result.rows.map(r => r.content).join('\n\n---\n\n');
+        console.log(`[KEYWORD_SEARCH] Encontrados ${result.rows.length} chunks para ${keywords.length} palavras-chave.`);
+        return rerankRetrievedRows(
+          result.rows.map((row) => ({
+            documentId: row.document_id,
+            documentTitle: row.document_title,
+            content: row.content,
+            chunkIndex: row.chunk_index,
+            similarity: 0,
+          })),
+          queryText,
+          limit
+        );
       },
-      () => searchKeywordChunksViaSupabase(keyword, agentId, limit)
+      () => searchKeywordChunksViaSupabase(queryText, agentId, limit)
     );
   } catch (e) {
     console.error('[KEYWORD_SEARCH] Erro:', e.message);
-    return '';
+    return [];
   }
 }
 
@@ -1374,21 +1808,32 @@ async function getFirstChunks(agentId, limit = 3) {
       'getFirstChunks',
       async () => {
         const result = await pool.query(`
-          SELECT content
-          FROM document_chunks
-          WHERE agent_id = $1
-          ORDER BY chunk_index ASC
+          SELECT
+            dc.document_id,
+            dc.content,
+            dc.chunk_index,
+            COALESCE(d.title, 'Documento sem título') AS document_title
+          FROM document_chunks dc
+          LEFT JOIN documents d ON d.id = dc.document_id
+          WHERE dc.agent_id = $1
+          ORDER BY dc.chunk_index ASC
           LIMIT $2
         `, [agentId, limit]);
 
         console.log(`[ORDER_SEARCH] Recuperados os primeiros ${result.rows.length} chunks.`);
-        return result.rows.map(r => r.content).join('\n\n---\n\n');
+        return result.rows.map((row) => ({
+          documentId: row.document_id,
+          documentTitle: row.document_title,
+          content: row.content,
+          chunkIndex: row.chunk_index,
+          similarity: 1,
+        }));
       },
       () => getFirstChunksViaSupabase(agentId, limit)
     );
   } catch (e) {
     console.error('[ORDER_SEARCH] Erro:', e.message);
-    return '';
+    return [];
   }
 }
 
@@ -1682,6 +2127,76 @@ RESPONDA AGORA:
 }
 
 // Validador de Saída
+function buildGroundedPrompt(context, agentInstructions, question, conversationContext = '') {
+  const hasContext = Boolean(context && context.trim().length > 0);
+  const hasConversationContext = Boolean(conversationContext && conversationContext.trim().length > 0);
+  const conversationBlock = hasConversationContext
+    ? `CONTEXTO RECENTE DA CONVERSA:\n${conversationContext}\n\n`
+    : '';
+
+  if (!hasContext) {
+    return `PERSONA: CONSULTOR TECNICO SENIOR
+Voce responde de forma objetiva, rigorosa e inteiramente ancorada na base do agente.
+
+INSTRUCOES DO AGENTE:
+${agentInstructions || "Atue como um assistente técnico."}
+
+REGRAS:
+1. Use exclusivamente o contexto documental fornecido.
+2. Se o contexto estiver vazio ou insuficiente, responda exatamente: "Não encontrei essa informação na base do agente."
+3. Nunca complete com conhecimento externo.
+4. Nunca invente artigos, nomes, datas, prazos, procedimentos ou conclusoes.
+5. Se houver contexto suficiente, responda em portugues claro e objetivo.
+
+${conversationBlock}PERGUNTA DO USUARIO:
+${question}
+
+CONTEXTO DOCUMENTAL:
+${context || '[sem contexto]'}
+
+RESPONDA AGORA:`;
+  }
+
+  return `PERSONA: CONSULTOR TECNICO SENIOR
+Voce responde com fidelidade maxima ao RAG, sem conhecimento externo e sem preencher lacunas.
+
+INSTRUCOES DO AGENTE:
+${agentInstructions || "Atue como um assistente técnico."}
+
+REGRAS CRITICAS:
+1. Leia todos os trechos recuperados antes de responder.
+2. Responda exclusivamente com base no contexto documental abaixo.
+3. Se a resposta depender de mais de um trecho, una os trechos sem extrapolar.
+4. Cada paragrafo ou item factual deve citar pelo menos uma fonte no formato [Fonte N].
+5. Se a informacao nao estiver expressamente nos trechos, responda exatamente: "Não encontrei essa informação na base do agente."
+6. Nao use conhecimento externo, memoria do modelo ou suposicoes.
+7. Nao mencione IDs internos alem do rotulo [Fonte N].
+8. Se houver divergencia entre trechos, aponte a divergencia e cite as fontes.
+
+${conversationBlock}CONTEXTO DOCUMENTAL:
+${context}
+
+PERGUNTA DO USUARIO:
+${question}
+
+RESPONDA AGORA:`;
+}
+
+function hasGroundedSourceMarkers(text = '') {
+  return /\[Fonte\s+\d+\]/i.test(String(text || ''));
+}
+
+function hasGroundedCoverage(text = '', context = '') {
+  const answerTokens = extractRetrievalTokens(text, { limit: 32 });
+  const normalizedContext = normalizeRetrievalText(context);
+  if (!normalizedContext || answerTokens.length === 0) {
+    return false;
+  }
+
+  const matches = answerTokens.filter((token) => normalizedContext.includes(token)).length;
+  return (matches / Math.max(answerTokens.length, 1)) >= 0.3;
+}
+
 function validateOutput(text, hasContext = true, question = '', questionType = 'general', contextSize = 0, chunksUsed = 0, context = '') {
   let finalResponse = text;
 
@@ -1696,6 +2211,18 @@ function validateOutput(text, hasContext = true, question = '', questionType = '
     if (pattern.test(text)) {
       console.log(`[VALIDATOR] 🚨 Alucinação detectada e bloqueada.`);
       return "Não encontrei essa informação no documento. Posso ajudar com outro tópico?";
+    }
+  }
+
+  if (hasContext) {
+    if (!hasGroundedSourceMarkers(text)) {
+      console.log('[VALIDATOR] Resposta sem marcadores de fonte. Bloqueando.');
+      return "Não encontrei essa informação na base do agente.";
+    }
+
+    if (!hasGroundedCoverage(text, context)) {
+      console.log('[VALIDATOR] Cobertura lexical insuficiente entre resposta e contexto. Bloqueando.');
+      return "Não encontrei essa informação na base do agente.";
     }
   }
 
@@ -4902,7 +5429,7 @@ async function getFirstChunksViaSupabase(agentId, limit = 3) {
   const client = ensureSupabaseAdminAvailable();
   const response = await client
     .from('document_chunks')
-    .select('content, chunk_index')
+    .select('document_id, content, chunk_index')
     .eq('agent_id', agentId)
     .order('chunk_index', { ascending: true })
     .limit(limit);
@@ -4911,71 +5438,80 @@ async function getFirstChunksViaSupabase(agentId, limit = 3) {
     throw createSupabaseFallbackError(response.error, 'Erro ao carregar primeiros chunks do agente');
   }
 
-  return (response.data || []).map((row) => row.content).join('\n\n---\n\n');
+  return (response.data || []).map((row) => ({
+    documentId: row.document_id,
+    documentTitle: 'Documento sem título',
+    content: row.content,
+    chunkIndex: row.chunk_index,
+    similarity: 1,
+  }));
 }
 
-async function searchKeywordChunksViaSupabase(keyword, agentId, limit = 3) {
+async function searchKeywordChunksViaSupabase(queryText, agentId, limit = 3) {
   const client = ensureSupabaseAdminAvailable();
-  const normalizedKeyword = String(keyword || '').trim();
-  if (!normalizedKeyword) {
-    return '';
+  const keywords = extractRetrievalTokens(queryText, { limit: DEFAULT_RAG_KEYWORD_LIMIT });
+  if (keywords.length === 0) {
+    return [];
   }
 
   const response = await client
     .from('document_chunks')
-    .select('content, chunk_index')
+    .select('document_id, content, chunk_index')
     .eq('agent_id', agentId)
-    .ilike('content', `%${normalizedKeyword}%`)
     .order('chunk_index', { ascending: true })
-    .limit(limit);
+    .limit(Math.max(limit * 10, 80));
 
   if (response.error) {
     throw createSupabaseFallbackError(response.error, 'Erro ao buscar chunks por palavra-chave');
   }
 
-  return (response.data || []).map((row) => row.content).join('\n\n---\n\n');
+  return rerankRetrievedRows(
+    (response.data || [])
+      .map((row) => ({
+        documentId: row.document_id,
+        documentTitle: 'Documento sem título',
+        content: row.content,
+        chunkIndex: row.chunk_index,
+        similarity: 0,
+      }))
+      .filter((row) => keywords.some((keyword) => normalizeRetrievalText(row.content).includes(keyword))),
+    queryText,
+    limit
+  );
 }
 
-function scoreChunkAgainstQuery(content = '', queryText = '') {
-  const normalizedContent = String(content || '').toLowerCase();
-  const tokens = Array.from(new Set(String(queryText || '').toLowerCase().match(/[\p{L}\p{N}_-]{3,}/gu) || []));
-  if (!normalizedContent || tokens.length === 0) {
-    return 0;
-  }
-
-  return tokens.reduce((score, token) => score + (normalizedContent.includes(token) ? token.length : 0), 0);
-}
-
-async function searchSimilarChunksViaSupabase(queryText, agentId, limit = 12) {
+async function searchSimilarChunksViaSupabase(queryText, agentId, limit = DEFAULT_RAG_RETURN_LIMIT) {
   const client = ensureSupabaseAdminAvailable();
   const response = await client
     .from('document_chunks')
-    .select('content, chunk_index')
+    .select('document_id, content, chunk_index')
     .eq('agent_id', agentId)
     .order('chunk_index', { ascending: true })
-    .limit(Math.max(limit * 3, 50));
+    .limit(Math.max(limit * 10, 120));
 
   if (response.error) {
     throw createSupabaseFallbackError(response.error, 'Erro ao recuperar chunks do agente');
   }
 
-  const rankedRows = (response.data || [])
-    .map((row) => ({
+  const rankedRows = rerankRetrievedRows(
+    (response.data || []).map((row) => ({
+      documentId: row.document_id,
+      documentTitle: 'Documento sem título',
       content: row.content,
-      chunk_index: row.chunk_index,
-      score: scoreChunkAgainstQuery(row.content, queryText),
-    }))
-    .filter((row) => row.score > 0)
-    .sort((a, b) => (b.score - a.score) || (a.chunk_index - b.chunk_index))
-    .slice(0, limit);
+      chunkIndex: row.chunk_index,
+      similarity: 0,
+    })),
+    queryText,
+    limit
+  );
 
   if (rankedRows.length === 0) {
     console.log(`[SEARCH][SUPABASE] Nenhum chunk lexicalmente relevante para o agente ${agentId}.`);
-    return '';
+    return [];
   }
 
   console.log(`[SEARCH][SUPABASE] ${rankedRows.length} chunks relevantes (de ${response.data.length} total) para agente ${agentId}.`);
-  return rankedRows.map((row) => row.content).join('\n\n---\n\n');
+  return rankedRows;
 }
 
 async function countAgentChunks(agentId) {
@@ -5088,12 +5624,13 @@ async function handleSupabaseConversationMessageFallback({ res, userId, cid, con
   const conversationContext = buildConversationContext(historyRows);
   const retrievalQuery = buildRetrievalQuery(userText, conversationContext);
 
-  let prompt = buildPrompt(attachmentContext || '', '', userText || 'Analise o anexo enviado.', 'chatgpt', conversationContext);
+  let prompt = buildGroundedPrompt(attachmentContext || '', '', userText || 'Analise o anexo enviado.', conversationContext);
   let hasContext = Boolean(attachmentContext && attachmentContext.trim());
   let questionType = 'general';
   let contextSize = attachmentContext ? attachmentContext.length : 0;
   let chunksUsed = attachmentContext ? 1 : 0;
   let relevantContext = '';
+  let relevantChunks = [];
 
   if (effectiveAgentId) {
     try {
@@ -5107,54 +5644,45 @@ async function handleSupabaseConversationMessageFallback({ res, userId, cid, con
           const isLookingForBeginning = userText.match(/primeira frase|título|inicio|começo|autor/i);
 
           if (isLookingForBeginning) {
-            relevantContext = await getFirstChunks(effectiveAgentId, 5);
+            relevantChunks = await getFirstChunks(effectiveAgentId, 5);
           } else {
-            const aiCfg = getAiRuntimeConfig();
-            const openai = createAiClient();
-            const queryEmbedding = await withRetry429(
-              () => openai.embeddings.create({
-                model: aiCfg.embeddingModel,
-                input: retrievalQuery || userText,
-              }),
-              { label: 'embedding_supabase_fallback' }
-            );
-
-            const embeddingTokens = estimateTokens(retrievalQuery || userText);
-            logAiUsageSafe({
+            const queryEmbedding = await generateQueryEmbedding(retrievalQuery || userText, {
               userId,
               conversationId: cid,
               requestType: 'chat_embedding_query_supabase_fallback',
-              model: aiCfg.embeddingModel,
-              status: 'success',
-              promptTokens: embeddingTokens,
-              completionTokens: 0,
-              totalTokens: embeddingTokens,
-              costUsd: estimateEmbeddingCostUsd(embeddingTokens),
+              label: 'embedding_supabase_fallback',
             });
 
-            relevantContext = await searchSimilarChunks(
-              queryEmbedding.data[0].embedding,
-              effectiveAgentId,
-              12,
-              retrievalQuery || userText
-            );
+            if (queryEmbedding) {
+              relevantChunks = await searchSimilarChunks(
+                queryEmbedding,
+                effectiveAgentId,
+                DEFAULT_RAG_VECTOR_LIMIT,
+                retrievalQuery || userText
+              );
+            }
 
             const keywords = userText.match(/[A-ZÁÉÍÓÚ][a-zàéíóúç]+/g) || [];
             if (keywords.length > 0) {
-              const keywordContext = await searchKeywordChunks(keywords[0], effectiveAgentId, 2);
+              const keywordContext = '';
               if (keywordContext) {
                 relevantContext = [keywordContext, relevantContext].filter(Boolean).join('\n\n---\n\n');
               }
             }
+
+            const keywordChunks = await searchKeywordChunks(retrievalQuery || userText, effectiveAgentId, DEFAULT_RAG_KEYWORD_LIMIT);
+            relevantChunks = rerankRetrievedRows(
+              [...relevantChunks, ...keywordChunks],
+              retrievalQuery || userText,
+              DEFAULT_RAG_RETURN_LIMIT
+            );
           }
 
-          if (relevantContext) {
-            relevantContext = relevantContext.replace(/\[Trecho ID: \d+\]\n?/g, '').trim();
-          }
+          relevantContext = formatRetrievedContext(relevantChunks);
         }
 
         const mergedContext = [attachmentContext, relevantContext].filter(Boolean).join('\n\n---\n\n');
-        prompt = buildPrompt(mergedContext || '', agentInstructions, userText || 'Analise o anexo enviado.', 'chatgpt', conversationContext);
+        prompt = buildGroundedPrompt(mergedContext || '', agentInstructions, userText || 'Analise o anexo enviado.', conversationContext);
         hasContext = Boolean(mergedContext && mergedContext.trim().length > 0);
         contextSize = mergedContext ? mergedContext.length : 0;
         chunksUsed = mergedContext ? mergedContext.split('\n\n---\n\n').filter(Boolean).length : 0;
@@ -5169,41 +5697,18 @@ async function handleSupabaseConversationMessageFallback({ res, userId, cid, con
   try {
     if (!assistantText) {
       const aiCfg = getAiRuntimeConfig();
-      const openai = createAiClient();
       const msgs = [
         { role: 'system', content: prompt },
-        ...historyRows.slice(-10).map((message) => ({ role: message.role, content: message.content })),
+        { role: 'user', content: userText || 'Analise o anexo enviado.' },
       ];
 
-      const stream = await withRetry429(
-        () => openai.chat.completions.create({
-          model: aiCfg.chatModel,
-          messages: msgs,
-          stream: true,
-          temperature: 0,
-        }),
-        { label: 'chat_completion_supabase_fallback' }
-      );
-
-      for await (const chunk of stream) {
-        const delta = chunk.choices?.[0]?.delta?.content || '';
-        if (delta) {
-          assistantText += delta;
-        }
-      }
-
-      const promptTokens = estimateTokens(JSON.stringify(msgs));
-      const completionTokens = estimateTokens(assistantText);
-      logAiUsageSafe({
+      assistantText = await runChatCompletion({
+        messages: msgs,
+        model: aiCfg.chatModel,
         userId,
         conversationId: cid,
         requestType: 'chat_completion_supabase_fallback',
-        model: aiCfg.chatModel,
-        status: 'success',
-        promptTokens,
-        completionTokens,
-        totalTokens: promptTokens + completionTokens,
-        costUsd: estimateCompletionCostUsd(promptTokens, completionTokens),
+        temperature: 0,
       });
     }
 
