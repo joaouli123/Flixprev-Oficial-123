@@ -43,22 +43,41 @@ pool.on('error', (error) => {
 const AGENTS = [
   {
     title: 'DTrib',
-    role: 'Direito Tributário',
+    aliases: ['Agente Direito Tributário', 'Agente de Direito Tributário'],
+    role: 'Agente Direito Tributário',
     description:
-      'Base central de Direito Tributário com apoio em compilados normativos e legislação estruturante.',
+      'Base central para interpretação do sistema tributário, competências, limitações ao poder de tributar e legislação estruturante.',
     instructions:
-      'Especialista em Direito Tributário com foco em interpretação sistemática da legislação e aplicação prática.',
+      'Especialista em Direito Tributário com foco em interpretação sistemática da legislação, competências tributárias, limitações constitucionais, execução fiscal e integração com a reforma tributária.',
     urls: [
-      'file:///G:/DIREITO/MBI-%20MASTER%20INCAPACIDADE/NORMAS-%20ASSISTENTES/ASSISTENTE%20TRIBUT%C3%81RIO/L5172COMPILADO.pdf',
+      'https://www.planalto.gov.br/ccivil_03/constituicao/constituicao.htm',
+      'https://www.planalto.gov.br/ccivil_03/leis/l5172compilado.htm',
+      'https://www.planalto.gov.br/ccivil_03/leis/l6830.htm',
+      'https://www.planalto.gov.br/ccivil_03/_ato2015-2018/2018/decreto/d9580.htm',
+      'https://www.planalto.gov.br/ccivil_03/leis/2002/l10637.htm',
+      'https://www.planalto.gov.br/ccivil_03/leis/LCP/Lcp214.htm#art507',
+      'https://www.planalto.gov.br/ccivil_03/leis/LCP/Lcp214.htm#art496',
+      'https://www.planalto.gov.br/ccivil_03/leis/2003/l10.833.htm',
+      'https://www.planalto.gov.br/ccivil_03/leis/lcp/lcp123.htm',
+      'https://www.planalto.gov.br/ccivil_03/leis/lcp/Lcp227.htm#art169',
+      'https://www.planalto.gov.br/ccivil_03/leis/l8212cons.htm',
+      'https://www.planalto.gov.br/ccivil_03/leis/l8213cons.htm',
+      'https://www.planalto.gov.br/ccivil_03/_Ato2015-2018/2015/Lei/L13135.htm#art6',
+      'https://www.planalto.gov.br/ccivil_03/leis/lcp/lcp87.htm',
+      'https://www.al.sp.gov.br/repositorio/legislacao/decreto/2000/decreto-45490-30.11.2000.html',
+      'https://www.planalto.gov.br/ccivil_03/leis/lcp/lcp116.htm',
+      'https://www.planalto.gov.br/ccivil_03/constituicao/emendas/emc/emc132.htm',
+      'https://www.in.gov.br/en/web/dou/-/instrucao-normativa-rfb-n-2.121-de-15-de-dezembro-de-2022-452045866',
     ],
   },
   {
     title: 'CTN Expert',
-    role: 'Interpretação Tributária',
+    aliases: ['Agente de Interpretação Tributária', 'Interpretacao Tributaria'],
+    role: 'Agente de Interpretação Tributária',
     description:
       'Explica conceitos de lançamento, tributos, obrigações acessórias, garantias e penalidades.',
     instructions:
-      'Especialista em interpretação tributária com foco no CTN, Constituição e normas complementares. Responda com rigor técnico, citando base legal.',
+      'Especialista em interpretação tributária com foco no CTN, Constituição e normas complementares. Explique lançamento, obrigações tributárias, crédito tributário, garantias e penalidades com rigor técnico e base legal expressa.',
     urls: [
       'https://www.planalto.gov.br/ccivil_03/leis/l5172compilado.htm?utm_source=chatgpt.com',
       'https://www.planalto.gov.br/ccivil_03/constituicao/constituicao.htm?utm_source=chatgpt.com',
@@ -66,8 +85,6 @@ const AGENTS = [
       'https://www.planalto.gov.br/ccivil_03/decreto/d70235cons.htm',
       'https://www.normaslegais.com.br/legislacao/instrucao-normativa-rfb-1700-2017.htm',
       'https://www.normaslegais.com.br/legislacao/instrucao-normativa-rfb-2201-2024.htm',
-      'https://portal.stf.jus.br/',
-      'https://www.stj.jus.br/sites/portalp/Inicio',
       'https://www2.camara.leg.br/legin/fed/leicom/2025/leicomplementar-214-16-janeiro-2025-796905-publicacaooriginal-174141-pl.html',
       'https://www.planalto.gov.br/ccivil_03/leis/lcp/lcp227.htm?utm_source=chatgpt.com',
       'https://www.planalto.gov.br/ccivil_03/constituicao/constituicao.htm',
@@ -77,11 +94,12 @@ const AGENTS = [
   },
   {
     title: 'REFIS-IA',
-    role: 'Reforma Tributária Atual',
+    aliases: ['Agente Reforma Tributária Atual', 'Agente Reforma Tributaria Atual'],
+    role: 'Agente Reforma Tributária Atual',
     description:
       'Monitora e interpreta mudanças da Reforma Tributária e impactos na transição para IBS/CBS/IS.',
     instructions:
-      'Especialista em reforma tributária (LC 214/2025 e correlatas), com foco em transição de tributos e impactos setoriais.',
+      'Especialista em reforma tributária com foco em LC 214/2025, EC 132/2023, CBS, IBS, IS, cronograma de transição e impactos setoriais.',
     urls: [
       'https://www.planalto.gov.br/ccivil_03/leis/l5172compilado.htm?utm_source=chatgpt.com',
       'https://www.planalto.gov.br/ccivil_03/constituicao/constituicao.htm?utm_source=chatgpt.com',
@@ -89,8 +107,6 @@ const AGENTS = [
       'https://www.planalto.gov.br/ccivil_03/decreto/d70235cons.htm',
       'https://www.normaslegais.com.br/legislacao/instrucao-normativa-rfb-1700-2017.htm',
       'https://www.normaslegais.com.br/legislacao/instrucao-normativa-rfb-2201-2024.htm',
-      'https://portal.stf.jus.br/',
-      'https://www.stj.jus.br/sites/portalp/Inicio',
       'https://www2.camara.leg.br/legin/fed/leicom/2025/leicomplementar-214-16-janeiro-2025-796905-publicacaooriginal-174141-pl.html',
       'https://www.planalto.gov.br/ccivil_03/leis/lcp/lcp227.htm?utm_source=chatgpt.com',
       'https://www.planalto.gov.br/ccivil_03/constituicao/constituicao.htm',
@@ -100,11 +116,12 @@ const AGENTS = [
   },
   {
     title: 'TAX-Rend',
-    role: 'Simulador de Renda',
+    aliases: ['Simulador inteligente de cálculos, deduções, retenções e alíquotas aplicáveis'],
+    role: 'Simulador inteligente de cálculos, deduções, retenções e alíquotas aplicáveis',
     description:
       'Simula cálculos, deduções, retenções e alíquotas de tributos sobre renda (PF/PJ).',
     instructions:
-      'Especialista em tributação da renda (PF/PJ), deduções, retenções e alíquotas conforme legislação vigente e alterações recentes.',
+      'Especialista em tributação da renda de pessoa física e jurídica, com foco em cálculo, deduções, retenções, regimes de apuração e mudanças legislativas recentes.',
     urls: [
       'https://www.planalto.gov.br/ccivil_03/leis/l7713.htm',
       'https://www.planalto.gov.br/ccivil_03/leis/l9250.htm?utm_source=chatgpt.com',
@@ -121,11 +138,12 @@ const AGENTS = [
   },
   {
     title: 'FedTax',
+    aliases: ['Guia de obrigações, prazos de pagamento, retenção na fonte e impacto de reformas'],
     role: 'Tributos Federais RFB',
     description:
       'Guia de obrigações, prazos, DARF, retenções e impactos de reformas em tributos federais.',
     instructions:
-      'Especialista em tributos federais administrados pela RFB (IRRF, IOF, CSLL, Cofins e correlatos), com foco em obrigações e prazos.',
+      'Especialista em tributos federais administrados pela RFB, com foco em DARF, retenção na fonte, prazos de pagamento, obrigações acessórias e impactos de reformas tributárias.',
     urls: [
       'https://www.planalto.gov.br/ccivil_03/_ato2007-2010/2010/decreto/d7212.htm',
       'https://www.planalto.gov.br/ccivil_03/leis/l4502.htm',
@@ -145,6 +163,29 @@ const AGENTS = [
     ],
   },
 ];
+
+function normalizeTitle(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+function getAgentCandidateTitles(agentCfg) {
+  return [agentCfg.title, ...(Array.isArray(agentCfg.aliases) ? agentCfg.aliases : [])];
+}
+
+const SELECTED_AGENT_TITLES = (() => {
+  const raw = String(process.env.TRIBUT_AGENT_TITLES || '').trim();
+  if (!raw) return null;
+  const items = raw
+    .split(/[;,]/)
+    .map((item) => normalizeTitle(item))
+    .filter(Boolean);
+  return items.length ? new Set(items) : null;
+})();
 
 function normalizeUrl(rawUrl) {
   try {
@@ -507,6 +548,10 @@ async function ensureAgent(db, categoryId, agentCfg) {
 
   if (existing.rowCount > 0) {
     const id = existing.rows[0].id;
+    const existingInstructions = String(existing.rows[0].instructions || '');
+    const nextInstructions = existingInstructions.includes('ESCOPO TEMÁTICO:')
+      ? existingInstructions
+      : `${agentCfg.instructions}\n\n${strict}`;
 
     await dbQuery(
       db,
@@ -521,7 +566,7 @@ async function ensureAgent(db, categoryId, agentCfg) {
       [
         agentCfg.role,
         agentCfg.description,
-        `${agentCfg.instructions}\n\n${strict}`,
+        nextInstructions,
         'Scale',
         [categoryId],
         id,
@@ -588,9 +633,26 @@ async function ingestAgentSources(db, agentId, agentTitle, rawUrls) {
     }
   }
 
-  await dbQuery(db, 'UPDATE agents SET attachments = $1 WHERE id = $2', [attachmentPaths, agentId]);
+  if (harvested.length === 0) {
+    throw new Error(`Nenhuma fonte válida foi coletada para ${agentTitle}. Mantendo estado anterior sem sobrescrever documentos.`);
+  }
 
-  await dbQuery(db, 'DELETE FROM documents WHERE agent_id = $1', [agentId]);
+  const existingAgent = await dbQuery(db, 'SELECT attachments FROM agents WHERE id = $1', [agentId]);
+  const currentAttachments = Array.isArray(existingAgent.rows?.[0]?.attachments)
+    ? existingAgent.rows[0].attachments
+    : [];
+  const preservedAttachments = currentAttachments.filter((item) => /\/supp-[^/]+\.txt$/i.test(String(item || '')));
+  const nextAttachments = [...preservedAttachments, ...attachmentPaths.filter((item) => !preservedAttachments.includes(item))];
+
+  await dbQuery(db, 'UPDATE agents SET attachments = $1 WHERE id = $2', [nextAttachments, agentId]);
+
+  await dbQuery(
+    db,
+    `DELETE FROM documents
+     WHERE agent_id = $1
+       AND title ~* '^(https?|file)://'`,
+    [agentId]
+  );
 
   let savedDocs = 0;
   let savedChunks = 0;
@@ -673,8 +735,19 @@ async function main() {
 
     const categoryId = await ensureGlobalCategory(pool, CATEGORY_NAME);
     const summary = [];
+    const agentsToProcess = SELECTED_AGENT_TITLES
+      ? AGENTS.filter((agentCfg) =>
+          getAgentCandidateTitles(agentCfg).some((candidate) => SELECTED_AGENT_TITLES.has(normalizeTitle(candidate)))
+        )
+      : AGENTS;
 
-    for (const agentCfg of AGENTS) {
+    if (SELECTED_AGENT_TITLES && agentsToProcess.length === 0) {
+      throw new Error(`TRIBUT_AGENT_TITLES não corresponde a nenhum agente conhecido: ${process.env.TRIBUT_AGENT_TITLES}`);
+    }
+
+    console.log(`\n[TRIBUTARIO] agentes a processar: ${agentsToProcess.length}/${AGENTS.length}`);
+
+    for (const agentCfg of agentsToProcess) {
       console.log(`\n=== Preparando agente: ${agentCfg.title} ===`);
       const agentId = await ensureAgent(pool, categoryId, agentCfg);
       const ingest = await ingestAgentSources(pool, agentId, agentCfg.title, agentCfg.urls);

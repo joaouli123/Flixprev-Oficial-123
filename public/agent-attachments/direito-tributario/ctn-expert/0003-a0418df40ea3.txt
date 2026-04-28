@@ -1,5 +1,5 @@
 FONTE: https://www.planalto.gov.br/ccivil_03/leis/lcp/lcp104.htm
-COLETADO_EM: 2026-03-05T20:52:31.533Z
+COLETADO_EM: 2026-04-28T03:02:55.006Z
 
 Lcp104
 [TABELA]

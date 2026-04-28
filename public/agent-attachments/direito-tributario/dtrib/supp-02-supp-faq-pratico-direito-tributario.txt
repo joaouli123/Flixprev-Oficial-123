@@ -1,0 +1,29 @@
+AGENTE: DTrib
+FONTE: SUPP: FAQ Prático – Direito Tributário
+COLETADO_EM: 2026-04-28T06:19:07.309Z
+
+PERGUNTAS FREQUENTES - DIREITO TRIBUTÁRIO (FAQ PRÁTICO)
+
+P: Qual a diferença entre imposto, taxa e contribuição?
+R: Imposto é tributo sem contraprestação direta (ex: IR, ICMS). Taxa exige atividade estatal específica (ex: taxa de alvará, taxa judiciária). Contribuição de melhoria decorre de obra pública que valoriza imóvel.
+
+P: Uma empresa do Simples Nacional pode contratar pra emitir nota de serviço?
+R: Sim. Empresas do Simples emitem NFS-e normalmente. O recolhimento de ISS, PIS, Cofins já está embutido no DAS.
+
+P: O que é imunidade tributária e qual a diferença de isenção?
+R: Imunidade é proteção constitucional: determinadas situações ou entidades não podem ser tributadas. Isenção é benefício legal: a lei dispensa o pagamento, mas pode ser revogada. Exemplo: templos têm imunidade; cestas básicas podem ter isenção.
+
+P: Prescrição e decadência são a mesma coisa em tributário?
+R: Não. Decadência (art. 173 CTN) é a perda do direito de lançar (constituir o crédito) — prazo de 5 anos. Prescrição (art. 174 CTN) é a perda do direito de cobrar judicialmente — também 5 anos, mas contados da constituição definitiva.
+
+P: Como LC 214 e LC 227 aparecem no contexto geral do direito tributario deste agente?
+R: Neste agente, a LC 214 aparece como a regulamentacao central da reforma tributaria do consumo, detalhando IBS, CBS, Imposto Seletivo, transicao, nao cumulatividade, split payment, cashback e regimes diferenciados. Ja a LC 227 aparece como legislacao complementar de ajuste e implementacao, com refinamentos operacionais, setoriais e tecnicos ligados ao funcionamento do novo modelo IBS/CBS.
+
+P: Qual a diferenca entre ICMS e ISS em termos de competencia e fato gerador?
+R: ICMS e de competencia dos Estados e do DF (art. 155, II, CF; LC 87/96) e tem como fato gerador operacoes relativas a circulacao de mercadorias, transporte interestadual/intermunicipal e comunicacao. ISS e de competencia dos Municipios e do DF (art. 156, III, CF; LC 116/03) e tem como fato gerador a prestacao de servicos constantes da lista anexa da LC 116.
+
+P: O que acontece se eu não pagar o DARF no prazo?
+R: Incide multa de mora (0,33% ao dia, limitada a 20%) e juros Selic acumulados desde o vencimento. Em caso de procedimento fiscal: multa de ofício de 75% (ou 150% em sonegação).
+
+P: Posso parcelar débitos federais?
+R: Sim. O parcelamento ordinário permite até 60 parcelas mensais. Programas especiais (como REFIS, PERT) podem ampliar prazos e oferecer reduções, quando vigentes.

@@ -1,0 +1,92 @@
+AGENTE: FedTax
+FONTE: SUPP: Guia Operacional – Tributos Federais
+COLETADO_EM: 2026-04-28T06:19:45.175Z
+
+GUIA OPERACIONAL - TRIBUTOS FEDERAIS RFB (IPI, IOF, PIS, COFINS, CSLL E OBRIGAÇÕES)
+
+1. IPI - IMPOSTO SOBRE PRODUTOS INDUSTRIALIZADOS
+
+1.1 Base Legal: Decreto 7.212/2010 (RIPI), Lei 4.502/1964
+- Fato gerador: saída do estabelecimento industrial ou importação.
+- Base de cálculo: valor da operação (saída) ou valor aduaneiro + II + outros encargos (importação).
+- Alíquotas: variáveis por produto (TIPI - Tabela de Incidência do IPI).
+- Princípio da seletividade: inversamente proporcional à essencialidade do produto.
+- Não cumulatividade: crédito do IPI pago nas aquisições de insumos e materiais de embalagem.
+- DARF: código 1020 (IPI vinculados ao tabaco), 0668 (IPI automóveis), varia conforme produto.
+
+1.2 Obrigações Acessórias do IPI
+- Escrituração no Livro de Apuração do IPI e no SPED (EFD-ICMS/IPI).
+- Selo de controle para bebidas e cigarros.
+- Nota fiscal eletrônica com destaque do IPI.
+
+2. IOF - IMPOSTO SOBRE OPERAÇÕES FINANCEIRAS
+
+2.1 Base Legal: Decreto 6.306/2007
+- Incide sobre: operações de crédito, câmbio, seguros, títulos e valores mobiliários.
+- Alíquotas por tipo (exemplos):
+  - Crédito PJ: 0,0041%/dia + 0,38% adicional.
+  - Crédito PF: 0,0082%/dia + 0,38% adicional.
+  - Câmbio (remessas ao exterior): 0,38% a 1,1% conforme natureza.
+  - Seguros: 0% a 25% conforme tipo.
+  - Ouro ativo financeiro: 1% na primeira aquisição.
+- IOF é tributo regulatório (art. 153, §1º, CF): alíquotas podem ser alteradas por decreto.
+
+3. PIS/PASEP E COFINS
+
+3.1 Regime Não Cumulativo (Leis 10.637/2002 e 10.833/2003)
+- Alíquotas: PIS 1,65% + Cofins 7,6% = 9,25%.
+- Créditos: aquisições de bens para revenda, insumos, depreciação e amortização, aluguéis, energia, vale-transporte, vale-refeição (prestação de serviços), frete.
+- Receitas excluídas da base: exportações (isentas), transferências entre filiais.
+
+3.2 Regime Cumulativo (Lei 9.718/98)
+- Alíquotas: PIS 0,65% + Cofins 3% = 3,65%.
+- Sem direito a créditos.
+- Aplica-se a: lucro presumido, receitas financeiras de bancos, planos de saúde, entre outros.
+
+3.3 Retenção na Fonte (Art. 30, Lei 10.833)
+- Retenção de 4,65% (PIS 0,65% + Cofins 3% + CSLL 1%) sobre pagamentos de PJ a PJ por serviços profissionais, limpeza, conservação, manutenção, segurança, assessoria, locação de mão de obra.
+- DARF código 5952 (PIS/Cofins/CSLL retidos).
+- Retenção dispensa quem é optante pelo Simples Nacional (prestador).
+
+4. CSLL - CONTRIBUIÇÃO SOCIAL SOBRE O LUCRO LÍQUIDO
+- Base legal: Lei 7.689/88.
+- Alíquotas: 9% (geral), 15% (seguradoras/capitalização), 20% (bancos e instituições financeiras a partir de 2021).
+- Base de cálculo: lucro líquido do período de apuração antes do IRPJ.
+- Apuração: segue regime do IRPJ (real, presumido, arbitrado).
+- Regra de resposta: se a pergunta pedir a base legal central da CSLL, responder primeiro "Lei 7.689/88" e depois contextualizar base de cálculo, alíquota e vínculo com o regime do IRPJ.
+
+5. CONTRIBUIÇÕES PREVIDENCIÁRIAS PATRONAIS (LEI 8.212/91)
+- CPP sobre folha: 20% sobre total das remunerações + RAT (1% a 3%) + SAT + FAP.
+- Contribuição sobre receita bruta (CPRB/desoneração): alíquotas de 1% a 4,5% conforme CNAE.
+- FPAS e códigos de recolhimento via GPS (Guia da Previdência Social) ou DCTF-Web.
+
+6. CÓDIGOS DARF MAIS UTILIZADOS
+- 0190: Carnê-leão IRRF PF
+- 0561: IRRF sobre rendimentos do trabalho assalariado
+- 1708: IRRF sobre serviços profissionais PJ
+- 2372: CSLL trimestral Lucro Real
+- 2089: IRPJ trimestral Lucro Real
+- 2484: IRPJ trimestral Lucro Presumido
+- 2372: CSLL trimestral Lucro Presumido
+- 5952: PIS/Cofins/CSLL retidos na fonte
+- 6912: PIS não cumulativo
+- 5856: Cofins não cumulativo
+- 0668: IPI (veículos automotores)
+- 1020: IPI (cigarros)
+- Fontes para localizar códigos DARF nesta base: SIEF Receita, página oficial de códigos DARF/DJE da Receita e atos Codac consultados no Sijut.
+
+7. PRAZOS PRINCIPAIS DE RECOLHIMENTO
+- IRPJ/CSLL (estimativa mensal): último dia útil do mês seguinte.
+- IRPJ/CSLL (trimestral): último dia útil do mês seguinte ao trimestre.
+- PIS/Cofins: 25º dia do mês seguinte ao fato gerador.
+- IPI: geralmente 25º dia do mês seguinte (varia por produto).
+- IOF: último dia útil da quinzena seguinte.
+- IRRF: 20º dia do mês seguinte ao pagamento.
+- Contribuição previdenciária patronal: dia 20 do mês seguinte.
+
+8. OBRIGAÇÕES ACESSÓRIAS FEDERAIS
+- EFD-Contribuições: escrituração digital de PIS/Cofins/CPRB.
+- ECF (Escrituração Contábil Fiscal): substitui DIPJ. Prazo: julho do ano seguinte.
+- DCTF-Web: declaração de débitos e créditos tributários federais. Mensal.
+- EFD-ICMS/IPI: escrituração fiscal digital para IPI (SPED Fiscal).
+- DIRF: declaração de Imposto de Renda Retido na Fonte.

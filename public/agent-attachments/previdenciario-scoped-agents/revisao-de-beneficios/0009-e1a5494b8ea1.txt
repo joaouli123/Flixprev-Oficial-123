@@ -1,0 +1,7 @@
+AGENTE: Revisão de Benefícios
+FONTE: https://portalin.inss.gov.br/portaria994
+COLETADO_EM: 2026-04-28T01:17:34.944Z
+
+FONTE: https://portalin.inss.gov.br/portaria994
+CONTENT_TYPE: text/html
+OBS: conteúdo textual reduzido; link preservado para consulta normativa oficial.

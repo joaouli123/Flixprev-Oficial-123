@@ -25,6 +25,8 @@
  * ============================================================================
  */
 
+import fs from 'fs/promises';
+import path from 'path';
 import crypto from 'crypto';
 import { Buffer } from 'node:buffer';
 import dotenv from 'dotenv';
@@ -35,24 +37,73 @@ import pkg from 'pg';
 dotenv.config();
 
 const CATEGORY_NAME = 'Previdenciário';
+const ATTACH_BASE = path.join(process.cwd(), 'public', 'agent-attachments', 'previdenciario-scoped-agents');
 const LOCK_KEY = 90612099; // novo lock para não colidir com o script antigo
+
+function getFirstNonEmptyEnv(...values) {
+  for (const value of values) {
+    const normalized = String(value || '').trim();
+    if (normalized) return normalized;
+  }
+  return '';
+}
+
+function normalizeBaseUrl(value = '') {
+  const normalized = String(value || '').trim();
+  if (!normalized) return '';
+  return normalized.endsWith('/') ? normalized : `${normalized}/`;
+}
+
+function normalizeTitle(value = '') {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
 
 const TRANSIENT_DB_CODES = new Set([
   '57P01', '57P02', '57P03', '08000', '08003', '08006', '08001', '53300',
 ]);
 
-const openai = new OpenAI({
-  apiKey: process.env.GEMINI_API_KEY,
-  baseURL:
-    process.env.AI_INTEGRATIONS_OPENAI_BASE_URL ||
-    'https://generativelanguage.googleapis.com/v1beta/openai/',
-});
+const geminiApiKey = getFirstNonEmptyEnv(process.env.GEMINI_API_KEY, process.env.GOOGLE_API_KEY);
+const openAiApiKey = getFirstNonEmptyEnv(process.env.OPENAI_API_KEY);
+const sharedOpenAiCompatibleApiKey = getFirstNonEmptyEnv(process.env.AI_INTEGRATIONS_OPENAI_API_KEY);
+const embeddingModel = getFirstNonEmptyEnv(process.env.EMBEDDING_MODEL)
+  || (openAiApiKey ? 'text-embedding-3-large' : (geminiApiKey ? 'gemini-embedding-001' : 'text-embedding-3-large'));
+const aiApiKey = getFirstNonEmptyEnv(
+  process.env.EMBEDDING_API_KEY,
+  process.env.AI_EMBEDDING_API_KEY,
+  openAiApiKey,
+  geminiApiKey,
+  sharedOpenAiCompatibleApiKey
+);
+const aiBaseURL = normalizeBaseUrl(getFirstNonEmptyEnv(
+  process.env.EMBEDDING_BASE_URL,
+  process.env.AI_EMBEDDING_BASE_URL,
+  embeddingModel.startsWith('gemini-')
+    ? 'https://generativelanguage.googleapis.com/v1beta/openai/'
+    : process.env.AI_INTEGRATIONS_OPENAI_BASE_URL
+));
+
+if (!aiApiKey) {
+  throw new Error('Nenhuma credencial de embeddings configurada. Defina GEMINI_API_KEY, OPENAI_API_KEY ou AI_INTEGRATIONS_OPENAI_API_KEY.');
+}
+
+const openAiOptions = { apiKey: aiApiKey };
+if (aiBaseURL) openAiOptions.baseURL = aiBaseURL;
+
+const openai = new OpenAI(openAiOptions);
 
 const { Pool } = pkg;
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false },
 });
+
+const EMBED_BATCH_SIZE = 50;
+const INSERT_CHUNK_BATCH_SIZE = 100;
 
 // ============================================================================
 // URLs COMUNS (agentes 2-18)
@@ -69,7 +120,7 @@ const COMMON_URLS = [
   'https://portalin.inss.gov.br/portaria994',
   'https://www.in.gov.br/web/dou/-/instrucao-normativa-pres/inss/n-200-de-12-de-fevereiro-de-2026-687366848',
   'https://www.in.gov.br/web/dou/-/instrucao-normativa-pres/inss-n-128-de-28-de-marco-de-2022-389275446',
-  'https://www.in.gov.br/web/dou/-/portaria-pres/inss-n-1.919-de-12-de-janeiro-de-2026-*-681141683',
+  'https://www.in.gov.br/web/dou/-/portaria-pres/inss-n-1.919-de-12-de-janeiro-de-2026-680663816',
   'https://www.in.gov.br/web/dou/-/portaria-conjunta-dirben/dti/inss-n-13-de-23-de-maio-de-2025-631933663',
   'https://www.in.gov.br/web/dou/-/portaria-conjunta-dirben/dti-inss-n-22-de-23-de-setembro-de-2025-658090051',
   'https://www.in.gov.br/web/dou/-/portaria-conjunta-dirben-inss/dpmf-mps-n-4-de-4-de-dezembro-de-2025-673663306',
@@ -172,6 +223,38 @@ ${STRICT_RULES}
       // Lei do Processo Administrativo Federal (BASE FUNDAMENTAL para PAP — NÃO está nas common URLs)
       'https://www.planalto.gov.br/ccivil_03/leis/l9784.htm',
     ],
+    supplementalTexts: [
+      {
+        title: 'SUPLEMENTO_PREVID_SCOPED: PAP - Prazos de Exigencia',
+        fileName: 'suplemento-pap-prazos-exigencia.txt',
+        content: `
+GUIA OPERACIONAL PAP - PRAZOS DE EXIGENCIA
+
+1. REGRA DE RESPOSTA PRIORITARIA
+Quando o usuario perguntar genericamente qual e o prazo para cumprir exigencia no processo administrativo previdenciario, a resposta deve priorizar o prazo ordinario de 30 dias para cumprimento da exigencia, com indicacao da prorrogacao quando a base oficial indexada permitir.
+
+2. PRAZO ORDINARIO DE CUMPRIMENTO
+No contexto operacional do PAP, a base indexada registra o prazo de 30 dias para cumprimento de exigencia, com possibilidade de prorrogacao por mais 30 dias quando cabivel, conforme a disciplina procedimental refletida no Decreto 3.048/99 e nos guias operacionais suplementares preservados na base do agente.
+
+3. DISTINCAO NECESSARIA
+O marco de 75 dias NAO deve ser usado como resposta principal para a pergunta generica sobre prazo de cumprimento.
+Os 75 dias devem ser explicados como consequencia da ausencia de manifestacao do requerente, com potencial caracterizacao de desistência do pedido e encerramento sem analise do merito, conforme a base normativa indexada da IN INSS 128/2022.
+
+4. MODELO DE RESPOSTA CORRETA
+Se o usuario perguntar: "qual o prazo para cumprir uma exigencia?"
+Responder em primeiro lugar:
+- prazo ordinario: 30 dias;
+- eventual prorrogacao: mencionar quando a base aplicavel indicar;
+- consequencia de inercia prolongada: mencionar separadamente o marco de 75 dias apenas como hipotese de desistência/encerramento sem analise do merito.
+
+5. NORMA DE CITACAO
+Sempre que possivel, diferenciar expressamente:
+- prazo inicial de cumprimento da exigencia;
+- prazo de prorrogacao;
+- prazo para configuracao de desistência do pedido.
+`.trim(),
+      },
+    ],
     instructions: `
 ESCOPO TEMÁTICO:
 Você é o agente especialista em Processo Administrativo Previdenciário (PAP). Seu domínio abrange TODOS os aspectos procedimentais do relacionamento entre segurado/beneficiário e o INSS:
@@ -198,6 +281,11 @@ Você é o agente especialista em Processo Administrativo Previdenciário (PAP).
    - Contagem de prazos (dias úteis vs corridos)
    - Prescrição e decadência no âmbito administrativo
    - Lei 9.784/99: prazos gerais do processo administrativo federal
+
+REGRA DE PRIORIZAÇÃO PARA RESPOSTAS SOBRE EXIGÊNCIA:
+- Se o usuário perguntar genericamente qual é o prazo para cumprir uma exigência, responda primeiro com o prazo ordinário de 30 dias e informe, se houver base indexada aplicável, a possibilidade de prorrogação.
+- Só apresente o marco de 75 dias como consequência da inércia prolongada quando a pergunta envolver desistência do pedido, encerramento sem análise do mérito ou ausência de manifestação do requerente.
+- Quando houver mais de um prazo relacionado à exigência, diferencie explicitamente: prazo inicial de cumprimento, eventual prorrogação e prazo para caracterização de desistência.
 
 4. DECISÃO ADMINISTRATIVA:
    - Fundamentação e motivação da decisão
@@ -919,6 +1007,7 @@ ${STRICT_RULES}
     useCommonUrls: false,
     extraUrls: [
       'https://portalin.inss.gov.br/portaria1208',
+      'https://portalin.inss.gov.br/in',
       'https://www.planalto.gov.br/ccivil_03/constituicao/constituicao.htm',
       'https://www.planalto.gov.br/ccivil_03/_ato2011-2014/2011/lei/l12435.htm',
       'https://www.planalto.gov.br/ccivil_03/_ato2015-2018/2015/lei/l13146.htm',
@@ -966,6 +1055,7 @@ ${STRICT_RULES}
       'https://aplicacoes.mds.gov.br/snas/regulacao/visualizar.php?codigo=5255',
       'https://www.planalto.gov.br/ccivil_03/_ato2019-2022/2022/decreto/d11016.htm',
       'https://www.planalto.gov.br/ccivil_03/_ato2015-2018/2016/decreto/d8805.htm',
+      'https://portalin.inss.gov.br/in',
       'https://www.in.gov.br/en/web/dou/-/portaria-dirben/inss-n-1.249-de-26-de-dezembro-de-2024-604469231',
       'https://www.in.gov.br/en/web/dou/-/portaria-dirben/inss-n-1.260-de-27-de-janeiro-de-2025-609661711',
       'https://www.legisweb.com.br/legislacao/?id=489712',
@@ -1002,7 +1092,7 @@ ${STRICT_RULES}
     useCommonUrls: false,
     extraUrls: [
       'https://www.planalto.gov.br/ccivil_03/leis/l8213cons.htm',
-      'https://www.gov.br/previdencia/pt-br/acesso-a-informacao/participacao-social/conselhos-e-orgaos-colegiados/conselho-de-recursos-da-previdencia-social/regimento-interno-instrucao-normativa-portarias/portaria-mps-no-125-de-26-de-janeiro-de-2026-regimento-interno-do-crps-compilada-ate-04-02-2026.pdf',
+      'https://www.gov.br/previdencia/pt-br/acesso-a-informacao/participacao-social/conselhos-e-orgaos-colegiados/conselho-de-recursos-da-previdencia-social/regimento-interno-instrucao-normativa-portarias/portaria-mps-no-125-de-26-de-janeiro-de-2026-regimento-interno-do-crps-compilada-ate-20-03-2026.pdf',
       'https://www.gov.br/inss/pt-br/direitos-e-deveres/recurso/recurso-administrativo-de-beneficio-previdenciario',
       'https://www.gov.br/previdencia/pt-br/acesso-a-informacao/participacao-social/conselhos-e-orgaos-colegiados/conselho-de-recursos-da-previdencia-social/regimento-interno-instrucao-normativa-portarias',
       'https://portalin.inss.gov.br/portaria993',
@@ -1086,12 +1176,11 @@ ${STRICT_RULES}
       'https://www.planalto.gov.br/ccivil_03/leis/l9717.htm',
       'https://portalin.inss.gov.br/portaria998',
       'https://www.planalto.gov.br/ccivil_03/leis/lcp/lcp226.htm',
-      'https://portal.stf.jus.br/constituicao-supremo/artigo.asp?abrirArtigo=40&abrirBase=CF',
       'https://www.gov.br/previdencia/pt-br/assuntos/rpps/legislacao-dos-rpps/NotaTcnicaSEIn1852022MTP.pdf',
       'https://www.gov.br/previdencia/pt-br/assuntos/rpps/legislacao-dos-rpps/leis-1/copy4_of_27CONSOLIDAOLEGISLAORPPSatualizadaatde29dedezembrode2025.pdf',
       'https://www.gov.br/previdencia/pt-br/assuntos/rpps/legislacao-dos-rpps/portarias/portarias_todas/12PortariaMTPn1.467de02jun2022Atualizadaat29dez2025.pdf',
       'https://www.gov.br/previdencia/pt-br/assuntos/rpps/legislacao-dos-rpps/Decreton10.620de05fev2021.pdf',
-      'https://www.gov.br/previdencia/pt-br/assuntos/rpps/legislacao-dos-rpps/portarias/arquivos/2020/decreto-no-10-418_de-7_-de_-julho_-de_-2020_.pdf',
+      'https://www.gov.br/previdencia/pt-br/assuntos/rpps/legislacao-dos-rpps/decretos-rpps',
       'https://www.gov.br/previdencia/pt-br/outros/imagens/2016/06/Decreton3.788de11abr2001-1.pdf',
       'https://www.gov.br/previdencia/pt-br/outros/imagens/2016/06/Decreton3.112de06jul1999atualizadoate16jul2009-1.pdf',
       'https://www.gov.br/previdencia/pt-br/assuntos/rpps/legislacao-dos-rpps/emenda-constitucional-rpps',
@@ -1256,6 +1345,10 @@ function dedupe(urls) {
   return out;
 }
 
+function toSlug(value = '') {
+  return normalizeTitle(value).replace(/\s+/g, '-') || 'agente';
+}
+
 function htmlToText(html) {
   return String(html || '')
     .replace(/<script[\s\S]*?<\/script>/gi, ' ')
@@ -1373,8 +1466,6 @@ async function embed(text) {
 }
 
 // Batch embedding — envia até BATCH_SIZE textos em uma única chamada de API
-const EMBED_BATCH_SIZE = 50;
-
 async function embedBatch(texts) {
   if (!texts.length) return [];
   const results = new Array(texts.length).fill(null);
@@ -1411,6 +1502,27 @@ async function embedBatch(texts) {
   return results;
 }
 
+async function insertChunkRows(client, agentId, documentId, rows) {
+  for (let start = 0; start < rows.length; start += INSERT_CHUNK_BATCH_SIZE) {
+    const batch = rows.slice(start, start + INSERT_CHUNK_BATCH_SIZE);
+    const values = [];
+    const params = [];
+
+    for (let index = 0; index < batch.length; index++) {
+      const row = batch[index];
+      const offset = index * 5;
+      values.push(`($${offset + 1},$${offset + 2},$${offset + 3},$${offset + 4}::vector,$${offset + 5})`);
+      params.push(agentId, documentId, row.content, row.embedding, row.chunk_index);
+    }
+
+    await client.query(
+      `INSERT INTO document_chunks (agent_id, document_id, content, embedding, chunk_index)
+       VALUES ${values.join(',')}`,
+      params
+    );
+  }
+}
+
 async function ensureCategory() {
   const existing = await dbQuery(
     'SELECT id FROM categories WHERE lower(name)=lower($1) AND user_id IS NULL LIMIT 1',
@@ -1433,12 +1545,14 @@ const OLD_TITLE_MAP = {
   'cadastro nacional informações sociais': 'Cadastro Nacional de Informações Sociais',
   'procadm': 'Processo Administrativo Previdenciário',
   'p.a.p': 'Processo Administrativo Previdenciário',
+  'pap': 'Processo Administrativo Previdenciário',
   'a.pré103': 'Aposentadoria Pré EC 103',
   'a.pre103': 'Aposentadoria Pré EC 103',
   'apre103': 'Aposentadoria Pré EC 103',
   'apiurb': 'Aposentadoria por Idade Urbana',
   'aesp': 'Aposentadoria Especial',
   'apcd': 'Aposentadoria da Pessoa com Deficiência',
+  'pcd': 'Aposentadoria da Pessoa com Deficiência',
   'arur': 'Aposentadoria Rural',
   'rec': 'Auxílio-Reclusão',
   'pmor': 'Pensão por Morte',
@@ -1490,6 +1604,17 @@ async function findExistingAgent(newTitle) {
   }
 
   return null;
+}
+
+function getAgentCandidateTitles(agent) {
+  return [
+    agent.title,
+    ...Object.entries(OLD_TITLE_MAP)
+      .filter(([, mappedTitle]) => mappedTitle === agent.title)
+      .map(([oldTitle]) => oldTitle),
+  ]
+    .map((value) => normalizeTitle(value))
+    .filter(Boolean);
 }
 
 async function ensureAgent(agent, categoryId) {
@@ -1605,23 +1730,35 @@ async function fetchRawText(url) {
 
 async function buildChunksForAgent(url, agentTitle) {
   const text = await fetchRawText(url);
+  return buildChunksFromText(text, url, agentTitle);
+}
+
+async function buildChunksFromText(text, sourceLabel, agentTitle) {
   const chunksRaw = chunkText(text, agentTitle, 4000, 1000);
-  if (!chunksRaw.length) return { url, chunks: [] };
+  if (!chunksRaw.length) return { url: sourceLabel, chunks: [] };
+
+  const contextualizedChunks = chunksRaw.map((chunk) => [
+    `AGENTE: ${agentTitle}`,
+    `FONTE OFICIAL: ${sourceLabel}`,
+    'USO: responder somente dentro do escopo tematico deste agente.',
+    '',
+    chunk,
+  ].join('\n'));
 
   // Batch embedding — dezenas de chunks em uma única chamada de API
-  const vectors = await embedBatch(chunksRaw);
+  const vectors = await embedBatch(contextualizedChunks);
   const chunks = [];
 
-  for (let i = 0; i < chunksRaw.length; i++) {
+  for (let i = 0; i < contextualizedChunks.length; i++) {
     if (!vectors[i]) continue;
     chunks.push({
       chunk_index: i,
-      content: chunksRaw[i],
+      content: contextualizedChunks[i],
       embedding: `[${vectors[i].join(',')}]`,
     });
   }
 
-  return { url, chunks };
+  return { url: sourceLabel, chunks };
 }
 
 // ============================================================================
@@ -1629,6 +1766,19 @@ async function buildChunksForAgent(url, agentTitle) {
 // ============================================================================
 
 async function main() {
+  await fs.mkdir(ATTACH_BASE, { recursive: true });
+
+  const requestedTitles = String(process.env.PREVID_AGENT_TITLES || '')
+    .split(',')
+    .map((value) => normalizeTitle(value))
+    .filter(Boolean);
+  const selectedAgents = requestedTitles.length
+    ? AGENTS.filter((agent) => {
+        const titles = getAgentCandidateTitles(agent);
+        return requestedTitles.some((requested) => titles.includes(requested));
+      })
+    : AGENTS;
+
   const lock = await dbQuery('SELECT pg_try_advisory_lock($1) AS locked', [LOCK_KEY]);
   if (!lock.rows?.[0]?.locked) {
     throw new Error('Já existe processamento em execução (advisory lock ativo).');
@@ -1636,7 +1786,9 @@ async function main() {
 
   try {
     const categoryId = await ensureCategory();
-    const commonUrls = dedupe(COMMON_URLS);
+    const commonUrls = selectedAgents.some((agent) => agent.useCommonUrls)
+      ? dedupe(COMMON_URLS)
+      : [];
     const summary = [];
 
     console.log('');
@@ -1644,19 +1796,26 @@ async function main() {
     console.log('  SETUP PREVIDENCIÁRIO — AGENTES COM ESCOPO ISOLADO');
     console.log('═══════════════════════════════════════════════════════════════════');
     console.log(`  URLs comuns: ${commonUrls.length}`);
-    console.log(`  Agentes a processar: ${AGENTS.length}`);
+    console.log(
+      `  Agentes a processar: ${selectedAgents.length}`
+      + (requestedTitles.length ? ` (filtrado de ${AGENTS.length})` : '')
+    );
     console.log('═══════════════════════════════════════════════════════════════════');
     console.log('');
 
     // Pré-fetch de TODAS as URLs comuns (texto bruto, sem chunk/embed ainda)
-    console.log('[FASE 1] Baixando textos das URLs comuns...');
-    for (let i = 0; i < commonUrls.length; i++) {
-      try {
-        await fetchRawText(commonUrls[i]);
-        console.log(`  [OK] ${i + 1}/${commonUrls.length}: ${commonUrls[i].slice(0, 80)}...`);
-      } catch (error) {
-        console.log(`  [ERRO] ${i + 1}/${commonUrls.length}: ${commonUrls[i]} -> ${error.message}`);
+    if (commonUrls.length) {
+      console.log('[FASE 1] Baixando textos das URLs comuns...');
+      for (let i = 0; i < commonUrls.length; i++) {
+        try {
+          await fetchRawText(commonUrls[i]);
+          console.log(`  [OK] ${i + 1}/${commonUrls.length}: ${commonUrls[i].slice(0, 80)}...`);
+        } catch (error) {
+          console.log(`  [ERRO] ${i + 1}/${commonUrls.length}: ${commonUrls[i]} -> ${error.message}`);
+        }
       }
+    } else {
+      console.log('[FASE 1] Execução filtrada sem agentes com URLs comuns.');
     }
 
     // Processar cada agente
@@ -1664,25 +1823,61 @@ async function main() {
     console.log('[FASE 2] Processando agentes com escopo temático...');
     console.log('');
 
-    for (const agent of AGENTS) {
+    for (const agent of selectedAgents) {
       const agentId = await ensureAgent(agent, categoryId);
+      const folderSlug = toSlug(agent.title);
+      const folder = path.join(ATTACH_BASE, folderSlug);
+      await fs.mkdir(folder, { recursive: true });
 
       // Determinar URLs deste agente
       const agentUrls = agent.useCommonUrls
         ? dedupe([...commonUrls, ...agent.extraUrls])
         : dedupe(agent.extraUrls);
 
-      // Atualizar attachments no banco
-      await dbQuery('UPDATE agents SET attachments=$1 WHERE id=$2', [agentUrls, agentId]);
-
       // Build all chunks for all URLs BEFORE deleting old data
       let docs = 0;
       let chunks = 0;
       const allPayloads = [];
+      const attachments = [];
+
+      const supplementalTexts = Array.isArray(agent.supplementalTexts) ? agent.supplementalTexts : [];
+
+      for (let i = 0; i < supplementalTexts.length; i++) {
+        const item = supplementalTexts[i];
+        const fileName = String(item.fileName || `suplemento-${String(i + 1).padStart(2, '0')}.txt`).trim();
+        const relPath = `/agent-attachments/previdenciario-scoped-agents/${folderSlug}/${fileName}`;
+        const fileContent = [
+          `AGENTE: ${agent.title}`,
+          `FONTE: ${item.title}`,
+          `COLETADO_EM: ${new Date().toISOString()}`,
+          '',
+          String(item.content || '').trim(),
+        ].join('\n');
+        await fs.writeFile(path.join(folder, fileName), fileContent, 'utf8');
+        attachments.push(relPath);
+
+        const payload = await buildChunksFromText(String(item.content || ''), item.title, agent.title);
+        allPayloads.push({ url: item.title, payload });
+        chunks += payload.chunks.length;
+      }
 
       for (let i = 0; i < agentUrls.length; i++) {
         const url = agentUrls[i];
         try {
+          const text = await fetchRawText(url);
+          const hash = crypto.createHash('sha1').update(url).digest('hex').slice(0, 12);
+          const fileName = `${String(i + 1).padStart(4, '0')}-${hash}.txt`;
+          const relPath = `/agent-attachments/previdenciario-scoped-agents/${folderSlug}/${fileName}`;
+          const fileContent = [
+            `AGENTE: ${agent.title}`,
+            `FONTE: ${url}`,
+            `COLETADO_EM: ${new Date().toISOString()}`,
+            '',
+            text,
+          ].join('\n');
+          await fs.writeFile(path.join(folder, fileName), fileContent, 'utf8');
+          attachments.push(relPath);
+
           const payload = await buildChunksForAgent(url, agent.title);
           allPayloads.push({ url, payload });
           chunks += payload.chunks.length;
@@ -1699,7 +1894,16 @@ async function main() {
       const client = await pool.connect();
       try {
         await client.query('BEGIN');
-        await client.query('DELETE FROM documents WHERE agent_id=$1', [agentId]);
+        await client.query('UPDATE agents SET attachments=$1 WHERE id=$2', [attachments, agentId]);
+        await client.query(
+          `DELETE FROM documents
+           WHERE agent_id=$1
+             AND (
+               title ~* '^(https?|file)://'
+               OR title LIKE 'SUPLEMENTO_PREVID_SCOPED:%'
+             )`,
+          [agentId]
+        );
 
         for (const { url, payload } of allPayloads) {
           if (!payload.chunks.length) continue;
@@ -1707,13 +1911,7 @@ async function main() {
           const title = url.length > 255 ? url.slice(0, 255) : url;
           await client.query('INSERT INTO documents (id, agent_id, title) VALUES ($1,$2,$3)', [docId, agentId, title]);
           docs += 1;
-          for (const row of payload.chunks) {
-            await client.query(
-              `INSERT INTO document_chunks (agent_id, document_id, content, embedding, chunk_index)
-               VALUES ($1,$2,$3,$4::vector,$5)`,
-              [agentId, docId, row.content, row.embedding, row.chunk_index]
-            );
-          }
+          await insertChunkRows(client, agentId, docId, payload.chunks);
         }
 
         await client.query('COMMIT');
@@ -1744,24 +1942,28 @@ async function main() {
     }
 
     // ===== LIMPEZA DE AGENTES DUPLICADOS/OBSOLETOS =====
-    const validTitles = AGENTS.map((a) => a.title.toLowerCase());
-    const allPrevAgents = await dbQuery(
-      `SELECT a.id, a.title FROM agents a
-       WHERE a.user_id IS NULL
-         AND a.category_ids::text[] @> ARRAY[$1::text]`,
-      [categoryId]
-    );
-    let removed = 0;
-    for (const row of allPrevAgents.rows) {
-      if (!validTitles.includes(row.title.toLowerCase())) {
-        await dbQuery('DELETE FROM documents WHERE agent_id=$1', [row.id]);
-        await dbQuery('DELETE FROM agents WHERE id=$1', [row.id]);
-        console.log(`  🗑️  Removido agente obsoleto: "${row.title}"`);
-        removed++;
+    if (!requestedTitles.length) {
+      const validTitles = AGENTS.map((a) => a.title.toLowerCase());
+      const allPrevAgents = await dbQuery(
+        `SELECT a.id, a.title FROM agents a
+         WHERE a.user_id IS NULL
+           AND a.category_ids::text[] @> ARRAY[$1::text]`,
+        [categoryId]
+      );
+      let removed = 0;
+      for (const row of allPrevAgents.rows) {
+        if (!validTitles.includes(row.title.toLowerCase())) {
+          await dbQuery('DELETE FROM documents WHERE agent_id=$1', [row.id]);
+          await dbQuery('DELETE FROM agents WHERE id=$1', [row.id]);
+          console.log(`  🗑️  Removido agente obsoleto: "${row.title}"`);
+          removed++;
+        }
       }
+      if (removed > 0) console.log(`  Total removidos: ${removed}`);
+      else console.log('  Nenhum agente obsoleto encontrado.');
+    } else {
+      console.log('  Limpeza de agentes obsoletos ignorada em execução filtrada.');
     }
-    if (removed > 0) console.log(`  Total removidos: ${removed}`);
-    else console.log('  Nenhum agente obsoleto encontrado.');
 
     // Relatório final
     console.log('');

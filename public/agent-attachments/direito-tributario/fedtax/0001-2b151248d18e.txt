@@ -1,5 +1,5 @@
 FONTE: https://www.planalto.gov.br/ccivil_03/_ato2007-2010/2010/decreto/d7212.htm
-COLETADO_EM: 2026-03-05T21:25:29.112Z
+COLETADO_EM: 2026-04-28T03:37:56.797Z
 
 Decreto n� 7212
 [TABELA]
@@ -9545,6 +9545,53 @@ A partir de 1/11/2024 |
 R$ 2,25 |
 R$ 2,25 |
 [TABELA]
+(Reda��o
+dada pelo Decreto n� 12.922, de 2026)
+[TABELA]
+Vig�ncia |
+Al�quotas |
+Ad Valorem
+(%) |
+Espec�fica (R$) |
+Ma�o |
+Box |
+1/12/2011 a 30/04/2012 |
+0% |
+R$ 0,80 |
+R$ 1,15 |
+1/5/2012 a 31/12/2012 |
+40,00% |
+R$ 0,90 |
+R$ 1,20 |
+1/1/2013 a 31/12/2013 |
+47,00% |
+R$ 1,05 |
+R$ 1,25 |
+1/1/2014 a 31/12/2014 |
+54,00% |
+R$ 1,20 |
+R$ 1,30 |
+1/1/2015 a 30/4/2016 |
+60,00% |
+R$ 1,30 |
+R$ 1,30 |
+1/5/2016 a 30/11/2016 |
+63,30% |
+R$ 1,40 |
+R$ 1,40 |
+1/12/2016 a 31/10/2024 |
+66,70% |
+R$ 1,50 |
+R$ 1,50 |
+1/11/2024 a 31/7/2026 |
+66,70% |
+R$ 2,25 |
+R$ 2,25 |
+A partir de 1/8/2026 |
+66,70% |
+R$ 3,50 |
+R$ 3,50 |
+[TABELA]
 � 2� A propositura de a��o judicial que questione os termos do regime
 especial de que trata este artigo implica a desist�ncia da op��o pelo regime
 e a incid�ncia do imposto na forma prevista no regime geral de que trata o
@@ -9814,6 +9861,26 @@ R$ 4,50 |
 R$ 5,00 |
 A partir de 1/9/2024 |
 R$ 6,50 |
+[TABELA]
+(Reda��o
+dada pelo Decreto n� 12.922, de 2026)
+[TABELA]
+Vig�ncia |
+Valor por vintena (R$) |
+1/5/2012 a 31/12/2012 |
+R$ 3,00 |
+1/1/2013 a 31/12/2013 |
+R$ 3,50 |
+1/1/2014 a 31/12/2014 |
+R$ 4,00 |
+1/1/2015 a 30/4/2016 |
+R$ 4,50 |
+1/5/2016 a 31/8/2024 |
+R$ 5,00 |
+1/9/2024 a 30/4/2026 |
+R$ 6,50 |
+A partir de 1/5/2026 |
+R$ 7,50 |
 [TABELA]
 � 1� Fica vedada, pelo prazo de cinco anos-calend�rio, contado da data de
 aplica��o da pena de perdimento prevista no inciso V do caput do art.

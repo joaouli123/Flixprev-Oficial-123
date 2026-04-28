@@ -1,0 +1,7 @@
+AGENTE: Turma Nacional de Uniformização
+FONTE: https://www.cjf.jus.br/phpdoc/virtus/
+COLETADO_EM: 2026-04-28T01:21:27.043Z
+
+FONTE: https://www.cjf.jus.br/phpdoc/virtus/
+CONTENT_TYPE: text/html; charset=iso-8859-1
+OBS: conteúdo textual reduzido; link preservado para consulta normativa oficial.

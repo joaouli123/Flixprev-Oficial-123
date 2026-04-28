@@ -10,10 +10,13 @@
  *   node script/_upgrade_tributario.cjs
  */
 const crypto = require('crypto');
+const fs = require('fs/promises');
+const path = require('path');
 const { Pool } = require('pg');
 require('dotenv').config();
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
+const ATTACHMENTS_BASE_DIR = path.join(process.cwd(), 'public', 'agent-attachments', 'direito-tributario');
 
 const EMBED_DELAY_MS = 3000;
 const EMBED_BATCH_SIZE = 25;
@@ -22,6 +25,16 @@ const CHUNK_SIZE = 1200;
 const CHUNK_OVERLAP = 200;
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+function toSlug(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 80);
+}
 
 function chunkText(text) {
   const clean = String(text || '').replace(/\s+/g, ' ').trim();
@@ -321,6 +334,13 @@ A competência tributária é a aptidão constitucional para instituir tributos:
 - Competência residual: art. 154, I, CF (somente União, por LC, tributo novo não cumulativo com base e fato gerador diferentes).
 - Competência extraordinária: art. 154, II, CF (imposto de guerra).
 
+2.1 DISTINÇÃO OPERACIONAL ENTRE ICMS E ISS
+- ICMS: imposto estadual previsto no art. 155, II, da CF e disciplinado pela LC 87/96.
+- Fato gerador do ICMS: operações relativas à circulação de mercadorias; prestações de transporte interestadual e intermunicipal; prestações onerosas de comunicação; e hipóteses equiparadas do art. 2º da LC 87/96.
+- ISS: imposto municipal previsto no art. 156, III, da CF e disciplinado pela LC 116/03.
+- Fato gerador do ISS: prestação de serviços constantes da lista anexa à LC 116/03, mesmo que não sejam a atividade preponderante do prestador, conforme art. 1º da LC 116.
+- Regra prática: circulação de mercadoria, transporte interestadual/intermunicipal e comunicação apontam para ICMS; prestação de serviço da lista legal aponta para ISS.
+
 3. PRINCÍPIOS CONSTITUCIONAIS TRIBUTÁRIOS
 - Legalidade (art. 150, I, CF): nenhum tributo será exigido ou aumentado sem lei.
 - Anterioridade (art. 150, III, b, CF): vedada cobrança no mesmo exercício financeiro da publicação da lei.
@@ -360,6 +380,8 @@ A competência tributária é a aptidão constitucional para instituir tributos:
 - Transição longa: 2026–2032, com plena vigência em 2033.
 - Não cumulatividade plena: crédito amplo de toda a cadeia.
 - Detalhes regulamentados por LC 214/2025.
+- LC 214/2025: regulamenta a espinha dorsal da reforma do consumo, com IBS, CBS, IS, transição, não cumulatividade, split payment, cashback e regimes diferenciados.
+- LC 227/2025: aparece como legislação complementar de ajuste operacional e setorial da reforma, alterando pontos de implementação, repartição, regimes específicos e regras técnicas conectadas ao novo modelo IBS/CBS.
 `.trim();
 
 const BASE_CTN = `
@@ -391,6 +413,7 @@ GUIA OPERACIONAL - INTERPRETAÇÃO DO CTN E NORMAS TRIBUTÁRIAS
 - Responsabilidade por infrações (art. 136): objetiva, salvo exceções legais.
 - Responsabilidade por sucessão (arts. 129–133): inter vivos e causa mortis.
 - Responsabilidade por substituição: norma coloca terceiro como devedor originário (ex: IRRF, ISS retido).
+- Denúncia espontânea (art. 138): comunicação voluntária da infração antes de qualquer procedimento fiscal, com pagamento do tributo e dos juros, afastando a multa punitiva.
 
 2. CRÉDITO TRIBUTÁRIO (CTN ARTS. 139–193)
 
@@ -655,6 +678,7 @@ GUIA OPERACIONAL - TRIBUTOS FEDERAIS RFB (IPI, IOF, PIS, COFINS, CSLL E OBRIGAÇ
 - Alíquotas: 9% (geral), 15% (seguradoras/capitalização), 20% (bancos e instituições financeiras a partir de 2021).
 - Base de cálculo: lucro líquido do período de apuração antes do IRPJ.
 - Apuração: segue regime do IRPJ (real, presumido, arbitrado).
+- Regra de resposta: se a pergunta pedir a base legal central da CSLL, responder primeiro "Lei 7.689/88" e depois contextualizar base de cálculo, alíquota e vínculo com o regime do IRPJ.
 
 5. CONTRIBUIÇÕES PREVIDENCIÁRIAS PATRONAIS (LEI 8.212/91)
 - CPP sobre folha: 20% sobre total das remunerações + RAT (1% a 3%) + SAT + FAP.
@@ -674,6 +698,7 @@ GUIA OPERACIONAL - TRIBUTOS FEDERAIS RFB (IPI, IOF, PIS, COFINS, CSLL E OBRIGAÇ
 - 5856: Cofins não cumulativo
 - 0668: IPI (veículos automotores)
 - 1020: IPI (cigarros)
+- Fontes para localizar códigos DARF nesta base: SIEF Receita, página oficial de códigos DARF/DJE da Receita e atos Codac consultados no Sijut.
 
 7. PRAZOS PRINCIPAIS DE RECOLHIMENTO
 - IRPJ/CSLL (estimativa mensal): último dia útil do mês seguinte.
@@ -709,6 +734,12 @@ R: Imunidade é proteção constitucional: determinadas situações ou entidades
 P: Prescrição e decadência são a mesma coisa em tributário?
 R: Não. Decadência (art. 173 CTN) é a perda do direito de lançar (constituir o crédito) — prazo de 5 anos. Prescrição (art. 174 CTN) é a perda do direito de cobrar judicialmente — também 5 anos, mas contados da constituição definitiva.
 
+P: Como LC 214 e LC 227 aparecem no contexto geral do direito tributario deste agente?
+R: Neste agente, a LC 214 aparece como a regulamentacao central da reforma tributaria do consumo, detalhando IBS, CBS, Imposto Seletivo, transicao, nao cumulatividade, split payment, cashback e regimes diferenciados. Ja a LC 227 aparece como legislacao complementar de ajuste e implementacao, com refinamentos operacionais, setoriais e tecnicos ligados ao funcionamento do novo modelo IBS/CBS.
+
+P: Qual a diferenca entre ICMS e ISS em termos de competencia e fato gerador?
+R: ICMS e de competencia dos Estados e do DF (art. 155, II, CF; LC 87/96) e tem como fato gerador operacoes relativas a circulacao de mercadorias, transporte interestadual/intermunicipal e comunicacao. ISS e de competencia dos Municipios e do DF (art. 156, III, CF; LC 116/03) e tem como fato gerador a prestacao de servicos constantes da lista anexa da LC 116.
+
 P: O que acontece se eu não pagar o DARF no prazo?
 R: Incide multa de mora (0,33% ao dia, limitada a 20%) e juros Selic acumulados desde o vencimento. Em caso de procedimento fiscal: multa de ofício de 75% (ou 150% em sonegação).
 
@@ -736,6 +767,9 @@ R: É o crédito tributário inscrito na Fazenda Pública após esgotado o prazo
 
 P: Contribuinte pode pedir certidão negativa com débito parcelado?
 R: Sim. Quando o crédito está com exigibilidade suspensa (parcelamento, discussão judicial com depósito), obtém-se a CPEN (Certidão Positiva com Efeitos de Negativa), que tem os mesmos efeitos da CND.
+
+P: O que e denuncia espontanea no CTN?
+R: Denuncia espontanea e a comunicacao voluntaria da infracao pelo contribuinte antes de qualquer procedimento administrativo ou medida de fiscalizacao relacionada ao fato. Nos termos do art. 138 do CTN, ela afasta a multa punitiva, desde que haja pagamento do tributo e dos juros de mora, ou deposito da importancia arbitrada quando o montante depender de apuracao.
 `.trim();
 
 const FAQ_REFIS = `
@@ -811,6 +845,12 @@ R: IOF incide diariamente sobre o saldo devedor: 0,0041%/dia para PJ e 0,0082%/d
 
 P: Posso compensar créditos de IPI com outros tributos?
 R: O IPI não cumulativo permite créditos de insumos. Se houver saldo credor acumulado, pode ser compensado com outros débitos federais via PER/DCOMP, conforme IN RFB aplicável.
+
+P: Qual e a base legal central da CSLL no escopo deste agente?
+R: A base legal central da CSLL e a Lei 7.689/88, que institui a Contribuicao Social sobre o Lucro Liquido. No escopo deste agente, ela deve ser lida em conjunto com as regras de apuracao do IRPJ, porque a CSLL acompanha o regime do lucro real, presumido ou arbitrado.
+
+P: Onde a base deste agente localiza os codigos de receita DARF?
+R: A base deste agente localiza os codigos de receita DARF em tres fontes operacionais principais: o SIEF Receita para codigos de receita, a pagina oficial da Receita para codigos DARF e DJE, e os atos da Codac consultados no Sijut. Para retencao conjunta de PIS/Cofins/CSLL, por exemplo, o codigo destacado e o 5952.
 `.trim();
 
 // ──────────────────────────────────────────────────────────
@@ -848,6 +888,7 @@ async function main() {
   console.log('\n══════════════════════════════════════════════════');
   console.log(' UPGRADE TRIBUTÁRIO – Instructions + Supplements');
   console.log('══════════════════════════════════════════════════\n');
+  await fs.mkdir(ATTACHMENTS_BASE_DIR, { recursive: true });
 
   // FASE 1: Atualizar instructions
   console.log('─── FASE 1: Atualizando INSTRUCTIONS ───\n');
@@ -870,7 +911,7 @@ async function main() {
   for (const { agentTitle, docs } of SUPPLEMENT_BY_AGENT) {
     // Buscar agent_id
     const agRow = await pool.query(
-      `SELECT id FROM agents WHERE user_id IS NULL AND title = $1`,
+      `SELECT id, attachments FROM agents WHERE user_id IS NULL AND title = $1`,
       [agentTitle]
     );
     if (!agRow.rows.length) {
@@ -878,8 +919,13 @@ async function main() {
       continue;
     }
     const agentId = agRow.rows[0].id;
+    const folder = path.join(ATTACHMENTS_BASE_DIR, toSlug(agentTitle));
+    await fs.mkdir(folder, { recursive: true });
+    const existingAttachments = Array.isArray(agRow.rows[0].attachments) ? agRow.rows[0].attachments : [];
+    const preservedNonSuppAttachments = existingAttachments.filter((item) => !/\/supp-[^/]+\.txt$/i.test(String(item || '')));
+    const supplementAttachments = [];
 
-    for (const doc of docs) {
+    for (const [docIndex, doc] of docs.entries()) {
       // Limpar supplement antigo (idempotente)
       const delDoc = await pool.query(
         `DELETE FROM documents WHERE agent_id = $1 AND title = $2 RETURNING id`,
@@ -891,6 +937,16 @@ async function main() {
         }
         console.log(`  🗑  ${agentTitle} → "${doc.title}" removido (re-injeção)`);
       }
+
+      const fileName = `supp-${String(docIndex + 1).padStart(2, '0')}-${toSlug(doc.title)}.txt`;
+      const relPath = `/agent-attachments/direito-tributario/${toSlug(agentTitle)}/${fileName}`;
+      const fullPath = path.join(folder, fileName);
+      await fs.writeFile(
+        fullPath,
+        `AGENTE: ${agentTitle}\nFONTE: ${doc.title}\nCOLETADO_EM: ${new Date().toISOString()}\n\n${doc.content}`,
+        'utf8'
+      );
+      supplementAttachments.push(relPath);
 
       // Criar document
       const docId = crypto.randomUUID();
@@ -923,6 +979,11 @@ async function main() {
       // Rate limit guard between docs
       await sleep(EMBED_DELAY_MS);
     }
+
+    await pool.query(
+      `UPDATE agents SET attachments = $1 WHERE id = $2`,
+      [[...preservedNonSuppAttachments, ...supplementAttachments], agentId]
+    );
   }
 
   // Relatório final

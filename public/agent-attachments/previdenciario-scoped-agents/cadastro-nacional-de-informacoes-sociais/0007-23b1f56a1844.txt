@@ -1,0 +1,7 @@
+AGENTE: Cadastro Nacional de Informações Sociais
+FONTE: https://portalin.inss.gov.br/anexos
+COLETADO_EM: 2026-04-28T00:39:05.076Z
+
+FONTE: https://portalin.inss.gov.br/anexos
+CONTENT_TYPE: text/html
+OBS: conteúdo textual reduzido; link preservado para consulta normativa oficial.

@@ -1,0 +1,26 @@
+AGENTE: CTN Expert
+FONTE: SUPP: FAQ Prático – CTN e Interpretação Tributária
+COLETADO_EM: 2026-04-28T06:19:18.093Z
+
+PERGUNTAS FREQUENTES - CTN E INTERPRETAÇÃO TRIBUTÁRIA (FAQ PRÁTICO)
+
+P: O que é lançamento tributário?
+R: É o procedimento administrativo pelo qual a autoridade fiscal identifica o fato gerador, determina a base de cálculo, o montante do tributo e o sujeito passivo (art. 142 CTN). Existe em 3 tipos: de ofício, por declaração e por homologação.
+
+P: Qual a diferença entre lançamento de ofício e por homologação?
+R: No lançamento de ofício, a Fazenda apura tudo (ex: IPTU, auto de infração). No lançamento por homologação, o contribuinte calcula e paga antecipadamente, e a Fazenda apenas confere depois (ex: IRPJ, PIS, Cofins). Se não confere em 5 anos, homologa tacitamente.
+
+P: Se a Fazenda errou o valor, posso contestar?
+R: Sim. Pode-se impugnar administrativamente em 30 dias (Decreto 70.235/72) ou questionar judicialmente. Em âmbito federal, o CARF (Conselho Administrativo de Recursos Fiscais) julga em segunda instância.
+
+P: O que suspende a exigibilidade do crédito tributário?
+R: Art. 151 CTN lista: moratória, depósito do montante integral, reclamações/recursos administrativos, liminar ou tutela judicial, parcelamento. Enquanto suspenso, a Fazenda não pode cobrar, mas as obrigações acessórias continuam.
+
+P: O que é dívida ativa?
+R: É o crédito tributário inscrito na Fazenda Pública após esgotado o prazo para pagamento voluntário (art. 201 CTN). A CDA (Certidão de Dívida Ativa) goza de presunção de certeza e liquidez e permite ajuizar execução fiscal.
+
+P: Contribuinte pode pedir certidão negativa com débito parcelado?
+R: Sim. Quando o crédito está com exigibilidade suspensa (parcelamento, discussão judicial com depósito), obtém-se a CPEN (Certidão Positiva com Efeitos de Negativa), que tem os mesmos efeitos da CND.
+
+P: O que e denuncia espontanea no CTN?
+R: Denuncia espontanea e a comunicacao voluntaria da infracao pelo contribuinte antes de qualquer procedimento administrativo ou medida de fiscalizacao relacionada ao fato. Nos termos do art. 138 do CTN, ela afasta a multa punitiva, desde que haja pagamento do tributo e dos juros de mora, ou deposito da importancia arbitrada quando o montante depender de apuracao.

@@ -1,5 +1,5 @@
 FONTE: https://www.planalto.gov.br/ccivil_03/leis/l5172compilado.htm
-COLETADO_EM: 2026-03-05T21:05:18.198Z
+COLETADO_EM: 2026-04-28T03:17:39.801Z
 
 L5172COMPILADO
 [TABELA]

@@ -1,5 +1,5 @@
 FONTE: https://www.planalto.gov.br/ccivil_03/decreto/d70235cons.htm
-COLETADO_EM: 2026-03-05T20:52:31.623Z
+COLETADO_EM: 2026-04-28T03:02:55.073Z
 
 D70235cons
 [TABELA]

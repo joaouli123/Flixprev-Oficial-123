@@ -1,5 +1,5 @@
 FONTE: https://www.planalto.gov.br/ccivil_03/constituicao/constituicao.htm
-COLETADO_EM: 2026-03-05T20:52:31.492Z
+COLETADO_EM: 2026-04-28T03:02:54.971Z
 
 Constitui��o
 -
@@ -845,6 +845,8 @@ Viabilidade Municipal, apresentados e publicados na forma da lei.
 (Reda��o dada pela Emenda Constitucional n� 15, de 1996)
 Vide art. 96 -
 ADCT
+(Vide Lei Complementar
+n� 230, de 2026)
 Art. 19. � vedado � Uni�o, aos
 Estados, ao Distrito Federal e aos Munic�pios:
 I - estabelecer cultos religiosos ou igrejas, subvencion�-los,

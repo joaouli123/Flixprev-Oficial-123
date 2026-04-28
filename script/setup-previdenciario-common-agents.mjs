@@ -24,7 +24,7 @@ const COMMON_URLS_RAW = [
   'https://www.gov.br/inss/pt-br/centrais-de-conteudo/legislacao/portarias/2026',
   'https://www.gov.br/inss/pt-br/centrais-de-conteudo/legislacao/portarias/2025',
   'https://www.gov.br/inss/pt-br/centrais-de-conteudo/legislacao/portarias-conjuntas/2025',
-  'https://www.in.gov.br/web/dou/-/portaria-pres/inss-n-1.919-de-12-de-janeiro-de-2026-*-681141683',
+  'https://www.in.gov.br/web/dou/-/portaria-pres/inss-n-1.919-de-12-de-janeiro-de-2026-680663816',
   'https://www.in.gov.br/web/dou/-/portaria-conjunta-dirben/dti/inss-n-13-de-23-de-maio-de-2025-631933663',
   'https://www.in.gov.br/web/dou/-/portaria-conjunta-dirben/dti-inss-n-22-de-23-de-setembro-de-2025-658090051',
   'https://www.in.gov.br/web/dou/-/portaria-conjunta-dirben-inss/dpmf-mps-n-4-de-4-de-dezembro-de-2025-673663306',

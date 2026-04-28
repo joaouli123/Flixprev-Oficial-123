@@ -1,0 +1,93 @@
+AGENTE: CTN Expert
+FONTE: SUPP: Guia Operacional – Interpretação CTN
+COLETADO_EM: 2026-04-28T06:19:12.634Z
+
+GUIA OPERACIONAL - INTERPRETAÇÃO DO CTN E NORMAS TRIBUTÁRIAS
+
+1. OBRIGAÇÃO TRIBUTÁRIA (CTN ARTS. 113–138)
+
+1.1 Obrigação Principal (art. 113, §1º)
+- Surge com a ocorrência do fato gerador.
+- Tem por objeto o pagamento de tributo ou penalidade pecuniária.
+- Extingue-se juntamente com o crédito dela decorrente.
+
+1.2 Obrigação Acessória (art. 113, §2º)
+- Decorre da legislação tributária (sentido amplo).
+- Tem por objeto prestações positivas ou negativas: emitir nota, escriturar livro, entregar declaração.
+- O descumprimento converte-se em obrigação principal (multa).
+
+1.3 Fato Gerador (arts. 114–118)
+- Situação definida em lei como necessária e suficiente à sua ocorrência.
+- Interpreta-se abstratamente, desconsiderando validade dos atos praticados (art. 118).
+
+1.4 Sujeito Ativo e Passivo (arts. 119–123)
+- Sujeito ativo: pessoa jurídica de direito público titular da competência para exigir.
+- Sujeito passivo contribuinte: relação pessoal e direta com o fato gerador.
+- Sujeito passivo responsável: obrigação decorrente de lei, sem relação direta com o fato gerador.
+
+1.5 Responsabilidade Tributária (arts. 128–138)
+- Responsabilidade de terceiros (art. 134): pais, tutores, administradores.
+- Responsabilidade por infrações (art. 136): objetiva, salvo exceções legais.
+- Responsabilidade por sucessão (arts. 129–133): inter vivos e causa mortis.
+- Responsabilidade por substituição: norma coloca terceiro como devedor originário (ex: IRRF, ISS retido).
+- Denúncia espontânea (art. 138): comunicação voluntária da infração antes de qualquer procedimento fiscal, com pagamento do tributo e dos juros, afastando a multa punitiva.
+
+2. CRÉDITO TRIBUTÁRIO (CTN ARTS. 139–193)
+
+2.1 Constituição do Crédito (art. 142)
+- Lançamento: procedimento administrativo vinculado e obrigatório.
+- Verifica: ocorrência do fato gerador, matéria tributável, montante, sujeito passivo, penalidade se cabível.
+- Natureza: declaratória do fato gerador, constitutiva do crédito.
+
+2.2 Modalidades de Lançamento
+a) De Ofício (art. 149): autoridade constitui integralmente. Ex: IPTU, IPVA, autos de infração.
+b) Por Declaração (art. 147): sujeito passivo presta informações, autoridade lança. Ex: antigo IR.
+c) Por Homologação (art. 150): sujeito passivo antecipa pagamento, autoridade homologa. Ex: IRPJ, PIS, Cofins, IPI. Homologação tácita em 5 anos (art. 150, §4º).
+
+2.3 Suspensão do Crédito (art. 151)
+- Moratória, depósito do montante integral, reclamações e recursos administrativos, concessão de liminar/tutela, parcelamento.
+- Efeito: suspende a exigibilidade, NÃO dispensa cumprimento de obrigações acessórias.
+
+2.4 Extinção do Crédito (art. 156)
+- Pagamento, compensação, transação, remissão, prescrição e decadência, conversão de depósito em renda, pagamento antecipado + homologação, consignação em pagamento, decisão judicial transitada em julgado, dação em pagamento de imóvel.
+- Decadência (art. 173): 5 anos para constituir o crédito (lançar).
+- Prescrição (art. 174): 5 anos para a Fazenda cobrar judicialmente após constituição definitiva.
+
+2.5 Exclusão do Crédito (art. 175)
+- Isenção: dispensa legal do crédito (pode ser revogada).
+- Anistia: perdão de penalidades (não do tributo).
+- NÃO dispensa cumprimento de obrigações acessórias.
+
+2.6 Garantias e Privilégios (arts. 183–193)
+- Crédito tributário prefere a qualquer outro, salvo trabalhistas e acidentários.
+- Presunção de fraude: alienação após inscrição em dívida ativa.
+- Inventário: só se processa com prova de quitação fiscal.
+
+3. ADMINISTRAÇÃO TRIBUTÁRIA (CTN ARTS. 194–218)
+
+3.1 Fiscalização (arts. 194–200)
+- Aplica-se a todas as pessoas, inclusive imunes e isentas.
+- Sigilo fiscal (art. 198): informações protegidas, com exceções legais.
+- Dever de informar (art. 197): bancos, cartórios, empresas.
+
+3.2 Dívida Ativa (arts. 201–204)
+- Inscrição após esgotado o prazo para pagamento.
+- CDA goza de presunção de certeza e liquidez.
+- Pode ser emendada ou substituída até decisão de primeira instância.
+
+3.3 Certidões (arts. 205–208)
+- CND: Certidão Negativa de Débitos.
+- CPEN: Certidão Positiva com Efeitos de Negativa (crédito suspenso ou não definitivo).
+- Prazo de emissão: 10 dias contados do requerimento (art. 205).
+
+4. DECRETO 70.235/72 (PROCESSO ADMINISTRATIVO FISCAL)
+- Regula o contencioso administrativo fiscal federal.
+- Fases: autuação → impugnação (30 dias) → julgamento DRJ → recurso voluntário ao CARF → recurso especial à CSRF.
+- A decisão administrativa favorável ao contribuinte vincula a Fazenda.
+- Depósito recursal no CARF: extinto com a Lei 13.988/2020.
+
+5. TESES TRIBUTÁRIAS RELEVANTES
+- Exclusão do ICMS da base de PIS/Cofins (Tema 69/STF).
+- Exclusão do ISS da base de PIS/Cofins (extensão da tese).
+- Não incidência de IR sobre juros moratórios de verbas trabalhistas (Tema 808/STF).
+- Limitação da multa fiscal a 100% do tributo (vedação de confisco).

@@ -1,0 +1,7 @@
+AGENTE: 25% Sobre Aposentadoria por Incapacidade Permanente
+FONTE: https://portalin.inss.gov.br/portaria993
+COLETADO_EM: 2026-04-28T01:06:44.202Z
+
+FONTE: https://portalin.inss.gov.br/portaria993
+CONTENT_TYPE: text/html
+OBS: conteúdo textual reduzido; link preservado para consulta normativa oficial.

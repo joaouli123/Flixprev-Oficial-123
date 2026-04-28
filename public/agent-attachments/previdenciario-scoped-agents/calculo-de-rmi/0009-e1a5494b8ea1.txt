@@ -1,0 +1,7 @@
+AGENTE: Cálculo de RMI
+FONTE: https://portalin.inss.gov.br/portaria994
+COLETADO_EM: 2026-04-28T01:12:46.498Z
+
+FONTE: https://portalin.inss.gov.br/portaria994
+CONTENT_TYPE: text/html
+OBS: conteúdo textual reduzido; link preservado para consulta normativa oficial.

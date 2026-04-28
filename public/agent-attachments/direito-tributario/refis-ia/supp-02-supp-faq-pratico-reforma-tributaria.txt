@@ -1,0 +1,26 @@
+AGENTE: REFIS-IA
+FONTE: SUPP: FAQ Prático – Reforma Tributária
+COLETADO_EM: 2026-04-28T06:19:29.310Z
+
+PERGUNTAS FREQUENTES - REFORMA TRIBUTÁRIA (FAQ PRÁTICO)
+
+P: Quando os novos tributos (IBS e CBS) começam a valer?
+R: Em 2026 é o período de teste (CBS 0,9% e IBS 0,1%, compensáveis). Em 2027, a CBS entra em vigor pleno (substituindo PIS/Cofins). O IBS vai aumentando gradualmente até 2033, quando ICMS e ISS são totalmente extintos.
+
+P: Eu vou pagar mais imposto com a reforma?
+R: Depende do seu setor. A reforma é pensada para manter a carga tributária global igual. Indústria tende a pagar menos (crédito amplo). Serviços tendem a pagar mais (poucas aquisições para crédito). Comércio fica neutro.
+
+P: O que é o split payment?
+R: É um mecanismo automático: quando o consumidor paga uma compra, o sistema financeiro separa a parcela do tributo e envia direto ao fisco, reduzindo a inadimplência e a sonegação.
+
+P: Minha empresa é do Simples Nacional. Vai mudar algo?
+R: O Simples Nacional é mantido. Mas a empresa poderá optar por recolher IBS/CBS fora do Simples (regime geral), o que pode ser vantajoso para gerar créditos aos seus clientes.
+
+P: O que é o cashback tributário?
+R: É a devolução de parte dos tributos (IBS e CBS) para famílias de baixa renda inscritas no CadÚnico. A devolução é feita diretamente na conta bancária (via Pix), em percentuais definidos por regulamento.
+
+P: ICMS e ISS vão acabar quando exatamente?
+R: A partir de 2029, ICMS e ISS começam a ser reduzidos (90%), caindo 10% ao ano até 2032 (60%). Em 2033, são totalmente extintos e substituídos pelo IBS.
+
+P: O que é o Comitê Gestor do IBS?
+R: É o órgão interfederativo que administra o IBS, composto por representantes de Estados, DF e Municípios. Ele define alíquotas de referência, regulamenta créditos e distribui receitas.

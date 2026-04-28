@@ -1,0 +1,50 @@
+{
+  "generatedAt": "2026-04-27T16:43:13.855Z",
+  "dryRun": false,
+  "filters": {
+    "statuses": [
+      "review",
+      "mismatch",
+      "low_content",
+      "fetch_error"
+    ],
+    "topic": null,
+    "relPath": "direito-trabalhista/agente-dirtrab/0009-489ab70b3068.txt",
+    "limit": 1
+  },
+  "summary": {
+    "totalSelected": 1,
+    "changed": 1,
+    "wrote": 1,
+    "byTopic": {
+      "direito-trabalhista": {
+        "total": 1,
+        "changed": 1,
+        "wrote": 1
+      }
+    }
+  },
+  "results": [
+    {
+      "topic": "direito-trabalhista",
+      "relPath": "direito-trabalhista/agente-dirtrab/0009-489ab70b3068.txt",
+      "sourceUrl": "https://www.planalto.gov.br/ccivil_03/leis/2002/l10406compilada.htm",
+      "previousStatus": "mismatch",
+      "changed": true,
+      "wrote": true,
+      "finalUrl": "https://www.planalto.gov.br/ccivil_03/leis/2002/l10406compilada.htm",
+      "title": "L10406compilada",
+      "contentType": "text/html",
+      "previousLength": 727,
+      "refreshedLength": 678580,
+      "similarity": {
+        "leftTokenCount": 50,
+        "rightTokenCount": 8042,
+        "sharedTokenCount": 49,
+        "leftCoverage": 0.98,
+        "rightCoverage": 0.0061,
+        "jaccard": 0.0061
+      }
+    }
+  ]
+}

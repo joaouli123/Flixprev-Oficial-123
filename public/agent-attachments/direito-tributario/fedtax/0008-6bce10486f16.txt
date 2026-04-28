@@ -1,5 +1,5 @@
 FONTE: https://www.planalto.gov.br/ccivil_03/leis/l8212cons.htm
-COLETADO_EM: 2026-03-05T21:25:29.606Z
+COLETADO_EM: 2026-04-28T03:37:57.664Z
 
 L8212 - Consolidada
 [TABELA]
@@ -25,7 +25,9 @@ n� 2.036)
 (Vide ADIN
 4395)
 (Vide ADIN
-n� 2.228) |
+n� 2.228)
+Vide Lei n� 15.371, de 2026
+Vig�ncia |
 Disp�e sobre a organiza��o da
 Seguridade Social, institui Plano de Custeio, e d� outras provid�ncias. |
 [TABELA]
@@ -4629,6 +4631,15 @@ respectivo cr�dito, obedecendo-se, em rela��o a elas, as disposi��es
 aplicadas �s empresas em geral.
 (Inclu�do
 pela Lei Complementar n� 128, de 2008)
+�
+4� A multa a que se refere o � 2� deste artigo n�o se aplica ao tempo de
+atividade rural exercido pelos segurados referidos na
+al�nea �a� do inciso I ou no
+inciso VII do art. 11 da Lei n� 8.213,
+de 24 de julho de 1991 , em per�odo anterior a&#768; obrigatoriedade de
+filia��o a&#768; Previd�ncia Social.
+(Inclu�do pela Lei
+n� 15.363, de 2026)
 Art. 46. O direito de cobrar os cr�ditos da Seguridade Social,
 constitu�dos na forma do artigo anterior, prescreve em 10 (dez) anos.
 (Vide Sumula Vinculante n� 8).

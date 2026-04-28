@@ -1,0 +1,76 @@
+AGENTE: TAX-Rend
+FONTE: SUPP: Guia Operacional – Tributação da Renda
+COLETADO_EM: 2026-04-28T06:19:34.986Z
+
+GUIA OPERACIONAL - TRIBUTAÇÃO DA RENDA (IRPF, IRPJ, CSLL)
+
+1. IRPF - IMPOSTO DE RENDA PESSOA FÍSICA
+
+1.1 Tabela Progressiva 2025/2026 (Lei 15.270/2025)
+A Lei 15.270/2025 alterou a tabela progressiva do IRPF:
+- Faixa 1: até R$ 2.428,80 → isento (desconto simplificado de R$ 564,80 amplia a isenção efetiva a R$ 3.036,00 para quem ganha até R$ 5.000,00)
+- Faixa 2: de R$ 2.428,81 a R$ 3.561,50 → 7,5% (parcela a deduzir: R$ 182,16)
+- Faixa 3: de R$ 3.561,51 a R$ 4.694,18 → 15% (parcela a deduzir: R$ 449,33)
+- Faixa 4: de R$ 4.694,19 a R$ 5.826,86 → 22,5% (parcela a deduzir: R$ 801,46)
+- Faixa 5: acima de R$ 5.826,86 → 27,5% (parcela a deduzir: R$ 1.092,89)
+
+Nota: A Lei 15.270/2025 aumentou a faixa de isenção e criou o mecanismo de desconto simplificado que garante isenção efetiva para quem recebe até R$ 5.000 mensais.
+
+1.2 Deduções Legais Permitidas
+- Dependentes: R$ 189,59/mês por dependente.
+- Pensão alimentícia judicial: valor integral pago.
+- Contribuição previdenciária oficial (INSS): valor efetivamente descontado.
+- Previdência complementar: até 12% da renda bruta anual (PGBL).
+- Despesas médicas: sem limite (mediante comprovação).
+- Despesas com instrução (educação): até R$ 3.561,50/ano por pessoa.
+- Livro-caixa (autônomos): despesas de custeio da atividade.
+
+1.3 Carnê-Leão
+- Obrigatório para rendimentos de pessoa física no exterior, aluguéis, trabalho sem vínculo de PF-PF.
+- Recolhimento mensal via DARF código 0190.
+- Base de cálculo: rendimento bruto menos deduções legais.
+
+1.4 Declaração Anual (DIRPF)
+- Prazo: março a maio do exercício seguinte.
+- Obrigatoriedade: rendimentos acima do limite, patrimônio acima de R$ 800.000,00, ganho de capital, operações na bolsa.
+- Modelo simplificado: desconto de 20% sobre rendimentos tributáveis (limitado).
+- Modelo completo: deduções individualizadas.
+
+2. IRPJ - IMPOSTO DE RENDA PESSOA JURÍDICA
+
+2.1 Lucro Real
+- Obrigatório para empresas com faturamento anual acima de R$ 78 milhões (ou atividades específicas).
+- Base: lucro contábil ajustado por adições e exclusões do LALUR.
+- Alíquota: 15% + adicional de 10% sobre excedente de R$ 20.000/mês.
+- Apuração: trimestral ou por estimativa mensal com ajuste anual.
+
+2.2 Lucro Presumido
+- Opcional para faturamento até R$ 78 milhões/ano.
+- Presunção de lucro conforme percentuais por atividade:
+  - Comércio/indústria: 8%
+  - Serviços em geral: 32%
+  - Transporte de cargas: 8%
+  - Transporte de passageiros: 16%
+  - Serviços hospitalares: 8%
+- Alíquota: 15% + adicional de 10% sobre excedente trimestral de R$ 60.000.
+
+2.3 Lucro Arbitrado
+- Aplicado quando a empresa não mantém escrituração regular.
+- Percentuais de presunção acrescidos de 20% em relação ao lucro presumido.
+
+3. CSLL - CONTRIBUIÇÃO SOCIAL SOBRE O LUCRO LÍQUIDO (LEI 7.689/88)
+- Incide sobre o lucro líquido de PJ.
+- Alíquotas: 9% (regra geral), 15% (instituições financeiras), 20% (seguradoras).
+- Base de cálculo acompanha o regime de tributação escolhido para IRPJ.
+
+4. RETENÇÃO NA FONTE (IRRF)
+- Salários: alíquotas conforme tabela progressiva mensal.
+- Serviços PJ: 1% ou 1,5% conforme natureza do serviço.
+- Aluguéis: tabela progressiva se PF locador.
+- Aplicações financeiras: renda fixa 15%–22,5% (conforme prazo); renda variável 15% (swing trade), 20% (day trade).
+- O IRRF é antecipação do devido na declaração anual (PF) ou trimestral (PJ).
+
+5. LEI 12.973/2014 - TRIBUTAÇÃO DE LUCROS NO EXTERIOR
+- Tributação de lucros de controladas e coligadas no exterior.
+- Ajuste do RTT: eliminação do Regime Tributário de Transição.
+- Ágio em aquisição de investimento: regras de amortização fiscal.

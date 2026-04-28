@@ -1,0 +1,108 @@
+{
+  "runId": "rag-smoke-rebuilt-agents-2026-04-27T20-09-20-141Z",
+  "baseUrl": "https://flixprev-oficial-123-production.up.railway.app",
+  "userId": "641a737d-01a2-4698-9741-0be9924b51f1",
+  "total": 3,
+  "passed": 0,
+  "failed": 3,
+  "results": [
+    {
+      "title": "Agente DirTrab",
+      "agentId": "ca732308-78ab-48e3-bd1d-3d3cc7d8d87f",
+      "question": "Pela CLT, como o art. 3º define empregado? Responda citando os elementos centrais da definição.",
+      "startedAt": "2026-04-27T20:09:20.169Z",
+      "passed": false,
+      "conversationId": 215,
+      "answer": "Não encontrei essa informação na base do agente.",
+      "fallbackDetected": true,
+      "matched": [],
+      "missing": [
+        "pessoa física",
+        "não eventual",
+        "dependência",
+        "salário"
+      ],
+      "matchedCount": 0,
+      "hasSourceMarkers": false,
+      "finishedAt": "2026-04-27T20:09:25.110Z",
+      "aiLogs": [
+        {
+          "conversation_id": 215,
+          "request_type": "chat_completion_supabase_fallback",
+          "model": "gemini-2.5-flash",
+          "status": "success",
+          "prompt_tokens": 807,
+          "completion_tokens": 10,
+          "total_tokens": 817,
+          "error_message": null
+        }
+      ]
+    },
+    {
+      "title": "DTrib",
+      "agentId": "a52473d6-0152-49f9-b4b1-5bec4eee058c",
+      "question": "Segundo o CTN, qual é o conceito de tributo do art. 3º?",
+      "startedAt": "2026-04-27T20:09:25.110Z",
+      "passed": false,
+      "conversationId": 216,
+      "answer": "Não localizei essa informação na base normativa deste agente.",
+      "fallbackDetected": true,
+      "matched": [],
+      "missing": [
+        "prestação pecuniária compulsória",
+        "em moeda",
+        "não constitua sanção",
+        "instituída em lei",
+        "atividade administrativa plenamente vinculada"
+      ],
+      "matchedCount": 0,
+      "hasSourceMarkers": false,
+      "finishedAt": "2026-04-27T20:09:27.589Z",
+      "aiLogs": [
+        {
+          "conversation_id": 216,
+          "request_type": "chat_completion_supabase_fallback",
+          "model": "gemini-2.5-flash",
+          "status": "success",
+          "prompt_tokens": 1019,
+          "completion_tokens": 11,
+          "total_tokens": 1030,
+          "error_message": null
+        }
+      ]
+    },
+    {
+      "title": "FedTax",
+      "agentId": "f66b73e0-bde0-4505-8ea6-223b9ad716db",
+      "question": "Segundo o Decreto 7.212/2010, sobre quais produtos o IPI incide e o que o parágrafo único do art. 2º diz sobre o campo de incidência?",
+      "startedAt": "2026-04-27T20:09:27.589Z",
+      "passed": false,
+      "conversationId": 217,
+      "answer": "Não encontrei essa informação na base do agente.",
+      "fallbackDetected": true,
+      "matched": [
+        "NT"
+      ],
+      "missing": [
+        "produtos industrializados",
+        "nacionais e estrangeiros",
+        "TIPI"
+      ],
+      "matchedCount": 1,
+      "hasSourceMarkers": false,
+      "finishedAt": "2026-04-27T20:09:29.854Z",
+      "aiLogs": [
+        {
+          "conversation_id": 217,
+          "request_type": "chat_completion_supabase_fallback",
+          "model": "gemini-2.5-flash",
+          "status": "success",
+          "prompt_tokens": 1121,
+          "completion_tokens": 10,
+          "total_tokens": 1131,
+          "error_message": null
+        }
+      ]
+    }
+  ]
+}

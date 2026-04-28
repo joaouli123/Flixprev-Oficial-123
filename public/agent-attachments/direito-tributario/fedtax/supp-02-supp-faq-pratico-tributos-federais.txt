@@ -1,0 +1,32 @@
+AGENTE: FedTax
+FONTE: SUPP: FAQ Prático – Tributos Federais
+COLETADO_EM: 2026-04-28T06:19:50.656Z
+
+PERGUNTAS FREQUENTES - TRIBUTOS FEDERAIS RFB (FAQ PRÁTICO)
+
+P: Qual o DARF para reter PIS/Cofins/CSLL na fonte?
+R: Código 5952. Retenção de 4,65% (PIS 0,65% + Cofins 3% + CSLL 1%) sobre pagamentos a PJ por serviços de limpeza, conservação, assessoria, manutenção, segurança e locação de mão de obra (art. 30, Lei 10.833).
+
+P: Quando vence o PIS/Cofins mensal?
+R: Dia 25 do mês seguinte ao fato gerador. Se cair em feriado ou fim de semana, antecipa para o último dia útil anterior.
+
+P: Empresa do Simples precisa reter PIS/Cofins/CSLL quando contrata serviço?
+R: Quando a prestadora é do Simples Nacional, NÃO há retenção de PIS/Cofins/CSLL na fonte. Mas se a tomadora é do Simples e contrata PJ do regime normal, a retenção segue a regra geral.
+
+P: Qual a diferença entre PIS cumulativo e não cumulativo?
+R: No cumulativo (Lei 9.718): alíquota menor (0,65%) mas SEM crédito. No não cumulativo (Lei 10.637): alíquota maior (1,65%) mas COM direito a crédito sobre insumos e aquisições. O mesmo vale para Cofins (3% vs 7,6%).
+
+P: O que é a EFD-Contribuições?
+R: Escrituração Fiscal Digital das contribuições PIS, Cofins e CPRB. Transmitida mensalmente via SPED até o 10º dia útil do 2º mês subsequente.
+
+P: Como funciona o IOF sobre crédito?
+R: IOF incide diariamente sobre o saldo devedor: 0,0041%/dia para PJ e 0,0082%/dia para PF, mais 0,38% de alíquota adicional única no início da operação (Decreto 6.306/07).
+
+P: Posso compensar créditos de IPI com outros tributos?
+R: O IPI não cumulativo permite créditos de insumos. Se houver saldo credor acumulado, pode ser compensado com outros débitos federais via PER/DCOMP, conforme IN RFB aplicável.
+
+P: Qual e a base legal central da CSLL no escopo deste agente?
+R: A base legal central da CSLL e a Lei 7.689/88, que institui a Contribuicao Social sobre o Lucro Liquido. No escopo deste agente, ela deve ser lida em conjunto com as regras de apuracao do IRPJ, porque a CSLL acompanha o regime do lucro real, presumido ou arbitrado.
+
+P: Onde a base deste agente localiza os codigos de receita DARF?
+R: A base deste agente localiza os codigos de receita DARF em tres fontes operacionais principais: o SIEF Receita para codigos de receita, a pagina oficial da Receita para codigos DARF e DJE, e os atos da Codac consultados no Sijut. Para retencao conjunta de PIS/Cofins/CSLL, por exemplo, o codigo destacado e o 5952.

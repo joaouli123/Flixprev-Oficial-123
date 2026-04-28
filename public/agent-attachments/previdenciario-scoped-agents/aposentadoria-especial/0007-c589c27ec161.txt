@@ -1,0 +1,7 @@
+AGENTE: Aposentadoria Especial
+FONTE: https://portalin.inss.gov.br/portaria991
+COLETADO_EM: 2026-04-28T00:46:45.509Z
+
+FONTE: https://portalin.inss.gov.br/portaria991
+CONTENT_TYPE: text/html
+OBS: conteúdo textual reduzido; link preservado para consulta normativa oficial.

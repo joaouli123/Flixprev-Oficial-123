@@ -1,0 +1,76 @@
+AGENTE: REFIS-IA
+FONTE: SUPP: Guia Operacional – Reforma Tributária
+COLETADO_EM: 2026-04-28T06:19:23.408Z
+
+GUIA OPERACIONAL - REFORMA TRIBUTÁRIA (LC 214/2025 E CORRELATAS)
+
+1. VISÃO GERAL DA REFORMA
+A Reforma Tributária unifica tributos sobre consumo no Brasil. A EC 132/2023 alterou a Constituição; a LC 214/2025 regulamenta a transição e os novos tributos.
+
+Meta principal: substituir 5 tributos (PIS, Cofins, IPI, ICMS, ISS) por 3 novos (IBS, CBS, IS).
+
+2. NOVOS TRIBUTOS
+
+2.1 IBS (Imposto sobre Bens e Serviços)
+- Substitui ICMS (estadual) e ISS (municipal).
+- Competência compartilhada entre Estados, DF e Municípios.
+- Gestão pelo Comitê Gestor do IBS (órgão interfederativo).
+- Incidência no destino (local da operação é onde o bem é consumido).
+- Não cumulativo: crédito amplo de toda a cadeia produtiva.
+- Alíquota de referência: definida anualmente pelo Comitê Gestor.
+
+2.2 CBS (Contribuição sobre Bens e Serviços)
+- Substitui PIS/Pasep e Cofins.
+- Competência federal (União).
+- Incidência no destino, mesma base de cálculo que IBS.
+- Não cumulativa: crédito amplo.
+- Alíquota de referência: fixada pela União.
+
+2.3 Imposto Seletivo (IS)
+- Incide sobre bens e serviços prejudiciais à saúde e ao meio ambiente.
+- Lista inclui: bebidas alcoólicas, tabaco, bebidas açucaradas, veículos poluentes, embarcações e aeronaves, minerais extraídos.
+- Não substitui outros tributos; é uma incidência adicional.
+- Monofásico em alguns casos.
+
+3. CRONOGRAMA DE TRANSIÇÃO
+- 2026: período de teste. CBS cobrada a 0,9% e IBS a 0,1% (compensáveis com PIS/Cofins). Sem impacto na carga.
+- 2027: CBS entra em vigor definitivamente (PIS/Cofins extintos). Alíquota do IBS sobe levemente.
+- 2028: IBS coexiste com ICMS/ISS. Alíquota do IBS aumenta gradualmente.
+- 2029: ICMS e ISS começam a ser reduzidos a 90% da alíquota original.
+- 2030: ICMS/ISS a 80%.
+- 2031: ICMS/ISS a 70%.
+- 2032: ICMS/ISS a 60%.
+- 2033: Extinção total de ICMS e ISS. IBS em vigor pleno. IS começa a ser cobrado integralmente.
+
+4. NÃO CUMULATIVIDADE PLENA
+- Crédito de TODA aquisição tributada na cadeia (inclusive serviços, bens de uso e consumo, ativo imobilizado).
+- Fim da guerra fiscal: alíquota no destino elimina incentivos de origem.
+- Crédito financeiro: aproveitável imediatamente, sem restrição de natureza da aquisição.
+- Devolução de créditos acumulados em prazo definido (60 dias para exportadores).
+
+5. SPLIT PAYMENT
+- Mecanismo de recolhimento automático no momento do pagamento.
+- O sistema financeiro separa a parcela do tributo diretamente para o fisco.
+- Objetivo: reduzir inadimplência e sonegação.
+- Implementação obrigatória para contribuintes e agentes financeiros.
+
+6. CASHBACK TRIBUTÁRIO
+- Devolução de parte dos tributos a famílias de baixa renda inscritas no CadÚnico.
+- Operacionalizado via contas bancárias (pix ou transferência direta).
+- Percentuais definidos em regulamento: 100% da CBS e 20% do IBS em itens de cesta básica; 50% da CBS e 20% do IBS em outros bens.
+
+7. REGIMES DIFERENCIADOS NA REFORMA
+- Simples Nacional: mantido, com possibilidade de opção pelo regime geral para fins de crédito.
+- Zona Franca de Manaus (ZFM): preservação dos incentivos fiscais.
+- Saúde e educação: alíquotas reduzidas em 60%.
+- Cesta básica nacional: alíquota zero para itens definidos em lei.
+- Transporte público coletivo urbano: alíquota zero.
+- Dispositivos médicos e medicamentos: alíquotas reduzidas.
+- Agronegócio: alíquota reduzida em 60% para insumos rurais.
+
+8. IMPACTOS SETORIAIS
+- Serviços: aumento de carga (setor intensivo em mão de obra com pouco crédito de insumo físico).
+- Indústria: redução de carga (aproveitamento pleno de créditos).
+- Comércio: impacto neutro a positivo (crédito sobre mercadorias).
+- Imóveis: tributação sobre operações imobiliárias com alíquota reduzida.
+- Setor financeiro: regime específico (cumulativo) com alíquota diferenciada.

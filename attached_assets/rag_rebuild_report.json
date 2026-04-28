@@ -1,0 +1,115 @@
+{
+  "generatedAt": "2026-04-27T17:49:12.297Z",
+  "dryRun": false,
+  "requestedAgentId": null,
+  "limitAgents": null,
+  "excludedStatuses": [
+    "fetch_error",
+    "mismatch",
+    "low_content"
+  ],
+  "severeRelPathCount": 14,
+  "changedRelPathCount": 90,
+  "summary": {
+    "selectedAgents": 8,
+    "rebuiltAgents": 8,
+    "excludedAttachments": 9,
+    "rebuiltDocuments": 102,
+    "rebuiltChunks": 5573,
+    "skippedAttachments": 0
+  },
+  "agents": [
+    {
+      "agentId": "9c29230d-4d27-46c5-a8d1-ca8478e57773",
+      "agentTitle": "Agente AtosTr",
+      "attachmentCountBefore": 11,
+      "attachmentCountAfter": 11,
+      "excludedRelPaths": [],
+      "rebuiltDocuments": 11,
+      "rebuiltChunks": 75,
+      "skippedAttachments": []
+    },
+    {
+      "agentId": "ca732308-78ab-48e3-bd1d-3d3cc7d8d87f",
+      "agentTitle": "Agente DirTrab",
+      "attachmentCountBefore": 12,
+      "attachmentCountAfter": 12,
+      "excludedRelPaths": [],
+      "rebuiltDocuments": 12,
+      "rebuiltChunks": 1270,
+      "skippedAttachments": []
+    },
+    {
+      "agentId": "41a22a17-4082-4e94-8c7a-e7233fb796fb",
+      "agentTitle": "Agente JurisPrud",
+      "attachmentCountBefore": 2,
+      "attachmentCountAfter": 0,
+      "excludedRelPaths": [
+        "trabalhista-novos-agentes/jurisprd/0001-2ff314975d51.txt",
+        "trabalhista-novos-agentes/jurisprd/0002-c5285f405d7a.txt"
+      ],
+      "rebuiltDocuments": 0,
+      "rebuiltChunks": 0,
+      "skippedAttachments": []
+    },
+    {
+      "agentId": "56ff344e-3d3d-45c7-8392-b4fd1e8e045a",
+      "agentTitle": "Agente S?mulasCore",
+      "attachmentCountBefore": 34,
+      "attachmentCountAfter": 29,
+      "excludedRelPaths": [
+        "trabalhista-novos-agentes/sumulascore/0003-29321094697f.txt",
+        "trabalhista-novos-agentes/sumulascore/0009-5938e3777894.txt",
+        "trabalhista-novos-agentes/sumulascore/0014-cae65d28936a.txt",
+        "trabalhista-novos-agentes/sumulascore/0018-1a0ff4546860.txt",
+        "trabalhista-novos-agentes/sumulascore/0023-00f468c5f674.txt"
+      ],
+      "rebuiltDocuments": 29,
+      "rebuiltChunks": 708,
+      "skippedAttachments": []
+    },
+    {
+      "agentId": "a339adc5-570e-49a8-80eb-81fa4e117112",
+      "agentTitle": "CTN Expert",
+      "attachmentCountBefore": 9,
+      "attachmentCountAfter": 9,
+      "excludedRelPaths": [],
+      "rebuiltDocuments": 9,
+      "rebuiltChunks": 430,
+      "skippedAttachments": []
+    },
+    {
+      "agentId": "a52473d6-0152-49f9-b4b1-5bec4eee058c",
+      "agentTitle": "DTrib",
+      "attachmentCountBefore": 21,
+      "attachmentCountAfter": 21,
+      "excludedRelPaths": [],
+      "rebuiltDocuments": 21,
+      "rebuiltChunks": 2084,
+      "skippedAttachments": []
+    },
+    {
+      "agentId": "f66b73e0-bde0-4505-8ea6-223b9ad716db",
+      "agentTitle": "FedTax",
+      "attachmentCountBefore": 13,
+      "attachmentCountAfter": 11,
+      "excludedRelPaths": [
+        "direito-tributario/fedtax/0012-7c0bfb6f6808.txt",
+        "direito-tributario/fedtax/0013-9355ed62515b.txt"
+      ],
+      "rebuiltDocuments": 11,
+      "rebuiltChunks": 576,
+      "skippedAttachments": []
+    },
+    {
+      "agentId": "1cec0667-dff2-4f12-9c13-b72f9daa5bb8",
+      "agentTitle": "REFIS-IA",
+      "attachmentCountBefore": 9,
+      "attachmentCountAfter": 9,
+      "excludedRelPaths": [],
+      "rebuiltDocuments": 9,
+      "rebuiltChunks": 430,
+      "skippedAttachments": []
+    }
+  ]
+}

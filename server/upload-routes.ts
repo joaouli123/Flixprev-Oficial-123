@@ -8,8 +8,53 @@ import { Pool } from 'pg';
 import pdfParse from 'pdf-parse';
 
 const dbUrl = process.env.PROD_DATABASE_URL || process.env.DATABASE_URL;
+const GEMINI_OPENAI_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/openai/';
 
 const pool = new Pool({ connectionString: dbUrl });
+
+function getFirstNonEmptyEnv(...values: Array<string | undefined>): string {
+  for (const value of values) {
+    const normalized = String(value || '').trim();
+    if (normalized) {
+      return normalized;
+    }
+  }
+
+  return '';
+}
+
+function normalizeBaseUrl(baseURL = ''): string | undefined {
+  const normalized = String(baseURL || '').trim();
+  if (!normalized) {
+    return undefined;
+  }
+
+  return normalized.endsWith('/') ? normalized : `${normalized}/`;
+}
+
+function getEmbeddingRuntimeConfig() {
+  const openAiApiKey = getFirstNonEmptyEnv(process.env.OPENAI_API_KEY);
+  const geminiApiKey = getFirstNonEmptyEnv(process.env.GEMINI_API_KEY);
+  const sharedApiKey = getFirstNonEmptyEnv(process.env.AI_INTEGRATIONS_OPENAI_API_KEY);
+  const sharedBaseURL = normalizeBaseUrl(process.env.AI_INTEGRATIONS_OPENAI_BASE_URL);
+  const sharedLooksAnthropic = Boolean(sharedBaseURL && /anthropic\.com|claude\.com/i.test(sharedBaseURL));
+
+  const model = getFirstNonEmptyEnv(process.env.EMBEDDING_MODEL) || (openAiApiKey ? 'text-embedding-3-large' : 'gemini-embedding-001');
+  const apiKey = getFirstNonEmptyEnv(
+    process.env.EMBEDDING_API_KEY,
+    process.env.AI_EMBEDDING_API_KEY,
+    openAiApiKey,
+    geminiApiKey,
+    sharedLooksAnthropic ? '' : sharedApiKey
+  );
+  const baseURL = normalizeBaseUrl(getFirstNonEmptyEnv(
+    process.env.EMBEDDING_BASE_URL,
+    process.env.AI_EMBEDDING_BASE_URL,
+    model.startsWith('gemini-') ? GEMINI_OPENAI_BASE_URL : (sharedLooksAnthropic ? '' : sharedBaseURL)
+  ));
+
+  return { apiKey, baseURL, model };
+}
 
 // Configurar multer para upload
 const storage = multer.diskStorage({
@@ -54,27 +99,53 @@ async function extractPdfText(filePath: string): Promise<string> {
   }
 }
 
-function chunkText(text: string, size = 800, overlap = 150): string[] {
-  const chunks = [];
+function chunkText(text: string, size = 1800, overlap = 250): string[] {
+  const chunks: string[] = [];
+  const cleanText = String(text || '').replace(/\s+/g, ' ').trim();
   let start = 0;
-  while (start < text.length) {
-    chunks.push(text.slice(start, start + size));
-    start += size - overlap;
+
+  while (start < cleanText.length) {
+    let end = start + size;
+
+    if (end < cleanText.length) {
+      const lastPeriod = cleanText.lastIndexOf('.', end);
+      const lastSpace = cleanText.lastIndexOf(' ', end);
+
+      if (lastPeriod > start + (size * 0.8)) {
+        end = lastPeriod + 1;
+      } else if (lastSpace > start + (size * 0.5)) {
+        end = lastSpace;
+      }
+    }
+
+    const chunk = cleanText.slice(start, end).trim();
+    if (chunk) {
+      chunks.push(chunk);
+    }
+
+    start = end - overlap;
+    if (start >= end) start = end;
   }
+
   return chunks;
 }
 
 async function generateEmbeddings(chunks: string[]): Promise<number[][]> {
+  const embeddingCfg = getEmbeddingRuntimeConfig();
+  if (!embeddingCfg.apiKey) {
+    throw new Error('Nenhum provedor de embeddings compatível configurado para upload');
+  }
+
   const openai = new OpenAI({
-    apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY || process.env.OPENAI_API_KEY,
-    baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+    apiKey: embeddingCfg.apiKey,
+    baseURL: embeddingCfg.baseURL,
   });
 
   const embeddings: number[][] = [];
   for (const chunk of chunks) {
     try {
       const res = await openai.embeddings.create({
-        model: 'text-embedding-3-large',
+        model: embeddingCfg.model,
         input: chunk
       });
       embeddings.push(res.data[0].embedding);
@@ -123,7 +194,7 @@ async function processFileWithRAG(filePath: string, fileName: string, agentId: s
     console.log('[UPLOAD] Document created:', documentId);
 
     // 3. Chunk text
-    const chunks = chunkText(text, 800, 150);
+    const chunks = chunkText(text);
     console.log(`[UPLOAD] ${chunks.length} chunks created`);
 
     // 4. Generate embeddings
@@ -135,9 +206,9 @@ async function processFileWithRAG(filePath: string, fileName: string, agentId: s
     for (let i = 0; i < chunks.length; i++) {
       const embeddingString = '[' + embeddings[i].join(',') + ']';
       await pool.query(
-        `INSERT INTO document_chunks (agent_id, document_id, content, embedding)
-         VALUES ($1, $2, $3, $4::vector)`,
-        [agentId, documentId, chunks[i], embeddingString]
+        `INSERT INTO document_chunks (agent_id, document_id, content, embedding, chunk_index)
+         VALUES ($1, $2, $3, $4::vector, $5)`,
+        [agentId, documentId, chunks[i], embeddingString, i]
       );
       savedCount++;
     }

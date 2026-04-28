@@ -1,0 +1,108 @@
+{
+  "runId": "rag-smoke-rebuilt-agents-2026-04-27T20-33-41-772Z",
+  "baseUrl": "https://flixprev-oficial-123-production.up.railway.app",
+  "userId": "8f1693c6-2f43-4cbe-bf64-6887da5834cd",
+  "total": 3,
+  "passed": 3,
+  "failed": 0,
+  "results": [
+    {
+      "title": "Agente DirTrab",
+      "agentId": "ca732308-78ab-48e3-bd1d-3d3cc7d8d87f",
+      "question": "Pela CLT, como o art. 3º define empregado? Responda citando os elementos centrais da definição.",
+      "startedAt": "2026-04-27T20:33:41.786Z",
+      "passed": true,
+      "conversationId": 221,
+      "answer": "Pela Consolidação das Leis do Trabalho (CLT), o Art. 3º define empregado como \"toda pessoa física que prestar serviços de natureza não eventual a empregador, sob a dependência deste e mediante salário\" [Fonte 8, Fonte 9].\n\nOs elementos centrais da definição são:\n*   **Pessoa física**: O empregado deve ser uma pessoa natural.\n*   **Não eventualidade**: A prestação de serviços deve ter caráter contínuo ou habitual.\n*   **Subordinação**: O empregado presta serviços sob a dependência do empregador.\n*   **Onerosidade**: A prestação de serviços é realizada mediante salário.",
+      "fallbackDetected": false,
+      "matched": [
+        "pessoa física",
+        "não eventual",
+        "dependência",
+        "salário"
+      ],
+      "missing": [],
+      "matchedCount": 4,
+      "hasSourceMarkers": false,
+      "finishedAt": "2026-04-27T20:33:47.920Z",
+      "aiLogs": [
+        {
+          "conversation_id": 221,
+          "request_type": "chat_completion_supabase_fallback",
+          "model": "gemini-2.5-flash",
+          "status": "success",
+          "prompt_tokens": 15007,
+          "completion_tokens": 144,
+          "total_tokens": 15151,
+          "error_message": null
+        }
+      ]
+    },
+    {
+      "title": "DTrib",
+      "agentId": "a52473d6-0152-49f9-b4b1-5bec4eee058c",
+      "question": "Segundo o CTN, qual é o conceito de tributo do art. 3º?",
+      "startedAt": "2026-04-27T20:33:47.920Z",
+      "passed": true,
+      "conversationId": 222,
+      "answer": "Segundo o Código Tributário Nacional (CTN), em seu art. 3º, tributo é toda prestação pecuniária compulsória, em moeda ou cujo valor nela se possa exprimir, que não constitua sanção de ato ilícito, instituída em lei e cobrada mediante atividade administrativa plenamente vinculada [Fonte 18].",
+      "fallbackDetected": false,
+      "matched": [
+        "prestação pecuniária compulsória",
+        "em moeda",
+        "não constitua sanção",
+        "instituída em lei",
+        "atividade administrativa plenamente vinculada"
+      ],
+      "missing": [],
+      "matchedCount": 5,
+      "hasSourceMarkers": true,
+      "finishedAt": "2026-04-27T20:33:51.303Z",
+      "aiLogs": [
+        {
+          "conversation_id": 222,
+          "request_type": "chat_completion_supabase_fallback",
+          "model": "gemini-2.5-flash",
+          "status": "success",
+          "prompt_tokens": 13873,
+          "completion_tokens": 73,
+          "total_tokens": 13946,
+          "error_message": null
+        }
+      ]
+    },
+    {
+      "title": "FedTax",
+      "agentId": "f66b73e0-bde0-4505-8ea6-223b9ad716db",
+      "question": "Segundo o Decreto 7.212/2010, sobre quais produtos o IPI incide e o que o parágrafo único do art. 2º diz sobre o campo de incidência?",
+      "startedAt": "2026-04-27T20:33:51.303Z",
+      "passed": true,
+      "conversationId": 223,
+      "answer": "Segundo o Decreto nº 7.212, de 15 de junho de 2010:\n\n*   **Incidência do IPI:** O Imposto sobre Produtos Industrializados (IPI) incide sobre produtos industrializados, tanto nacionais quanto estrangeiros, conforme as especificações da Tabela de Incidência do Imposto sobre Produtos Industrializados (TIPI) [Fonte 1, Art. 2º].\n*   **Campo de Incidência (Parágrafo único do Art. 2º):** O campo de incidência do IPI abrange todos os produtos que possuem alíquota, mesmo que zero, e que estão relacionados na TIPI. Devem ser observadas as disposições contidas nas respectivas notas complementares, sendo excluídos os produtos que correspondem à notação “NT” (não tributado) [Fonte 1, Art. 2º, Parágrafo único].",
+      "fallbackDetected": false,
+      "matched": [
+        "produtos industrializados",
+        "TIPI",
+        "NT"
+      ],
+      "missing": [
+        "nacionais e estrangeiros"
+      ],
+      "matchedCount": 3,
+      "hasSourceMarkers": false,
+      "finishedAt": "2026-04-27T20:33:55.487Z",
+      "aiLogs": [
+        {
+          "conversation_id": 223,
+          "request_type": "chat_completion_supabase_fallback",
+          "model": "gemini-2.5-flash",
+          "status": "success",
+          "prompt_tokens": 16061,
+          "completion_tokens": 196,
+          "total_tokens": 16257,
+          "error_message": null
+        }
+      ]
+    }
+  ]
+}

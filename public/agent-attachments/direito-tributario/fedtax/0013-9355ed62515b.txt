@@ -1,5 +1,5 @@
 FONTE: https://normas.receita.fazenda.gov.br/sijut2consulta/consulta.action?facetsExistentes=&orgaosSelecionados=Codac&tiposAtosSelecionados=&ordemColuna=&ordemDirecao=&tipoAtoFacet=&siglaOrgaoFacet=&anoAtoFacet=&termoBusca=&numero_at=
-COLETADO_EM: 2026-03-05T21:25:30.168Z
+COLETADO_EM: 2026-04-28T03:37:58.529Z
 
 Normas
 -
@@ -252,6 +252,7 @@ Difis/SRRF07 - Divis&#xE3;o de Fiscaliza&#xE7;&#xE3;o da 7&#xAA; Regi&#xE3;o Fis
 Difis/SRRF08 - Divis&#xE3;o de Fiscaliza&#xE7;&#xE3;o da 8&#xAA; Regi&#xE3;o Fiscal
 Difis/SRRF09 - Divis&#xE3;o de Fiscaliza&#xE7;&#xE3;o da 9&#xAA; Regi&#xE3;o Fiscal
 Difis/SRRF10 - Divis&#xE3;o de Fiscaliza&#xE7;&#xE3;o da 10&#xAA; Regi&#xE3;o Fiscal
+Digep/SRRF05 - Divis&#xE3;o de Gest&#xE3;o de Pessoas da 5&#xAA; Regi&#xE3;o Fiscal
 Dipol/SRRF03 - Divis&#xE3;o de Programa&#xE7;&#xE3;o e Log&#xED;stica da 3&#xAA; Regi&#xE3;o Fiscal
 Dipol/SRRF04 - Divis&#xE3;o de Programa&#xE7;&#xE3;o e Log&#xED;stica da 4&#xAA; Regi&#xE3;o Fiscal
 Dipol/SRRF07 - Divis&#xE3;o de Programa&#xE7;&#xE3;o e Log&#xED;stica da 7&#xAA; Regi&#xE3;o Fiscal

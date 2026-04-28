@@ -1,112 +1,25 @@
 FONTE: https://www.legisweb.com.br/legislacao/?id=467234
-COLETADO_EM: 2026-03-04T16:01:58.462Z
 
-Portaria Conjunta DIRBEN/DTI/INSS Nº 105 DE 22/10/2024 - Federal - LegisWeb
--
--
--
--
--
--
--
--
--
--
--
--
--
--
--
-Nosso sistema de telefonia está em manutenção. Contamos com a compreensão de todos.
--->
--
-0800 202 5544
--
--
-Atendimento
--
-Dúvidas Frequentes
--
-&bull; Como assinar e quanto custa?
--
--
-&bull; Esqueci minha senha
--
--
-&bull; Meu acesso foi bloqueado
--
--
-&bull; Renovar assinatura
--
--
-&bull; Gerenciar sub-usuários
--
--
-&bull; Quais os Telefones da Consultoria?
--
--
-&bull; 2ª via de boleto bancário
--
--
-&bull; Como adquirir pacote de Consultoria?
--
-Consulte a página Dúvidas Frequentes
-Entre em contato para outras dúvidas ou sugestões:
-Fale Conosco
--
--
--
-Quem somos
--
-Acessar
-Acessar -->
--
-CONSULTORIA
--
--
-SISTEMAS
--
--
-COMÉRCIO EXTERIOR
--
--
-PORTAIS
--
--
-REFORMA TRIBUTÁRIA
--
-- CONSULTORIA
--
-- SISTEMAS
--
-- COMÉRCIO EXTERIOR
--
-- PORTAIS
--
-- REFORMA TRIBUTÁRIA
--
-- FALE CONOSCO
--
-Acessar
-- Página Inicial
--
-- Legislações
--
-- Legislação Federal
--
-Voltar
+COLETADO_EM: 2026-04-27T16:26:32.757Z
+
+TITULO: Portaria Conjunta DIRBEN/DTI/INSS Nº 105 DE 22/10/2024 - Federal - LegisWeb
+
+DESCRICAO: Dispõe sobre o serviço
+
+Página Inicial (/)
+Legislações (/legislacao_ultimas/)
+Legislação Federal
+Voltar (javascript:window.history.back();)
 Portaria Conjunta DIRBEN/DTI/INSS Nº 105 DE 22/10/2024
 Publicado no DOU em 24 out 2024
-- Compartilhar:
--
--
--
--
--
-- -->
--
--
+Compartilhar:
+(https://www. .com/sharer/sharer.php?u=%2Flegisweb%2Fnoticia%2F%3Fid%3D16555%26termo%3Dipva&t= IPVA é lançado automaticamente no Maranhão)
+(https:// .com/intent/tweet?source=%2Flegisweb%2Fnoticia%2F%3Fid%3D16555%26termo%3Dipva&text=:%20%2Flegisweb%2Fnoticia%2F%3Fid%3D16555%26termo%3Dipva)
+(https://plus.google.com/share?url=%2Flegisweb%2Fnoticia%2F%3Fid%3D16555%26termo%3Dipva)
+-->
+(http://www. .com/shareArticle?mini=true&url=%2Flegisweb%2Fnoticia%2F%3Fid%3D16555%26termo%3Dipva&title= IPVA é lançado automaticamente no Maranhão&summary=&source=%2Flegisweb%2Fnoticia%2F%3Fid%3D16555%26termo%3Dipva)
 Dispõe sobre o serviço "Atualização de Dados por Divergência Cadastral" - código 17875 - no âmbito do Instituto Nacional do Seguro Social (INSS).
+(https://www.legisweb.com.br/produtos/consultoria)
 O DIRETOR DE BENEFÍCIOS E RELACIONAMENTO COM O CIDADÃO e o DIRETOR DE TECNOLOGIA DA INFORMAÇÃO do INSTITUTO NACIONAL DO SEGURO SOCIAL - INSS, no uso das competências que lhes confere o Decreto nº 10.995, de 14 de março de 2022, e tendo em vista o que consta no Processo Administrativo nº 35014.171967/2024-86, resolvem:
 Art. 1º Fica estabelecido o serviço "Atualização de Dados por Divergência Cadastral" - código 17875 - para corrigir as informações do Cadastro Nacional de Informações Sociais - CNIS - que impossibilitam o requerimento de benefícios ou serviços do Instituto Nacional do Seguro Social - INSS.
 Parágrafo único. O serviço será disponibilizado exclusivamente no aplicativo ou na página do Meu INSS.
@@ -121,102 +34,16 @@ VANDERLEI BARBOSA DOS SANTOS
 Diretor de Benefícios e Relacionamento com o Cidadão
 MÁRIO GALVÃO DE SOUZA SÓRIA
 Diretor de Tecnologia da Informação
-ASSINAR O LEGISWEB
-Mantenha-se informado e atualizado com o LegisWeb.
-COMO ASSINAR
-LIGUE GRÁTIS
-0800 202 5544
-PRODUTOS E SERVIÇOS
-Banco de Dados
-Consultoria
-Sistemas
-Agenda Tributária
-Comércio Exterior
-Boletim Diário
-LINKS LEGISWEB
-Página Inicial
-Quem Somos
-Notícias
-Legislação
-Dúvidas Frequentes
-Fale Conosco
-NOTÍCIAS POR ASSUNTO
-Comércio Exterior
-Contabilidade / Societário
-ICMS, IPI, ISS e Outros
-IR / Contribuições
-Simples Nacional
-Trabalho / Previdência
-SIGA-NOS
-TRABALHE CONOSCO
-JÁ SOU CLIENTE
-Área do Assinante
-Fale Conosco
-Telefones
-LEGISWEB LTDA - 2026 - Agilize Decisões Seguras
-?
-WhatsApp LegisWeb
-Entre em contato e assine
-Vendas
--->
-Vendas
 &times;
 Acesso ao Sistema
-Login:
-Senha:
-Ainda não é assinante? Clique aqui e descubra como assinar!
-Fechar
-Acessar
 &times;
 Como Assinar? Agende uma Apresentação!
 Sua mensagem foi enviada. Em breve entraremos em contato.
-Se antecipe baixando o visualizador: Baixar Visualizador
-Preencha o formulário e um de nossos representantes entrará em contato para agendar ou realizar a apresentação do LegisWeb e informar as formas de comercialização.
-* Tipo de pessoa:
-Selecione
-Física
-Jurídica
-* Nome ou Razão Social:
-Pessoa para Contato:
-* E-mail:
-* Telefone:
-Celular:
-* Estado:
-UF
-AC
-AL
-AP
-AM
-BA
-CE
-DF
-ES
-GO
-MA
-MT
-MS
-MG
-PA
-PB
-PR
-PE
-PI
-RJ
-RN
-RS
-RO
-RR
-SC
-SP
-SE
-TO
-* Cidade:
-Selecione um estado...
-Deixe uma mensagem:
+Se antecipe baixando o visualizador: Baixar Visualizador (http://download.teamviewer.com/download/TeamViewer_Setup_pt.exe)
 Obrigado pelo interesse! Em breve um de nossos representantes entrará em contato.
 Ok
-Baixar Visualizador TeamViewer (Versão Windows)
-Baixar Visualizador AnyDesk (Versão Windows)
+Baixar Visualizador TeamViewer (http://download.teamviewer.com/download/TeamViewer_Setup_pt.exe) (Versão Windows)
+Baixar Visualizador AnyDesk (https://download.anydesk.com/AnyDesk.exe) (Versão Windows)
 Agendar Apresentação
 Fechar
 &times;
@@ -224,23 +51,28 @@ Recuperar senha
 Caso você tenha esquecido sua senha, informe seu login e e-mail principal
 cadastrado no LegisWeb e clique no botão Recuperar Senha para dar
 início ao processo de recuperação de senha:
-* Informe seu login:
-* Informe seu e-mail:
 Você também pode entrar em contato conosco para solicitar a alteração de sua senha
-através da página Fale Conosco .
+através da página Fale Conosco (/faleconosco/) .
 Recuperar
 &times;
 Fale Conosco
 Ligue para nossa Central de Atendimento
-0800 202 5544
-Número alternativo: (19) 3070-9085
-Número alternativo do Pará: (91) 3197-7414
+0800 202 5544 (tel:08002025544)
+Número alternativo: (19) 3070-9085 (tel:1930709085)
+Número alternativo do Pará: (91) 3197-7414 (tel:9131977414)
 Fechar
+Política de Privacidade e Termos de Uso
+Utilizamos cookies e tecnologias semelhantes para melhorar sua experiência, personalizar
+conteúdo e analisar o tráfego do site, em conformidade com a
+Lei Geral de Proteção de Dados (Lei nº 13.709/2018 – LGPD) .
+Ao continuar navegando, você declara que leu e concorda com nossa
+Política de Privacidade
+(/politica-privacidade/) e nosso
+Termo de Uso
+(/termo-uso/) .
+Li e concordo
 &times;
 Compartilhar legislação por E-mail
-* E-mail:
-Mensagem (opcional):
-Enviar
 &times;
 Compartilhar legislação por E-mail
 Fechar

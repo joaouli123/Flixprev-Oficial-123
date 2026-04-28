@@ -1,5 +1,5 @@
 FONTE: https://www.planalto.gov.br/ccivil_03/leis/l8981.htm
-COLETADO_EM: 2026-03-05T21:18:10.230Z
+COLETADO_EM: 2026-04-28T03:30:34.163Z
 
 L8981
 [TABELA]

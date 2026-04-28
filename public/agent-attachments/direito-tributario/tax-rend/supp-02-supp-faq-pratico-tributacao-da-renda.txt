@@ -1,0 +1,26 @@
+AGENTE: TAX-Rend
+FONTE: SUPP: FAQ Prático – Tributação da Renda
+COLETADO_EM: 2026-04-28T06:19:40.170Z
+
+PERGUNTAS FREQUENTES - TRIBUTAÇÃO DA RENDA (FAQ PRÁTICO)
+
+P: Quem ganha até R$ 5.000 por mês está isento de IR?
+R: A Lei 15.270/2025 criou um desconto simplificado que garante isenção efetiva para quem recebe até R$ 5.000 mensais. A faixa de isenção formal vai até R$ 2.428,80, mas o desconto de R$ 564,80 complementa.
+
+P: Qual a alíquota máxima do IRPF?
+R: 27,5%, aplicada sobre a parcela que excede R$ 5.826,86 mensais (com parcela a deduzir de R$ 1.092,89).
+
+P: Posso deduzir gasto com médico?
+R: Sim. Despesas médicas (médicos, dentistas, psicólogos, hospitais, exames, planos de saúde) são dedutíveis sem limite na declaração anual, desde que comprovadas com recibos e notas.
+
+P: Qual a diferença entre Lucro Real e Lucro Presumido?
+R: No Lucro Real, o IRPJ/CSLL incide sobre o lucro contábil ajustado (complexo, mas captura o lucro real). No Lucro Presumido, aplica-se um percentual sobre a receita bruta (8% comércio, 32% serviços) e tributa sobre essa presunção.
+
+P: Tenho que pagar carnê-leão?
+R: Se recebe rendimentos de pessoa física (aluguéis, trabalhos sem vínculo de PF para PF), rendimentos do exterior, ou pensão alimentícia, sim: recolhe mensalmente via DARF código 0190.
+
+P: Empresa no Lucro Presumido pode optar por não recolher CSLL separadamente?
+R: Não. CSLL é obrigatória e acompanha o regime de tributação do IRPJ. Se você está no presumido, recolhe CSLL presumida com alíquota de 9% sobre a base presumida específica.
+
+P: Qual o prazo para entregar a declaração de IR 2026?
+R: O prazo de entrega da DIRPF referente ao exercício 2025 (ano-calendário 2024 ou 2025, conforme regras vigentes) é normalmente de 01 de março a 31 de maio. Consulte a RFB para datas exatas atualizadas.

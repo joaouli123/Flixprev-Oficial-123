@@ -1,0 +1,7 @@
+AGENTE: Aposentadoria Rural
+FONTE: https://portalin.inss.gov.br/portaria990
+COLETADO_EM: 2026-04-28T00:50:42.662Z
+
+FONTE: https://portalin.inss.gov.br/portaria990
+CONTENT_TYPE: text/html
+OBS: conteúdo textual reduzido; link preservado para consulta normativa oficial.

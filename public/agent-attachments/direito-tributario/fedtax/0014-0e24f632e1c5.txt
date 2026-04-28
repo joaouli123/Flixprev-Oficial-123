@@ -1,5 +1,5 @@
 FONTE: https://www.planalto.gov.br/ccivil_03/leis/lcp/lcp214.htm
-COLETADO_EM: 2026-03-05T21:25:30.371Z
+COLETADO_EM: 2026-04-28T03:37:59.727Z
 
 Lcp 214
 [TABELA]
@@ -15,7 +15,8 @@ LEI COMPLEMENTAR N� 214, DE 16 DE JANEIRO DE
 Mensagem de veto
 Produ��o de efeitos
 Produ��o de efeitos
-(Promulga��o partes vetadas) |
+(Promulga��o partes vetadas)
+Texto compilado |
 Institui o Imposto sobre Bens e Servi�os (IBS), a Contribui��o Social
 sobre Bens e Servi�os (CBS) e o Imposto Seletivo (IS); cria o Comit�
 Gestor do IBS e altera a legisla��o tribut�ria. |

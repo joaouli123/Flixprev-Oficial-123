@@ -1,0 +1,7 @@
+AGENTE: Auxílio por Incapacidade Temporária
+FONTE: https://portalin.inss.gov.br/portaria993
+COLETADO_EM: 2026-04-28T01:00:43.709Z
+
+FONTE: https://portalin.inss.gov.br/portaria993
+CONTENT_TYPE: text/html
+OBS: conteúdo textual reduzido; link preservado para consulta normativa oficial.

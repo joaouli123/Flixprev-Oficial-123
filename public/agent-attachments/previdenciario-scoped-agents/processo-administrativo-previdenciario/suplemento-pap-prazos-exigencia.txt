@@ -1,0 +1,28 @@
+AGENTE: Processo Administrativo Previdenciário
+FONTE: SUPLEMENTO_PREVID_SCOPED: PAP - Prazos de Exigencia
+COLETADO_EM: 2026-04-28T01:50:01.136Z
+
+GUIA OPERACIONAL PAP - PRAZOS DE EXIGENCIA
+
+1. REGRA DE RESPOSTA PRIORITARIA
+Quando o usuario perguntar genericamente qual e o prazo para cumprir exigencia no processo administrativo previdenciario, a resposta deve priorizar o prazo ordinario de 30 dias para cumprimento da exigencia, com indicacao da prorrogacao quando a base oficial indexada permitir.
+
+2. PRAZO ORDINARIO DE CUMPRIMENTO
+No contexto operacional do PAP, a base indexada registra o prazo de 30 dias para cumprimento de exigencia, com possibilidade de prorrogacao por mais 30 dias quando cabivel, conforme a disciplina procedimental refletida no Decreto 3.048/99 e nos guias operacionais suplementares preservados na base do agente.
+
+3. DISTINCAO NECESSARIA
+O marco de 75 dias NAO deve ser usado como resposta principal para a pergunta generica sobre prazo de cumprimento.
+Os 75 dias devem ser explicados como consequencia da ausencia de manifestacao do requerente, com potencial caracterizacao de desistência do pedido e encerramento sem analise do merito, conforme a base normativa indexada da IN INSS 128/2022.
+
+4. MODELO DE RESPOSTA CORRETA
+Se o usuario perguntar: "qual o prazo para cumprir uma exigencia?"
+Responder em primeiro lugar:
+- prazo ordinario: 30 dias;
+- eventual prorrogacao: mencionar quando a base aplicavel indicar;
+- consequencia de inercia prolongada: mencionar separadamente o marco de 75 dias apenas como hipotese de desistência/encerramento sem analise do merito.
+
+5. NORMA DE CITACAO
+Sempre que possivel, diferenciar expressamente:
+- prazo inicial de cumprimento da exigencia;
+- prazo de prorrogacao;
+- prazo para configuracao de desistência do pedido.

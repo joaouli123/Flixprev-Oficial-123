@@ -1,0 +1,72 @@
+AGENTE: DTrib
+FONTE: SUPP: Guia Operacional – Sistema Tributário Nacional
+COLETADO_EM: 2026-04-28T06:19:00.594Z
+
+GUIA OPERACIONAL - SISTEMA TRIBUTÁRIO NACIONAL (DIREITO TRIBUTÁRIO)
+
+1. ESTRUTURA DO SISTEMA TRIBUTÁRIO BRASILEIRO
+O sistema tributário brasileiro é regido pela Constituição Federal (arts. 145 a 162); pelo Código Tributário Nacional (CTN - Lei 5.172/66); e por legislação complementar e ordinária.
+
+Espécies tributárias reconhecidas pela doutrina e jurisprudência:
+- Impostos (art. 145, I, CF): tributo cuja obrigação tem por fato gerador situação independente de qualquer atividade estatal.
+- Taxas (art. 145, II, CF): cobradas em razão do exercício do poder de polícia ou utilização de serviço público específico e divisível.
+- Contribuições de melhoria (art. 145, III, CF): decorrentes de obras públicas que valorizem imóvel.
+- Empréstimos compulsórios (art. 148, CF): instituídos por lei complementar em situações excepcionais.
+- Contribuições especiais (arts. 149 e 195, CF): sociais, CIDE, interesse de categorias profissionais.
+
+2. COMPETÊNCIA TRIBUTÁRIA
+A competência tributária é a aptidão constitucional para instituir tributos:
+- União: IR, IPI, IOF, ITR, IE, II, contribuições sociais, empréstimos compulsórios, CIDE, IBS (parcela federal via CBS após reforma).
+- Estados e DF: ICMS (em transição), IPVA, ITCMD, IBS (parcela estadual após reforma).
+- Municípios e DF: ISS (em transição), IPTU, ITBI, IBS (parcela municipal após reforma).
+- Competência residual: art. 154, I, CF (somente União, por LC, tributo novo não cumulativo com base e fato gerador diferentes).
+- Competência extraordinária: art. 154, II, CF (imposto de guerra).
+
+2.1 DISTINÇÃO OPERACIONAL ENTRE ICMS E ISS
+- ICMS: imposto estadual previsto no art. 155, II, da CF e disciplinado pela LC 87/96.
+- Fato gerador do ICMS: operações relativas à circulação de mercadorias; prestações de transporte interestadual e intermunicipal; prestações onerosas de comunicação; e hipóteses equiparadas do art. 2º da LC 87/96.
+- ISS: imposto municipal previsto no art. 156, III, da CF e disciplinado pela LC 116/03.
+- Fato gerador do ISS: prestação de serviços constantes da lista anexa à LC 116/03, mesmo que não sejam a atividade preponderante do prestador, conforme art. 1º da LC 116.
+- Regra prática: circulação de mercadoria, transporte interestadual/intermunicipal e comunicação apontam para ICMS; prestação de serviço da lista legal aponta para ISS.
+
+3. PRINCÍPIOS CONSTITUCIONAIS TRIBUTÁRIOS
+- Legalidade (art. 150, I, CF): nenhum tributo será exigido ou aumentado sem lei.
+- Anterioridade (art. 150, III, b, CF): vedada cobrança no mesmo exercício financeiro da publicação da lei.
+- Noventena (art. 150, III, c, CF): vedada cobrança antes de 90 dias da publicação.
+- Irretroatividade (art. 150, III, a, CF): vedada cobrança sobre fatos geradores anteriores à lei.
+- Isonomia (art. 150, II, CF): tratamento igual entre contribuintes em situação equivalente.
+- Capacidade contributiva (art. 145, §1º, CF): impostos graduados conforme capacidade econômica.
+- Vedação de confisco (art. 150, IV, CF): tributo não pode ter efeito confiscatório.
+- Não limitação ao tráfego (art. 150, V, CF): vedados tributos interestaduais/intermunicipais sobre circulação.
+- Imunidades (art. 150, VI, CF): recíproca, templos, partidos, sindicatos, entidades educacionais/assistenciais sem fins lucrativos, livros/jornais/papel.
+
+4. LEI DE EXECUÇÃO FISCAL (LEI 6.830/80)
+- Disciplina a cobrança judicial da dívida ativa da Fazenda Pública.
+- A CDA (Certidão de Dívida Ativa) goza de presunção de certeza e liquidez (art. 3º).
+- O devedor é citado para pagar em 5 dias ou garantir a execução (art. 8º).
+- Garantias: depósito, fiança bancária, penhora de bens, seguro garantia.
+- Exceção de pré-executividade: matérias de ordem pública sem dilação probatória.
+- Embargos do devedor: prazo de 30 dias da intimação da penhora (art. 16).
+
+5. SIMPLES NACIONAL (LC 123/2006)
+- Regime unificado de arrecadação para ME e EPP.
+- Faturamento anual: até R$ 4.800.000,00.
+- Recolhimento unificado: IRPJ, CSLL, PIS, Cofins, IPI, ICMS, ISS, CPP.
+- Vedações: atividades financeiras, cessão de mão de obra, importadoras de combustíveis, entre outras.
+- MEI: limite de R$ 81.000/ano (ou R$ 108.000 se transportador autônomo).
+
+6. PIS/COFINS (LEIS 10.637/2002 E 10.833/2003)
+- Regime não cumulativo: créditos sobre insumos, depreciação, aluguéis, frete.
+- Alíquotas: PIS 1,65% + Cofins 7,6% = 9,25% (não cumulativo).
+- Regime cumulativo (Lei 9.718): PIS 0,65% + Cofins 3% = 3,65%.
+- Base de cálculo: receita bruta (após ADI do STF: exclui ICMS da base na posição atual).
+- In RFB 2.121/2022: regulamentação detalhada de créditos e especificidades setoriais.
+
+7. EC 132/2023 E REFORMA TRIBUTÁRIA
+- Introduz IBS (substituição de ICMS + ISS) e CBS (substituição de PIS + Cofins).
+- Imposto Seletivo (IS) sobre bens nocivos à saúde e meio ambiente.
+- Transição longa: 2026–2032, com plena vigência em 2033.
+- Não cumulatividade plena: crédito amplo de toda a cadeia.
+- Detalhes regulamentados por LC 214/2025.
+- LC 214/2025: regulamenta a espinha dorsal da reforma do consumo, com IBS, CBS, IS, transição, não cumulatividade, split payment, cashback e regimes diferenciados.
+- LC 227/2025: aparece como legislação complementar de ajuste operacional e setorial da reforma, alterando pontos de implementação, repartição, regimes específicos e regras técnicas conectadas ao novo modelo IBS/CBS.
