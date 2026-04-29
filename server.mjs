@@ -202,18 +202,19 @@ const chatUpload = multer({ storage: chatStorage });
 const hasDatabaseUrl = Boolean(process.env.DATABASE_URL && process.env.DATABASE_URL.trim());
 const GEMINI_OPENAI_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/openai/';
 const ANTHROPIC_BASE_URL = 'https://api.anthropic.com';
-const DEFAULT_RAG_VECTOR_LIMIT = Math.max(6, Math.min(Number(process.env.RAG_VECTOR_LIMIT || 28) || 28, 96));
-const DEFAULT_RAG_RETURN_LIMIT = Math.max(4, Math.min(Number(process.env.RAG_RETURN_LIMIT || 14) || 14, 40));
+const RAG_EXTREME_MODE = !/^(0|false|no)$/i.test(String(process.env.RAG_EXTREME_MODE || 'true').trim());
+const DEFAULT_RAG_VECTOR_LIMIT = Math.max(8, Math.min(Number(process.env.RAG_VECTOR_LIMIT || (RAG_EXTREME_MODE ? 56 : 28)) || (RAG_EXTREME_MODE ? 56 : 28), 160));
+const DEFAULT_RAG_RETURN_LIMIT = Math.max(6, Math.min(Number(process.env.RAG_RETURN_LIMIT || (RAG_EXTREME_MODE ? 32 : 14)) || (RAG_EXTREME_MODE ? 32 : 14), 120));
 const DEFAULT_RAG_MIN_SIMILARITY = Number(process.env.RAG_MIN_SIMILARITY || 0.08) || 0.08;
-const DEFAULT_RAG_KEYWORD_LIMIT = Math.max(6, Math.min(Number(process.env.RAG_KEYWORD_LIMIT || 18) || 18, 72));
-const DEFAULT_RAG_CANDIDATE_LIMIT = Math.max(300, Number(process.env.RAG_CANDIDATE_LIMIT || 900) || 900);
-const DEFAULT_RAG_DEEP_RETURN_LIMIT = Math.max(DEFAULT_RAG_RETURN_LIMIT, Math.min(Number(process.env.RAG_DEEP_RETURN_LIMIT || 24) || 24, 80));
-const DEFAULT_RAG_DEEP_SCAN_LIMIT = Math.max(DEFAULT_RAG_CANDIDATE_LIMIT, Number(process.env.RAG_DEEP_SCAN_LIMIT || 20000) || 20000);
-const DEFAULT_RAG_DEEP_SEED_LIMIT = Math.max(10, Number(process.env.RAG_DEEP_SEED_LIMIT || 24) || 24);
-const DEFAULT_RAG_NEIGHBOR_WINDOW = Math.max(1, Math.min(Number(process.env.RAG_NEIGHBOR_WINDOW || 2) || 2, 4));
-const DEFAULT_RAG_CONTEXT_MAX_CHARS = Math.max(12000, Number(process.env.RAG_CONTEXT_MAX_CHARS || 42000) || 42000);
-const DEFAULT_CHAT_MAX_TOKENS = Number(process.env.CHAT_MAX_TOKENS || 3200);
-const DEFAULT_FAST_CHAT_MAX_TOKENS = Number(process.env.FAST_CHAT_MAX_TOKENS || 2200);
+const DEFAULT_RAG_KEYWORD_LIMIT = Math.max(8, Math.min(Number(process.env.RAG_KEYWORD_LIMIT || (RAG_EXTREME_MODE ? 44 : 18)) || (RAG_EXTREME_MODE ? 44 : 18), 160));
+const DEFAULT_RAG_CANDIDATE_LIMIT = Math.max(300, Number(process.env.RAG_CANDIDATE_LIMIT || (RAG_EXTREME_MODE ? 3000 : 900)) || (RAG_EXTREME_MODE ? 3000 : 900));
+const DEFAULT_RAG_DEEP_RETURN_LIMIT = Math.max(DEFAULT_RAG_RETURN_LIMIT, Math.min(Number(process.env.RAG_DEEP_RETURN_LIMIT || (RAG_EXTREME_MODE ? 72 : 24)) || (RAG_EXTREME_MODE ? 72 : 24), 180));
+const DEFAULT_RAG_DEEP_SCAN_LIMIT = Math.max(DEFAULT_RAG_CANDIDATE_LIMIT, Number(process.env.RAG_DEEP_SCAN_LIMIT || (RAG_EXTREME_MODE ? 90000 : 20000)) || (RAG_EXTREME_MODE ? 90000 : 20000));
+const DEFAULT_RAG_DEEP_SEED_LIMIT = Math.max(10, Number(process.env.RAG_DEEP_SEED_LIMIT || (RAG_EXTREME_MODE ? 56 : 24)) || (RAG_EXTREME_MODE ? 56 : 24));
+const DEFAULT_RAG_NEIGHBOR_WINDOW = Math.max(1, Math.min(Number(process.env.RAG_NEIGHBOR_WINDOW || (RAG_EXTREME_MODE ? 3 : 2)) || (RAG_EXTREME_MODE ? 3 : 2), 6));
+const DEFAULT_RAG_CONTEXT_MAX_CHARS = Math.max(16000, Number(process.env.RAG_CONTEXT_MAX_CHARS || (RAG_EXTREME_MODE ? 100000 : 42000)) || (RAG_EXTREME_MODE ? 100000 : 42000));
+const DEFAULT_CHAT_MAX_TOKENS = Number(process.env.CHAT_MAX_TOKENS || (RAG_EXTREME_MODE ? 6400 : 3200));
+const DEFAULT_FAST_CHAT_MAX_TOKENS = Number(process.env.FAST_CHAT_MAX_TOKENS || (RAG_EXTREME_MODE ? 3600 : 2200));
 const ENABLE_DIRECT_PDF_ANALYSIS = /^(1|true|yes)$/i.test(String(process.env.ENABLE_DIRECT_PDF_ANALYSIS || '').trim());
 const agentAttachmentChunkCache = new Map();
 
@@ -2061,6 +2062,27 @@ function summarizeRetrievedRows(rows = [], limit = 5) {
     }));
 }
 
+function getEffectiveContextBudgetChars(chunkCount = 0) {
+  if (!RAG_EXTREME_MODE) {
+    return DEFAULT_RAG_CONTEXT_MAX_CHARS;
+  }
+
+  const totalChunks = Number(chunkCount || 0);
+  if (totalChunks >= 5000) {
+    return Math.max(DEFAULT_RAG_CONTEXT_MAX_CHARS, 140000);
+  }
+
+  if (totalChunks >= 2000) {
+    return Math.max(DEFAULT_RAG_CONTEXT_MAX_CHARS, 120000);
+  }
+
+  if (totalChunks >= 800) {
+    return Math.max(DEFAULT_RAG_CONTEXT_MAX_CHARS, 100000);
+  }
+
+  return Math.max(DEFAULT_RAG_CONTEXT_MAX_CHARS, 85000);
+}
+
 function selectContextRowsByBudget(rows = [], maxChars = DEFAULT_RAG_CONTEXT_MAX_CHARS, minRows = Math.min(DEFAULT_RAG_RETURN_LIMIT, 6)) {
   const safeRows = Array.isArray(rows) ? rows : [];
   const normalizedMaxChars = Math.max(4000, Number(maxChars || DEFAULT_RAG_CONTEXT_MAX_CHARS));
@@ -2082,8 +2104,10 @@ function selectContextRowsByBudget(rows = [], maxChars = DEFAULT_RAG_CONTEXT_MAX
   return selectedRows;
 }
 
-function formatRetrievedContext(rows = []) {
-  const rowsWithinBudget = selectContextRowsByBudget(rows);
+function formatRetrievedContext(rows = [], options = {}) {
+  const maxChars = Number(options?.maxChars || DEFAULT_RAG_CONTEXT_MAX_CHARS);
+  const minRows = Number(options?.minRows || Math.min(DEFAULT_RAG_RETURN_LIMIT, 6));
+  const rowsWithinBudget = selectContextRowsByBudget(rows, maxChars, minRows);
   return rowsWithinBudget
     .map((row, index) => {
       const title = String(row?.documentTitle || 'Documento sem título').replace(/\s+/g, ' ').trim();
@@ -2448,6 +2472,13 @@ function buildDeepRetrievalQueries(question = '', retrievalQuery = '') {
 function shouldTriggerProactiveDeepSearch({ userText = '', retrievalQuery = '', relevantChunks = [], legalSignals = null, chunkCount = 0 } = {}) {
   const combinedText = [userText, retrievalQuery].filter(Boolean).join('\n');
   const normalized = normalizeRetrievalText(combinedText);
+  if (RAG_EXTREME_MODE) {
+    const looksAnalyticalQuestion = /\b(quais|qual|quando|como|situac|hipotese|document|requisito|inciso|alinea|caput|art|decreto|lei|norma|prazo|cessa|concessao)\b/i.test(normalized);
+    if (looksAnalyticalQuestion) {
+      return true;
+    }
+  }
+
   const resolvedSignals = legalSignals || extractLegalReferenceSignals(combinedText);
   const hasLegalSignals = resolvedSignals.articleNumbers.length > 0
     || resolvedSignals.lawReferences.length > 0
@@ -2770,6 +2801,9 @@ REGRAS CRITICAS:
 9. Quando o contexto trouxer texto legal ou normativo, prefira reproduzir a redacao essencial em vez de parafrasear demais.
 10. Se houver divergencia entre trechos, aponte a divergencia e cite as fontes.
 11. Em perguntas que pedem lista (ex.: "quais", "em quais situacoes", "documentos"), entregue os itens em bullets com redacao o mais literal possivel dos trechos.
+12. Priorize o trecho cujo texto tenha maior sobreposicao lexical com o nucleo da pergunta; nao substitua esse trecho por regra parecida de outro artigo.
+13. Se houver mais de uma regra sobre o mesmo beneficio, identifique explicitamente qual frase responde exatamente ao enunciado e use essa frase como base da resposta.
+14. Antes de finalizar, confira se todos os elementos centrais perguntados estao cobertos (sujeito, condicoes, excecoes e marcos normativos citados no enunciado).
 
 ${conversationBlock}CONTEXTO DOCUMENTAL:
 ${context}
@@ -2884,6 +2918,99 @@ function isGroundedFallbackResponse(text = '') {
     || normalized.startsWith('com os trechos disponiveis')
     || normalized.startsWith('com o material disponivel')
     || normalized.includes('nao foi possivel confirmar com precisao');
+}
+
+function shouldRunStrictGroundedRefinement(question = '', hasContext = false) {
+  if (!hasContext) {
+    return false;
+  }
+
+  if (RAG_EXTREME_MODE) {
+    return true;
+  }
+
+  const normalized = normalizeRetrievalText(question);
+  return /\b(quais|qual|quando|como|situac|hipotese|document|requisito|inciso|alinea|caput|art|decreto|lei|norma|prazo)\b/i.test(normalized);
+}
+
+async function refineGroundedAnswerIfNeeded({
+  answer = '',
+  question = '',
+  context = '',
+  hasContext = false,
+  questionType = 'general',
+  contextSize = 0,
+  chunksUsed = 0,
+  userId = null,
+  conversationId = null,
+  requestType = 'chat_completion_grounded_refinement',
+} = {}) {
+  const baseAnswer = String(answer || '').trim();
+  if (!baseAnswer || !shouldRunStrictGroundedRefinement(question, hasContext)) {
+    return baseAnswer || answer;
+  }
+
+  const refinementContext = String(context || '').trim();
+  if (!refinementContext) {
+    return baseAnswer;
+  }
+
+  const contextWindow = refinementContext.slice(0, Math.max(DEFAULT_RAG_CONTEXT_MAX_CHARS, 60000));
+  const refinementPrompt = `PERSONA: REVISOR JURIDICO RAG DE PRECISAO MAXIMA
+Sua tarefa e corrigir uma RESPOSTA PRELIMINAR para que ela fique 100% aderente ao contexto.
+
+REGRAS OBRIGATORIAS:
+1. Use somente o contexto abaixo.
+2. Identifique no contexto o trecho com maior sobreposicao lexical com a pergunta e use-o como base principal.
+3. Se a pergunta pedir lista/situacoes/documentos/requisitos, entregue a lista completa e literal dos itens do trecho principal.
+4. Nao misture regras de artigos diferentes quando o enunciado apontar uma situacao especifica.
+5. Preserve citacoes em formato [Fonte N] quando possivel.
+6. Se faltar informacao no contexto, explique objetivamente qual ponto faltou.
+7. Nao use conhecimento externo.
+
+CONTEXTO DOCUMENTAL:
+${contextWindow}
+
+PERGUNTA:
+${question}
+
+RESPOSTA PRELIMINAR:
+${baseAnswer}
+
+Gere agora a RESPOSTA FINAL corrigida.`;
+
+  try {
+    const aiCfg = getAiRuntimeConfig();
+    const refinedAnswer = await runChatCompletion({
+      messages: [{ role: 'system', content: refinementPrompt }],
+      model: aiCfg.chatModel,
+      userId,
+      conversationId,
+      requestType,
+      temperature: 0,
+      maxTokens: Math.max(1600, DEFAULT_CHAT_MAX_TOKENS),
+    });
+
+    const refinedText = String(refinedAnswer || '').trim();
+    if (!refinedText) {
+      return baseAnswer;
+    }
+
+    const validatedRefined = validateOutput(
+      refinedText,
+      hasContext,
+      question,
+      questionType,
+      contextSize,
+      chunksUsed,
+      contextWindow,
+    );
+
+    return String(validatedRefined || baseAnswer).trim() || baseAnswer;
+  } catch (error) {
+    console.warn('[CHAT][REFINE] Falha na revisao estrita da resposta:', error?.message || error);
+    return baseAnswer;
+  }
 }
 
 // ============================================
@@ -6423,6 +6550,7 @@ async function handleSupabaseConversationMessageFallback({ res, userId, cid, con
   const historyRows = await listConversationMessagesViaSupabase(userId, cid) || [];
   const conversationContext = buildConversationContext(historyRows);
   const retrievalQuery = buildRetrievalQuery(userText, conversationContext);
+  const rankingQueryText = String(userText || retrievalQuery || '').trim();
 
   let prompt = buildGroundedPrompt(attachmentContext || '', '', userText || 'Analise o anexo enviado.', conversationContext);
   let mergedContext = attachmentContext || '';
@@ -6468,7 +6596,7 @@ async function handleSupabaseConversationMessageFallback({ res, userId, cid, con
         questionType = detectQuestionType(userText);
         totalChunkCount = await countAgentChunks(effectiveAgentId);
         const hasChunks = totalChunkCount > 0;
-        const legalSignals = extractLegalReferenceSignals(userText || retrievalQuery);
+        const legalSignals = extractLegalReferenceSignals(rankingQueryText || retrievalQuery);
         retrievalDebug.hasChunks = hasChunks;
         retrievalDebug.totalChunks = totalChunkCount;
         retrievalDebug.legalSignals = {
@@ -6498,7 +6626,7 @@ async function handleSupabaseConversationMessageFallback({ res, userId, cid, con
                 queryEmbedding,
                 effectiveAgentId,
                 DEFAULT_RAG_VECTOR_LIMIT,
-                retrievalQuery || userText
+                rankingQueryText
               );
               retrievalDebug.vectorRetrieved = relevantChunks.length;
             }
@@ -6511,18 +6639,18 @@ async function handleSupabaseConversationMessageFallback({ res, userId, cid, con
               }
             }
 
-            const keywordChunks = await searchKeywordChunks(retrievalQuery || userText, effectiveAgentId, DEFAULT_RAG_KEYWORD_LIMIT);
+            const keywordChunks = await searchKeywordChunks(rankingQueryText, effectiveAgentId, DEFAULT_RAG_KEYWORD_LIMIT);
             retrievalDebug.keywordRetrieved = keywordChunks.length;
             relevantChunks = rerankRetrievedRows(
               [...relevantChunks, ...keywordChunks],
-              retrievalQuery || userText,
+              rankingQueryText,
               DEFAULT_RAG_RETURN_LIMIT
             );
           }
 
           const shouldDeepSearchEarly = shouldTriggerProactiveDeepSearch({
             userText,
-            retrievalQuery: retrievalQuery || userText,
+            retrievalQuery: rankingQueryText || retrievalQuery,
             relevantChunks,
             legalSignals,
             chunkCount: totalChunkCount,
@@ -6533,7 +6661,7 @@ async function handleSupabaseConversationMessageFallback({ res, userId, cid, con
             const deepLimit = Math.max(DEFAULT_RAG_DEEP_RETURN_LIMIT, DEFAULT_RAG_RETURN_LIMIT + 6);
             const deepResult = await searchDeepAgentChunks({
               question: userText,
-              retrievalQuery: retrievalQuery || userText,
+              retrievalQuery: rankingQueryText || retrievalQuery,
               agentId: effectiveAgentId,
               attachments: Array.isArray(agentDetails.attachments) ? agentDetails.attachments : [],
               chunkCount: totalChunkCount,
@@ -6553,19 +6681,25 @@ async function handleSupabaseConversationMessageFallback({ res, userId, cid, con
             }
           }
 
-          relevantContext = formatRetrievedContext(relevantChunks);
+          relevantContext = formatRetrievedContext(relevantChunks, {
+            maxChars: getEffectiveContextBudgetChars(totalChunkCount),
+            minRows: RAG_EXTREME_MODE ? Math.min(DEFAULT_RAG_RETURN_LIMIT, 12) : Math.min(DEFAULT_RAG_RETURN_LIMIT, 6),
+          });
         }
 
         if (relevantChunks.length === 0 && Array.isArray(agentDetails.attachments) && agentDetails.attachments.length > 0) {
           retrievalDebug.attachmentFallbackUsed = true;
           relevantChunks = await searchAttachmentChunks(
-            retrievalQuery || userText,
+            rankingQueryText,
             effectiveAgentId,
             agentDetails.attachments,
             DEFAULT_RAG_RETURN_LIMIT
           );
           retrievalDebug.attachmentRetrieved = relevantChunks.length;
-          relevantContext = formatRetrievedContext(relevantChunks);
+          relevantContext = formatRetrievedContext(relevantChunks, {
+            maxChars: getEffectiveContextBudgetChars(totalChunkCount),
+            minRows: RAG_EXTREME_MODE ? Math.min(DEFAULT_RAG_RETURN_LIMIT, 12) : Math.min(DEFAULT_RAG_RETURN_LIMIT, 6),
+          });
         }
 
         mergedContext = [attachmentContext, relevantContext].filter(Boolean).join('\n\n---\n\n');
@@ -6616,18 +6750,18 @@ async function handleSupabaseConversationMessageFallback({ res, userId, cid, con
       relevantContext,
     );
 
-    // Se a primeira passada cair em fallback, varremos o indice inteiro uma vez antes de desistir.
-    if (!usedDirectPdfAnswer && effectiveAgentId && agentDetails && isGroundedFallbackResponse(finalAssistantText) && retrievalDebug.deepRetrieved === 0) {
+    // Se a primeira passada cair em fallback (ou em modo extremo), varremos o indice inteiro antes de desistir.
+    if (!usedDirectPdfAnswer && effectiveAgentId && agentDetails && (RAG_EXTREME_MODE || isGroundedFallbackResponse(finalAssistantText)) && (RAG_EXTREME_MODE || retrievalDebug.deepRetrieved === 0)) {
       retrievalDebug.retryAttempted = true;
       retrievalDebug.deepSearchTriggered = true;
 
       const deepResult = await searchDeepAgentChunks({
         question: userText,
-        retrievalQuery: retrievalQuery || userText,
+        retrievalQuery: rankingQueryText || retrievalQuery,
         agentId: effectiveAgentId,
         attachments: Array.isArray(agentDetails.attachments) ? agentDetails.attachments : [],
         chunkCount: totalChunkCount,
-        limit: DEFAULT_RAG_DEEP_RETURN_LIMIT,
+        limit: Math.max(DEFAULT_RAG_DEEP_RETURN_LIMIT, DEFAULT_RAG_RETURN_LIMIT + 10),
       });
 
       retrievalDebug.deepScannedRows = deepResult.scannedRows;
@@ -6635,7 +6769,10 @@ async function handleSupabaseConversationMessageFallback({ res, userId, cid, con
       retrievalDebug.deepQueries = deepResult.queryTexts.slice(0, 6);
 
       if (deepResult.rows.length > 0) {
-        const deepRelevantContext = formatRetrievedContext(deepResult.rows);
+        const deepRelevantContext = formatRetrievedContext(deepResult.rows, {
+          maxChars: getEffectiveContextBudgetChars(totalChunkCount),
+          minRows: RAG_EXTREME_MODE ? Math.min(DEFAULT_RAG_DEEP_RETURN_LIMIT, 18) : Math.min(DEFAULT_RAG_RETURN_LIMIT, 8),
+        });
         const deepMergedContext = [attachmentContext, deepRelevantContext].filter(Boolean).join('\n\n---\n\n');
 
         if (deepMergedContext && deepMergedContext !== mergedContext) {
@@ -6675,6 +6812,19 @@ async function handleSupabaseConversationMessageFallback({ res, userId, cid, con
         }
       }
     }
+
+    finalAssistantText = await refineGroundedAnswerIfNeeded({
+      answer: finalAssistantText,
+      question: userText,
+      context: mergedContext || relevantContext,
+      hasContext,
+      questionType,
+      contextSize,
+      chunksUsed,
+      userId,
+      conversationId: cid,
+      requestType: 'chat_completion_supabase_fallback_refinement',
+    });
 
     console.log(`[CHAT][SUPABASE-FALLBACK] Retrieval summary: ${JSON.stringify(retrievalDebug)}`);
     await insertConversationMessageViaSupabase(cid, 'assistant', finalAssistantText);
@@ -7699,6 +7849,7 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
 
     const conversationContext = buildConversationContext(hist.rows);
     const retrievalQuery = buildRetrievalQuery(userText, conversationContext);
+    const rankingQueryText = String(userText || retrievalQuery || '').trim();
 
     if (directPdfAnswer && directPdfAnswer.trim().length > 0) {
       await pool.query(
@@ -7749,7 +7900,7 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
 
           totalChunkCount = await countAgentChunks(effectiveAgentId);
           const hasChunks = totalChunkCount > 0;
-          const legalSignals = extractLegalReferenceSignals(userText || retrievalQuery);
+          const legalSignals = extractLegalReferenceSignals(rankingQueryText || retrievalQuery);
 
           if (hasChunks) {
             try {
@@ -7770,26 +7921,26 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
                     queryEmbedding,
                     effectiveAgentId,
                     DEFAULT_RAG_VECTOR_LIMIT,
-                    retrievalQuery || userText
+                    rankingQueryText
                   );
                 }
 
                 const keywordChunks = await searchKeywordChunks(
-                  retrievalQuery || userText,
+                  rankingQueryText,
                   effectiveAgentId,
                   DEFAULT_RAG_KEYWORD_LIMIT
                 );
 
                 relevantChunks = rerankRetrievedRows(
                   [...relevantChunks, ...keywordChunks],
-                  retrievalQuery || userText,
+                  rankingQueryText,
                   DEFAULT_RAG_RETURN_LIMIT
                 );
               }
 
               const shouldDeepSearchEarly = shouldTriggerProactiveDeepSearch({
                 userText,
-                retrievalQuery: retrievalQuery || userText,
+                retrievalQuery: rankingQueryText || retrievalQuery,
                 relevantChunks,
                 legalSignals,
                 chunkCount: totalChunkCount,
@@ -7799,7 +7950,7 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
                 const deepLimit = Math.max(DEFAULT_RAG_DEEP_RETURN_LIMIT, DEFAULT_RAG_RETURN_LIMIT + 6);
                 const deepResult = await searchDeepAgentChunks({
                   question: userText,
-                  retrievalQuery: retrievalQuery || userText,
+                  retrievalQuery: rankingQueryText || retrievalQuery,
                   agentId: effectiveAgentId,
                   attachments: Array.isArray(agentData.attachments) ? agentData.attachments : [],
                   chunkCount: totalChunkCount,
@@ -7818,7 +7969,11 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
                 console.log(`[CHAT][DEEP_EARLY] scanned=${deepResult.scannedRows} retrieved=${deepResult.rows.length} agent=${effectiveAgentId}`);
               }
 
-              relevantContext = formatRetrievedContext(relevantChunks);
+              const contextBudgetChars = getEffectiveContextBudgetChars(totalChunkCount);
+              relevantContext = formatRetrievedContext(relevantChunks, {
+                maxChars: contextBudgetChars,
+                minRows: RAG_EXTREME_MODE ? Math.min(DEFAULT_RAG_RETURN_LIMIT, 12) : Math.min(DEFAULT_RAG_RETURN_LIMIT, 6),
+              });
 
               mergedContext = [attachmentContext, relevantContext].filter(Boolean).join('\n\n---\n\n');
               prompt = buildGroundedPrompt(mergedContext || '', agentInstructions, userText || 'Analise o anexo enviado.', conversationContext);
@@ -7876,19 +8031,22 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
       relevantContext,
     );
 
-    if (effectiveAgentId && agentData && isGroundedFallbackResponse(validatedResp) && preAnswerDeepRetrieved === 0) {
+    if (effectiveAgentId && agentData && (RAG_EXTREME_MODE || isGroundedFallbackResponse(validatedResp)) && (RAG_EXTREME_MODE || preAnswerDeepRetrieved === 0)) {
       try {
         const deepResult = await searchDeepAgentChunks({
           question: userText,
-          retrievalQuery: retrievalQuery || userText,
+          retrievalQuery: rankingQueryText || retrievalQuery,
           agentId: effectiveAgentId,
           attachments: Array.isArray(agentData.attachments) ? agentData.attachments : [],
           chunkCount: totalChunkCount,
-          limit: DEFAULT_RAG_DEEP_RETURN_LIMIT,
+          limit: Math.max(DEFAULT_RAG_DEEP_RETURN_LIMIT, DEFAULT_RAG_RETURN_LIMIT + 10),
         });
 
         if (deepResult.rows.length > 0) {
-          const deepRelevantContext = formatRetrievedContext(deepResult.rows);
+          const deepRelevantContext = formatRetrievedContext(deepResult.rows, {
+            maxChars: getEffectiveContextBudgetChars(totalChunkCount),
+            minRows: RAG_EXTREME_MODE ? Math.min(DEFAULT_RAG_DEEP_RETURN_LIMIT, 18) : Math.min(DEFAULT_RAG_RETURN_LIMIT, 8),
+          });
           const deepMergedContext = [attachmentContext, deepRelevantContext].filter(Boolean).join('\n\n---\n\n');
 
           if (deepMergedContext && deepMergedContext !== mergedContext) {
@@ -7934,6 +8092,19 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
         console.warn('[CHAT][DEEP_RETRY] Falha ao tentar varredura profunda:', deepError?.message || deepError);
       }
     }
+
+    validatedResp = await refineGroundedAnswerIfNeeded({
+      answer: validatedResp,
+      question: userText,
+      context: mergedContext || relevantContext,
+      hasContext,
+      questionType,
+      contextSize,
+      chunksUsed,
+      userId,
+      conversationId: cid,
+      requestType: attachment ? 'chat_completion_with_attachment_refinement' : 'chat_completion_refinement',
+    });
 
     const chunkSize = 50;
     for (let i = 0; i < validatedResp.length; i += chunkSize) {
