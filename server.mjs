@@ -1,3 +1,7 @@
+import { setDefaultResultOrder } from 'dns';
+// Forçar IPv4 globalmente antes de qualquer conexão de rede (corrige ENETUNREACH IPv6 no Railway)
+setDefaultResultOrder('ipv4first');
+
 import express from 'express';
 import crypto from 'crypto';
 import fs from 'fs';
@@ -197,16 +201,17 @@ const chatStorage = multer.diskStorage({
 const chatUpload = multer({ storage: chatStorage });
 const hasDatabaseUrl = Boolean(process.env.DATABASE_URL && process.env.DATABASE_URL.trim());
 const GEMINI_OPENAI_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/openai/';
-const ANTHROPIC_BASE_URL = 'https://api.anthropic.com/v1/';
-const DEFAULT_RAG_VECTOR_LIMIT = Number(process.env.RAG_VECTOR_LIMIT || 64);
-const DEFAULT_RAG_RETURN_LIMIT = Number(process.env.RAG_RETURN_LIMIT || 24);
-const DEFAULT_RAG_MIN_SIMILARITY = Number(process.env.RAG_MIN_SIMILARITY || 0.12);
-const DEFAULT_RAG_KEYWORD_LIMIT = Number(process.env.RAG_KEYWORD_LIMIT || 12);
-const DEFAULT_RAG_CANDIDATE_LIMIT = Number(process.env.RAG_CANDIDATE_LIMIT || 240);
-const DEFAULT_RAG_DEEP_RETURN_LIMIT = Number(process.env.RAG_DEEP_RETURN_LIMIT || Math.max(DEFAULT_RAG_RETURN_LIMIT + 8, 32));
-const DEFAULT_RAG_DEEP_SCAN_LIMIT = Number(process.env.RAG_DEEP_SCAN_LIMIT || 5000);
-const DEFAULT_RAG_DEEP_SEED_LIMIT = Number(process.env.RAG_DEEP_SEED_LIMIT || 10);
-const DEFAULT_RAG_NEIGHBOR_WINDOW = Number(process.env.RAG_NEIGHBOR_WINDOW || 1);
+const ANTHROPIC_BASE_URL = 'https://api.anthropic.com';
+const DEFAULT_RAG_VECTOR_LIMIT = Math.max(6, Math.min(Number(process.env.RAG_VECTOR_LIMIT || 28) || 28, 96));
+const DEFAULT_RAG_RETURN_LIMIT = Math.max(4, Math.min(Number(process.env.RAG_RETURN_LIMIT || 14) || 14, 40));
+const DEFAULT_RAG_MIN_SIMILARITY = Number(process.env.RAG_MIN_SIMILARITY || 0.08) || 0.08;
+const DEFAULT_RAG_KEYWORD_LIMIT = Math.max(6, Math.min(Number(process.env.RAG_KEYWORD_LIMIT || 18) || 18, 72));
+const DEFAULT_RAG_CANDIDATE_LIMIT = Math.max(300, Number(process.env.RAG_CANDIDATE_LIMIT || 900) || 900);
+const DEFAULT_RAG_DEEP_RETURN_LIMIT = Math.max(DEFAULT_RAG_RETURN_LIMIT, Math.min(Number(process.env.RAG_DEEP_RETURN_LIMIT || 24) || 24, 80));
+const DEFAULT_RAG_DEEP_SCAN_LIMIT = Math.max(DEFAULT_RAG_CANDIDATE_LIMIT, Number(process.env.RAG_DEEP_SCAN_LIMIT || 20000) || 20000);
+const DEFAULT_RAG_DEEP_SEED_LIMIT = Math.max(10, Number(process.env.RAG_DEEP_SEED_LIMIT || 24) || 24);
+const DEFAULT_RAG_NEIGHBOR_WINDOW = Math.max(1, Math.min(Number(process.env.RAG_NEIGHBOR_WINDOW || 2) || 2, 4));
+const DEFAULT_RAG_CONTEXT_MAX_CHARS = Math.max(12000, Number(process.env.RAG_CONTEXT_MAX_CHARS || 42000) || 42000);
 const DEFAULT_CHAT_MAX_TOKENS = Number(process.env.CHAT_MAX_TOKENS || 3200);
 const DEFAULT_FAST_CHAT_MAX_TOKENS = Number(process.env.FAST_CHAT_MAX_TOKENS || 2200);
 const ENABLE_DIRECT_PDF_ANALYSIS = /^(1|true|yes)$/i.test(String(process.env.ENABLE_DIRECT_PDF_ANALYSIS || '').trim());
@@ -487,8 +492,18 @@ function createEmbeddingClient() {
   });
 }
 
+function isRetryableAiError(error) {
+  const status = Number(error?.status || error?.statusCode || error?.response?.status || 0);
+  if ([408, 409, 425, 429, 500, 502, 503, 504].includes(status)) {
+    return true;
+  }
+
+  const message = String(error?.message || '').toLowerCase();
+  return /timeout|timed out|failed to respond|temporarily unavailable|try again|socket hang up|econnreset|etimedout|eai_again|network error|connection reset|gateway|overloaded/.test(message);
+}
+
 /**
- * Retry wrapper for Gemini/OpenAI API calls that handles 429 rate limiting.
+ * Retry wrapper for AI provider calls that handles transient transport/provider errors.
  * Retries up to maxRetries times with exponential backoff.
  */
 async function withRetry429(fn, { maxRetries = 4, baseDelayMs = 2000, label = 'AI call' } = {}) {
@@ -497,12 +512,12 @@ async function withRetry429(fn, { maxRetries = 4, baseDelayMs = 2000, label = 'A
       return await fn();
     } catch (error) {
       const status = error?.status || error?.statusCode || error?.response?.status;
-      const is429 = status === 429 || String(error?.message || '').includes('429');
-      if (!is429 || attempt >= maxRetries) {
+      const shouldRetry = isRetryableAiError(error);
+      if (!shouldRetry || attempt >= maxRetries) {
         throw error;
       }
       const delay = baseDelayMs * Math.pow(2, attempt) + Math.random() * 1000;
-      console.warn(`[RETRY] ${label} - 429 rate limit, tentativa ${attempt + 1}/${maxRetries}, aguardando ${Math.round(delay)}ms...`);
+      console.warn(`[RETRY] ${label} - erro transitorio (status=${status || 'n/a'}), tentativa ${attempt + 1}/${maxRetries}, aguardando ${Math.round(delay)}ms...`);
       await new Promise(resolve => setTimeout(resolve, delay));
     }
   }
@@ -1098,6 +1113,8 @@ function isPostgresUnavailableError(error) {
     'EHOSTUNREACH',
     'ENOTFOUND',
     'FAILED TO FETCH',
+    'QUERY READ TIMEOUT',
+    'READ TIMEOUT',
     'TIMEOUT EXPIRED',
     'CONNECT'
   ].some((token) => message.includes(token));
@@ -1199,11 +1216,121 @@ const TUTORIAL_ADMIN_USER_ID = '07d16581-fca5-4709-b0d3-e09859dbb286';
 // 🧠 FUNÇÕES RAG PROFISSIONAL
 // ============================================
 
+async function extractPdfTextViaAiFallback(fileBuffer, filePath) {
+  if (!fileBuffer || fileBuffer.length === 0) {
+    return '';
+  }
+
+  const cfg = getAiRuntimeConfig();
+  const fileName = path.basename(filePath);
+  const maxBytes = 18 * 1024 * 1024;
+
+  if (fileBuffer.length > maxBytes) {
+    console.warn('[PDF][AI_FALLBACK] PDF muito grande para fallback inline.');
+    return '';
+  }
+
+  const base64Pdf = fileBuffer.toString('base64');
+  const extractionPrompt = 'Extraia o máximo de texto útil deste PDF em português, preservando títulos, seções, listas e redação normativa. Retorne apenas texto puro.';
+
+  if (cfg.chatProvider === 'anthropic' && cfg.chatApiKey) {
+    try {
+      const anthropic = createNativeChatClient();
+      const anthropicModel = cfg.fastChatModel || cfg.chatModel;
+      const response = await withRetry429(
+        () => anthropic.messages.create({
+          model: anthropicModel,
+          temperature: 0,
+          max_tokens: Math.max(4096, getAnthropicMaxTokens(anthropicModel)),
+          messages: [
+            {
+              role: 'user',
+              content: [
+                {
+                  type: 'document',
+                  source: {
+                    type: 'base64',
+                    media_type: 'application/pdf',
+                    data: base64Pdf,
+                  },
+                  title: fileName,
+                },
+                {
+                  type: 'text',
+                  text: extractionPrompt,
+                },
+              ],
+            },
+          ],
+        }),
+        { label: 'pdf_extraction_anthropic' }
+      );
+
+      const anthropicText = extractTextFromAnthropicMessage(response);
+      if (anthropicText.trim().length > 0) {
+        console.log(`[PDF][CLAUDE_FALLBACK] Texto extraído via Anthropic: ${anthropicText.length} chars`);
+        return anthropicText.trim();
+      }
+    } catch (fallbackErr) {
+      console.warn('[PDF][CLAUDE_FALLBACK] Erro no fallback:', fallbackErr?.message || fallbackErr);
+    }
+  }
+
+  try {
+    const geminiKey = process.env.GEMINI_API_KEY;
+    const geminiModel = process.env.GEMINI_PDF_MODEL || process.env.GEMINI_DIRECT_MODEL || 'gemini-2.5-flash';
+
+    if (!geminiKey) {
+      return '';
+    }
+
+    const geminiResp = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(geminiModel)}:generateContent?key=${encodeURIComponent(geminiKey)}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [
+            {
+              role: 'user',
+              parts: [
+                { text: extractionPrompt },
+                { inline_data: { mime_type: 'application/pdf', data: base64Pdf } }
+              ]
+            }
+          ],
+          generationConfig: { temperature: 0 }
+        })
+      }
+    );
+
+    if (!geminiResp.ok) {
+      const errBody = await geminiResp.text();
+      console.warn('[PDF][GEMINI_FALLBACK] Falha na API Gemini:', errBody?.slice(0, 300));
+      return '';
+    }
+
+    const geminiData = await geminiResp.json();
+    const parts = geminiData?.candidates?.[0]?.content?.parts || [];
+    const geminiText = parts.map((part) => part?.text || '').join('\n').trim();
+
+    if (geminiText.length > 0) {
+      console.log(`[PDF][GEMINI_FALLBACK] Texto extraído via Gemini: ${geminiText.length} chars`);
+      return geminiText;
+    }
+  } catch (fallbackErr) {
+    console.warn('[PDF][GEMINI_FALLBACK] Erro no fallback:', fallbackErr?.message || fallbackErr);
+  }
+
+  return '';
+}
+
 // 1️⃣ Extrair e Limpar PDF (CORRIGIDO COM LIMPEZA DE BUFFER AVANÇADA)
 async function extractPdfText(filePath) {
+  const fileBuffer = await fs.promises.readFile(filePath);
+  let text = '';
+
   try {
-    const fileBuffer = await fs.promises.readFile(filePath);
-    
     // ✅ LIMPEZA DE BUFFER: Forçamos pdf-parse ser resiliente
     const data = await pdfParse(fileBuffer, {
       // Esta função de pagerender tenta ignorar erros de cada página
@@ -1217,7 +1344,7 @@ async function extractPdfText(filePath) {
       }
     });
 
-    let text = data.text || '';
+    text = data.text || '';
 
     // 📊 LOG DE DEBUG ESSENCIAL - Validar leitura completa
     console.log(`[DEBUG PDF] Arquivo: ${path.basename(filePath)}`);
@@ -1270,63 +1397,23 @@ async function extractPdfText(filePath) {
       console.warn(`⚠️ AVISO: PDF com ${data.numpages} páginas mas apenas ${text.length} caracteres. Possível problema de leitura.`);
     }
 
-    // Fallback com Gemini para PDFs escaneados/imagem quando extração local falhar
     if (text.length < 300) {
-      try {
-        const geminiKey = process.env.GEMINI_API_KEY;
-        const geminiModel = process.env.GEMINI_PDF_MODEL || process.env.GEMINI_DIRECT_MODEL || 'gemini-2.5-flash';
-
-        if (geminiKey) {
-          const maxBytes = 18 * 1024 * 1024;
-          if (fileBuffer.length <= maxBytes) {
-            const base64Pdf = fileBuffer.toString('base64');
-
-            const geminiResp = await fetch(
-              `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(geminiModel)}:generateContent?key=${encodeURIComponent(geminiKey)}`,
-              {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  contents: [
-                    {
-                      role: 'user',
-                      parts: [
-                        { text: 'Extraia o máximo de texto útil deste PDF em português, preservando títulos e seções. Retorne apenas texto.' },
-                        { inline_data: { mime_type: 'application/pdf', data: base64Pdf } }
-                      ]
-                    }
-                  ],
-                  generationConfig: { temperature: 0 }
-                })
-              }
-            );
-
-            if (geminiResp.ok) {
-              const geminiData = await geminiResp.json();
-              const parts = geminiData?.candidates?.[0]?.content?.parts || [];
-              const geminiText = parts.map(p => p?.text || '').join('\n').trim();
-
-              if (geminiText.length > text.length) {
-                console.log(`[PDF][GEMINI_FALLBACK] Texto extraído via Gemini: ${geminiText.length} chars`);
-                text = geminiText;
-              }
-            } else {
-              const errBody = await geminiResp.text();
-              console.warn('[PDF][GEMINI_FALLBACK] Falha na API Gemini:', errBody?.slice(0, 300));
-            }
-          } else {
-            console.warn('[PDF][GEMINI_FALLBACK] PDF muito grande para fallback inline.');
-          }
-        }
-      } catch (fallbackErr) {
-        console.warn('[PDF][GEMINI_FALLBACK] Erro no fallback:', fallbackErr?.message || fallbackErr);
+      const aiFallbackText = await extractPdfTextViaAiFallback(fileBuffer, filePath);
+      if (aiFallbackText.length > text.length) {
+        text = aiFallbackText;
       }
     }
 
     return text;
   } catch (e) {
     console.error('[PDF] Erro ao extrair:', e.message);
-    return [];
+
+    const aiFallbackText = await extractPdfTextViaAiFallback(fileBuffer, filePath);
+    if (aiFallbackText.trim().length > 0) {
+      return aiFallbackText;
+    }
+
+    return '';
   }
 }
 
@@ -1708,6 +1795,55 @@ async function generateEmbeddings(chunks, logContext = {}) {
   return embeddings;
 }
 
+async function insertDocumentChunksWithOptionalEmbeddings(agentId, documentId, chunks = [], logContext = {}, dbClient = pool) {
+  if (!agentId || !documentId || !Array.isArray(chunks) || chunks.length === 0) {
+    return 0;
+  }
+
+  let embeddings = null;
+  try {
+    embeddings = await generateEmbeddings(chunks, logContext);
+  } catch (error) {
+    const message = String(error?.message || error || '');
+    if (!message.includes('Nenhum provedor de embeddings compatível configurado para indexação.')) {
+      throw error;
+    }
+
+    console.warn('[EMB] Nenhum provedor configurado; salvando chunks sem embedding vetorial.');
+  }
+
+  const batchSize = embeddings ? 10 : 50;
+
+  for (let start = 0; start < chunks.length; start += batchSize) {
+    const batch = chunks.slice(start, start + batchSize);
+    const values = [];
+    const params = [];
+
+    for (let offset = 0; offset < batch.length; offset += 1) {
+      const chunkIndex = start + offset;
+      const embedding = Array.isArray(embeddings?.[chunkIndex]) ? '[' + embeddings[chunkIndex].join(',') + ']' : null;
+      const paramIndex = params.length + 1;
+
+      if (embedding) {
+        values.push(`($${paramIndex}, $${paramIndex + 1}, $${paramIndex + 2}, $${paramIndex + 3}::vector, $${paramIndex + 4})`);
+        params.push(agentId, documentId, batch[offset], embedding, chunkIndex);
+        continue;
+      }
+
+      values.push(`($${paramIndex}, $${paramIndex + 1}, $${paramIndex + 2}, NULL, $${paramIndex + 3})`);
+      params.push(agentId, documentId, batch[offset], chunkIndex);
+    }
+
+    await dbClient.query(
+      `INSERT INTO document_chunks (agent_id, document_id, content, embedding, chunk_index)
+       VALUES ${values.join(', ')}`,
+      params
+    );
+  }
+
+  return chunks.length;
+}
+
 // 4️⃣ Busca semântica com pgvector - CONFIGURAÇÃO OTIMIZADA (Limit 12, Sim >= 0.40)
 function computeChunkLexicalScore(content = '', queryText = '') {
   const normalizedContent = normalizeRetrievalText(content);
@@ -1815,6 +1951,24 @@ function computeChunkDefinitionScore(content = '', queryText = '') {
   return score;
 }
 
+function computeChunkTermCoverageScore(content = '', queryText = '') {
+  const normalizedContent = normalizeRetrievalText(content);
+  const queryTokens = buildRetrievalKeywords(queryText, { limit: 28 }).slice(0, 20);
+  if (!normalizedContent || queryTokens.length === 0) {
+    return 0;
+  }
+
+  const matches = queryTokens.filter((token) => normalizedContent.includes(token));
+  const coverageRatio = matches.length / Math.max(queryTokens.length, 1);
+
+  let score = coverageRatio * 38;
+  if (matches.length >= Math.min(4, queryTokens.length)) {
+    score += 8;
+  }
+
+  return score;
+}
+
 function getRetrievedRowKey(row = {}) {
   return `${row?.documentId || 'sem-doc'}:${row?.chunkIndex}:${String(row?.content || '').slice(0, 80)}`;
 }
@@ -1839,16 +1993,24 @@ function rerankRetrievedRows(rows = [], queryText = '', limit = DEFAULT_RAG_RETU
       const lexicalScore = computeChunkLexicalScore(row?.content || '', queryText);
       const legalScore = computeChunkLegalScore(row?.content || '', queryText);
       const definitionScore = computeChunkDefinitionScore(row?.content || '', queryText);
-      const finalScore = (similarity * 100) + lexicalScore + legalScore + definitionScore + (row?.injected ? 6 : 0);
+      const termCoverageScore = computeChunkTermCoverageScore(row?.content || '', queryText);
+      const finalScore = (similarity * 120) + lexicalScore + (legalScore * 1.15) + definitionScore + termCoverageScore + (row?.injected ? 8 : 0);
       return {
         ...row,
         lexicalScore,
         legalScore,
         definitionScore,
+        termCoverageScore,
         finalScore,
       };
     })
-    .filter((row) => row.similarity >= DEFAULT_RAG_MIN_SIMILARITY || row.lexicalScore > 0 || row.legalScore > 0)
+    .filter((row) => (
+      row.similarity >= DEFAULT_RAG_MIN_SIMILARITY
+      || row.lexicalScore > 0
+      || row.legalScore > 0
+      || row.definitionScore > 0
+      || row.termCoverageScore > 10
+    ))
     .sort((a, b) => (b.finalScore - a.finalScore) || (b.similarity - a.similarity) || (a.chunkIndex - b.chunkIndex))
     .slice(0, Math.max(1, limit));
 }
@@ -1894,12 +2056,35 @@ function summarizeRetrievedRows(rows = [], limit = 5) {
       similarity: Number.isFinite(row?.similarity) ? Number(Number(row.similarity).toFixed(3)) : null,
       lexicalScore: Number(row?.lexicalScore || 0),
       legalScore: Number(row?.legalScore || 0),
+      termCoverageScore: Number(row?.termCoverageScore || 0),
       preview: String(row?.content || '').replace(/\s+/g, ' ').trim().slice(0, 140),
     }));
 }
 
+function selectContextRowsByBudget(rows = [], maxChars = DEFAULT_RAG_CONTEXT_MAX_CHARS, minRows = Math.min(DEFAULT_RAG_RETURN_LIMIT, 6)) {
+  const safeRows = Array.isArray(rows) ? rows : [];
+  const normalizedMaxChars = Math.max(4000, Number(maxChars || DEFAULT_RAG_CONTEXT_MAX_CHARS));
+  const requiredRows = Math.max(1, Number(minRows || 1));
+  const selectedRows = [];
+  let consumedChars = 0;
+
+  for (const row of safeRows) {
+    const estimatedSize = String(row?.content || '').length + 220;
+    const canFit = consumedChars + estimatedSize <= normalizedMaxChars;
+    if (!canFit && selectedRows.length >= requiredRows) {
+      break;
+    }
+
+    selectedRows.push(row);
+    consumedChars += estimatedSize;
+  }
+
+  return selectedRows;
+}
+
 function formatRetrievedContext(rows = []) {
-  return (Array.isArray(rows) ? rows : [])
+  const rowsWithinBudget = selectContextRowsByBudget(rows);
+  return rowsWithinBudget
     .map((row, index) => {
       const title = String(row?.documentTitle || 'Documento sem título').replace(/\s+/g, ' ').trim();
       const similarityTag = Number.isFinite(row?.similarity) ? ` | sim ${Number(row.similarity).toFixed(3)}` : '';
@@ -2016,7 +2201,7 @@ async function searchAttachmentChunks(queryText, agentId, attachments = [], limi
   }
 
   const queryTexts = buildDeepRetrievalQueries(queryText, queryText);
-  const seedRows = rerankRetrievedRowsForQueries(rows, queryTexts, Math.max(limit * 5, DEFAULT_RAG_CANDIDATE_LIMIT));
+  const seedRows = rerankRetrievedRowsForQueries(rows, queryTexts, Math.max(limit * 8, DEFAULT_RAG_CANDIDATE_LIMIT));
   const rankedRows = expandRetrievedRowsWithNeighbors(rows, seedRows, queryTexts, { finalLimit: limit });
   console.log(`[SEARCH][ATTACHMENTS] ${rankedRows.length} chunks relevantes (de ${rows.length} carregados) para agente ${agentId}.`);
   return rankedRows;
@@ -2064,6 +2249,11 @@ async function searchSimilarChunks(queryEmbedding, agentId, limit = DEFAULT_RAG_
         }
 
         // Filtra chunks com similaridade >= 0.40 (remove ruído)
+        const rerankLimit = Math.max(
+          DEFAULT_RAG_RETURN_LIMIT,
+          Math.min(Math.max(1, Number(limit || DEFAULT_RAG_RETURN_LIMIT)), DEFAULT_RAG_DEEP_RETURN_LIMIT)
+        );
+
         const relevantRows = rerankRetrievedRows(
           result.rows.map((row) => ({
             documentId: row.document_id,
@@ -2073,7 +2263,7 @@ async function searchSimilarChunks(queryEmbedding, agentId, limit = DEFAULT_RAG_
             similarity: Number(row.similarity || 0),
           })),
           queryText,
-          DEFAULT_RAG_RETURN_LIMIT
+          rerankLimit
         );
         console.log(`Chunks apos reranking: ${relevantRows.length}`);
         console.log('----------------------------------');
@@ -2235,7 +2425,7 @@ function buildDeepRetrievalQueries(question = '', retrievalQuery = '') {
   pushQuery(retrievalQuery);
   pushQuery(question);
 
-  const keywordTokens = buildRetrievalKeywords(combinedText, { limit: 18 }).slice(0, 14);
+  const keywordTokens = buildRetrievalKeywords(combinedText, { limit: 28 }).slice(0, 20);
   if (keywordTokens.length > 0) {
     pushQuery(`Pergunta foco: ${question || retrievalQuery}\nTermos-chave: ${keywordTokens.join(' ')}`);
   }
@@ -2252,7 +2442,32 @@ function buildDeepRetrievalQueries(question = '', retrievalQuery = '') {
     pushQuery(`${question || retrievalQuery}\nReferencias normativas: ${Array.from(new Set(legalHints)).join(' ')}`);
   }
 
-  return queries.slice(0, 4);
+  return queries.slice(0, 6);
+}
+
+function shouldTriggerProactiveDeepSearch({ userText = '', retrievalQuery = '', relevantChunks = [], legalSignals = null, chunkCount = 0 } = {}) {
+  const combinedText = [userText, retrievalQuery].filter(Boolean).join('\n');
+  const normalized = normalizeRetrievalText(combinedText);
+  const resolvedSignals = legalSignals || extractLegalReferenceSignals(combinedText);
+  const hasLegalSignals = resolvedSignals.articleNumbers.length > 0
+    || resolvedSignals.lawReferences.length > 0
+    || resolvedSignals.statuteAliases.length > 0
+    || resolvedSignals.requiresParagraphUnique;
+  const hasQuotedPhrase = /"[^\"]{5,}"/.test(String(userText || ''));
+  const hasDetailIntent = /\b(paragrafo|inciso|alinea|caput|prazo|requisito|hipotese|excecao|vedacao|competencia|fundamento|condicao)\b/i.test(normalized);
+  const retrievedCount = Array.isArray(relevantChunks) ? relevantChunks.length : 0;
+  const topChunk = retrievedCount > 0 ? relevantChunks[0] : null;
+  const topSimilarity = Number(topChunk?.similarity || 0);
+  const topScore = Number(topChunk?.finalScore || 0);
+  const lowInitialRecall = retrievedCount < Math.max(6, Math.floor(DEFAULT_RAG_RETURN_LIMIT * 0.75));
+  const weakTopMatch = topSimilarity < (DEFAULT_RAG_MIN_SIMILARITY + 0.05) && topScore < 48;
+  const largeCorpus = Number(chunkCount || 0) >= 1200;
+
+  return hasQuotedPhrase
+    || hasLegalSignals
+    || lowInitialRecall
+    || weakTopMatch
+    || (largeCorpus && hasDetailIntent);
 }
 
 async function reindexAgentAttachments(agentId, attachments = []) {
@@ -2260,58 +2475,61 @@ async function reindexAgentAttachments(agentId, attachments = []) {
   return withDatabaseFallback(
     'reindexAgentAttachments',
     async () => {
-      await pool.query('DELETE FROM documents WHERE agent_id = $1', [agentId]);
-
       let processedCount = 0;
       let skippedCount = 0;
       let totalChunks = 0;
 
-      for (const attachment of validAttachments) {
-        try {
-          const filePath = attachment.startsWith('/') ? attachment : `/${attachment}`;
-          const fileName = attachment.split('/').pop() || attachment;
-          const fullPath = path.join(process.cwd(), 'public', filePath);
+      const client = await pool.connect();
 
-          if (!fs.existsSync(fullPath)) {
-            skippedCount += 1;
-            continue;
-          }
+      try {
+        await client.query('BEGIN');
+        await client.query('DELETE FROM documents WHERE agent_id = $1', [agentId]);
 
-          const text = await extractAttachmentText(fullPath, fileName);
-          if (!text || text.trim().length < 50) {
-            skippedCount += 1;
-            continue;
-          }
+        for (const attachment of validAttachments) {
+          try {
+            const filePath = attachment.startsWith('/') ? attachment : `/${attachment}`;
+            const fileName = attachment.split('/').pop() || attachment;
+            const fullPath = path.join(process.cwd(), 'public', filePath);
 
-          const docResult = await pool.query(
-            'INSERT INTO documents (agent_id, title) VALUES ($1, $2) RETURNING id',
-            [agentId, fileName]
-          );
-          const documentId = docResult.rows[0].id;
+            if (!fs.existsSync(fullPath)) {
+              skippedCount += 1;
+              continue;
+            }
 
-          const chunks = chunkText(text);
-          if (chunks.length === 0) {
-            skippedCount += 1;
-            continue;
-          }
+            const text = await extractAttachmentText(fullPath, fileName);
+            if (!text || text.trim().length < 50) {
+              skippedCount += 1;
+              continue;
+            }
 
-          const embeddings = await generateEmbeddings(chunks);
-
-          for (let index = 0; index < chunks.length; index += 1) {
-            const embeddingString = '[' + embeddings[index].join(',') + ']';
-            await pool.query(
-              `INSERT INTO document_chunks (agent_id, document_id, content, embedding, chunk_index)
-               VALUES ($1, $2, $3, $4::vector, $5)`,
-              [agentId, documentId, chunks[index], embeddingString, index]
+            const docResult = await client.query(
+              'INSERT INTO documents (agent_id, title) VALUES ($1, $2) RETURNING id',
+              [agentId, fileName]
             );
-          }
+            const documentId = docResult.rows[0].id;
 
-          processedCount += 1;
-          totalChunks += chunks.length;
-        } catch (error) {
-          skippedCount += 1;
-          console.error('[REINDEX] Erro ao processar attachment:', attachment, error?.message || error);
+            const chunks = chunkText(text);
+            if (chunks.length === 0) {
+              skippedCount += 1;
+              continue;
+            }
+
+            await insertDocumentChunksWithOptionalEmbeddings(agentId, documentId, chunks, {}, client);
+
+            processedCount += 1;
+            totalChunks += chunks.length;
+          } catch (error) {
+            skippedCount += 1;
+            console.error('[REINDEX] Erro ao processar attachment:', attachment, error?.message || error);
+          }
         }
+
+        await client.query('COMMIT');
+      } catch (error) {
+        await client.query('ROLLBACK').catch(() => undefined);
+        throw error;
+      } finally {
+        client.release();
       }
 
       return {
@@ -2466,12 +2684,12 @@ RESPONDA AGORA:`;
 Você é um especialista direto, elegante e organizado.
 
 ### REGRAS CRÍTICAS (MODO VISÃO PANORÂMICA):
-1. **LEITURA COMPLETA**: Você recebeu um volume de contexto relevante (até 12 trechos pré-filtrados por similaridade). Você DEVE ler e considerar TODOS os fragmentos antes de responder.
+1. **LEITURA COMPLETA**: Você recebeu um volume amplo de contexto relevante (trechos pré-filtrados por similaridade). Você DEVE ler e considerar TODOS os fragmentos antes de responder.
 2. **SÍNTESE OBRIGATÓRIA**: Informações complexas podem estar divididas entre vários trechos. Una os pontos.
 3. **FIDELIDADE**: Priorize os trechos abaixo quando a pergunta estiver relacionada aos anexos, URLs e documentos.
 4. **LIMPEZA**: Não mencione [Trecho ID] na resposta.
 5. **BUSCA PROFUNDA**: Se o usuário perguntar por um detalhe específico, vasculhe cada linha do contexto fornecido. Se estiver lá, você deve encontrar.
-6. **MODO ${forceContextOnlyMode ? 'ESTRITO' : 'HÍBRIDO'}**: ${forceContextOnlyMode ? 'Responda exclusivamente com base no contexto fornecido. Se a informação não estiver no contexto, responda exatamente: "Não encontrei essa informação na base do agente."' : 'Se a pergunta não estiver relacionada ao conteúdo dos anexos, responda normalmente seguindo as instruções do agente.'}
+6. **MODO ${forceContextOnlyMode ? 'ESTRITO' : 'HÍBRIDO'}**: ${forceContextOnlyMode ? 'Responda exclusivamente com base no contexto fornecido. Se faltar informacao, explique objetivamente o que foi encontrado e qual ponto ficou sem base documental, sem usar conhecimento externo.' : 'Se a pergunta não estiver relacionada ao conteúdo dos anexos, responda normalmente seguindo as instruções do agente.'}
 7. **MEMÓRIA DE CONVERSA**: Use o histórico recente para manter continuidade, não repetir respostas e não pedir novamente informações que já foram dadas.
 8. **SEM CONHECIMENTO EXTERNO**: ${forceContextOnlyMode ? 'É proibido complementar a resposta com conhecimento geral do modelo.' : 'Conhecimento externo só pode ser usado quando não contrariar nem substituir o contexto.'}
 
@@ -2520,7 +2738,7 @@ ${agentInstructions || "Atue como um assistente técnico."}
 
 REGRAS:
 1. Use exclusivamente o contexto documental fornecido.
-2. Se o contexto estiver vazio ou insuficiente, responda exatamente: "Não encontrei essa informação na base do agente."
+2. Se o contexto estiver vazio ou insuficiente, responda com transparencia: diga o que nao foi possivel confirmar no material disponivel e quais pontos faltaram.
 3. Nunca complete com conhecimento externo.
 4. Nunca invente artigos, nomes, datas, prazos, procedimentos ou conclusoes.
 5. Se houver contexto suficiente, responda em portugues claro e objetivo.
@@ -2546,11 +2764,12 @@ REGRAS CRITICAS:
 3. Se a pergunta mencionar artigo, paragrafo, lei, decreto, codigo ou sigla normativa, procure primeiro esses identificadores no contexto antes de concluir que a informacao nao esta disponivel.
 4. Se a resposta depender de mais de um trecho, una os trechos sem extrapolar.
 5. Ao apresentar uma afirmacao factual central, cite pelo menos uma fonte no formato [Fonte N]. Se a resposta for curta e estiver apoiada em um unico trecho, uma unica citacao ao final basta.
-6. Se a informacao nao estiver expressamente nos trechos, responda exatamente: "Não encontrei essa informação na base do agente."
+6. Se a informacao nao estiver expressamente nos trechos, responda em duas partes: (a) o que foi encontrado com [Fonte N]; (b) a lacuna documental que impediu resposta completa.
 7. Nao use conhecimento externo, memoria do modelo ou suposicoes.
 8. Nao mencione IDs internos alem do rotulo [Fonte N].
 9. Quando o contexto trouxer texto legal ou normativo, prefira reproduzir a redacao essencial em vez de parafrasear demais.
 10. Se houver divergencia entre trechos, aponte a divergencia e cite as fontes.
+11. Em perguntas que pedem lista (ex.: "quais", "em quais situacoes", "documentos"), entregue os itens em bullets com redacao o mais literal possivel dos trechos.
 
 ${conversationBlock}CONTEXTO DOCUMENTAL:
 ${context}
@@ -2591,6 +2810,22 @@ function hasGroundedCoverage(text = '', context = '') {
   return stats.ratio >= 0.18;
 }
 
+function buildContextLimitationResponse(question = '', context = '') {
+  const normalizedQuestion = String(question || '').replace(/\s+/g, ' ').trim();
+  const hasQuestion = normalizedQuestion.length > 0;
+  const hasContext = String(context || '').trim().length > 0;
+
+  if (!hasContext) {
+    return hasQuestion
+      ? `Com o material disponivel, nao ha base documental suficiente para responder com precisao a pergunta "${normalizedQuestion}". Posso refinar a busca se voce indicar artigo, paragrafo ou termo-chave especifico.`
+      : 'Com o material disponivel, nao ha base documental suficiente para responder com precisao. Posso refinar a busca por artigo, paragrafo ou termo-chave especifico.';
+  }
+
+  return hasQuestion
+    ? `Com os trechos disponiveis, nao foi possivel confirmar com precisao todos os pontos da pergunta "${normalizedQuestion}". Posso refinar a busca no acervo do agente por artigo, paragrafo ou termo exato.`
+    : 'Com os trechos disponiveis, nao foi possivel confirmar com precisao todos os pontos solicitados. Posso refinar a busca no acervo do agente por artigo, paragrafo ou termo exato.';
+}
+
 function validateOutput(text, hasContext = true, question = '', questionType = 'general', contextSize = 0, chunksUsed = 0, context = '') {
   let finalResponse = text;
 
@@ -2604,7 +2839,7 @@ function validateOutput(text, hasContext = true, question = '', questionType = '
   for (const pattern of severeAllucinationPatterns) {
     if (pattern.test(text)) {
       console.log(`[VALIDATOR] 🚨 Alucinação detectada e bloqueada.`);
-      return "Não encontrei essa informação no documento. Posso ajudar com outro tópico?";
+      return buildContextLimitationResponse(question, context);
     }
   }
 
@@ -2625,7 +2860,7 @@ function validateOutput(text, hasContext = true, question = '', questionType = '
 
     if (!hasSourceMarkers && !hasCoverage) {
       console.log(`[VALIDATOR] Bloqueando resposta sem fonte e com baixa cobertura: ${JSON.stringify(validatorSummary)}`);
-      return "Não encontrei essa informação na base do agente.";
+      return buildContextLimitationResponse(question, context);
     }
 
     if (!hasSourceMarkers && hasCoverage) {
@@ -2645,7 +2880,10 @@ function isGroundedFallbackResponse(text = '') {
   const normalized = normalizeRetrievalText(text);
   return normalized.startsWith('nao encontrei essa informacao')
     || normalized.includes('nao localizei essa informacao')
-    || normalized.includes('o documento nao aborda esse ponto');
+    || normalized.includes('o documento nao aborda esse ponto')
+    || normalized.startsWith('com os trechos disponiveis')
+    || normalized.startsWith('com o material disponivel')
+    || normalized.includes('nao foi possivel confirmar com precisao');
 }
 
 // ============================================
@@ -5743,6 +5981,20 @@ async function getAgentViaSupabase(agentId) {
   return response.data || null;
 }
 
+async function listAgentsViaSupabase() {
+  const client = ensureSupabaseAdminAvailable();
+  const response = await client
+    .from('agents')
+    .select('id, title, description, link, category_ids, created_at, icon, user_id')
+    .order('created_at', { ascending: false });
+
+  if (response.error) {
+    throw createSupabaseFallbackError(response.error, 'Erro ao listar agentes');
+  }
+
+  return response.data || [];
+}
+
 async function updateAgentKnowledgeViaSupabase(agentId, attachments = [], extraLinks = []) {
   const client = ensureSupabaseAdminAvailable();
   const payload = {
@@ -5815,20 +6067,28 @@ async function insertAgentDocumentChunksViaSupabase(agentId, documentId, chunks 
     return 0;
   }
 
-  const rows = chunks.map((content, index) => ({
-    agent_id: agentId,
-    document_id: documentId,
-    content,
-    chunk_index: index,
-    embedding: null,
-  }));
+  const batchSize = 200;
+  let inserted = 0;
 
-  const response = await client.from('document_chunks').insert(rows);
-  if (response.error) {
-    throw createSupabaseFallbackError(response.error, 'Erro ao salvar chunks do agente');
+  for (let start = 0; start < chunks.length; start += batchSize) {
+    const batch = chunks.slice(start, start + batchSize);
+    const rows = batch.map((content, offset) => ({
+      agent_id: agentId,
+      document_id: documentId,
+      content,
+      chunk_index: start + offset,
+      embedding: null,
+    }));
+
+    const response = await client.from('document_chunks').insert(rows);
+    if (response.error) {
+      throw createSupabaseFallbackError(response.error, 'Erro ao salvar chunks do agente');
+    }
+
+    inserted += rows.length;
   }
 
-  return rows.length;
+  return inserted;
 }
 
 async function countAgentChunksViaSupabase(agentId) {
@@ -6044,15 +6304,17 @@ async function searchDeepAgentChunks({
     return { rows: [], scannedRows: 0, queryTexts };
   }
 
+  const deepCandidateLimit = Math.max(limit * 8, DEFAULT_RAG_CANDIDATE_LIMIT);
+  const deepSeedLimit = Math.max(DEFAULT_RAG_DEEP_SEED_LIMIT, Math.ceil(limit * 0.8));
   const seedRows = rerankRetrievedRowsForQueries(
     allRows,
     queryTexts,
-    Math.max(limit * 5, DEFAULT_RAG_CANDIDATE_LIMIT)
+    deepCandidateLimit
   );
   const rows = expandRetrievedRowsWithNeighbors(allRows, seedRows, queryTexts, {
-    neighborWindow: DEFAULT_RAG_NEIGHBOR_WINDOW,
-    seedLimit: DEFAULT_RAG_DEEP_SEED_LIMIT,
-    finalLimit: limit,
+    neighborWindow: Math.max(DEFAULT_RAG_NEIGHBOR_WINDOW, 2),
+    seedLimit: deepSeedLimit,
+    finalLimit: Math.max(limit, DEFAULT_RAG_RETURN_LIMIT),
   });
 
   console.log(`[SEARCH][DEEP] ${rows.length} chunks relevantes apos varredura de ${allRows.length} chunks do agente ${agentId}.`);
@@ -6072,25 +6334,28 @@ async function indexAgentAttachmentContent(agentId, title, text) {
   return withDatabaseFallback(
     'indexAgentAttachmentContent',
     async () => {
-      const docResult = await pool.query(
-        'INSERT INTO documents (agent_id, title) VALUES ($1, $2) RETURNING id',
-        [agentId, title]
-      );
-      const documentId = docResult.rows[0].id;
-
       const chunks = chunkText(normalizedText);
-      const embeddings = await generateEmbeddings(chunks);
+      const client = await pool.connect();
 
-      for (let index = 0; index < chunks.length; index += 1) {
-        const embeddingString = '[' + embeddings[index].join(',') + ']';
-        await pool.query(
-          `INSERT INTO document_chunks (agent_id, document_id, content, embedding, chunk_index)
-           VALUES ($1, $2, $3, $4::vector, $5)`,
-          [agentId, documentId, chunks[index], embeddingString, index]
+      try {
+        await client.query('BEGIN');
+
+        const docResult = await client.query(
+          'INSERT INTO documents (agent_id, title) VALUES ($1, $2) RETURNING id',
+          [agentId, title]
         );
-      }
+        const documentId = docResult.rows[0].id;
 
-      return { chunksCount: chunks.length };
+        await insertDocumentChunksWithOptionalEmbeddings(agentId, documentId, chunks, {}, client);
+        await client.query('COMMIT');
+
+        return { chunksCount: chunks.length };
+      } catch (error) {
+        await client.query('ROLLBACK').catch(() => undefined);
+        throw error;
+      } finally {
+        client.release();
+      }
     },
     async () => {
       const documentId = await insertAgentDocumentViaSupabase(agentId, title);
@@ -6255,6 +6520,39 @@ async function handleSupabaseConversationMessageFallback({ res, userId, cid, con
             );
           }
 
+          const shouldDeepSearchEarly = shouldTriggerProactiveDeepSearch({
+            userText,
+            retrievalQuery: retrievalQuery || userText,
+            relevantChunks,
+            legalSignals,
+            chunkCount: totalChunkCount,
+          });
+
+          if (shouldDeepSearchEarly) {
+            retrievalDebug.deepSearchTriggered = true;
+            const deepLimit = Math.max(DEFAULT_RAG_DEEP_RETURN_LIMIT, DEFAULT_RAG_RETURN_LIMIT + 6);
+            const deepResult = await searchDeepAgentChunks({
+              question: userText,
+              retrievalQuery: retrievalQuery || userText,
+              agentId: effectiveAgentId,
+              attachments: Array.isArray(agentDetails.attachments) ? agentDetails.attachments : [],
+              chunkCount: totalChunkCount,
+              limit: deepLimit,
+            });
+
+            retrievalDebug.deepScannedRows = deepResult.scannedRows;
+            retrievalDebug.deepRetrieved = deepResult.rows.length;
+            retrievalDebug.deepQueries = deepResult.queryTexts.slice(0, 6);
+
+            if (deepResult.rows.length > 0) {
+              relevantChunks = rerankRetrievedRowsForQueries(
+                [...relevantChunks, ...deepResult.rows],
+                deepResult.queryTexts,
+                deepLimit
+              );
+            }
+          }
+
           relevantContext = formatRetrievedContext(relevantChunks);
         }
 
@@ -6319,7 +6617,7 @@ async function handleSupabaseConversationMessageFallback({ res, userId, cid, con
     );
 
     // Se a primeira passada cair em fallback, varremos o indice inteiro uma vez antes de desistir.
-    if (!usedDirectPdfAnswer && effectiveAgentId && agentDetails && isGroundedFallbackResponse(finalAssistantText)) {
+    if (!usedDirectPdfAnswer && effectiveAgentId && agentDetails && isGroundedFallbackResponse(finalAssistantText) && retrievalDebug.deepRetrieved === 0) {
       retrievalDebug.retryAttempted = true;
       retrievalDebug.deepSearchTriggered = true;
 
@@ -6334,7 +6632,7 @@ async function handleSupabaseConversationMessageFallback({ res, userId, cid, con
 
       retrievalDebug.deepScannedRows = deepResult.scannedRows;
       retrievalDebug.deepRetrieved = deepResult.rows.length;
-      retrievalDebug.deepQueries = deepResult.queryTexts.slice(0, 4);
+      retrievalDebug.deepQueries = deepResult.queryTexts.slice(0, 6);
 
       if (deepResult.rows.length > 0) {
         const deepRelevantContext = formatRetrievedContext(deepResult.rows);
@@ -7423,16 +7721,21 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
     }
 
     let prompt = buildGroundedPrompt(attachmentContext || '', '', userText || 'Analise o anexo enviado.', conversationContext);
+    let mergedContext = attachmentContext || '';
     let hasContext = Boolean(attachmentContext && attachmentContext.trim().length > 0);
     let questionType = 'general';
     let contextSize = attachmentContext ? attachmentContext.length : 0;
     let chunksUsed = attachmentContext ? 1 : 0;
     let relevantContext = '';
     let relevantChunks = [];
+    let agentData = null;
+    let agentInstructions = '';
+    let totalChunkCount = 0;
+    let preAnswerDeepRetrieved = 0;
 
     if (effectiveAgentId) {
       try {
-        const agentData = await withDatabaseFallback(
+        agentData = await withDatabaseFallback(
           'chat:getAgent',
           async () => {
             const agent = await pool.query('SELECT * FROM "agents" WHERE "id" = $1', [effectiveAgentId]);
@@ -7441,10 +7744,12 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
           () => getAgentViaSupabase(effectiveAgentId)
         );
         if (agentData) {
-          const agentInstructions = agentData.instructions || agentData.description || '';
+          agentInstructions = agentData.instructions || agentData.description || '';
           questionType = detectQuestionType(userText);
 
-          const hasChunks = (await countAgentChunks(effectiveAgentId)) > 0;
+          totalChunkCount = await countAgentChunks(effectiveAgentId);
+          const hasChunks = totalChunkCount > 0;
+          const legalSignals = extractLegalReferenceSignals(userText || retrievalQuery);
 
           if (hasChunks) {
             try {
@@ -7482,9 +7787,40 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
                 );
               }
 
+              const shouldDeepSearchEarly = shouldTriggerProactiveDeepSearch({
+                userText,
+                retrievalQuery: retrievalQuery || userText,
+                relevantChunks,
+                legalSignals,
+                chunkCount: totalChunkCount,
+              });
+
+              if (shouldDeepSearchEarly) {
+                const deepLimit = Math.max(DEFAULT_RAG_DEEP_RETURN_LIMIT, DEFAULT_RAG_RETURN_LIMIT + 6);
+                const deepResult = await searchDeepAgentChunks({
+                  question: userText,
+                  retrievalQuery: retrievalQuery || userText,
+                  agentId: effectiveAgentId,
+                  attachments: Array.isArray(agentData.attachments) ? agentData.attachments : [],
+                  chunkCount: totalChunkCount,
+                  limit: deepLimit,
+                });
+
+                preAnswerDeepRetrieved = deepResult.rows.length;
+                if (deepResult.rows.length > 0) {
+                  relevantChunks = rerankRetrievedRowsForQueries(
+                    [...relevantChunks, ...deepResult.rows],
+                    deepResult.queryTexts,
+                    deepLimit
+                  );
+                }
+
+                console.log(`[CHAT][DEEP_EARLY] scanned=${deepResult.scannedRows} retrieved=${deepResult.rows.length} agent=${effectiveAgentId}`);
+              }
+
               relevantContext = formatRetrievedContext(relevantChunks);
 
-              const mergedContext = [attachmentContext, relevantContext].filter(Boolean).join('\n\n---\n\n');
+              mergedContext = [attachmentContext, relevantContext].filter(Boolean).join('\n\n---\n\n');
               prompt = buildGroundedPrompt(mergedContext || '', agentInstructions, userText || 'Analise o anexo enviado.', conversationContext);
               hasContext = Boolean(mergedContext && mergedContext.trim().length > 0);
               contextSize = mergedContext ? mergedContext.length : 0;
@@ -7530,7 +7866,7 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
     });
 
     const cleanedFullResp = fullResp.replace(/\[\s*Trecho\s*ID\s*:\s*\d+\s*\]/gi, '').trim();
-    const validatedResp = validateOutput(
+    let validatedResp = validateOutput(
       cleanedFullResp || 'N\u00e3o consegui gerar uma resposta agora.',
       hasContext,
       userText,
@@ -7539,6 +7875,65 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
       chunksUsed,
       relevantContext,
     );
+
+    if (effectiveAgentId && agentData && isGroundedFallbackResponse(validatedResp) && preAnswerDeepRetrieved === 0) {
+      try {
+        const deepResult = await searchDeepAgentChunks({
+          question: userText,
+          retrievalQuery: retrievalQuery || userText,
+          agentId: effectiveAgentId,
+          attachments: Array.isArray(agentData.attachments) ? agentData.attachments : [],
+          chunkCount: totalChunkCount,
+          limit: DEFAULT_RAG_DEEP_RETURN_LIMIT,
+        });
+
+        if (deepResult.rows.length > 0) {
+          const deepRelevantContext = formatRetrievedContext(deepResult.rows);
+          const deepMergedContext = [attachmentContext, deepRelevantContext].filter(Boolean).join('\n\n---\n\n');
+
+          if (deepMergedContext && deepMergedContext !== mergedContext) {
+            const deepPrompt = buildGroundedPrompt(
+              deepMergedContext,
+              agentInstructions,
+              userText || 'Analise o anexo enviado.',
+              conversationContext,
+            );
+            const deepResp = await runChatCompletion({
+              messages: [{ role: 'system', content: deepPrompt }, ...history],
+              model: aiCfg.chatModel,
+              userId,
+              conversationId: cid,
+              requestType: attachment ? 'chat_completion_with_attachment_deep_retry' : 'chat_completion_deep_retry',
+              temperature: 0,
+              maxTokens: DEFAULT_CHAT_MAX_TOKENS,
+            });
+
+            const cleanedDeepResp = deepResp.replace(/\[\s*Trecho\s*ID\s*:\s*\d+\s*\]/gi, '').trim();
+            const deepValidatedResp = validateOutput(
+              cleanedDeepResp || 'N\u00e3o consegui gerar uma resposta agora.',
+              Boolean(deepMergedContext.trim()),
+              userText,
+              questionType,
+              deepMergedContext.length,
+              deepMergedContext.split('\n\n---\n\n').filter(Boolean).length,
+              deepRelevantContext,
+            );
+
+            if (!isGroundedFallbackResponse(deepValidatedResp)) {
+              validatedResp = deepValidatedResp;
+              mergedContext = deepMergedContext;
+              relevantContext = deepRelevantContext;
+              relevantChunks = deepResult.rows;
+              hasContext = true;
+              contextSize = deepMergedContext.length;
+              chunksUsed = deepMergedContext.split('\n\n---\n\n').filter(Boolean).length;
+            }
+          }
+        }
+      } catch (deepError) {
+        console.warn('[CHAT][DEEP_RETRY] Falha ao tentar varredura profunda:', deepError?.message || deepError);
+      }
+    }
 
     const chunkSize = 50;
     for (let i = 0; i < validatedResp.length; i += chunkSize) {
@@ -9110,8 +9505,16 @@ app.post('/api/referrals/claim', async (req, res) => {
 
 app.get('/api/agents', async (req, res) => {
   try {
-    const result = await pool.query('SELECT id, title, description, link, category_ids, created_at, icon, user_id FROM "agents" ORDER BY created_at DESC');
-    res.json(result.rows || []);
+    const rows = await withDatabaseFallback(
+      'GET /api/agents',
+      async () => {
+        const result = await pool.query('SELECT id, title, description, link, category_ids, created_at, icon, user_id FROM "agents" ORDER BY created_at DESC');
+        return result.rows || [];
+      },
+      () => listAgentsViaSupabase()
+    );
+
+    res.json(rows || []);
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -9119,9 +9522,17 @@ app.get('/api/agents', async (req, res) => {
 
 app.get('/api/agents/:id', async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM "agents" WHERE id = $1', [req.params.id]);
-    if (result.rows.length === 0) return res.status(404).json({ error: 'Agente não encontrado' });
-    res.json(result.rows[0]);
+    const agent = await withDatabaseFallback(
+      'GET /api/agents/:id',
+      async () => {
+        const result = await pool.query('SELECT * FROM "agents" WHERE id = $1', [req.params.id]);
+        return result.rows?.[0] || null;
+      },
+      () => getAgentViaSupabase(req.params.id)
+    );
+
+    if (!agent) return res.status(404).json({ error: 'Agente não encontrado' });
+    res.json(agent);
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
