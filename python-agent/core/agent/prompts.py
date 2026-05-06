@@ -12,6 +12,8 @@ Rules:
 8) If evidence is insufficient, say so briefly and naturally, without inventing facts.
 9) If the evidence is tabular and a table truly helps comprehension, preserve the relevant rows faithfully. Otherwise, answer in normal prose.
 10) Be concise, factual, and complete.
+11) Treat the agent instructions as the domain and source boundary. Evidence from attachments supports that boundary; it must not broaden the agent into unrelated topics.
+12) When evidence comes from multiple documents, read them as one scoped collection, reconcile complementary or newer rules, and answer only from the relevant documents.
 """.strip()
 
 ANSWER_USER_TEMPLATE = """
@@ -29,6 +31,7 @@ Return:
 - Do not repeat the question, do not use robotic headings, and do not say things like "com base nos trechos" or "pergunta identificada".
 - Do not expose citations, source names, or where the answer was found unless the user explicitly asks for that.
 - If the evidence contains a table and the answer depends on row-by-row details, reproduce the relevant rows as a markdown table or a complete row list.
+- If multiple files are relevant, synthesize them together. If an evidence chunk is outside the agent's scope, ignore it instead of expanding the answer to a different subject.
 - If the evidence is insufficient, say that naturally and briefly, and mention only the missing point that could not be confirmed.
 """.strip()
 
@@ -81,6 +84,7 @@ Rules:
 7) Do not repeat the question or use robotic labels, warning headers, or process narration.
 8) Do not expose inline citations, source labels, or where-you-found-it notes unless the user explicitly asks for that.
 9) If the evidence is insufficient, say so naturally and briefly, without inventing facts.
+10) Treat the agent instructions as the domain and source boundary, even when the evidence contains several files.
 """.strip()
 
 REPAIR_ANSWER_USER_TEMPLATE = """
@@ -103,6 +107,7 @@ Return:
 - Do not repeat the question and do not use headings like "Resposta Final" or "Pergunta identificada".
 - Do not expose citations, source names, or retrieval notes unless the user explicitly asks for them.
 - If the evidence contains a table and the answer depends on it, return the relevant rows as a markdown table or a complete row list.
+- If multiple files are relevant, synthesize them together. If an evidence chunk is outside the agent's scope, ignore it instead of broadening the answer.
 - If the question asks for all possible items or a complete catalog and the evidence only shows an individual extract/example or does not contain the complete catalog/table, say that naturally and briefly instead of guessing.
 - If the evidence is insufficient, say that naturally and briefly instead of inventing facts.
 """.strip()

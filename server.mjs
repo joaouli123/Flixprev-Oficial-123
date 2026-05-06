@@ -3910,6 +3910,8 @@ REGRAS:
 4. Nunca invente artigos, nomes, datas, prazos, procedimentos ou conclusoes.
 5. Se houver contexto suficiente, responda em portugues claro, direto e com tom de conversa.
 6. Nao repita a pergunta e nao use titulos como "Resposta Final".
+7. As instrucoes do agente definem o assunto e os limites da resposta; anexos de outro tema nao transformam o agente em especialista geral.
+8. Quando houver varios anexos relevantes, combine-os como uma unica base do agente antes de responder.
 
 ${conversationBlock}PERGUNTA DO USUARIO:
 ${question}
@@ -3944,6 +3946,8 @@ REGRAS CRITICAS:
 15. Em contexto normativo, priorize sempre a redacao mais recente indicada no proprio texto (ex.: "Atualizada em", "Redacao dada", "alterado pela", "revogado por"). Trate redacoes anteriores apenas como historico, sem apresenta-las como regra vigente.
 16. Se a pergunta envolver atualizacao/alteracao/revogacao, responda com norma-base alterada, norma alteradora e data associada quando isso estiver no contexto.
 17. Se o usuario pedir lista de normas do documento, apresente inventario por tipo+numero+data apenas do que estiver expresso nos trechos; nao complete com normas externas.
+18. As instrucoes do agente delimitam o escopo do assunto; use os anexos para sustentar esse escopo, sem transformar documentos de apoio em autorizacao para responder sobre outro tema.
+19. Quando a colecao tiver varios documentos relevantes (portarias, PDFs, planilhas ou links), sintetize os pontos complementares em uma unica resposta.
 
 ${conversationBlock}CONTEXTO DOCUMENTAL:
 ${context}

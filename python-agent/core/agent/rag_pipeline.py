@@ -478,12 +478,16 @@ class RAGPipeline:
         answer_limit: int,
         exhaustive: bool,
     ) -> list[RetrievedChunk]:
+        document_count = self._collection_document_count(collection)
+        multi_document_collection = document_count > 1
         diverse_context = self._needs_diverse_context(query)
         final_limit = max(answer_limit, 12) if exhaustive else answer_limit
+        if multi_document_collection:
+            final_limit = max(final_limit, 8)
         candidate_limit = max(
             self.settings.retrieval_candidates,
-            50 if exhaustive else 24 if diverse_context else self.settings.retrieval_candidates,
-            final_limit * (4 if diverse_context else 2),
+            50 if exhaustive else 32 if (diverse_context or multi_document_collection) else self.settings.retrieval_candidates,
+            final_limit * (4 if diverse_context else 3 if multi_document_collection else 2),
         )
         variants = self._dedupe_strings([query, *query_variants])
 
@@ -506,7 +510,10 @@ class RAGPipeline:
             return []
 
         rerank_limit = min(
-            max(final_limit * (3 if diverse_context else 1), 12 if (exhaustive or diverse_context) else final_limit),
+            max(
+                final_limit * (3 if diverse_context else 2 if multi_document_collection else 1),
+                12 if (exhaustive or diverse_context or multi_document_collection) else final_limit,
+            ),
             len(combined),
         )
         reranked = self.reranker.rerank(query, combined, top_n=rerank_limit)
@@ -518,7 +525,21 @@ class RAGPipeline:
                 limit=final_limit,
                 max_docs_to_cover=min(final_limit, 8 if exhaustive else 4),
             )
+        if multi_document_collection:
+            return self._select_diverse_chunks(
+                prioritized,
+                limit=final_limit,
+                max_docs_to_cover=min(final_limit, 4),
+                min_score_ratio=0.45,
+            )
         return prioritized[:final_limit]
+
+    @staticmethod
+    def _collection_document_count(collection: CollectionRecord) -> int:
+        try:
+            return len([document for document in collection.documents if document.status == "completed"])
+        except Exception:
+            return 0
 
     def _answer_limit(self, question: str, top_k: int | None, *, exhaustive: bool) -> int:
         requested = top_k or self.settings.retrieval_top_k
@@ -624,9 +645,13 @@ class RAGPipeline:
         *,
         limit: int,
         max_docs_to_cover: int,
+        min_score_ratio: float = 0.0,
     ) -> list[RetrievedChunk]:
         if len(chunks) <= 1:
             return chunks[:limit]
+
+        best_score = max((chunk.score for chunk in chunks), default=0.0)
+        min_score = best_score * min_score_ratio if best_score > 0 else 0.0
 
         doc_order: list[str] = []
         best_by_doc: dict[str, RetrievedChunk] = {}
@@ -643,6 +668,8 @@ class RAGPipeline:
         seen: set[str] = set()
         for doc_key in doc_order[:max_docs_to_cover]:
             chunk = best_by_doc[doc_key]
+            if chunk.score < min_score:
+                continue
             selected.append(chunk)
             seen.add(chunk.point_id)
             if len(selected) >= limit:

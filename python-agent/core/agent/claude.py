@@ -214,7 +214,7 @@ class ClaudeClient:
             return prompt
 
         return (
-            "Additional agent instructions (use them for scope/domain behavior only when they do not conflict with the evidence-only rules or the required natural, direct, non-robotic answer style):\n"
+            "Additional agent instructions (they define the agent's scope/domain boundary and must be followed unless they conflict with the evidence-only rules or the required natural, direct, non-robotic answer style. If the evidence contains unrelated material, do not broaden the answer beyond this scope):\n"
             f"{instructions}\n\n"
             f"{prompt}"
         )
