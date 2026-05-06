@@ -37,6 +37,16 @@ function isVisibleAgent(agent: Agent) {
   return !shouldHideAgentFromCatalog(agent.title, agent.description, agent.role);
 }
 
+type AgentMutationProgress = {
+  stage: string;
+  detail?: string;
+};
+
+type AgentMutationOptions = {
+  onProgress?: (progress: AgentMutationProgress) => void;
+  pendingFiles?: File[];
+};
+
 const AppLayout = () => {
   const { session, isAdmin, profile } = useSession();
   const userId = session?.user?.id;
@@ -76,6 +86,7 @@ const AppLayout = () => {
     extra_links: Array.isArray(agent.extra_links) ? agent.extra_links : [],
     shortcuts: Array.isArray(agent.shortcuts) ? agent.shortcuts : [],
     attachments: Array.isArray(agent.attachments) ? agent.attachments : [],
+    python_collection_id: typeof agent.python_collection_id === "string" ? agent.python_collection_id : null,
   }) as Agent, []);
 
   const normalizeCategoryRecord = useCallback((category: any): Category | null => {
@@ -171,6 +182,13 @@ const AppLayout = () => {
       attachments: string[];
       extra_links: { label: string; url: string }[];
       failures?: Array<{ url: string; error: string }>;
+      python?: {
+        enabled: boolean;
+        collectionId: string | null;
+        processedCount: number;
+        skippedCount: number;
+        failedCount: number;
+      } | null;
     };
   }, []);
 
@@ -186,6 +204,43 @@ const AppLayout = () => {
     }
 
     return payload;
+  }, []);
+
+  const uploadAgentFiles = useCallback(async (
+    agentId: string,
+    pendingFiles: File[] = [],
+    currentAttachments: string[] = [],
+    onProgress?: (progress: AgentMutationProgress) => void,
+  ) => {
+    const uploadedPaths = [...currentAttachments];
+
+    for (let index = 0; index < pendingFiles.length; index += 1) {
+      const file = pendingFiles[index];
+      onProgress?.({
+        stage: `Enviando anexo ${index + 1} de ${pendingFiles.length}`,
+        detail: `Fazendo upload de ${file.name} para indexação imediata do agente.`,
+      });
+
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("agentId", agentId);
+
+      const response = await fetch(buildApiUrl("/api/agents/upload"), {
+        method: "POST",
+        body: formData,
+      });
+
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(payload?.error || `Falha ao fazer upload de ${file.name}.`);
+      }
+
+      if (payload?.path) {
+        uploadedPaths.push(payload.path);
+      }
+    }
+
+    return Array.from(new Set(uploadedPaths));
   }, []);
 
   const emitAgentNotification = useCallback(async (title: string, message: string) => {
@@ -413,7 +468,7 @@ const AppLayout = () => {
 
   const handleAddAgent = async (
     newAgentData: Omit<Agent, "id" | "userId" | "created_at">,
-    options?: { onProgress?: (progress: { stage: string; detail?: string }) => void }
+    options?: AgentMutationOptions
   ) => {
     if (!userId) {
       toast.error("Você precisa estar logado para adicionar agentes.");
@@ -422,6 +477,7 @@ const AppLayout = () => {
 
     try {
       console.log("Tentando criar agente:", newAgentData.title, "com categorias:", newAgentData.category_ids);
+      const pendingFiles = Array.isArray(options?.pendingFiles) ? options.pendingFiles : [];
       options?.onProgress?.({
         stage: "Salvando estrutura principal do agente...",
         detail: "Criando o registro base antes de processar anexos e URLs.",
@@ -478,6 +534,18 @@ const AppLayout = () => {
                 toast.warning(`Alguns links do agente não puderam ser processados (${syncResult.failures.length}).`);
               }
             }
+
+            if (pendingFiles.length > 0) {
+              normalizedAgent = {
+                ...normalizedAgent,
+                attachments: await uploadAgentFiles(
+                  normalizedAgent.id,
+                  pendingFiles,
+                  normalizedAgent.attachments,
+                  options?.onProgress,
+                ),
+              };
+            }
           } catch (syncError: any) {
             console.error("Erro ao sincronizar links do agente:", syncError);
             toast.error(syncError?.message || "Falha ao sincronizar links para a IA.");
@@ -486,10 +554,15 @@ const AppLayout = () => {
           setAgents((prev) => [...prev, normalizedAgent]);
           toast.success(`Agente '${newAgentData.title}' adicionado com sucesso!`);
 
-          if (normalizedAgent.extra_links.length === 0 && normalizedAgent.attachments.length > 0) {
+          const shouldReprocessAttachments = normalizedAgent.attachments.length > 0
+            && (pendingFiles.length > 0 || normalizedAgent.extra_links.length === 0);
+
+          if (shouldReprocessAttachments) {
             options?.onProgress?.({
               stage: "Indexando anexos do agente...",
-              detail: "Gerando chunks e embeddings dos arquivos já enviados para treinar a IA.",
+              detail: pendingFiles.length > 0
+                ? "Atualizando a base do agente com os novos anexos enviados."
+                : "Gerando chunks e embeddings dos arquivos já enviados para treinar a IA.",
             });
 
             try {
@@ -536,12 +609,17 @@ const AppLayout = () => {
   const handleEditAgent = async (
     agentId: string,
     updatedAgentData: Omit<Agent, "id" | "userId" | "created_at">,
-    options?: { onProgress?: (progress: { stage: string; detail?: string }) => void }
+    options?: AgentMutationOptions
   ) => {
     if (!userId) {
       toast.error("Você precisa estar logado para editar agentes.");
       return false;
     }
+    const pendingFiles = Array.isArray(options?.pendingFiles) ? options.pendingFiles : [];
+    const existingAgent = agents.find((agent) => agent.id === agentId) || null;
+    const previousAttachments = Array.isArray(existingAgent?.attachments) ? existingAgent.attachments : [];
+    const nextBaseAttachments = Array.isArray(updatedAgentData.attachments) ? updatedAgentData.attachments : [];
+    const attachmentsWereRemoved = previousAttachments.some((path) => !nextBaseAttachments.includes(path));
     const updatePayload: Record<string, unknown> = {
       title: updatedAgentData.title,
       role: updatedAgentData.role,
@@ -594,6 +672,18 @@ const AppLayout = () => {
               toast.warning(`Alguns links do agente não puderam ser processados (${syncResult.failures.length}).`);
             }
           }
+
+          if (pendingFiles.length > 0) {
+            normalizedAgent = {
+              ...normalizedAgent,
+              attachments: await uploadAgentFiles(
+                agentId,
+                pendingFiles,
+                normalizedAgent.attachments,
+                options?.onProgress,
+              ),
+            };
+          }
         } catch (syncError: any) {
           console.error("Erro ao sincronizar links do agente:", syncError);
           toast.error(syncError?.message || "Falha ao sincronizar links para a IA.");
@@ -604,10 +694,15 @@ const AppLayout = () => {
         );
         toast.success(`Agente '${updatedAgentData.title}' atualizado com sucesso!`);
 
-        if (normalizedAgent.extra_links.length === 0 && normalizedAgent.attachments.length > 0) {
+        const shouldReprocessAttachments = normalizedAgent.attachments.length > 0
+          && (pendingFiles.length > 0 || attachmentsWereRemoved || (normalizedAgent.extra_links.length === 0 && pendingFiles.length === 0));
+
+        if (shouldReprocessAttachments) {
           options?.onProgress?.({
             stage: "Reindexando anexos do agente...",
-            detail: "Atualizando chunks e embeddings dos anexos já existentes.",
+            detail: pendingFiles.length > 0
+              ? "Sincronizando os novos anexos enviados com toda a base do agente."
+              : "Atualizando chunks e embeddings dos anexos já existentes.",
           });
 
           try {

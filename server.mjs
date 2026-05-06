@@ -215,6 +215,8 @@ const DEFAULT_RAG_NEIGHBOR_WINDOW = Math.max(1, Math.min(Number(process.env.RAG_
 const DEFAULT_RAG_CONTEXT_MAX_CHARS = Math.max(16000, Number(process.env.RAG_CONTEXT_MAX_CHARS || (RAG_EXTREME_MODE ? 100000 : 42000)) || (RAG_EXTREME_MODE ? 100000 : 42000));
 const DEFAULT_CHAT_MAX_TOKENS = Number(process.env.CHAT_MAX_TOKENS || (RAG_EXTREME_MODE ? 6400 : 3200));
 const DEFAULT_FAST_CHAT_MAX_TOKENS = Number(process.env.FAST_CHAT_MAX_TOKENS || (RAG_EXTREME_MODE ? 3600 : 2200));
+const ENABLE_RAG_TYPO_TOLERANCE = !/^(0|false|no)$/i.test(String(process.env.RAG_TYPO_TOLERANCE || 'true').trim());
+const RAG_TYPO_MIN_TOKEN_LENGTH = Math.max(3, Number(process.env.RAG_TYPO_MIN_TOKEN_LENGTH || 4) || 4);
 const ENABLE_DIRECT_PDF_ANALYSIS = /^(1|true|yes)$/i.test(String(process.env.ENABLE_DIRECT_PDF_ANALYSIS || '').trim());
 const agentAttachmentChunkCache = new Map();
 
@@ -229,6 +231,19 @@ const RETRIEVAL_STOPWORDS = new Set([
 const RETRIEVAL_QUERY_META_TOKENS = new Set([
   'art', 'artigo', 'responda', 'citando', 'elementos', 'centrais', 'conceito', 'define', 'definicao',
   'segundo', 'diz', 'campo', 'incidencia', 'incide', 'quais', 'qual', 'sobre', 'como'
+]);
+
+const RETRIEVAL_TOKEN_EXPANSIONS = new Map([
+  ['art', ['artigo']],
+  ['arts', ['artigo', 'artigos']],
+  ['instr', ['instrucao', 'normativa']],
+  ['norm', ['norma', 'normativa']],
+  ['prev', ['previdencia', 'previdenciario']],
+  ['aux', ['auxilio']],
+  ['apos', ['aposentadoria']],
+  ['incap', ['incapacidade']],
+  ['cnis', ['cadastro', 'nacional', 'informacoes', 'sociais']],
+  ['rgps', ['regime', 'geral', 'previdencia', 'social']],
 ]);
 
 function getFirstNonEmptyEnv(...values) {
@@ -249,6 +264,545 @@ function normalizeBaseUrl(baseURL = '') {
   }
 
   return normalized.endsWith('/') ? normalized : `${normalized}/`;
+}
+
+function isTruthyEnv(value) {
+  return /^(1|true|yes|on)$/i.test(String(value || '').trim());
+}
+
+function parseJsonObjectEnv(name) {
+  const rawValue = String(process.env[name] || '').trim();
+  if (!rawValue) {
+    return {};
+  }
+
+  try {
+    const parsed = JSON.parse(rawValue);
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      return parsed;
+    }
+  } catch (error) {
+    console.warn(`[PYTHON_AGENT_CORE] Variavel ${name} contem JSON invalido; mapa ignorado.`);
+  }
+
+  return {};
+}
+
+function getPythonAgentCoreBaseUrl() {
+  const baseUrl = getFirstNonEmptyEnv(
+    process.env.PYTHON_AGENT_BASE_URL,
+    process.env.RAG_AGENT_BASE_URL,
+    process.env.PYTHON_RAG_BASE_URL,
+    process.env.API_BASE_URL,
+  );
+
+  if (!baseUrl || !/^https?:\/\//i.test(baseUrl)) {
+    return '';
+  }
+
+  return baseUrl.replace(/\/+$/, '');
+}
+
+const PYTHON_AGENT_CORE_ENABLED = isTruthyEnv(getFirstNonEmptyEnv(
+  process.env.ENABLE_PYTHON_AGENT_CORE,
+  process.env.PYTHON_AGENT_CORE_ENABLED,
+  process.env.PYTHON_AGENT_ENABLED,
+));
+const PYTHON_AGENT_BASE_URL = getPythonAgentCoreBaseUrl();
+const PYTHON_AGENT_COLLECTION_MAP = parseJsonObjectEnv('PYTHON_AGENT_COLLECTION_MAP');
+const PYTHON_AGENT_DEFAULT_COLLECTION_ID = getFirstNonEmptyEnv(
+  process.env.PYTHON_AGENT_COLLECTION_ID,
+  process.env.DEFAULT_PYTHON_AGENT_COLLECTION_ID,
+);
+const PYTHON_AGENT_TOP_K = Math.max(1, Math.min(Number(process.env.PYTHON_AGENT_TOP_K || process.env.RETRIEVAL_TOP_K || 10) || 10, 50));
+const PYTHON_AGENT_FAST_MODE = isTruthyEnv(process.env.PYTHON_AGENT_FAST_MODE);
+const PYTHON_AGENT_TIMEOUT_MS = Math.max(10000, Math.min(Number(process.env.PYTHON_AGENT_TIMEOUT_MS || 120000) || 120000, 300000));
+const PYTHON_AGENT_INGEST_TIMEOUT_MS = Math.max(30000, Math.min(Number(process.env.PYTHON_AGENT_INGEST_TIMEOUT_MS || 300000) || 300000, 900000));
+const PYTHON_AGENT_AUTO_SYNC_ENABLED = !/^(0|false|no)$/i.test(String(process.env.PYTHON_AGENT_AUTO_SYNC || 'true').trim());
+const PYTHON_AGENT_USE_AGENT_ID_AS_COLLECTION_ID = isTruthyEnv(process.env.PYTHON_AGENT_USE_AGENT_ID_AS_COLLECTION_ID);
+
+function shouldSyncPythonAgentCore() {
+  return PYTHON_AGENT_CORE_ENABLED && PYTHON_AGENT_AUTO_SYNC_ENABLED && Boolean(PYTHON_AGENT_BASE_URL);
+}
+
+function coerceMetadataObject(value) {
+  if (!value) {
+    return {};
+  }
+
+  if (typeof value === 'object' && !Array.isArray(value)) {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+    } catch (error) {
+      return {};
+    }
+  }
+
+  return {};
+}
+
+function getAgentPythonMetadata(agentData = {}) {
+  return {
+    ...coerceMetadataObject(agentData.metadata),
+    ...coerceMetadataObject(agentData.meta),
+    ...coerceMetadataObject(agentData.settings),
+  };
+}
+
+function resolvePythonAgentCollectionId({ effectiveAgentId, agentData } = {}) {
+  const metadata = getAgentPythonMetadata(agentData || {});
+  const explicitCollectionId = getFirstNonEmptyEnv(
+    agentData?.python_collection_id,
+    agentData?.pythonCollectionId,
+    agentData?.collection_id,
+    metadata.python_collection_id,
+    metadata.pythonCollectionId,
+    metadata.collection_id,
+  );
+
+  if (explicitCollectionId) {
+    return explicitCollectionId;
+  }
+
+  const agentId = String(effectiveAgentId || agentData?.id || '').trim();
+  if (agentId && PYTHON_AGENT_COLLECTION_MAP[agentId]) {
+    return String(PYTHON_AGENT_COLLECTION_MAP[agentId]).trim();
+  }
+
+  const agentTitle = String(agentData?.title || agentData?.name || '').trim();
+  if (agentTitle && PYTHON_AGENT_COLLECTION_MAP[agentTitle]) {
+    return String(PYTHON_AGENT_COLLECTION_MAP[agentTitle]).trim();
+  }
+
+  if (PYTHON_AGENT_DEFAULT_COLLECTION_ID) {
+    return PYTHON_AGENT_DEFAULT_COLLECTION_ID;
+  }
+
+  return PYTHON_AGENT_USE_AGENT_ID_AS_COLLECTION_ID && agentId ? agentId : '';
+}
+
+function truncateForLog(value = '', maxLength = 240) {
+  const text = String(value || '').replace(/\s+/g, ' ').trim();
+  return text.length > maxLength ? `${text.slice(0, maxLength)}...` : text;
+}
+
+async function callPythonAgentCoreApi(pathname, options = {}, { timeoutMs = PYTHON_AGENT_TIMEOUT_MS, allowNotFound = false } = {}) {
+  if (!PYTHON_AGENT_BASE_URL) {
+    throw new Error('PYTHON_AGENT_BASE_URL nao configurada.');
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetch(`${PYTHON_AGENT_BASE_URL}${pathname}`, {
+      ...options,
+      signal: controller.signal,
+    });
+    const rawText = await response.text();
+    let payload = null;
+    if (rawText) {
+      try {
+        payload = JSON.parse(rawText);
+      } catch (error) {
+        payload = { raw: rawText };
+      }
+    }
+
+    if (!response.ok) {
+      if (allowNotFound && response.status === 404) {
+        return null;
+      }
+
+      const detail = payload?.detail || payload?.error || rawText || response.statusText;
+      throw new Error(`HTTP ${response.status}: ${truncateForLog(detail)}`);
+    }
+
+    return payload;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function callPythonAgentCoreQuery({ collectionId, question, agentInstructions = '' }) {
+  const payload = await callPythonAgentCoreApi('/query', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      collection_id: collectionId,
+      question,
+      agent_instructions: String(agentInstructions || '').trim() || undefined,
+      top_k: PYTHON_AGENT_TOP_K,
+      fast_mode: PYTHON_AGENT_FAST_MODE,
+    }),
+  });
+  return payload || {};
+}
+
+function buildPythonAgentCollectionName(agentData = {}, agentId = '') {
+  const title = String(agentData?.title || agentData?.name || 'Agente').trim() || 'Agente';
+  const shortId = String(agentId || agentData?.id || '').trim().slice(0, 8);
+  return shortId ? `${title} [${shortId}]` : title;
+}
+
+async function listPythonAgentCollections() {
+  const collections = await callPythonAgentCoreApi('/collections', {}, { timeoutMs: PYTHON_AGENT_TIMEOUT_MS });
+  return Array.isArray(collections) ? collections : [];
+}
+
+async function deletePythonAgentCollection(collectionId) {
+  if (!collectionId) {
+    return false;
+  }
+
+  await callPythonAgentCoreApi(`/collections/${encodeURIComponent(collectionId)}`, {
+    method: 'DELETE',
+  }, { timeoutMs: PYTHON_AGENT_TIMEOUT_MS, allowNotFound: true });
+  return true;
+}
+
+async function ensureAgentsPythonCoreColumns() {
+  if (!hasDatabaseUrl) {
+    return;
+  }
+
+  await pool.query('ALTER TABLE "agents" ADD COLUMN IF NOT EXISTS python_collection_id TEXT');
+  await pool.query('CREATE INDEX IF NOT EXISTS agents_python_collection_id_idx ON "agents" (python_collection_id)');
+}
+
+async function updateAgentPythonCollectionIdViaSupabase(agentId, collectionId) {
+  const client = ensureSupabaseAdminAvailable();
+  const payload = {
+    python_collection_id: collectionId || null,
+    updated_at: new Date().toISOString(),
+  };
+
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const response = await client
+      .from('agents')
+      .update(payload)
+      .eq('id', agentId)
+      .select('*')
+      .maybeSingle();
+
+    if (!response.error) {
+      return response.data || null;
+    }
+
+    const missingColumn = extractMissingColumnFromSchemaCacheError(response.error);
+    if (!missingColumn || !(missingColumn in payload)) {
+      throw createSupabaseFallbackError(response.error, 'Erro ao salvar collection Python do agente');
+    }
+
+    delete payload[missingColumn];
+  }
+
+  return null;
+}
+
+async function updateAgentPythonCollectionId(agentId, collectionId) {
+  if (!agentId) {
+    return null;
+  }
+
+  return withDatabaseFallback(
+    'updateAgentPythonCollectionId',
+    async () => {
+      await ensureAgentsPythonCoreColumns();
+      const result = await pool.query(
+        'UPDATE "agents" SET python_collection_id = $1, updated_at = NOW() WHERE id = $2 RETURNING *',
+        [collectionId || null, agentId]
+      );
+      return result.rows?.[0] || null;
+    },
+    () => updateAgentPythonCollectionIdViaSupabase(agentId, collectionId)
+  );
+}
+
+async function getAgentForPythonSync(agentId) {
+  if (!agentId) {
+    return null;
+  }
+
+  return withDatabaseFallback(
+    'getAgentForPythonSync',
+    async () => {
+      await ensureAgentsPythonCoreColumns().catch(() => undefined);
+      const result = await pool.query('SELECT * FROM "agents" WHERE id = $1 LIMIT 1', [agentId]);
+      return result.rows?.[0] || null;
+    },
+    () => getAgentViaSupabase(agentId)
+  );
+}
+
+async function ensurePythonAgentCollection({ agentId, agentData = null, recreate = false } = {}) {
+  if (!shouldSyncPythonAgentCore()) {
+    return null;
+  }
+
+  const resolvedAgentData = agentData || await getAgentForPythonSync(agentId) || { id: agentId };
+  const existingCollectionId = resolvePythonAgentCollectionId({ effectiveAgentId: agentId, agentData: resolvedAgentData });
+  if (existingCollectionId && !recreate) {
+    await updateAgentPythonCollectionId(agentId, existingCollectionId).catch(() => undefined);
+    return { id: existingCollectionId, reused: true };
+  }
+
+  if (existingCollectionId && recreate) {
+    await deletePythonAgentCollection(existingCollectionId).catch((error) => {
+      console.warn('[PYTHON_AGENT_CORE] Falha ao apagar collection antiga antes de recriar:', error?.message || error);
+    });
+  }
+
+  const name = buildPythonAgentCollectionName(resolvedAgentData, agentId);
+  let collection = null;
+  try {
+    collection = await callPythonAgentCoreApi('/collections', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name,
+        description: resolvedAgentData?.description || `Collection sincronizada do agente ${agentId}`,
+      }),
+    }, { timeoutMs: PYTHON_AGENT_TIMEOUT_MS });
+  } catch (error) {
+    if (!String(error?.message || '').includes('HTTP 409')) {
+      throw error;
+    }
+
+    const existing = (await listPythonAgentCollections()).find((item) => item.name === name);
+    if (!existing) {
+      throw error;
+    }
+
+    if (recreate) {
+      await deletePythonAgentCollection(existing.id).catch(() => undefined);
+      collection = await callPythonAgentCoreApi('/collections', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name,
+          description: resolvedAgentData?.description || `Collection sincronizada do agente ${agentId}`,
+        }),
+      }, { timeoutMs: PYTHON_AGENT_TIMEOUT_MS });
+    } else {
+      collection = { ...existing, reused: true };
+    }
+  }
+
+  if (!collection?.id) {
+    throw new Error('Core Python nao retornou collection_id.');
+  }
+
+  await updateAgentPythonCollectionId(agentId, collection.id).catch((error) => {
+    console.warn('[PYTHON_AGENT_CORE] Collection criada, mas nao foi possivel salvar python_collection_id:', error?.message || error);
+  });
+
+  return collection;
+}
+
+async function waitPythonAgentIngestionJob(jobId) {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < PYTHON_AGENT_INGEST_TIMEOUT_MS) {
+    const job = await callPythonAgentCoreApi(`/ingest/status/${encodeURIComponent(jobId)}`, {}, { timeoutMs: PYTHON_AGENT_TIMEOUT_MS });
+    if (job?.status === 'completed' || job?.status === 'failed') {
+      return job;
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 2500));
+  }
+
+  return { id: jobId, status: 'timeout', error: `Tempo esgotado apos ${PYTHON_AGENT_INGEST_TIMEOUT_MS}ms` };
+}
+
+async function ingestPythonAgentDocument({ collectionId, fullPath, fileName }) {
+  const buffer = await fs.promises.readFile(fullPath);
+  const formData = new FormData();
+  formData.append('collection_id', collectionId);
+  formData.append('file', new Blob([buffer]), fileName || path.basename(fullPath));
+
+  const job = await callPythonAgentCoreApi('/ingest/document', {
+    method: 'POST',
+    body: formData,
+  }, { timeoutMs: PYTHON_AGENT_INGEST_TIMEOUT_MS });
+
+  if (!job?.id) {
+    throw new Error('Core Python nao retornou job_id de ingestao.');
+  }
+
+  const finalJob = await waitPythonAgentIngestionJob(job.id);
+  if (finalJob.status !== 'completed') {
+    throw new Error(finalJob.error || finalJob.message || `Ingestao Python terminou com status ${finalJob.status}`);
+  }
+
+  return finalJob;
+}
+
+function resolvePublicAttachmentPath(attachment) {
+  const normalized = String(attachment || '').trim();
+  if (!normalized) {
+    return null;
+  }
+
+  const filePath = normalized.startsWith('/') ? normalized : `/${normalized}`;
+  return {
+    filePath,
+    fileName: normalized.split('/').pop() || normalized,
+    fullPath: path.join(process.cwd(), 'public', filePath),
+  };
+}
+
+async function syncPythonAgentAttachments({ agentId, attachments = [], agentData = null, recreate = false } = {}) {
+  const summary = {
+    enabled: shouldSyncPythonAgentCore(),
+    collectionId: null,
+    processedCount: 0,
+    skippedCount: 0,
+    failedCount: 0,
+    jobs: [],
+  };
+
+  if (!summary.enabled || !agentId) {
+    return summary;
+  }
+
+  const collection = await ensurePythonAgentCollection({ agentId, agentData, recreate });
+  summary.collectionId = collection?.id || null;
+  if (!summary.collectionId) {
+    return summary;
+  }
+
+  const validAttachments = Array.from(new Set((Array.isArray(attachments) ? attachments : []).filter(Boolean)));
+  for (const attachment of validAttachments) {
+    const resolved = resolvePublicAttachmentPath(attachment);
+    if (!resolved || !fs.existsSync(resolved.fullPath)) {
+      summary.skippedCount += 1;
+      continue;
+    }
+
+    try {
+      const job = await ingestPythonAgentDocument({
+        collectionId: summary.collectionId,
+        fullPath: resolved.fullPath,
+        fileName: resolved.fileName,
+      });
+      summary.processedCount += 1;
+      summary.jobs.push({ id: job.id, status: job.status, source: resolved.filePath });
+    } catch (error) {
+      summary.failedCount += 1;
+      summary.jobs.push({ status: 'failed', source: resolved.filePath, error: error?.message || 'Falha na ingestao Python' });
+      console.error('[PYTHON_AGENT_CORE] Falha ao ingerir anexo no core Python:', resolved.filePath, error?.message || error);
+    }
+  }
+
+  if (summary.failedCount > 0) {
+    throw new Error(`Falha ao ingerir ${summary.failedCount} anexo(s) no core Python.`);
+  }
+
+  return summary;
+}
+
+function writeChatSseText(res, text, metadata = {}) {
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  if (res.flushHeaders) res.flushHeaders();
+
+  const chunkSize = 50;
+  for (let index = 0; index < text.length; index += chunkSize) {
+    const chunk = text.substring(index, index + chunkSize);
+    res.write(`data: ${JSON.stringify({ content: chunk })}\n\n`);
+  }
+
+  res.write(`data: ${JSON.stringify({ done: true, ...metadata })}\n\n`);
+  res.end();
+}
+
+async function tryHandlePythonAgentCoreMessage({
+  res,
+  cid,
+  userText,
+  effectiveAgentId,
+  agentData = null,
+  attachmentContext = '',
+  loadAgentData,
+  saveAssistantMessage,
+} = {}) {
+  const question = String(userText || '').trim();
+  if (!PYTHON_AGENT_CORE_ENABLED || !PYTHON_AGENT_BASE_URL || !question) {
+    return { handled: false };
+  }
+
+  if (String(attachmentContext || '').trim()) {
+    return { handled: false, reason: 'attachment_context' };
+  }
+
+  let resolvedAgentData = agentData;
+  if (!resolvedAgentData && typeof loadAgentData === 'function') {
+    try {
+      resolvedAgentData = await loadAgentData();
+    } catch (error) {
+      console.warn('[PYTHON_AGENT_CORE] Nao foi possivel carregar dados do agente para mapear collection:', error?.message || error);
+    }
+  }
+
+  let collectionId = resolvePythonAgentCollectionId({ effectiveAgentId, agentData: resolvedAgentData });
+  if (!collectionId && shouldSyncPythonAgentCore() && Array.isArray(resolvedAgentData?.attachments) && resolvedAgentData.attachments.length > 0) {
+    try {
+      const syncSummary = await syncPythonAgentAttachments({
+        agentId: effectiveAgentId,
+        attachments: resolvedAgentData.attachments,
+        agentData: resolvedAgentData,
+        recreate: false,
+      });
+      collectionId = syncSummary.collectionId || '';
+    } catch (error) {
+      console.warn('[PYTHON_AGENT_CORE] Falha ao sincronizar collection ausente antes do chat:', error?.message || error);
+    }
+  }
+
+  if (!collectionId) {
+    console.info('[PYTHON_AGENT_CORE] Ativo, mas sem collection_id mapeada; usando RAG Node atual.');
+    return { handled: false, reason: 'missing_collection_id' };
+  }
+
+  const agentInstructions = String(resolvedAgentData?.instructions || resolvedAgentData?.description || '').trim();
+
+  try {
+    const result = await callPythonAgentCoreQuery({ collectionId, question, agentInstructions });
+    const answer = String(result?.answer || '').trim();
+    if (!answer) {
+      return { handled: false, reason: 'empty_answer' };
+    }
+
+    const citations = Array.isArray(result?.citations) ? result.citations : [];
+    if (citations.length === 0 && isGroundedFallbackResponse(answer)) {
+      console.info('[PYTHON_AGENT_CORE] Core Python nao encontrou evidencias; usando RAG Node atual.');
+      return { handled: false, reason: 'python_no_evidence' };
+    }
+
+    if (typeof saveAssistantMessage === 'function') {
+      await saveAssistantMessage(answer);
+    }
+
+    console.log(`[PYTHON_AGENT_CORE] Resposta gerada via Python core. conversation=${cid} collection=${collectionId} verified=${Boolean(result?.verified)}`);
+    writeChatSseText(res, answer, {
+      source: 'python_agent_core',
+      verified: Boolean(result?.verified),
+      citations,
+    });
+    return { handled: true };
+  } catch (error) {
+    const message = error?.name === 'AbortError'
+      ? `timeout apos ${PYTHON_AGENT_TIMEOUT_MS}ms`
+      : (error?.message || error);
+    console.warn(`[PYTHON_AGENT_CORE] Falha no core Python; usando RAG Node atual: ${message}`);
+    return { handled: false, reason: 'python_agent_error' };
+  }
 }
 
 function normalizeRetrievalText(value = '') {
@@ -363,6 +917,20 @@ function buildRetrievalKeywords(value = '', { minLength = 3, limit = 24 } = {}) 
   );
   const legalSignals = extractLegalReferenceSignals(value);
 
+  // Expand common shorthand/legal abbreviations used in noisy user inputs.
+  for (const token of Array.from(keywords)) {
+    const expansions = RETRIEVAL_TOKEN_EXPANSIONS.get(token);
+    if (!Array.isArray(expansions) || expansions.length === 0) {
+      continue;
+    }
+
+    for (const expansion of expansions) {
+      for (const expandedToken of extractRetrievalTokens(expansion, { minLength, limit: 8 })) {
+        keywords.add(expandedToken);
+      }
+    }
+  }
+
   for (const alias of legalSignals.statuteAliases) {
     for (const token of extractRetrievalTokens(alias, { minLength, limit: 8 })) {
       keywords.add(token);
@@ -376,6 +944,172 @@ function buildRetrievalKeywords(value = '', { minLength = 3, limit = 24 } = {}) 
   }
 
   return Array.from(keywords).slice(0, limit);
+}
+
+function hasSingleAdjacentTransposition(source = '', target = '') {
+  const left = String(source || '');
+  const right = String(target || '');
+  if (!left || !right || left.length !== right.length) {
+    return false;
+  }
+
+  const diffIndexes = [];
+  for (let index = 0; index < left.length; index += 1) {
+    if (left[index] !== right[index]) {
+      diffIndexes.push(index);
+      if (diffIndexes.length > 2) {
+        return false;
+      }
+    }
+  }
+
+  if (diffIndexes.length !== 2 || diffIndexes[1] !== diffIndexes[0] + 1) {
+    return false;
+  }
+
+  const [first, second] = diffIndexes;
+  return left[first] === right[second] && left[second] === right[first];
+}
+
+function levenshteinDistanceWithinLimit(source = '', target = '', maxDistance = 1) {
+  const left = String(source || '');
+  const right = String(target || '');
+  const limit = Math.max(0, Number(maxDistance || 0));
+
+  if (left === right) {
+    return 0;
+  }
+
+  if (!left.length || !right.length) {
+    return Math.max(left.length, right.length);
+  }
+
+  if (Math.abs(left.length - right.length) > limit) {
+    return limit + 1;
+  }
+
+  let previous = new Array(right.length + 1);
+  let current = new Array(right.length + 1);
+  for (let column = 0; column <= right.length; column += 1) {
+    previous[column] = column;
+  }
+
+  for (let row = 1; row <= left.length; row += 1) {
+    current[0] = row;
+    let rowMin = current[0];
+
+    const startColumn = Math.max(1, row - limit);
+    const endColumn = Math.min(right.length, row + limit);
+
+    for (let column = 1; column < startColumn; column += 1) {
+      current[column] = limit + 1;
+    }
+
+    for (let column = startColumn; column <= endColumn; column += 1) {
+      const substitutionCost = left[row - 1] === right[column - 1] ? 0 : 1;
+      const insertion = current[column - 1] + 1;
+      const deletion = previous[column] + 1;
+      const substitution = previous[column - 1] + substitutionCost;
+      const value = Math.min(insertion, deletion, substitution);
+      current[column] = value;
+
+      if (value < rowMin) {
+        rowMin = value;
+      }
+    }
+
+    for (let column = endColumn + 1; column <= right.length; column += 1) {
+      current[column] = limit + 1;
+    }
+
+    if (rowMin > limit) {
+      return limit + 1;
+    }
+
+    [previous, current] = [current, previous];
+  }
+
+  return previous[right.length];
+}
+
+function getTypoToleranceDistance(token = '') {
+  const normalized = String(token || '').trim();
+  if (normalized.length < RAG_TYPO_MIN_TOKEN_LENGTH) {
+    return 0;
+  }
+
+  if (normalized.length <= 6) {
+    return 1;
+  }
+
+  return 2;
+}
+
+function hasApproximateTokenMatch(token = '', contentTokens = []) {
+  if (!ENABLE_RAG_TYPO_TOLERANCE) {
+    return false;
+  }
+
+  const normalizedToken = String(token || '').trim();
+  const maxDistance = getTypoToleranceDistance(normalizedToken);
+  if (!normalizedToken || maxDistance === 0) {
+    return false;
+  }
+
+  const tokenPrefix = normalizedToken.slice(0, 1);
+  for (const candidate of Array.isArray(contentTokens) ? contentTokens : []) {
+    const normalizedCandidate = String(candidate || '').trim();
+    if (!normalizedCandidate || normalizedCandidate === normalizedToken) {
+      continue;
+    }
+
+    if (Math.abs(normalizedCandidate.length - normalizedToken.length) > maxDistance) {
+      continue;
+    }
+
+    if (tokenPrefix && normalizedCandidate[0] !== tokenPrefix) {
+      continue;
+    }
+
+    if (hasSingleAdjacentTransposition(normalizedToken, normalizedCandidate)) {
+      return true;
+    }
+
+    const distance = levenshteinDistanceWithinLimit(normalizedToken, normalizedCandidate, maxDistance);
+    if (distance <= maxDistance) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function contentHasRetrievalToken(normalizedContent = '', contentTokens = [], token = '') {
+  const normalizedToken = String(token || '').trim();
+  if (!normalizedToken) {
+    return false;
+  }
+
+  if (String(normalizedContent || '').includes(normalizedToken)) {
+    return true;
+  }
+
+  return hasApproximateTokenMatch(normalizedToken, contentTokens);
+}
+
+function contentHasRetrievalKeywordMatch(content = '', keywords = []) {
+  const normalizedContent = normalizeRetrievalText(content);
+  if (!normalizedContent) {
+    return false;
+  }
+
+  const contentTokens = ENABLE_RAG_TYPO_TOLERANCE
+    ? extractRetrievalTokens(content, { minLength: 3, limit: 220 })
+    : [];
+
+  return (Array.isArray(keywords) ? keywords : []).some((keyword) => (
+    contentHasRetrievalToken(normalizedContent, contentTokens, keyword)
+  ));
 }
 
 function detectChatProvider({ model = '', baseURL = '' } = {}) {
@@ -1094,6 +1828,171 @@ const memoryChatStore = {
   messages: []
 };
 
+const ADMIN_QA_PAGE_SIZE = 15;
+
+function normalizeAdminQaRow(row = {}) {
+  return {
+    id: Number(row.id || 0),
+    question: String(row.question || '').trim(),
+    answer: String(row.answer || '').trim(),
+  };
+}
+
+function buildAdminQaResponse(rows = [], total = 0, page = 1, exportAll = false) {
+  const normalizedRows = rows.map(normalizeAdminQaRow).filter((row) => row.question && row.answer);
+  const safeTotal = Math.max(0, Number(total || normalizedRows.length || 0));
+  const totalPages = exportAll ? 1 : Math.max(1, Math.ceil(safeTotal / ADMIN_QA_PAGE_SIZE));
+
+  return {
+    page: exportAll ? 1 : Math.min(Math.max(1, Number(page || 1)), totalPages),
+    page_size: ADMIN_QA_PAGE_SIZE,
+    total: safeTotal,
+    total_pages: totalPages,
+    rows: normalizedRows,
+  };
+}
+
+function collectQaRowsFromMessages(messages = []) {
+  const groupedByConversation = new Map();
+
+  for (const message of Array.isArray(messages) ? messages : []) {
+    const conversationId = Number(message?.conversation_id || 0);
+    if (!conversationId) {
+      continue;
+    }
+
+    if (!groupedByConversation.has(conversationId)) {
+      groupedByConversation.set(conversationId, []);
+    }
+
+    groupedByConversation.get(conversationId).push(message);
+  }
+
+  const rows = [];
+
+  for (const conversationMessages of groupedByConversation.values()) {
+    const orderedMessages = conversationMessages
+      .slice()
+      .sort((left, right) => Number(left.id || 0) - Number(right.id || 0));
+
+    for (let index = 0; index < orderedMessages.length; index += 1) {
+      const message = orderedMessages[index];
+      if (String(message.role || '').trim() !== 'user') {
+        continue;
+      }
+
+      const answerMessage = orderedMessages
+        .slice(index + 1)
+        .find((candidate) => String(candidate.role || '').trim() === 'assistant');
+
+      const question = String(message.content || '').trim();
+      const answer = String(answerMessage?.content || '').trim();
+      if (!question || !answer) {
+        continue;
+      }
+
+      rows.push({
+        id: Number(message.id || 0),
+        question,
+        answer,
+      });
+    }
+  }
+
+  return rows.sort((left, right) => Number(right.id || 0) - Number(left.id || 0));
+}
+
+async function getAdminQaRowsViaDatabase({ page = 1, exportAll = false } = {}) {
+  await ensureChatTables();
+
+  const countResult = await pool.query(`
+    SELECT COUNT(*)::int AS total
+    FROM messages user_msg
+    JOIN LATERAL (
+      SELECT assistant_msg.id, assistant_msg.content
+      FROM messages assistant_msg
+      WHERE assistant_msg.conversation_id = user_msg.conversation_id
+        AND assistant_msg.role = 'assistant'
+        AND assistant_msg.id > user_msg.id
+      ORDER BY assistant_msg.id ASC
+      LIMIT 1
+    ) assistant_msg ON TRUE
+    WHERE user_msg.role = 'user'
+      AND NULLIF(BTRIM(user_msg.content), '') IS NOT NULL
+      AND NULLIF(BTRIM(assistant_msg.content), '') IS NOT NULL
+  `);
+
+  const total = Number(countResult.rows?.[0]?.total || 0);
+  const offset = (Math.max(1, Number(page || 1)) - 1) * ADMIN_QA_PAGE_SIZE;
+  const params = exportAll ? [] : [ADMIN_QA_PAGE_SIZE, offset];
+  const limitClause = exportAll ? '' : 'LIMIT $1 OFFSET $2';
+
+  const rowsResult = await pool.query(`
+    SELECT
+      user_msg.id,
+      user_msg.content AS question,
+      assistant_msg.content AS answer
+    FROM messages user_msg
+    JOIN LATERAL (
+      SELECT assistant_msg.id, assistant_msg.content
+      FROM messages assistant_msg
+      WHERE assistant_msg.conversation_id = user_msg.conversation_id
+        AND assistant_msg.role = 'assistant'
+        AND assistant_msg.id > user_msg.id
+      ORDER BY assistant_msg.id ASC
+      LIMIT 1
+    ) assistant_msg ON TRUE
+    WHERE user_msg.role = 'user'
+      AND NULLIF(BTRIM(user_msg.content), '') IS NOT NULL
+      AND NULLIF(BTRIM(assistant_msg.content), '') IS NOT NULL
+    ORDER BY user_msg.id DESC
+    ${limitClause}
+  `, params);
+
+  return buildAdminQaResponse(rowsResult.rows || [], total, page, exportAll);
+}
+
+async function getAdminQaRowsViaSupabase({ page = 1, exportAll = false } = {}) {
+  const client = ensureSupabaseAdminAvailable();
+  const messages = [];
+  const pageSize = 1000;
+
+  for (let offset = 0; ; offset += pageSize) {
+    const response = await client
+      .from('messages')
+      .select('id, conversation_id, role, content')
+      .order('id', { ascending: true })
+      .range(offset, offset + pageSize - 1);
+
+    if (response.error) {
+      throw createSupabaseFallbackError(response.error, 'Erro ao carregar perguntas e respostas dos agentes');
+    }
+
+    const batch = response.data || [];
+    messages.push(...batch);
+
+    if (batch.length < pageSize) {
+      break;
+    }
+  }
+
+  const allRows = collectQaRowsFromMessages(messages);
+  const total = allRows.length;
+  const offset = (Math.max(1, Number(page || 1)) - 1) * ADMIN_QA_PAGE_SIZE;
+  const rows = exportAll ? allRows : allRows.slice(offset, offset + ADMIN_QA_PAGE_SIZE);
+
+  return buildAdminQaResponse(rows, total, page, exportAll);
+}
+
+function getAdminQaRowsFromMemory({ page = 1, exportAll = false } = {}) {
+  const allRows = collectQaRowsFromMessages(memoryChatStore.messages);
+  const total = allRows.length;
+  const offset = (Math.max(1, Number(page || 1)) - 1) * ADMIN_QA_PAGE_SIZE;
+  const rows = exportAll ? allRows : allRows.slice(offset, offset + ADMIN_QA_PAGE_SIZE);
+
+  return buildAdminQaResponse(rows, total, page, exportAll);
+}
+
 function isPostgresUnavailableError(error) {
   const code = String(error?.code || '').trim().toUpperCase();
   const message = String(error?.message || '').toUpperCase();
@@ -1337,10 +2236,34 @@ async function extractPdfText(filePath) {
       // Esta função de pagerender tenta ignorar erros de cada página
       pagerender: function(pageData) {
         return pageData.getTextContent({
-          normalizeWhitespace: true,
+          normalizeWhitespace: false,
           disableCombineTextItems: false
         }).then(function(textContent) {
-          return textContent.items.map(item => item.str).join(' ');
+          const lines = [];
+          let currentLine = [];
+          let currentY = null;
+
+          for (const item of textContent.items || []) {
+            const value = String(item?.str || '').trim();
+            if (!value) {
+              continue;
+            }
+
+            const y = Number(item?.transform?.[5] || 0);
+            if (currentY !== null && Math.abs(y - currentY) > 2 && currentLine.length > 0) {
+              lines.push(currentLine.join(' '));
+              currentLine = [];
+            }
+
+            currentY = y;
+            currentLine.push(value);
+          }
+
+          if (currentLine.length > 0) {
+            lines.push(currentLine.join(' '));
+          }
+
+          return lines.join('\n');
         });
       }
     });
@@ -1381,7 +2304,7 @@ async function extractPdfText(filePath) {
     // 5. Normalizar espaços múltiplos
     text = text.replace(/[ \t]+/g, ' '); 
     text = text.replace(/\n\s*\n/g, '\n\n'); // Preserva parágrafos
-    text = text.replace(/\s+/g, ' ').trim(); 
+    text = normalizeStructuredText(text);
 
     console.log('--- TESTE DE EXTRAÇÃO E LIMPEZA AVANÇADA ---');
     console.log(`Documento: ${path.basename(filePath)}`);
@@ -1670,6 +2593,94 @@ Responda de forma objetiva em português. Se possível, traga resumo e pontos pr
   }
 }
 
+function normalizeStructuredText(value = '') {
+  const lines = [];
+  for (const rawLine of String(value || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n')) {
+    const line = rawLine.replace(/[ \t]+/g, ' ').trim();
+    if (line) {
+      lines.push(line);
+    } else if (lines.length > 0 && lines[lines.length - 1] !== '') {
+      lines.push('');
+    }
+  }
+  return lines.join('\n').trim();
+}
+
+function joinStructuredLines(lines = []) {
+  const cleaned = [];
+  for (const line of lines) {
+    if (line) {
+      cleaned.push(line);
+    } else if (cleaned.length > 0 && cleaned[cleaned.length - 1] !== '') {
+      cleaned.push('');
+    }
+  }
+  return cleaned.join('\n').trim();
+}
+
+function buildChunkOverlapLines(lines = [], overlap = 0) {
+  if (!Array.isArray(lines) || lines.length === 0 || overlap <= 0) {
+    return [];
+  }
+
+  const overlapLines = [];
+  let total = 0;
+  for (let index = lines.length - 1; index >= 0; index -= 1) {
+    const line = lines[index];
+    overlapLines.unshift(line);
+    total += String(line || '').length + 1;
+    if (total >= overlap) {
+      break;
+    }
+  }
+
+  while (overlapLines.length > 0 && overlapLines[0] === '') {
+    overlapLines.shift();
+  }
+
+  return overlapLines;
+}
+
+function chunkLongLine(line = '', size = 1800, overlap = 250) {
+  const cleanLine = String(line || '').trim();
+  if (!cleanLine) {
+    return [];
+  }
+
+  if (cleanLine.length <= size) {
+    return [cleanLine];
+  }
+
+  const chunks = [];
+  let start = 0;
+  while (start < cleanLine.length) {
+    let end = start + size;
+
+    if (end < cleanLine.length) {
+      const lastPeriod = cleanLine.lastIndexOf('.', end);
+      const lastSpace = cleanLine.lastIndexOf(' ', end);
+
+      if (lastPeriod > start + (size * 0.8)) {
+        end = lastPeriod + 1;
+      } else if (lastSpace > start + (size * 0.5)) {
+        end = lastSpace;
+      }
+    }
+
+    const chunk = cleanLine.slice(start, end).trim();
+    if (chunk) {
+      chunks.push(chunk);
+    }
+
+    start = end - overlap;
+    if (start >= end) {
+      start = end;
+    }
+  }
+
+  return chunks;
+}
+
 // 2️⃣ Chunking Inteligente - CONFIGURAÇÃO NUCLEAR (4000/1000)
 function chunkText(text, size = 1800, overlap = 250) {
   if (!text || text.trim().length === 0) {
@@ -1677,36 +2688,69 @@ function chunkText(text, size = 1800, overlap = 250) {
     return [];
   }
 
-  // Normalizar espaços em branco
-  const cleanText = text.replace(/\s+/g, ' ').trim();
+  const cleanText = normalizeStructuredText(text);
+  if (!cleanText) {
+    console.warn('[CHUNK] Texto sem conteudo apos normalizacao, nenhum chunk criado.');
+    return [];
+  }
+
+  const lines = cleanText.split('\n');
+  if (lines.length === 1) {
+    const singleLineChunks = chunkLongLine(lines[0], size, overlap);
+    console.log(`[CHUNK] Gerados ${singleLineChunks.length} chunks de aprox ${size} chars.`);
+    return singleLineChunks;
+  }
+
   const chunks = [];
-  let start = 0;
+  let currentLines = [];
+  let currentLength = 0;
 
-  while (start < cleanText.length) {
-    let end = start + size;
-
-    // Se não estamos no final do texto, tentar recuar até o último ponto final
-    if (end < cleanText.length) {
-      const lastPeriod = cleanText.lastIndexOf('.', end);
-      const lastSpace = cleanText.lastIndexOf(' ', end);
-
-      if (lastPeriod > start + (size * 0.8)) {
-        end = lastPeriod + 1; // Inclui o ponto
-      } else if (lastSpace > start + (size * 0.5)) {
-        end = lastSpace; // Corta no espaço
-      }
-    }
-
-    const chunk = cleanText.slice(start, end).trim();
-    if (chunk.length > 0) {
+  const flush = () => {
+    const chunk = joinStructuredLines(currentLines);
+    if (chunk) {
       chunks.push(chunk);
     }
+    currentLines = buildChunkOverlapLines(currentLines, overlap);
+    currentLength = joinStructuredLines(currentLines).length;
+  };
 
-    // Avança para o próximo, considerando o overlap GIGANTE de 1000
-    start = end - overlap;
+  for (const rawLine of lines) {
+    const line = String(rawLine || '').trimEnd();
 
-    // Proteção contra loop infinito
-    if (start >= end) start = end;
+    if (!line.trim()) {
+      if (currentLines.length > 0 && currentLines[currentLines.length - 1] !== '') {
+        currentLines.push('');
+      }
+      continue;
+    }
+
+    if (line.length > size) {
+      if (currentLines.length > 0) {
+        flush();
+      }
+
+      for (const piece of chunkLongLine(line, size, overlap)) {
+        if (currentLines.length > 0 && currentLength + piece.length + 1 > size) {
+          flush();
+        }
+        currentLines.push(piece);
+        currentLength = joinStructuredLines(currentLines).length;
+      }
+      continue;
+    }
+
+    const projectedLength = currentLength + (currentLines.length > 0 ? 1 : 0) + line.length;
+    if (currentLines.length > 0 && projectedLength > size) {
+      flush();
+    }
+
+    currentLines.push(line);
+    currentLength = joinStructuredLines(currentLines).length;
+  }
+
+  const finalChunk = joinStructuredLines(currentLines);
+  if (finalChunk) {
+    chunks.push(finalChunk);
   }
 
   console.log(`[CHUNK] Gerados ${chunks.length} chunks de aprox ${size} chars.`);
@@ -1853,10 +2897,20 @@ function computeChunkLexicalScore(content = '', queryText = '') {
     return 0;
   }
 
+  const contentTokens = ENABLE_RAG_TYPO_TOLERANCE
+    ? extractRetrievalTokens(content, { minLength: 3, limit: 180 })
+    : [];
+
   let score = 0;
   for (const token of tokens) {
-    if (normalizedContent.includes(token)) {
+    const exactMatch = normalizedContent.includes(token);
+    if (exactMatch) {
       score += Math.min(token.length, 12);
+      continue;
+    }
+
+    if (hasApproximateTokenMatch(token, contentTokens)) {
+      score += Math.min(token.length, 12) * 0.65;
     }
   }
 
@@ -1959,7 +3013,12 @@ function computeChunkTermCoverageScore(content = '', queryText = '') {
     return 0;
   }
 
-  const matches = queryTokens.filter((token) => normalizedContent.includes(token));
+  const contentTokens = ENABLE_RAG_TYPO_TOLERANCE
+    ? extractRetrievalTokens(content, { minLength: 3, limit: 180 })
+    : [];
+  const matches = queryTokens.filter((token) => (
+    contentHasRetrievalToken(normalizedContent, contentTokens, token)
+  ));
   const coverageRatio = matches.length / Math.max(queryTokens.length, 1);
 
   let score = coverageRatio * 38;
@@ -2328,9 +3387,31 @@ async function searchKeywordChunks(queryText, agentId, limit = DEFAULT_RAG_KEYWO
           LIMIT $${keywords.length + 2}
         `, [agentId, ...keywords.map((keyword) => `%${keyword}%`), Math.max(limit * 12, DEFAULT_RAG_CANDIDATE_LIMIT)]);
 
-        console.log(`[KEYWORD_SEARCH] Encontrados ${result.rows.length} chunks para ${keywords.length} palavras-chave.`);
+        let candidateRows = Array.isArray(result.rows) ? [...result.rows] : [];
+        const lowStrictRecall = candidateRows.length < Math.max(10, Math.floor(limit * 0.75));
+
+        if (ENABLE_RAG_TYPO_TOLERANCE && lowStrictRecall) {
+          const fallbackLimit = Math.max(limit * 16, Math.min(DEFAULT_RAG_CANDIDATE_LIMIT, 4000));
+          const fallbackResult = await pool.query(`
+            SELECT
+              dc.document_id,
+              dc.content,
+              dc.chunk_index,
+              COALESCE(d.title, 'Documento sem título') AS document_title
+            FROM document_chunks dc
+            LEFT JOIN documents d ON d.id = dc.document_id
+            WHERE dc.agent_id = $1
+            ORDER BY dc.chunk_index ASC
+            LIMIT $2
+          `, [agentId, fallbackLimit]);
+
+          candidateRows = candidateRows.concat(fallbackResult.rows || []);
+          console.log(`[KEYWORD_SEARCH] Fallback typo-tolerante ativado: ${result.rows.length} strict + ${fallbackResult.rows?.length || 0} broad.`);
+        }
+
+        console.log(`[KEYWORD_SEARCH] Encontrados ${candidateRows.length} chunks candidatos para ${keywords.length} palavras-chave.`);
         return rerankRetrievedRows(
-          result.rows.map((row) => ({
+          candidateRows.map((row) => ({
             documentId: row.document_id,
             documentTitle: row.document_title,
             content: row.content,
@@ -2503,7 +3584,7 @@ function shouldTriggerProactiveDeepSearch({ userText = '', retrievalQuery = '', 
 
 async function reindexAgentAttachments(agentId, attachments = []) {
   const validAttachments = Array.isArray(attachments) ? attachments : [];
-  return withDatabaseFallback(
+  const summary = await withDatabaseFallback(
     'reindexAgentAttachments',
     async () => {
       let processedCount = 0;
@@ -2571,6 +3652,16 @@ async function reindexAgentAttachments(agentId, attachments = []) {
     },
     () => reindexAgentAttachmentsViaSupabase(agentId, validAttachments)
   );
+
+  const agentData = await getAgentForPythonSync(agentId).catch(() => null);
+  const python = await syncPythonAgentAttachments({
+    agentId,
+    attachments: validAttachments,
+    agentData,
+    recreate: true,
+  });
+
+  return { ...summary, python };
 }
 
 // ============================================
@@ -2581,7 +3672,7 @@ function orchestrateResponse(rawResponse, questionType, hasContext = true) {
   // Se não tiver resposta alguma, devolve fallback amigável
   if (!rawResponse || rawResponse.trim().length === 0) {
     return hasContext
-      ? "Não encontrei essa informação no documento analisado. Se preferir, posso buscar por termos relacionados."
+      ? "Nao encontrei isso no material que o agente tem agora. Se quiser, eu posso tentar outra busca."
       : "Não consegui gerar uma resposta agora. Pode reformular sua pergunta?";
   }
 
@@ -2589,6 +3680,48 @@ function orchestrateResponse(rawResponse, questionType, hasContext = true) {
 
   // Remover IDs internos de chunk
   formattedResponse = formattedResponse.replace(/\[\s*Trecho\s*ID\s*:\s*\d+\s*\]/gi, '').trim();
+  formattedResponse = formattedResponse.replace(/\s*\[(?:Fonte:[^\]]+|Fonte\s+\d+)\]/gi, '').trim();
+
+  const responseLines = formattedResponse.replace(/\r\n/g, '\n').split('\n');
+  const cleanedLines = [];
+  let skipQuotedQuestion = false;
+
+  for (const rawLine of responseLines) {
+    const line = rawLine.trim();
+    const normalized = normalizeRetrievalText(line);
+
+    if (!line) {
+      if (skipQuotedQuestion) {
+        skipQuotedQuestion = false;
+      }
+      if (cleanedLines.length > 0 && cleanedLines[cleanedLines.length - 1] !== '') {
+        cleanedLines.push('');
+      }
+      continue;
+    }
+
+    if (normalized === 'resposta final' || normalized === 'informacao ausente no contexto documental') {
+      continue;
+    }
+
+    if (normalized.startsWith('pergunta identificada')) {
+      skipQuotedQuestion = true;
+      continue;
+    }
+
+    if (skipQuotedQuestion && (/^>/.test(line) || /^["'“]/.test(line))) {
+      continue;
+    }
+
+    skipQuotedQuestion = false;
+    cleanedLines.push(rawLine);
+  }
+
+  formattedResponse = cleanedLines.join('\n')
+    .replace(/\bApos analise(?: integral)? de todos os trechos recuperados,?\s*/gi, '')
+    .replace(/\bCom base(?: apenas)? nos anexos processados,?\s*/gi, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 
   // Remover prefixos robóticos
   const robotPrefixes = [
@@ -2687,18 +3820,20 @@ function buildPrompt(context, agentInstructions, question, toneStyle = 'chatgpt'
     // Sem contexto/chunks, modo strict NÃO se aplica — não existe base para restringir.
     // O agente responde usando instruções + conhecimento geral do modelo.
     return `🎯 PERSONA: CONSULTOR SÊNIOR
-Você é um especialista direto, elegante e organizado.
+Você é um assistente experiente, claro e conversacional.
 
 INSTRUÇÕES DO AGENTE:
 ${agentInstructions || "Atue como um assistente técnico."}
 
 REGRAS:
-1. Responda com clareza e objetividade.
+1. Responda com clareza, naturalidade e tom de conversa.
 2. Se a pergunta for sobre o tema principal do agente, responda normalmente com base nas instruções acima e no seu conhecimento especializado.
 3. Se não souber com certeza, seja transparente e informe que a resposta pode necessitar de verificação complementar.
 4. Considere o histórico recente da conversa para não repetir perguntas já respondidas.
 5. Se o usuário estiver retomando um assunto anterior, continue do ponto em que a conversa parou.
 6. NUNCA diga "Não encontrei essa informação na base do agente" — responda SEMPRE com base nas instruções e no seu domínio técnico.
+7. Nao repita a pergunta do usuario.
+8. Nao use titulos como "Resposta Final" nem linguagem de relatorio.
 
 ${conversationBlock}
 PERGUNTA DO USUÁRIO:
@@ -2712,17 +3847,18 @@ RESPONDA AGORA:`;
     : '';
 
   return `🎯 PERSONA: CONSULTOR SÊNIOR
-Você é um especialista direto, elegante e organizado.
+Você é um assistente experiente, claro e conversacional.
 
 ### REGRAS CRÍTICAS (MODO VISÃO PANORÂMICA):
 1. **LEITURA COMPLETA**: Você recebeu um volume amplo de contexto relevante (trechos pré-filtrados por similaridade). Você DEVE ler e considerar TODOS os fragmentos antes de responder.
 2. **SÍNTESE OBRIGATÓRIA**: Informações complexas podem estar divididas entre vários trechos. Una os pontos.
 3. **FIDELIDADE**: Priorize os trechos abaixo quando a pergunta estiver relacionada aos anexos, URLs e documentos.
-4. **LIMPEZA**: Não mencione [Trecho ID] na resposta.
+4. **TOM NATURAL**: Responda como em uma conversa normal. Nao repita a pergunta, nao use titulos como "Resposta Final" e nao diga coisas como "com base no contexto" ou "trechos recuperados".
 5. **BUSCA PROFUNDA**: Se o usuário perguntar por um detalhe específico, vasculhe cada linha do contexto fornecido. Se estiver lá, você deve encontrar.
 6. **MODO ${forceContextOnlyMode ? 'ESTRITO' : 'HÍBRIDO'}**: ${forceContextOnlyMode ? 'Responda exclusivamente com base no contexto fornecido. Se faltar informacao, explique objetivamente o que foi encontrado e qual ponto ficou sem base documental, sem usar conhecimento externo.' : 'Se a pergunta não estiver relacionada ao conteúdo dos anexos, responda normalmente seguindo as instruções do agente.'}
 7. **MEMÓRIA DE CONVERSA**: Use o histórico recente para manter continuidade, não repetir respostas e não pedir novamente informações que já foram dadas.
 8. **SEM CONHECIMENTO EXTERNO**: ${forceContextOnlyMode ? 'É proibido complementar a resposta com conhecimento geral do modelo.' : 'Conhecimento externo só pode ser usado quando não contrariar nem substituir o contexto.'}
+9. **SEM RASTROS TÉCNICOS**: Nao exponha [Fonte N], [Trecho ID], nomes de blocos de prompt nem notas de processo, a menos que o usuario peca isso.
 
 FONTE DE VERDADE:
 Responda baseando-se no [CONTEXTO] abaixo. ${forceContextOnlyMode ? 'Sua resposta deve sair exclusivamente dele.' : 'Use as informações fornecidas para construir uma resposta útil e completa.'}
@@ -2762,7 +3898,7 @@ function buildGroundedPrompt(context, agentInstructions, question, conversationC
 
   if (!hasContext) {
     return `PERSONA: CONSULTOR TECNICO SENIOR
-Voce responde de forma objetiva, rigorosa e inteiramente ancorada na base do agente.
+Voce responde de forma objetiva, natural e inteiramente ancorada na base do agente.
 
 INSTRUCOES DO AGENTE:
 ${agentInstructions || "Atue como um assistente técnico."}
@@ -2772,7 +3908,8 @@ REGRAS:
 2. Se o contexto estiver vazio ou insuficiente, responda com transparencia: diga o que nao foi possivel confirmar no material disponivel e quais pontos faltaram.
 3. Nunca complete com conhecimento externo.
 4. Nunca invente artigos, nomes, datas, prazos, procedimentos ou conclusoes.
-5. Se houver contexto suficiente, responda em portugues claro e objetivo.
+5. Se houver contexto suficiente, responda em portugues claro, direto e com tom de conversa.
+6. Nao repita a pergunta e nao use titulos como "Resposta Final".
 
 ${conversationBlock}PERGUNTA DO USUARIO:
 ${question}
@@ -2784,7 +3921,7 @@ RESPONDA AGORA:`;
   }
 
   return `PERSONA: CONSULTOR TECNICO SENIOR
-Voce responde com fidelidade maxima ao RAG, sem conhecimento externo e sem preencher lacunas.
+Voce responde com fidelidade maxima ao RAG, sem conhecimento externo e sem preencher lacunas, mas com linguagem natural e sem cara de relatorio.
 
 INSTRUCOES DO AGENTE:
 ${agentInstructions || "Atue como um assistente técnico."}
@@ -2794,16 +3931,19 @@ REGRAS CRITICAS:
 2. Responda exclusivamente com base no contexto documental abaixo.
 3. Se a pergunta mencionar artigo, paragrafo, lei, decreto, codigo ou sigla normativa, procure primeiro esses identificadores no contexto antes de concluir que a informacao nao esta disponivel.
 4. Se a resposta depender de mais de um trecho, una os trechos sem extrapolar.
-5. Ao apresentar uma afirmacao factual central, cite pelo menos uma fonte no formato [Fonte N]. Se a resposta for curta e estiver apoiada em um unico trecho, uma unica citacao ao final basta.
-6. Se a informacao nao estiver expressamente nos trechos, responda em duas partes: (a) o que foi encontrado com [Fonte N]; (b) a lacuna documental que impediu resposta completa.
-7. Nao use conhecimento externo, memoria do modelo ou suposicoes.
-8. Nao mencione IDs internos alem do rotulo [Fonte N].
+5. Responda de forma natural, como em um chat, sem repetir a pergunta e sem usar titulos como "Resposta Final" ou "Pergunta identificada".
+6. Nao exponha [Fonte N], nomes de trechos, notas de revisao ou detalhes do processo, a menos que o usuario peca isso.
+7. Se a informacao nao estiver expressamente nos trechos, explique isso de forma breve, natural e objetiva, sem usar conhecimento externo.
+8. Nao use conhecimento externo, memoria do modelo ou suposicoes.
 9. Quando o contexto trouxer texto legal ou normativo, prefira reproduzir a redacao essencial em vez de parafrasear demais.
-10. Se houver divergencia entre trechos, aponte a divergencia e cite as fontes.
+10. Se houver divergencia entre trechos, aponte a divergencia de forma natural e objetiva.
 11. Em perguntas que pedem lista (ex.: "quais", "em quais situacoes", "documentos"), entregue os itens em bullets com redacao o mais literal possivel dos trechos.
 12. Priorize o trecho cujo texto tenha maior sobreposicao lexical com o nucleo da pergunta; nao substitua esse trecho por regra parecida de outro artigo.
-13. Se houver mais de uma regra sobre o mesmo beneficio, identifique explicitamente qual frase responde exatamente ao enunciado e use essa frase como base da resposta.
+13. Se houver mais de uma regra sobre o mesmo beneficio, identifique qual frase responde exatamente ao enunciado e use essa frase como base da resposta.
 14. Antes de finalizar, confira se todos os elementos centrais perguntados estao cobertos (sujeito, condicoes, excecoes e marcos normativos citados no enunciado).
+15. Em contexto normativo, priorize sempre a redacao mais recente indicada no proprio texto (ex.: "Atualizada em", "Redacao dada", "alterado pela", "revogado por"). Trate redacoes anteriores apenas como historico, sem apresenta-las como regra vigente.
+16. Se a pergunta envolver atualizacao/alteracao/revogacao, responda com norma-base alterada, norma alteradora e data associada quando isso estiver no contexto.
+17. Se o usuario pedir lista de normas do documento, apresente inventario por tipo+numero+data apenas do que estiver expresso nos trechos; nao complete com normas externas.
 
 ${conversationBlock}CONTEXTO DOCUMENTAL:
 ${context}
@@ -2845,19 +3985,13 @@ function hasGroundedCoverage(text = '', context = '') {
 }
 
 function buildContextLimitationResponse(question = '', context = '') {
-  const normalizedQuestion = String(question || '').replace(/\s+/g, ' ').trim();
-  const hasQuestion = normalizedQuestion.length > 0;
   const hasContext = String(context || '').trim().length > 0;
 
   if (!hasContext) {
-    return hasQuestion
-      ? `Com o material disponivel, nao ha base documental suficiente para responder com precisao a pergunta "${normalizedQuestion}". Posso refinar a busca se voce indicar artigo, paragrafo ou termo-chave especifico.`
-      : 'Com o material disponivel, nao ha base documental suficiente para responder com precisao. Posso refinar a busca por artigo, paragrafo ou termo-chave especifico.';
+    return 'Com o material disponivel agora, nao consegui confirmar esse ponto com seguranca. Se quiser, eu posso refinar a busca por artigo, paragrafo ou termo-chave.';
   }
 
-  return hasQuestion
-    ? `Com os trechos disponiveis, nao foi possivel confirmar com precisao todos os pontos da pergunta "${normalizedQuestion}". Posso refinar a busca no acervo do agente por artigo, paragrafo ou termo exato.`
-    : 'Com os trechos disponiveis, nao foi possivel confirmar com precisao todos os pontos solicitados. Posso refinar a busca no acervo do agente por artigo, paragrafo ou termo exato.';
+  return 'Nao consegui confirmar esse ponto com seguranca no material que o agente tem agora. Se quiser, eu posso refinar a busca no acervo por artigo, paragrafo ou termo exato.';
 }
 
 function validateOutput(text, hasContext = true, question = '', questionType = 'general', contextSize = 0, chunksUsed = 0, context = '') {
@@ -2957,16 +4091,20 @@ async function refineGroundedAnswerIfNeeded({
 
   const contextWindow = refinementContext.slice(0, Math.max(DEFAULT_RAG_CONTEXT_MAX_CHARS, 60000));
   const refinementPrompt = `PERSONA: REVISOR JURIDICO RAG DE PRECISAO MAXIMA
-Sua tarefa e corrigir uma RESPOSTA PRELIMINAR para que ela fique 100% aderente ao contexto.
+Sua tarefa e reescrever uma resposta para que ela fique 100% aderente ao contexto, com linguagem natural e sem cara de relatorio.
 
 REGRAS OBRIGATORIAS:
 1. Use somente o contexto abaixo.
 2. Identifique no contexto o trecho com maior sobreposicao lexical com a pergunta e use-o como base principal.
 3. Se a pergunta pedir lista/situacoes/documentos/requisitos, entregue a lista completa e literal dos itens do trecho principal.
 4. Nao misture regras de artigos diferentes quando o enunciado apontar uma situacao especifica.
-5. Preserve citacoes em formato [Fonte N] quando possivel.
-6. Se faltar informacao no contexto, explique objetivamente qual ponto faltou.
-7. Nao use conhecimento externo.
+5. Nao repita a pergunta e nao use titulos como "Resposta Final", "Pergunta identificada" ou avisos de auditoria.
+6. Nao exponha [Fonte N], IDs, nomes de trechos ou notas do processo, a menos que o usuario peca isso.
+7. Se faltar informacao no contexto, explique de forma breve e natural qual ponto nao deu para confirmar.
+8. Nao use conhecimento externo.
+9. Em materia normativa, privilegie a redacao mais recente indicada no proprio contexto ("Atualizada em", "Redacao dada", "alterado pela", "revogado").
+10. Se houver alteracao normativa, inclua explicitamente a norma-base e a norma alteradora com data quando disponivel no trecho.
+11. Nunca trate norma historica/revogada como vigente quando o contexto indicar substituicao.
 
 CONTEXTO DOCUMENTAL:
 ${contextWindow}
@@ -2977,7 +4115,7 @@ ${question}
 RESPOSTA PRELIMINAR:
 ${baseAnswer}
 
-Gere agora a RESPOSTA FINAL corrigida.`;
+Reescreva agora a resposta corrigida em tom natural, direto e amigavel.`;
 
   try {
     const aiCfg = getAiRuntimeConfig();
@@ -3075,6 +4213,12 @@ async function initializeRagTables() {
     `);
     await pool.query('CREATE INDEX IF NOT EXISTS idx_documents_agent_created ON documents (agent_id, created_at DESC)');
     await pool.query('CREATE INDEX IF NOT EXISTS idx_document_chunks_agent_doc_chunk ON document_chunks (agent_id, document_id, chunk_index ASC)');
+
+    try {
+      await ensureAgentsPythonCoreColumns();
+    } catch (agentColumnError) {
+      console.warn('[PYTHON_AGENT_CORE] Nao foi possivel garantir coluna python_collection_id em agents:', agentColumnError?.message || agentColumnError);
+    }
 
     await pool.query(`
       CREATE TABLE IF NOT EXISTS notifications (
@@ -6153,6 +7297,11 @@ async function updateAgentKnowledgeViaSupabase(agentId, attachments = [], extraL
   throw new Error('Erro ao atualizar base de conhecimento do agente após múltiplas tentativas de compatibilidade.');
 }
 
+async function getAgentPythonCollectionIdViaSupabase(agentId) {
+  const agent = await getAgentViaSupabase(agentId);
+  return String(agent?.python_collection_id || '').trim();
+}
+
 async function listAgentsWithAttachmentsViaSupabase() {
   const client = ensureSupabaseAdminAvailable();
   const response = await client
@@ -6296,7 +7445,7 @@ async function searchKeywordChunksViaSupabase(queryText, agentId, limit = 3) {
         chunkIndex: row.chunk_index,
         similarity: 0,
       }))
-      .filter((row) => keywords.some((keyword) => normalizeRetrievalText(row.content).includes(keyword))),
+      .filter((row) => contentHasRetrievalKeywordMatch(row.content, keywords)),
     queryText,
     limit
   );
@@ -6587,6 +7736,22 @@ async function handleSupabaseConversationMessageFallback({ res, userId, cid, con
     deepQueries: [],
     topChunks: [],
   };
+
+  if (!usedDirectPdfAnswer) {
+    const pythonAgentCoreResult = await tryHandlePythonAgentCoreMessage({
+      res,
+      cid,
+      userText,
+      effectiveAgentId,
+      attachmentContext,
+      loadAgentData: async () => effectiveAgentId ? getAgentViaSupabase(effectiveAgentId) : null,
+      saveAssistantMessage: async (answer) => insertConversationMessageViaSupabase(cid, 'assistant', answer),
+    });
+
+    if (pythonAgentCoreResult.handled) {
+      return;
+    }
+  }
 
   if (effectiveAgentId) {
     try {
@@ -7495,7 +8660,18 @@ app.post('/api/agents/upload', upload.single('file'), async (req, res) => {
       return res.status(500).json({ error: indexingError.message || 'Falha ao indexar anexo do agente.' });
     }
 
-    res.json({ success: true, path: filePath, filename: originalname });
+    let python = null;
+    if (agentId && text.trim().length > 50) {
+      const agentData = await getAgentForPythonSync(agentId).catch(() => null);
+      python = await syncPythonAgentAttachments({
+        agentId,
+        attachments: [filePath],
+        agentData,
+        recreate: false,
+      });
+    }
+
+    res.json({ success: true, path: filePath, filename: originalname, python });
   } catch (e) {
     console.error('[UPLOAD] Erro fatal:', e.message);
     res.status(500).json({ error: e.message });
@@ -7603,6 +8779,7 @@ app.post('/api/agents/:agentId/sync-links', async (req, res) => {
       extra_links: normalizedLinks,
       failures,
       reindex: reindexSummary,
+      python: reindexSummary.python || null,
     });
   } catch (e) {
     console.error('[LINK-SYNC] Erro fatal:', e?.message || e);
@@ -7869,6 +9046,38 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
       }
       res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
       return res.end();
+    }
+
+    const pythonAgentCoreResult = await tryHandlePythonAgentCoreMessage({
+      res,
+      cid,
+      userText,
+      effectiveAgentId,
+      attachmentContext,
+      loadAgentData: async () => {
+        if (!effectiveAgentId) {
+          return null;
+        }
+
+        return withDatabaseFallback(
+          'chat:getAgent:pythonCore',
+          async () => {
+            const agent = await pool.query('SELECT * FROM "agents" WHERE "id" = $1', [effectiveAgentId]);
+            return agent.rows?.[0] || null;
+          },
+          () => getAgentViaSupabase(effectiveAgentId)
+        );
+      },
+      saveAssistantMessage: async (answer) => {
+        await pool.query(
+          'INSERT INTO messages (conversation_id, role, content) VALUES ($1, $2, $3) RETURNING *',
+          [cid, 'assistant', answer]
+        );
+      },
+    });
+
+    if (pythonAgentCoreResult.handled) {
+      return;
     }
 
     let prompt = buildGroundedPrompt(attachmentContext || '', '', userText || 'Analise o anexo enviado.', conversationContext);
@@ -8414,6 +9623,36 @@ app.get('/api/admin/ai-usage', async (req, res) => {
   } catch (error) {
     console.error('[AI USAGE] Error:', error);
     return res.status(500).json({ error: error?.message || 'Erro ao carregar consumo de IA' });
+  }
+});
+
+app.get('/api/admin/agent-qa', async (req, res) => {
+  try {
+    const requesterId = String(req.header('x-user-id') || '').trim();
+    if (!requesterId) {
+      return res.status(401).json({ error: 'Usuário não autenticado' });
+    }
+
+    if (!(await isAdminUser(requesterId))) {
+      return res.status(403).json({ error: 'Acesso negado' });
+    }
+
+    const requestedPage = Number(req.query.page);
+    const page = Number.isFinite(requestedPage) ? Math.max(1, Math.floor(requestedPage)) : 1;
+    const exportAll = ['1', 'true', 'all'].includes(String(req.query.export || '').trim().toLowerCase());
+
+    const payload = hasDatabaseUrl
+      ? await withDatabaseFallback(
+          'GET /api/admin/agent-qa',
+          () => getAdminQaRowsViaDatabase({ page, exportAll }),
+          () => getAdminQaRowsViaSupabase({ page, exportAll })
+        )
+      : getAdminQaRowsFromMemory({ page, exportAll });
+
+    return res.json(payload);
+  } catch (error) {
+    console.error('[ADMIN_QA] Error:', error);
+    return res.status(500).json({ error: error?.message || 'Erro ao carregar perguntas e respostas dos agentes' });
   }
 });
 

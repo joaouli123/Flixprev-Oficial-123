@@ -35,7 +35,6 @@ import {
   Zap,
 } from "lucide-react";
 import { Agent, Category } from "@/types/app";
-import { buildApiUrl } from "@/lib/api";
 
 const iconOptions = [
   { name: "Bot", icon: Bot },
@@ -61,13 +60,20 @@ type AgentSaveProgress = {
   detail?: string;
 };
 
+type AgentSaveOptions = {
+  onProgress?: (progress: AgentSaveProgress) => void;
+  pendingFiles?: File[];
+};
+
 type OutletContext = {
   agents: Agent[];
   categories: Category[];
-  onCreateAgent: (agent: Omit<Agent, "id" | "userId" | "created_at">, options?: { onProgress?: (progress: AgentSaveProgress) => void }) => Promise<boolean> | boolean;
-  onUpdateAgent: (agentId: string, agent: Omit<Agent, "id" | "userId" | "created_at">, options?: { onProgress?: (progress: AgentSaveProgress) => void }) => Promise<boolean> | boolean;
+  onCreateAgent: (agent: Omit<Agent, "id" | "userId" | "created_at">, options?: AgentSaveOptions) => Promise<boolean> | boolean;
+  onUpdateAgent: (agentId: string, agent: Omit<Agent, "id" | "userId" | "created_at">, options?: AgentSaveOptions) => Promise<boolean> | boolean;
   onCreateCategory: (categoryName: string) => Promise<Category | null> | Category | null;
 };
+
+const DEFAULT_AGENT_INSTRUCTIONS = "Considere todos os conteudos processados dos anexos e links deste agente como uma unica base complementar. Responda somente com base no que foi efetivamente processado, em linguagem natural, direta e amigavel. Nao repita a pergunta, nao use titulos como 'Resposta Final' e nao mencione trechos, contexto, anexos ou fontes, a menos que o usuario peca isso. Se a resposta depender de mais de um arquivo, combine os pontos relevantes em uma unica resposta fluida. Se a informacao nao estiver clara na base processada, diga isso de forma objetiva e natural, sem usar conhecimento externo. Use tabela apenas quando isso realmente ajudar a entender melhor.";
 
 function buildLinkLabel(rawUrl: string) {
   try {
@@ -94,7 +100,7 @@ const AgentEditorPage = () => {
   const isEditing = Boolean(agentToEdit);
 
   const [title, setTitle] = useState("");
-  const [instructions, setInstructions] = useState("");
+  const [instructions, setInstructions] = useState(DEFAULT_AGENT_INSTRUCTIONS);
   const [icon, setIcon] = useState("Bot");
   const [backgroundIcon, setBackgroundIcon] = useState("Bot");
   const [selectedCategory, setSelectedCategory] = useState("");
@@ -121,7 +127,7 @@ const AgentEditorPage = () => {
 
     if (agentToEdit) {
       setTitle(agentToEdit.title);
-      setInstructions(agentToEdit.instructions || "");
+      setInstructions(agentToEdit.instructions || DEFAULT_AGENT_INSTRUCTIONS);
       setIcon(agentToEdit.icon || "Bot");
       setBackgroundIcon(agentToEdit.background_icon || agentToEdit.icon || "Bot");
       setLink(agentToEdit.link || "");
@@ -254,37 +260,6 @@ const AgentEditorPage = () => {
     const uploadedPaths = [...savedAttachments];
     const processedExtraLinks = collectExtraLinksForSave();
 
-    for (const file of files) {
-      try {
-        setSaveProgress({
-          stage: `Enviando anexo ${uploadedPaths.length - savedAttachments.length + 1} de ${files.length}`,
-          detail: `Fazendo upload de ${file.name}.`,
-        });
-
-        const formData = new FormData();
-        formData.append("file", file);
-
-        const response = await fetch(buildApiUrl("/api/agents/upload"), {
-          method: "POST",
-          body: formData,
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.error || `Falha no upload de ${file.name}`);
-        }
-
-        const data = await response.json();
-        uploadedPaths.push(data.path);
-      } catch (error) {
-        console.error(error);
-        toast.error(`Erro ao fazer upload de ${file.name}`);
-        setIsSubmitting(false);
-        setSaveProgress(null);
-        return;
-      }
-    }
-
     const agentData = {
       title: title.trim(),
       role: isEditing ? agentToEdit?.role || undefined : undefined,
@@ -300,8 +275,14 @@ const AgentEditorPage = () => {
     } as Omit<Agent, "id" | "userId" | "created_at">;
 
     const savedSuccessfully = isEditing && agentToEdit
-      ? await onUpdateAgent(agentToEdit.id, agentData, { onProgress: (progress) => setSaveProgress(progress) })
-      : await onCreateAgent(agentData, { onProgress: (progress) => setSaveProgress(progress) });
+      ? await onUpdateAgent(agentToEdit.id, agentData, {
+          onProgress: (progress) => setSaveProgress(progress),
+          pendingFiles: files,
+        })
+      : await onCreateAgent(agentData, {
+          onProgress: (progress) => setSaveProgress(progress),
+          pendingFiles: files,
+        });
 
     setIsSubmitting(false);
     setSaveProgress(null);
@@ -461,7 +442,7 @@ const AgentEditorPage = () => {
 
           <div className="space-y-2 border-t border-slate-100 pt-4">
             <Label htmlFor="instructions" className="text-sm font-medium text-slate-700">Instrução de Sistema <span className="text-red-500">*</span></Label>
-            <Textarea id="instructions" value={instructions} onChange={(e) => setInstructions(e.target.value)} placeholder="Descreva detalhadamente como o agente deve se comportar..." className="min-h-[120px] border-slate-200 focus:border-indigo-500 focus:ring-indigo-500/20" />
+            <Textarea id="instructions" value={instructions} onChange={(e) => setInstructions(e.target.value)} placeholder={DEFAULT_AGENT_INSTRUCTIONS} className="min-h-[120px] border-slate-200 focus:border-indigo-500 focus:ring-indigo-500/20" />
           </div>
 
           <div className="space-y-2">
