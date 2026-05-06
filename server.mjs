@@ -1360,6 +1360,130 @@ function createAiClient() {
   });
 }
 
+function getAuxiliaryTextRuntimeConfig({ requestedModel = '' } = {}) {
+  const cfg = getAiRuntimeConfig();
+  const explicitModel = getFirstNonEmptyEnv(
+    requestedModel,
+    process.env.AUX_CHAT_MODEL,
+    process.env.RAG_AUX_MODEL,
+    process.env.AI_AUX_MODEL
+  );
+  const explicitApiKey = getFirstNonEmptyEnv(
+    process.env.AUX_CHAT_API_KEY,
+    process.env.RAG_AUX_API_KEY,
+    process.env.AI_AUX_API_KEY
+  );
+  const explicitBaseURL = normalizeBaseUrl(getFirstNonEmptyEnv(
+    process.env.AUX_CHAT_BASE_URL,
+    process.env.RAG_AUX_BASE_URL,
+    process.env.AI_AUX_BASE_URL
+  ));
+
+  const geminiApiKey = getFirstNonEmptyEnv(process.env.GEMINI_API_KEY);
+  const sharedOpenAiCompatibleApiKey = getFirstNonEmptyEnv(process.env.AI_INTEGRATIONS_OPENAI_API_KEY);
+  const sharedOpenAiCompatibleBaseURL = normalizeBaseUrl(process.env.AI_INTEGRATIONS_OPENAI_BASE_URL);
+  const openAiApiKey = getFirstNonEmptyEnv(process.env.OPENAI_API_KEY);
+  const anthropicApiKey = getFirstNonEmptyEnv(process.env.ANTHROPIC_API_KEY);
+
+  const looksGemini = (value = '') => String(value || '').toLowerCase().startsWith('gemini-');
+  const looksClaude = (value = '') => String(value || '').toLowerCase().startsWith('claude-');
+  const sharedLooksGoogle = Boolean(sharedOpenAiCompatibleBaseURL && /googleapis\.com/i.test(sharedOpenAiCompatibleBaseURL));
+
+  const model = String(
+    explicitModel
+    || ((geminiApiKey || (sharedOpenAiCompatibleApiKey && sharedLooksGoogle)) ? 'gemini-2.5-flash' : '')
+    || (anthropicApiKey ? 'claude-haiku-4-5-20251001' : '')
+    || (openAiApiKey ? 'gpt-4o-mini' : '')
+    || cfg.fastChatModel
+    || cfg.chatModel
+  ).trim();
+
+  if (!model) {
+    return { enabled: false, provider: 'openai-compatible', apiKey: '', baseURL: '', model: '' };
+  }
+
+  if (looksClaude(model)) {
+    const apiKey = explicitApiKey || anthropicApiKey;
+    const baseURL = explicitBaseURL || ANTHROPIC_BASE_URL;
+    return {
+      enabled: Boolean(apiKey),
+      provider: 'anthropic',
+      apiKey,
+      baseURL,
+      model,
+    };
+  }
+
+  if (looksGemini(model)) {
+    const apiKey = explicitApiKey || geminiApiKey || sharedOpenAiCompatibleApiKey;
+    const baseURL = explicitBaseURL || (sharedLooksGoogle ? sharedOpenAiCompatibleBaseURL : GEMINI_OPENAI_BASE_URL);
+    return {
+      enabled: Boolean(apiKey && baseURL),
+      provider: 'openai-compatible',
+      apiKey,
+      baseURL,
+      model,
+    };
+  }
+
+  if (explicitApiKey || explicitBaseURL) {
+    return {
+      enabled: Boolean(explicitApiKey),
+      provider: detectChatProvider({ model, baseURL: explicitBaseURL }),
+      apiKey: explicitApiKey,
+      baseURL: explicitBaseURL,
+      model,
+    };
+  }
+
+  if (sharedOpenAiCompatibleApiKey && sharedOpenAiCompatibleBaseURL) {
+    return {
+      enabled: true,
+      provider: 'openai-compatible',
+      apiKey: sharedOpenAiCompatibleApiKey,
+      baseURL: sharedOpenAiCompatibleBaseURL,
+      model,
+    };
+  }
+
+  if (openAiApiKey) {
+    return {
+      enabled: true,
+      provider: 'openai-compatible',
+      apiKey: openAiApiKey,
+      baseURL: '',
+      model,
+    };
+  }
+
+  return {
+    enabled: Boolean(cfg.chatApiKey),
+    provider: cfg.chatProvider,
+    apiKey: cfg.chatApiKey,
+    baseURL: cfg.chatBaseURL,
+    model,
+  };
+}
+
+function createAuxiliaryTextClient(runtime) {
+  if (!runtime?.enabled || !runtime?.apiKey) {
+    return null;
+  }
+
+  if (runtime.provider === 'anthropic') {
+    const options = { apiKey: runtime.apiKey };
+    if (runtime.baseURL) {
+      options.baseURL = runtime.baseURL;
+    }
+    return new Anthropic(options);
+  }
+
+  return createOpenAiCompatibleClient({
+    apiKey: runtime.apiKey,
+    baseURL: runtime.baseURL,
+  });
+}
+
 function createEmbeddingClient() {
   const cfg = getAiRuntimeConfig();
   if (!cfg.embeddingApiKey || cfg.embeddingProvider !== 'openai-compatible') {
@@ -2917,64 +3041,127 @@ function chunkText(text, size = 1800, overlap = 250) {
 //        do documento inteiro usando prompt cache. Reduz embeddings genéricos em ~35%.
 const CONTEXTUAL_RETRIEVAL_MAX_DOC_CHARS = 180000;
 const CONTEXTUAL_RETRIEVAL_CONCURRENCY = 4;
-const CONTEXTUAL_RETRIEVAL_MODEL = process.env.CONTEXTUAL_RETRIEVAL_MODEL
-  || process.env.FAST_CHAT_MODEL
-  || 'claude-haiku-4-5-20251001';
 
 function isContextualRetrievalEnabled() {
   if (String(process.env.CONTEXTUAL_RETRIEVAL_ENABLED || '').toLowerCase() === 'false') {
     return false;
   }
-  return Boolean(getFirstNonEmptyEnv(process.env.ANTHROPIC_API_KEY));
+
+  return Boolean(getAuxiliaryTextRuntimeConfig({
+    requestedModel: process.env.CONTEXTUAL_RETRIEVAL_MODEL,
+  }).enabled);
 }
 
-let _contextualClientCache = null;
-function getContextualRetrievalClient() {
-  if (_contextualClientCache !== null) {
-    return _contextualClientCache;
-  }
-  const apiKey = getFirstNonEmptyEnv(process.env.ANTHROPIC_API_KEY);
-  if (!apiKey) {
-    _contextualClientCache = null;
+let _auxiliaryClientCache = new Map();
+function getAuxiliaryTextClient(runtime) {
+  if (!runtime?.enabled || !runtime?.model) {
     return null;
   }
-  try {
-    _contextualClientCache = new Anthropic({ apiKey });
-  } catch (error) {
-    console.warn('[CONTEXTUAL] Falha ao inicializar cliente Anthropic:', error?.message || error);
-    _contextualClientCache = null;
+
+  const cacheKey = JSON.stringify({
+    provider: runtime.provider,
+    baseURL: runtime.baseURL || '',
+    model: runtime.model,
+    hasKey: Boolean(runtime.apiKey),
+  });
+
+  if (_auxiliaryClientCache.has(cacheKey)) {
+    return _auxiliaryClientCache.get(cacheKey);
   }
-  return _contextualClientCache;
+
+  try {
+    const client = createAuxiliaryTextClient(runtime);
+    _auxiliaryClientCache.set(cacheKey, client);
+    return client;
+  } catch (error) {
+    console.warn('[AUX_LLM] Falha ao inicializar cliente auxiliar:', error?.message || error);
+    _auxiliaryClientCache.set(cacheKey, null);
+    return null;
+  }
 }
 
-async function contextualizeSingleChunk(client, { documentText, chunkText: chunk, title, position }) {
-  const systemBlocks = [
-    {
-      type: 'text',
-      text: 'Voce adiciona contexto curto a trechos de documentos juridicos/previdenciarios para melhorar busca. Nunca inventa fatos. Responde em portugues, em 1-2 frases, direto ao ponto, sem rotulos como "Resposta:", "Contexto:", sem prefacios.'
-    },
-    {
-      type: 'text',
-      text: `<documento titulo="${String(title || 'documento').replace(/"/g, '\'')}">\n${documentText}\n</documento>`,
-      cache_control: { type: 'ephemeral' }
-    }
-  ];
+async function buildDocumentContextSummary(runtime, client, documentText, title = '') {
+  if (!client || runtime?.provider === 'anthropic') {
+    return documentText;
+  }
+
+  const response = await withRetry429(
+    () => client.chat.completions.create({
+      model: runtime.model,
+      temperature: 0,
+      max_tokens: 500,
+      messages: [
+        {
+          role: 'system',
+          content: 'Voce resume documentos juridicos/previdenciarios em portugues para apoiar busca semantica. Nao invente fatos. Entregue um resumo objetivo com topicos, secoes, assuntos centrais, entidades, datas e referencias normativas relevantes.'
+        },
+        {
+          role: 'user',
+          content: `Titulo: ${title || 'documento'}\n\nDocumento:\n${documentText}\n\nGere um resumo enxuto, mas rico em termos tecnicos, para apoiar a contextualizacao de trechos.`
+        }
+      ]
+    }),
+    { label: 'contextual_document_summary' }
+  );
+
+  return String(response?.choices?.[0]?.message?.content || '').trim() || documentText;
+}
+
+async function contextualizeSingleChunk(runtime, client, { documentText, documentSummary, chunkText: chunk, title, position }) {
+  const systemPrompt = 'Voce adiciona contexto curto a trechos de documentos juridicos/previdenciarios para melhorar busca. Nunca inventa fatos. Responde em portugues, em 1-2 frases, direto ao ponto, sem rotulos como "Resposta:" ou "Contexto:".';
 
   const userText = `Trecho a contextualizar (posicao ${position}):\n<trecho>\n${chunk}\n</trecho>\n\n`
     + 'Em 1-2 frases situe este trecho dentro do documento: secao/topico principal e o assunto central que ele trata. '
     + 'Use vocabulario que aparece no documento. Sem introducao, sem rotulos, apenas o resumo.';
 
-  const response = await client.messages.create({
-    model: CONTEXTUAL_RETRIEVAL_MODEL,
-    max_tokens: 180,
-    temperature: 0,
-    system: systemBlocks,
-    messages: [{ role: 'user', content: userText }],
-  });
+  if (runtime.provider === 'anthropic') {
+    const systemBlocks = [
+      {
+        type: 'text',
+        text: systemPrompt,
+      },
+      {
+        type: 'text',
+        text: `<documento titulo="${String(title || 'documento').replace(/"/g, '\'')}">\n${documentText}\n</documento>`,
+        cache_control: { type: 'ephemeral' }
+      }
+    ];
 
-  const blocks = Array.isArray(response?.content) ? response.content : [];
-  const textOut = blocks.map((b) => (typeof b?.text === 'string' ? b.text : '')).join(' ').trim();
-  return textOut;
+    const response = await withRetry429(
+      () => client.messages.create({
+        model: runtime.model,
+        max_tokens: 180,
+        temperature: 0,
+        system: systemBlocks,
+        messages: [{ role: 'user', content: userText }],
+      }),
+      { label: 'contextual_chunk_anthropic' }
+    );
+
+    const blocks = Array.isArray(response?.content) ? response.content : [];
+    return blocks.map((b) => (typeof b?.text === 'string' ? b.text : '')).join(' ').trim();
+  }
+
+  const response = await withRetry429(
+    () => client.chat.completions.create({
+      model: runtime.model,
+      temperature: 0,
+      max_tokens: 180,
+      messages: [
+        {
+          role: 'system',
+          content: `${systemPrompt}\n\nResumo global do documento:\n${documentSummary}`
+        },
+        {
+          role: 'user',
+          content: `Titulo do documento: ${title || 'documento'}\n\n${userText}`
+        }
+      ]
+    }),
+    { label: 'contextual_chunk_openai_compatible' }
+  );
+
+  return String(response?.choices?.[0]?.message?.content || '').trim();
 }
 
 async function contextualizeChunks(fullText, chunks, { title = '' } = {}) {
@@ -2984,7 +3171,10 @@ async function contextualizeChunks(fullText, chunks, { title = '' } = {}) {
   if (!isContextualRetrievalEnabled()) {
     return chunks;
   }
-  const client = getContextualRetrievalClient();
+  const runtime = getAuxiliaryTextRuntimeConfig({
+    requestedModel: process.env.CONTEXTUAL_RETRIEVAL_MODEL,
+  });
+  const client = getAuxiliaryTextClient(runtime);
   if (!client) {
     return chunks;
   }
@@ -2995,7 +3185,8 @@ async function contextualizeChunks(fullText, chunks, { title = '' } = {}) {
   }
 
   const startedAt = Date.now();
-  console.log(`[CONTEXTUAL] Contextualizando ${chunks.length} chunks de "${title || 'documento'}" via ${CONTEXTUAL_RETRIEVAL_MODEL}...`);
+  const documentSummary = await buildDocumentContextSummary(runtime, client, truncatedDoc, title);
+  console.log(`[CONTEXTUAL] Contextualizando ${chunks.length} chunks de "${title || 'documento'}" via ${runtime.model} (${runtime.provider})...`);
 
   const results = new Array(chunks.length);
   let cursor = 0;
@@ -3009,8 +3200,9 @@ async function contextualizeChunks(fullText, chunks, { title = '' } = {}) {
         return;
       }
       try {
-        const ctx = await contextualizeSingleChunk(client, {
+        const ctx = await contextualizeSingleChunk(runtime, client, {
           documentText: truncatedDoc,
+          documentSummary,
           chunkText: chunks[i],
           title,
           position: i,
@@ -3050,13 +3242,14 @@ async function prepareChunksForIndexing(text, { title = '' } = {}) {
 }
 
 // 2.6️⃣ HyDE — gera um paragrafo hipotetico que serve como query adicional para busca
-const HYDE_MODEL = process.env.HYDE_MODEL || process.env.FAST_CHAT_MODEL || 'claude-haiku-4-5-20251001';
-
 function isHydeEnabled() {
   if (String(process.env.HYDE_ENABLED || '').toLowerCase() === 'false') {
     return false;
   }
-  return Boolean(getFirstNonEmptyEnv(process.env.ANTHROPIC_API_KEY));
+
+  return Boolean(getAuxiliaryTextRuntimeConfig({
+    requestedModel: process.env.HYDE_MODEL,
+  }).enabled);
 }
 
 async function generateHypotheticalAnswer(question) {
@@ -3064,20 +3257,50 @@ async function generateHypotheticalAnswer(question) {
   if (!text || !isHydeEnabled()) {
     return '';
   }
-  const client = getContextualRetrievalClient();
+  const runtime = getAuxiliaryTextRuntimeConfig({
+    requestedModel: process.env.HYDE_MODEL,
+  });
+  const client = getAuxiliaryTextClient(runtime);
   if (!client) {
     return '';
   }
+
   try {
-    const response = await client.messages.create({
-      model: HYDE_MODEL,
-      max_tokens: 260,
-      temperature: 0,
-      system: 'Voce escreve um paragrafo hipotetico em portugues, com tom de documento juridico/normativo brasileiro, que poderia ser a resposta a pergunta. Use linguagem formal, vocabulario tecnico previdenciario/juridico quando aplicavel. Apenas o paragrafo, sem introducao nem rotulos.',
-      messages: [{ role: 'user', content: `Pergunta: ${text}\n\nParagrafo hipotetico:` }],
-    });
-    const blocks = Array.isArray(response?.content) ? response.content : [];
-    return blocks.map((b) => (typeof b?.text === 'string' ? b.text : '')).join(' ').trim();
+    if (runtime.provider === 'anthropic') {
+      const response = await withRetry429(
+        () => client.messages.create({
+          model: runtime.model,
+          max_tokens: 260,
+          temperature: 0,
+          system: 'Voce escreve um paragrafo hipotetico em portugues, com tom de documento juridico/normativo brasileiro, que poderia ser a resposta a pergunta. Use linguagem formal, vocabulario tecnico previdenciario/juridico quando aplicavel. Apenas o paragrafo, sem introducao nem rotulos.',
+          messages: [{ role: 'user', content: `Pergunta: ${text}\n\nParagrafo hipotetico:` }],
+        }),
+        { label: 'hyde_anthropic' }
+      );
+      const blocks = Array.isArray(response?.content) ? response.content : [];
+      return blocks.map((b) => (typeof b?.text === 'string' ? b.text : '')).join(' ').trim();
+    }
+
+    const response = await withRetry429(
+      () => client.chat.completions.create({
+        model: runtime.model,
+        temperature: 0,
+        max_tokens: 260,
+        messages: [
+          {
+            role: 'system',
+            content: 'Voce escreve um paragrafo hipotetico em portugues, com tom de documento juridico/normativo brasileiro, que poderia ser a resposta a pergunta. Use linguagem formal, vocabulario tecnico previdenciario/juridico quando aplicavel. Apenas o paragrafo, sem introducao nem rotulos.'
+          },
+          {
+            role: 'user',
+            content: `Pergunta: ${text}\n\nParagrafo hipotetico:`
+          }
+        ]
+      }),
+      { label: 'hyde_openai_compatible' }
+    );
+
+    return String(response?.choices?.[0]?.message?.content || '').trim();
   } catch (error) {
     console.warn('[HYDE] Falha ao gerar paragrafo hipotetico:', error?.message || error);
     return '';
