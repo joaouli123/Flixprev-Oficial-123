@@ -677,7 +677,20 @@ function normalizeAgentAttachmentPath(attachment) {
 
 function getAgentAttachmentStoragePath(attachment) {
   const filePath = normalizeAgentAttachmentPath(attachment);
-  return filePath ? filePath.replace(/^\/agent-attachments\//, '') : null;
+  if (!filePath) {
+    return null;
+  }
+
+  // Supabase Storage rejects keys with spaces, accents, and many other chars.
+  // Build a deterministic safe key from a SHA-256 of the normalized path
+  // (so persist/restore agree) plus a sanitized extension for readability.
+  const relative = filePath.replace(/^\/agent-attachments\//, '');
+  const hash = crypto.createHash('sha256').update(relative).digest('hex');
+
+  const extMatch = /\.([A-Za-z0-9]{1,8})$/.exec(relative);
+  const ext = extMatch ? extMatch[1].toLowerCase() : 'bin';
+
+  return `${hash}.${ext}`;
 }
 
 function resolvePublicAttachmentPath(attachment) {
