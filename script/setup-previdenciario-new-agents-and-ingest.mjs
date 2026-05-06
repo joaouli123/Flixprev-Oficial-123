@@ -171,7 +171,7 @@ const AGENTS = [
     role: 'Ações Civis Públicas no Processo Administrativo Previdenciário',
     description: 'Especialista em efeitos de ações civis públicas no processo administrativo previdenciário.',
     instructions:
-      'Responda com foco na aplicação administrativa de ações civis públicas e integração com normas DIRBEN/PFE.',
+      'Forneça informações e orientações exclusivamente sobre Ações Civis Públicas reconhecidas como garantidoras de direitos dos segurados no âmbito do INSS. Toda resposta deve estar amparada na Portaria Conjunta DIRBEN/PFE/INSS nº 94, de 3 de junho de 2024, e na Portaria Conjunta DIRBEN/PFE/INSS nº 17, de 14 de agosto de 2025. Normas complementares só podem ser mencionadas quando aparecerem dentro dessas portarias como fundamentação da ACP analisada. Se o usuário perguntar sua função, responda de forma curta que você orienta sobre o cumprimento administrativo das ACPs do INSS com base nessas duas portarias. Não liste benefícios do INSS como exemplos nessa apresentação. Não responda como agente previdenciário geral.',
     urls: [
       'https://portalin.inss.gov.br/portaria94',
       'https://www.in.gov.br/web/dou/-/portaria-conjunta-dirben/pfe/inss-n-17-de-14-de-agosto-de-2025-650801735',
