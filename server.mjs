@@ -700,17 +700,18 @@ async function ensureAgentAttachmentsStorageBucket() {
     return;
   }
 
-  if (!supabaseAdminClient || !AGENT_ATTACHMENTS_STORAGE_BUCKET) {
+  const storageClient = getAgentAttachmentsStorageClient();
+  if (!storageClient || !AGENT_ATTACHMENTS_STORAGE_BUCKET) {
     throw new Error('Supabase Storage nao esta configurado para persistir anexos de agentes.');
   }
 
-  const existing = await supabaseAdminClient.storage.getBucket(AGENT_ATTACHMENTS_STORAGE_BUCKET);
+  const existing = await storageClient.storage.getBucket(AGENT_ATTACHMENTS_STORAGE_BUCKET);
   if (!existing.error) {
     agentAttachmentsStorageBucketReady = true;
     return;
   }
 
-  const created = await supabaseAdminClient.storage.createBucket(AGENT_ATTACHMENTS_STORAGE_BUCKET, { public: false });
+  const created = await storageClient.storage.createBucket(AGENT_ATTACHMENTS_STORAGE_BUCKET, { public: false });
   if (created.error && !/already exists|already owned|exists/i.test(String(created.error.message || created.error))) {
     throw new Error(`Nao foi possivel preparar o bucket de anexos (${AGENT_ATTACHMENTS_STORAGE_BUCKET}): ${created.error.message || created.error}`);
   }
@@ -725,8 +726,9 @@ async function persistAgentAttachmentToStorage(attachment, fullPath, contentType
   }
 
   await ensureAgentAttachmentsStorageBucket();
+  const storageClient = getAgentAttachmentsStorageClient();
   const buffer = await fs.promises.readFile(fullPath);
-  const uploaded = await supabaseAdminClient.storage
+  const uploaded = await storageClient.storage
     .from(AGENT_ATTACHMENTS_STORAGE_BUCKET)
     .upload(storagePath, buffer, {
       contentType: contentType || 'application/octet-stream',
@@ -743,11 +745,12 @@ async function persistAgentAttachmentToStorage(attachment, fullPath, contentType
 async function restoreAgentAttachmentFromStorage(attachment) {
   const resolved = resolvePublicAttachmentPath(attachment);
   const storagePath = getAgentAttachmentStoragePath(attachment);
-  if (!resolved || !storagePath || fs.existsSync(resolved.fullPath) || !supabaseAdminClient || !AGENT_ATTACHMENTS_STORAGE_BUCKET) {
+  const storageClient = getAgentAttachmentsStorageClient();
+  if (!resolved || !storagePath || fs.existsSync(resolved.fullPath) || !storageClient || !AGENT_ATTACHMENTS_STORAGE_BUCKET) {
     return resolved;
   }
 
-  const downloaded = await supabaseAdminClient.storage
+  const downloaded = await storageClient.storage
     .from(AGENT_ATTACHMENTS_STORAGE_BUCKET)
     .download(storagePath);
 
@@ -1889,6 +1892,17 @@ const supabaseAdminClient = hasSupabaseAdmin
       auth: { persistSession: false, autoRefreshToken: false }
     })
   : null;
+
+const supabaseStorageKey = supabaseServiceRoleKey || effectiveAdminKey;
+const supabaseStorageClient = supabaseUrl && supabaseStorageKey
+  ? createClient(supabaseUrl, supabaseStorageKey, {
+      auth: { persistSession: false, autoRefreshToken: false }
+    })
+  : supabaseAdminClient;
+
+function getAgentAttachmentsStorageClient() {
+  return supabaseStorageClient || supabaseAdminClient;
+}
 
 const pgConnectionTimeoutMillis = Number.parseInt(process.env.PG_CONNECTION_TIMEOUT_MS || '4000', 10);
 const pgQueryTimeoutMillis = Number.parseInt(process.env.PG_QUERY_TIMEOUT_MS || '10000', 10);
