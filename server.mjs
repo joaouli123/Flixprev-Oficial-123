@@ -3912,6 +3912,7 @@ REGRAS:
 6. Nao repita a pergunta e nao use titulos como "Resposta Final".
 7. As instrucoes do agente definem o assunto e os limites da resposta; anexos de outro tema nao transformam o agente em especialista geral.
 8. Quando houver varios anexos relevantes, combine-os como uma unica base do agente antes de responder.
+9. Nao cite numero, nome ou data de norma apenas porque apareceu nas instrucoes do agente; esses dados precisam estar no contexto documental recuperado.
 
 ${conversationBlock}PERGUNTA DO USUARIO:
 ${question}
@@ -3948,6 +3949,7 @@ REGRAS CRITICAS:
 17. Se o usuario pedir lista de normas do documento, apresente inventario por tipo+numero+data apenas do que estiver expresso nos trechos; nao complete com normas externas.
 18. As instrucoes do agente delimitam o escopo do assunto; use os anexos para sustentar esse escopo, sem transformar documentos de apoio em autorizacao para responder sobre outro tema.
 19. Quando a colecao tiver varios documentos relevantes (portarias, PDFs, planilhas ou links), sintetize os pontos complementares em uma unica resposta.
+20. Numeros, nomes e datas de portarias, leis ou atos citados nas instrucoes do agente sao apenas pistas de escopo; so afirme esses dados quando tambem aparecerem no contexto documental.
 
 ${conversationBlock}CONTEXTO DOCUMENTAL:
 ${context}
