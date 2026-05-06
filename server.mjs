@@ -9221,7 +9221,7 @@ app.post('/api/agents/upload', upload.single('file'), async (req, res) => {
       }
     }
 
-    if (agentId) {
+    if (agentId && !indexingError) {
       await withDatabaseFallback(
         'uploadAgentAttachment:updateAgent',
         async () => {

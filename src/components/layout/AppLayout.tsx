@@ -228,20 +228,26 @@ const AppLayout = () => {
     pendingFiles: File[] = [],
     currentAttachments: string[] = [],
     onProgress?: (progress: AgentMutationProgress) => void,
+    options: { deferIndexing?: boolean } = {},
   ) => {
     const uploadedPaths = [...currentAttachments];
+    const shouldDeferIndexing = Boolean(options?.deferIndexing);
 
     for (let index = 0; index < pendingFiles.length; index += 1) {
       const file = pendingFiles[index];
       onProgress?.({
         stage: `Enviando anexo ${index + 1} de ${pendingFiles.length}`,
-        detail: `Enviando ${file.name} para a base temporária do agente antes da indexação final.`,
+        detail: shouldDeferIndexing
+          ? `Enviando ${file.name} para a base do agente antes da reindexação final.`
+          : `Enviando ${file.name} e indexando o novo anexo imediatamente.`,
       });
 
       const formData = new FormData();
       formData.append("file", file);
       formData.append("agentId", agentId);
-      formData.append("deferIndexing", "1");
+      if (shouldDeferIndexing) {
+        formData.append("deferIndexing", "1");
+      }
 
       const response = await fetch(buildApiUrl("/api/agents/upload"), {
         method: "POST",
@@ -562,6 +568,7 @@ const AppLayout = () => {
                   pendingFiles,
                   normalizedAgent.attachments,
                   options?.onProgress,
+                  { deferIndexing: false },
                 ),
               };
             }
@@ -572,14 +579,13 @@ const AppLayout = () => {
           }
 
           const shouldReprocessAttachments = normalizedAgent.attachments.length > 0
-            && (pendingFiles.length > 0 || normalizedAgent.extra_links.length === 0);
+            && pendingFiles.length === 0
+            && normalizedAgent.extra_links.length === 0;
 
           if (shouldReprocessAttachments) {
             options?.onProgress?.({
               stage: "Indexando anexos do agente...",
-              detail: pendingFiles.length > 0
-                ? "Atualizando a base do agente com os novos anexos enviados."
-                : "Gerando chunks e embeddings dos arquivos já enviados para treinar a IA.",
+              detail: "Gerando chunks e embeddings dos arquivos já enviados para treinar a IA.",
             });
 
             try {
@@ -703,6 +709,7 @@ const AppLayout = () => {
                 pendingFiles,
                 normalizedAgent.attachments,
                 options?.onProgress,
+                  { deferIndexing: attachmentsWereRemoved },
               ),
             };
           }
@@ -713,14 +720,12 @@ const AppLayout = () => {
         }
 
         const shouldReprocessAttachments = normalizedAgent.attachments.length > 0
-          && (pendingFiles.length > 0 || attachmentsWereRemoved || (normalizedAgent.extra_links.length === 0 && pendingFiles.length === 0));
+          && attachmentsWereRemoved;
 
         if (shouldReprocessAttachments) {
           options?.onProgress?.({
             stage: "Reindexando anexos do agente...",
-            detail: pendingFiles.length > 0
-              ? "Sincronizando os novos anexos enviados com toda a base do agente."
-              : "Atualizando chunks e embeddings dos anexos já existentes.",
+            detail: "Atualizando chunks e embeddings após remover anexos da base existente.",
           });
 
           try {
