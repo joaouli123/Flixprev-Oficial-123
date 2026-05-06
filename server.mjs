@@ -3900,11 +3900,40 @@ function shouldTriggerProactiveDeepSearch({ userText = '', retrievalQuery = '', 
 
 async function reindexAgentAttachments(agentId, attachments = []) {
   const validAttachments = Array.from(new Set((Array.isArray(attachments) ? attachments : []).filter(Boolean)));
+
+  // Slow work (file restore, text extraction, contextualization) happens OUTSIDE the DB transaction
+  // to avoid holding Postgres locks while LLMs are running.
+  const prepared = [];
+  let preSkipped = 0;
+  for (const attachment of validAttachments) {
+    try {
+      const resolved = await ensureAgentAttachmentFileAvailable(attachment);
+      if (!resolved || !fs.existsSync(resolved.fullPath)) {
+        preSkipped += 1;
+        continue;
+      }
+      const text = await extractAttachmentText(resolved.fullPath, resolved.fileName);
+      if (!text || text.trim().length < 50) {
+        preSkipped += 1;
+        continue;
+      }
+      const chunks = await prepareChunksForIndexing(text, { title: resolved.fileName });
+      if (!chunks || chunks.length === 0) {
+        preSkipped += 1;
+        continue;
+      }
+      prepared.push({ attachment, fileName: resolved.fileName, chunks });
+    } catch (error) {
+      preSkipped += 1;
+      console.error('[REINDEX] Erro ao preparar attachment:', attachment, error?.message || error);
+    }
+  }
+
   const summary = await withDatabaseFallback(
     'reindexAgentAttachments',
     async () => {
       let processedCount = 0;
-      let skippedCount = 0;
+      let skippedCount = preSkipped;
       let totalChunks = 0;
 
       const client = await pool.connect();
@@ -3913,39 +3942,21 @@ async function reindexAgentAttachments(agentId, attachments = []) {
         await client.query('BEGIN');
         await client.query('DELETE FROM documents WHERE agent_id = $1', [agentId]);
 
-        for (const attachment of validAttachments) {
+        for (const item of prepared) {
           try {
-            const resolved = await ensureAgentAttachmentFileAvailable(attachment);
-            if (!resolved || !fs.existsSync(resolved.fullPath)) {
-              skippedCount += 1;
-              continue;
-            }
-
-            const text = await extractAttachmentText(resolved.fullPath, resolved.fileName);
-            if (!text || text.trim().length < 50) {
-              skippedCount += 1;
-              continue;
-            }
-
             const docResult = await client.query(
               'INSERT INTO documents (agent_id, title) VALUES ($1, $2) RETURNING id',
-              [agentId, resolved.fileName]
+              [agentId, item.fileName]
             );
             const documentId = docResult.rows[0].id;
 
-            const chunks = await prepareChunksForIndexing(text, { title: resolved.fileName });
-            if (chunks.length === 0) {
-              skippedCount += 1;
-              continue;
-            }
-
-            await insertDocumentChunksWithOptionalEmbeddings(agentId, documentId, chunks, {}, client);
+            await insertDocumentChunksWithOptionalEmbeddings(agentId, documentId, item.chunks, {}, client);
 
             processedCount += 1;
-            totalChunks += chunks.length;
+            totalChunks += item.chunks.length;
           } catch (error) {
             skippedCount += 1;
-            console.error('[REINDEX] Erro ao processar attachment:', attachment, error?.message || error);
+            console.error('[REINDEX] Erro ao gravar attachment:', item.attachment, error?.message || error);
           }
         }
 
