@@ -183,7 +183,9 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 app.use('/agent-attachments', express.static(path.join(__dirname, 'public', 'agent-attachments')));
+app.use('/agent-attachments', serveStoredAgentAttachment);
 app.use('/chat-attachments', express.static(path.join(__dirname, 'public', 'chat-attachments')));
+app.use('/chat-attachments', (_req, res) => res.status(404).type('text/plain').send('Attachment not found'));
 
 const chatStorage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -221,6 +223,7 @@ const DEFAULT_FAST_CHAT_MAX_TOKENS = Number(process.env.FAST_CHAT_MAX_TOKENS || 
 const ENABLE_RAG_TYPO_TOLERANCE = !/^(0|false|no)$/i.test(String(process.env.RAG_TYPO_TOLERANCE || 'true').trim());
 const RAG_TYPO_MIN_TOKEN_LENGTH = Math.max(3, Number(process.env.RAG_TYPO_MIN_TOKEN_LENGTH || 4) || 4);
 const ENABLE_DIRECT_PDF_ANALYSIS = /^(1|true|yes)$/i.test(String(process.env.ENABLE_DIRECT_PDF_ANALYSIS || '').trim());
+const AGENT_ATTACHMENTS_STORAGE_BUCKET = String(process.env.AGENT_ATTACHMENTS_STORAGE_BUCKET || process.env.SUPABASE_AGENT_ATTACHMENTS_BUCKET || 'agent-attachments').trim();
 const agentAttachmentChunkCache = new Map();
 
 const RETRIEVAL_STOPWORDS = new Set([
@@ -645,18 +648,141 @@ async function ingestPythonAgentDocument({ collectionId, fullPath, fileName }) {
   return finalJob;
 }
 
-function resolvePublicAttachmentPath(attachment) {
-  const normalized = String(attachment || '').trim();
-  if (!normalized) {
+function safeDecodePath(value) {
+  try {
+    return decodeURIComponent(String(value || ''));
+  } catch {
+    return String(value || '');
+  }
+}
+
+function normalizeAgentAttachmentPath(attachment) {
+  const raw = safeDecodePath(String(attachment || '').trim()).replace(/\\/g, '/').split('?')[0].split('#')[0];
+  if (!raw || raw.includes('\0')) {
     return null;
   }
 
-  const filePath = normalized.startsWith('/') ? normalized : `/${normalized}`;
+  const prefixed = raw.startsWith('/agent-attachments/')
+    ? raw
+    : raw.startsWith('agent-attachments/')
+      ? `/${raw}`
+      : `/agent-attachments/${raw.replace(/^\/+/, '')}`;
+  const filePath = path.posix.normalize(prefixed);
+  if (!filePath.startsWith('/agent-attachments/')) {
+    return null;
+  }
+
+  return filePath;
+}
+
+function getAgentAttachmentStoragePath(attachment) {
+  const filePath = normalizeAgentAttachmentPath(attachment);
+  return filePath ? filePath.replace(/^\/agent-attachments\//, '') : null;
+}
+
+function resolvePublicAttachmentPath(attachment) {
+  const filePath = normalizeAgentAttachmentPath(attachment);
+  if (!filePath) {
+    return null;
+  }
+
   return {
     filePath,
-    fileName: normalized.split('/').pop() || normalized,
-    fullPath: path.join(process.cwd(), 'public', filePath),
+    fileName: filePath.split('/').pop() || filePath,
+    fullPath: path.join(process.cwd(), 'public', filePath.replace(/^\/+/, '')),
   };
+}
+
+let agentAttachmentsStorageBucketReady = false;
+
+async function ensureAgentAttachmentsStorageBucket() {
+  if (agentAttachmentsStorageBucketReady) {
+    return;
+  }
+
+  if (!supabaseAdminClient || !AGENT_ATTACHMENTS_STORAGE_BUCKET) {
+    throw new Error('Supabase Storage nao esta configurado para persistir anexos de agentes.');
+  }
+
+  const existing = await supabaseAdminClient.storage.getBucket(AGENT_ATTACHMENTS_STORAGE_BUCKET);
+  if (!existing.error) {
+    agentAttachmentsStorageBucketReady = true;
+    return;
+  }
+
+  const created = await supabaseAdminClient.storage.createBucket(AGENT_ATTACHMENTS_STORAGE_BUCKET, { public: false });
+  if (created.error && !/already exists|already owned|exists/i.test(String(created.error.message || created.error))) {
+    throw new Error(`Nao foi possivel preparar o bucket de anexos (${AGENT_ATTACHMENTS_STORAGE_BUCKET}): ${created.error.message || created.error}`);
+  }
+
+  agentAttachmentsStorageBucketReady = true;
+}
+
+async function persistAgentAttachmentToStorage(attachment, fullPath, contentType = 'application/octet-stream') {
+  const storagePath = getAgentAttachmentStoragePath(attachment);
+  if (!storagePath || !fullPath || !fs.existsSync(fullPath)) {
+    throw new Error('Arquivo de anexo indisponivel para persistencia.');
+  }
+
+  await ensureAgentAttachmentsStorageBucket();
+  const buffer = await fs.promises.readFile(fullPath);
+  const uploaded = await supabaseAdminClient.storage
+    .from(AGENT_ATTACHMENTS_STORAGE_BUCKET)
+    .upload(storagePath, buffer, {
+      contentType: contentType || 'application/octet-stream',
+      upsert: true,
+    });
+
+  if (uploaded.error) {
+    throw new Error(`Falha ao persistir anexo no Supabase Storage: ${uploaded.error.message || uploaded.error}`);
+  }
+
+  return true;
+}
+
+async function restoreAgentAttachmentFromStorage(attachment) {
+  const resolved = resolvePublicAttachmentPath(attachment);
+  const storagePath = getAgentAttachmentStoragePath(attachment);
+  if (!resolved || !storagePath || fs.existsSync(resolved.fullPath) || !supabaseAdminClient || !AGENT_ATTACHMENTS_STORAGE_BUCKET) {
+    return resolved;
+  }
+
+  const downloaded = await supabaseAdminClient.storage
+    .from(AGENT_ATTACHMENTS_STORAGE_BUCKET)
+    .download(storagePath);
+
+  if (downloaded.error || !downloaded.data) {
+    return null;
+  }
+
+  const arrayBuffer = await downloaded.data.arrayBuffer();
+  await fs.promises.mkdir(path.dirname(resolved.fullPath), { recursive: true });
+  await fs.promises.writeFile(resolved.fullPath, Buffer.from(arrayBuffer));
+  return resolved;
+}
+
+async function ensureAgentAttachmentFileAvailable(attachment) {
+  const resolved = resolvePublicAttachmentPath(attachment);
+  if (!resolved || fs.existsSync(resolved.fullPath)) {
+    return resolved;
+  }
+
+  return restoreAgentAttachmentFromStorage(attachment);
+}
+
+async function serveStoredAgentAttachment(req, res) {
+  try {
+    const attachmentPath = `/agent-attachments${req.path || ''}`;
+    const resolved = await ensureAgentAttachmentFileAvailable(attachmentPath);
+    if (resolved && fs.existsSync(resolved.fullPath)) {
+      return res.sendFile(resolved.fullPath);
+    }
+
+    return res.status(404).type('text/plain').send('Attachment not found');
+  } catch (error) {
+    console.error('[ATTACHMENTS] Erro ao servir anexo persistido:', error?.message || error);
+    return res.status(500).type('text/plain').send('Attachment unavailable');
+  }
 }
 
 async function syncPythonAgentAttachments({ agentId, attachments = [], agentData = null, recreate = false } = {}) {
@@ -681,7 +807,7 @@ async function syncPythonAgentAttachments({ agentId, attachments = [], agentData
 
   const validAttachments = Array.from(new Set((Array.isArray(attachments) ? attachments : []).filter(Boolean)));
   for (const attachment of validAttachments) {
-    const resolved = resolvePublicAttachmentPath(attachment);
+    const resolved = await ensureAgentAttachmentFileAvailable(attachment);
     if (!resolved || !fs.existsSync(resolved.fullPath)) {
       summary.skippedCount += 1;
       continue;
@@ -3240,14 +3366,12 @@ async function getAgentAttachmentChunkRows(agentId, attachments = []) {
   const rows = [];
   for (const attachment of validAttachments) {
     try {
-      const filePath = attachment.startsWith('/') ? attachment : `/${attachment}`;
-      const fileName = attachment.split('/').pop() || attachment;
-      const fullPath = path.join(process.cwd(), 'public', filePath);
-      if (!fs.existsSync(fullPath)) {
+      const resolved = await ensureAgentAttachmentFileAvailable(attachment);
+      if (!resolved || !fs.existsSync(resolved.fullPath)) {
         continue;
       }
 
-      const text = await extractAttachmentText(fullPath, fileName);
+      const text = await extractAttachmentText(resolved.fullPath, resolved.fileName);
       if (!text || text.trim().length < 50) {
         continue;
       }
@@ -3255,8 +3379,8 @@ async function getAgentAttachmentChunkRows(agentId, attachments = []) {
       const chunks = chunkText(text);
       chunks.forEach((content, chunkIndex) => {
         rows.push({
-          documentId: filePath,
-          documentTitle: fileName,
+          documentId: resolved.filePath,
+          documentTitle: resolved.fileName,
           content,
           chunkIndex,
           similarity: 0,
@@ -3602,16 +3726,13 @@ async function reindexAgentAttachments(agentId, attachments = []) {
 
         for (const attachment of validAttachments) {
           try {
-            const filePath = attachment.startsWith('/') ? attachment : `/${attachment}`;
-            const fileName = attachment.split('/').pop() || attachment;
-            const fullPath = path.join(process.cwd(), 'public', filePath);
-
-            if (!fs.existsSync(fullPath)) {
+            const resolved = await ensureAgentAttachmentFileAvailable(attachment);
+            if (!resolved || !fs.existsSync(resolved.fullPath)) {
               skippedCount += 1;
               continue;
             }
 
-            const text = await extractAttachmentText(fullPath, fileName);
+            const text = await extractAttachmentText(resolved.fullPath, resolved.fileName);
             if (!text || text.trim().length < 50) {
               skippedCount += 1;
               continue;
@@ -3619,7 +3740,7 @@ async function reindexAgentAttachments(agentId, attachments = []) {
 
             const docResult = await client.query(
               'INSERT INTO documents (agent_id, title) VALUES ($1, $2) RETURNING id',
-              [agentId, fileName]
+              [agentId, resolved.fileName]
             );
             const documentId = docResult.rows[0].id;
 
@@ -7668,22 +7789,19 @@ async function reindexAgentAttachmentsViaSupabase(agentId, attachments = []) {
 
   for (const attachment of validAttachments) {
     try {
-      const filePath = attachment.startsWith('/') ? attachment : `/${attachment}`;
-      const fileName = attachment.split('/').pop() || attachment;
-      const fullPath = path.join(process.cwd(), 'public', filePath);
-
-      if (!fs.existsSync(fullPath)) {
+      const resolved = await ensureAgentAttachmentFileAvailable(attachment);
+      if (!resolved || !fs.existsSync(resolved.fullPath)) {
         skippedCount += 1;
         continue;
       }
 
-      const text = await extractAttachmentText(fullPath, fileName);
+      const text = await extractAttachmentText(resolved.fullPath, resolved.fileName);
       if (!text || text.trim().length < 50) {
         skippedCount += 1;
         continue;
       }
 
-      const documentId = await insertAgentDocumentViaSupabase(agentId, fileName);
+      const documentId = await insertAgentDocumentViaSupabase(agentId, resolved.fileName);
       const chunks = chunkText(text);
       if (chunks.length === 0) {
         skippedCount += 1;
@@ -8639,7 +8757,10 @@ app.post('/api/agents/upload', upload.single('file'), async (req, res) => {
 
     const filePath = `/agent-attachments/${req.file.filename}`;
     const originalname = req.file.originalname;
-    const fullPath = path.join(process.cwd(), 'public', filePath);
+    const resolvedUpload = resolvePublicAttachmentPath(filePath);
+    const fullPath = resolvedUpload?.fullPath || path.join(process.cwd(), 'public', filePath.replace(/^\/+/, ''));
+
+    await persistAgentAttachmentToStorage(filePath, fullPath, req.file.mimetype);
 
     let text = await extractAttachmentText(fullPath, originalname);
     let indexingError = null;
@@ -8767,6 +8888,7 @@ app.post('/api/agents/:agentId/sync-links', async (req, res) => {
         const relativePath = `${relativeFolder}/${fileName}`;
 
         await fs.promises.writeFile(absolutePath, source.buffer);
+        await persistAgentAttachmentToStorage(relativePath, absolutePath, source.contentType || 'text/plain; charset=utf-8');
         generatedAttachments.push(relativePath);
       } catch (error) {
         console.error('[LINK-SYNC] Erro ao ingerir link:', link.url, error?.message || error);
