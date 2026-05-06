@@ -192,7 +192,7 @@ const AppLayout = () => {
     };
   }, []);
 
-  const reprocessAgentAttachments = useCallback(async (agentId: string) => {
+  const reprocessAgentAttachments = useCallback(async (agentId: string, expectedAttachmentCount = 0) => {
     const response = await fetch(buildApiUrl(`/api/admin/reprocess-agent-attachments/${agentId}`), {
       method: "POST",
     });
@@ -201,6 +201,23 @@ const AppLayout = () => {
 
     if (!response.ok) {
       throw new Error(payload?.error || "Falha ao reprocessar anexos do agente.");
+    }
+
+    const skippedCount = Number(payload?.skippedCount || 0);
+    const failedCount = Number(payload?.failedCount || 0) + Number(payload?.python?.failedCount || 0);
+    const pythonSkippedCount = Number(payload?.python?.skippedCount || 0);
+    const processedCount = Number(payload?.processedCount || 0);
+    const pythonProcessedCount = Number(payload?.python?.processedCount || 0);
+    const pythonEnabled = Boolean(payload?.python?.enabled);
+
+    if (
+      skippedCount > 0
+      || pythonSkippedCount > 0
+      || failedCount > 0
+      || (expectedAttachmentCount > 0 && processedCount < expectedAttachmentCount)
+      || (pythonEnabled && expectedAttachmentCount > 0 && pythonProcessedCount < expectedAttachmentCount)
+    ) {
+      throw new Error(`Indexação incompleta: ${processedCount}/${expectedAttachmentCount || "?"} anexo(s) processado(s) localmente e ${pythonProcessedCount}/${expectedAttachmentCount || "?"} no motor Python.`);
     }
 
     return payload;
@@ -531,7 +548,8 @@ const AppLayout = () => {
               };
 
               if (syncResult.failures && syncResult.failures.length > 0) {
-                toast.warning(`Alguns links do agente não puderam ser processados (${syncResult.failures.length}).`);
+                toast.error(`Alguns links do agente não puderam ser processados (${syncResult.failures.length}).`);
+                return false;
               }
             }
 
@@ -549,10 +567,8 @@ const AppLayout = () => {
           } catch (syncError: any) {
             console.error("Erro ao sincronizar links do agente:", syncError);
             toast.error(syncError?.message || "Falha ao sincronizar links para a IA.");
+            return false;
           }
-
-          setAgents((prev) => [...prev, normalizedAgent]);
-          toast.success(`Agente '${newAgentData.title}' adicionado com sucesso!`);
 
           const shouldReprocessAttachments = normalizedAgent.attachments.length > 0
             && (pendingFiles.length > 0 || normalizedAgent.extra_links.length === 0);
@@ -566,12 +582,16 @@ const AppLayout = () => {
             });
 
             try {
-              await reprocessAgentAttachments(normalizedAgent.id);
+              await reprocessAgentAttachments(normalizedAgent.id, normalizedAgent.attachments.length);
             } catch (reprocessError: any) {
               console.error("Erro ao reprocessar anexos do agente:", reprocessError);
               toast.error(reprocessError?.message || "Falha ao indexar anexos do agente.");
+              return false;
             }
           }
+
+          setAgents((prev) => [...prev, normalizedAgent]);
+          toast.success(`Agente '${newAgentData.title}' adicionado com sucesso!`);
           
           // Emit new notification
           emitAgentNotification(
@@ -669,7 +689,8 @@ const AppLayout = () => {
             };
 
             if (syncResult.failures && syncResult.failures.length > 0) {
-              toast.warning(`Alguns links do agente não puderam ser processados (${syncResult.failures.length}).`);
+              toast.error(`Alguns links do agente não puderam ser processados (${syncResult.failures.length}).`);
+              return false;
             }
           }
 
@@ -687,12 +708,8 @@ const AppLayout = () => {
         } catch (syncError: any) {
           console.error("Erro ao sincronizar links do agente:", syncError);
           toast.error(syncError?.message || "Falha ao sincronizar links para a IA.");
+          return false;
         }
-
-        setAgents((prev) =>
-          prev.map((agent) => agent.id === agentId ? normalizedAgent : agent)
-        );
-        toast.success(`Agente '${updatedAgentData.title}' atualizado com sucesso!`);
 
         const shouldReprocessAttachments = normalizedAgent.attachments.length > 0
           && (pendingFiles.length > 0 || attachmentsWereRemoved || (normalizedAgent.extra_links.length === 0 && pendingFiles.length === 0));
@@ -706,12 +723,18 @@ const AppLayout = () => {
           });
 
           try {
-            await reprocessAgentAttachments(agentId);
+            await reprocessAgentAttachments(agentId, normalizedAgent.attachments.length);
           } catch (reprocessError: any) {
             console.error("Erro ao reprocessar anexos do agente:", reprocessError);
             toast.error(reprocessError?.message || "Falha ao reindexar anexos do agente.");
+            return false;
           }
         }
+
+        setAgents((prev) =>
+          prev.map((agent) => agent.id === agentId ? normalizedAgent : agent)
+        );
+        toast.success(`Agente '${updatedAgentData.title}' atualizado com sucesso!`);
         
         // Emit new notification
         emitAgentNotification(

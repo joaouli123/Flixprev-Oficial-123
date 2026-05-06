@@ -14,6 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { buildApiUrl } from "@/lib/api";
+import { DEFAULT_AGENT_INSTRUCTIONS } from "@/lib/defaultAgentInstructions";
 import { 
   Bot, 
   Sparkles, 
@@ -309,7 +310,7 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
       return;
     }
 
-    if (title.trim() && instructions.trim() && icon && selectedCategory) {
+    if (title.trim() && icon && selectedCategory) {
       setIsSubmitting(true);
       setSaveProgress({
         stage: isEditing ? "Preparando atualização do agente..." : "Preparando criação do agente...",
@@ -370,6 +371,8 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
       console.log("selectedCategory antes de salvar:", selectedCategory);
       console.log("categoryArray:", categoryArray);
       
+      const resolvedInstructions = instructions.trim() || DEFAULT_AGENT_INSTRUCTIONS;
+
       const agentData = {
         title: title.trim(),
         role: isEditing ? agentToEdit?.role || undefined : undefined,
@@ -380,7 +383,7 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
         link: link.trim() || undefined,
         extra_links: processedExtraLinks,
         shortcuts: shortcuts,
-        instructions: instructions.trim() || undefined,
+        instructions: resolvedInstructions,
         attachments: uploadedPaths,
       } as any;
 
@@ -435,8 +438,6 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
       setSaveProgress(null);
       if (!selectedCategory) {
         toast.error("Por favor, selecione uma categoria para o agente.");
-      } else if (!instructions.trim()) {
-        toast.error("Por favor, preencha as Instruções do Sistema.");
       } else {
         toast.error("Por favor, preencha todos os campos obrigatórios.");
       }
@@ -683,10 +684,10 @@ const CreateNewAIAgentDialog: React.FC<CreateNewAIAgentDialogProps> = ({
             </div>
 
             <div className="space-y-2 pt-4 border-t border-slate-100">
-              <Label htmlFor="instructions" className="text-sm font-medium text-slate-700">Instrução de Sistema <span className="text-red-500">*</span></Label>
+              <Label htmlFor="instructions" className="text-sm font-medium text-slate-700">Instrução de Sistema <span className="text-slate-400">(opcional)</span></Label>
               <Textarea
                 id="instructions"
-                placeholder="Descreva detalhadamente como o agente deve se comportar..."
+                placeholder={DEFAULT_AGENT_INSTRUCTIONS}
                 value={instructions}
                 onChange={(e) => setInstructions(e.target.value)}
                 className="w-full min-h-[100px] resize-none transition-all border-slate-200 focus:border-indigo-500 focus:ring-indigo-500/20"

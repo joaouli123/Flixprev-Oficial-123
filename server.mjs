@@ -182,6 +182,9 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage });
 
+app.use('/agent-attachments', express.static(path.join(__dirname, 'public', 'agent-attachments')));
+app.use('/chat-attachments', express.static(path.join(__dirname, 'public', 'chat-attachments')));
+
 const chatStorage = multer.diskStorage({
   destination: (req, file, cb) => {
     const uploadDir = path.join(__dirname, 'public', 'chat-attachments');
@@ -699,8 +702,8 @@ async function syncPythonAgentAttachments({ agentId, attachments = [], agentData
     }
   }
 
-  if (summary.failedCount > 0) {
-    throw new Error(`Falha ao ingerir ${summary.failedCount} anexo(s) no core Python.`);
+  if (summary.failedCount > 0 || summary.skippedCount > 0) {
+    throw new Error(`Falha ao ingerir todos os anexos no core Python. Processados: ${summary.processedCount}; ignorados: ${summary.skippedCount}; falhas: ${summary.failedCount}.`);
   }
 
   return summary;
@@ -3583,7 +3586,7 @@ function shouldTriggerProactiveDeepSearch({ userText = '', retrievalQuery = '', 
 }
 
 async function reindexAgentAttachments(agentId, attachments = []) {
-  const validAttachments = Array.isArray(attachments) ? attachments : [];
+  const validAttachments = Array.from(new Set((Array.isArray(attachments) ? attachments : []).filter(Boolean)));
   const summary = await withDatabaseFallback(
     'reindexAgentAttachments',
     async () => {
@@ -3660,6 +3663,13 @@ async function reindexAgentAttachments(agentId, attachments = []) {
     agentData,
     recreate: true,
   });
+
+  const expectedAttachmentCount = validAttachments.length;
+  const localIncomplete = expectedAttachmentCount > 0 && summary.processedCount < expectedAttachmentCount;
+  const pythonIncomplete = python?.enabled && expectedAttachmentCount > 0 && python.processedCount < expectedAttachmentCount;
+  if (summary.skippedCount > 0 || localIncomplete || python?.skippedCount > 0 || python?.failedCount > 0 || pythonIncomplete) {
+    throw new Error(`Indexacao incompleta dos anexos. Esperados: ${expectedAttachmentCount}; local processados: ${summary.processedCount}; local ignorados: ${summary.skippedCount}; Python processados: ${python?.processedCount ?? 0}; Python ignorados: ${python?.skippedCount ?? 0}; Python falhas: ${python?.failedCount ?? 0}.`);
+  }
 
   return { ...summary, python };
 }

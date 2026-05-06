@@ -35,6 +35,7 @@ import {
   Zap,
 } from "lucide-react";
 import { Agent, Category } from "@/types/app";
+import { DEFAULT_AGENT_INSTRUCTIONS } from "@/lib/defaultAgentInstructions";
 
 const iconOptions = [
   { name: "Bot", icon: Bot },
@@ -73,8 +74,6 @@ type OutletContext = {
   onCreateCategory: (categoryName: string) => Promise<Category | null> | Category | null;
 };
 
-const DEFAULT_AGENT_INSTRUCTIONS = "A instrucao deste agente define o assunto e os limites da resposta. Considere todos os conteudos processados dos anexos e links deste agente como uma unica base complementar dentro desse assunto. Quando houver portarias, leis, PDFs, planilhas ou outros arquivos anexados juntos, procure em todos os documentos relevantes antes de responder e combine os pontos em uma resposta fluida. Nao cite numero, nome ou data de norma por memoria: esses dados precisam aparecer nos documentos recuperados. Nao use um anexo de outro tema para transformar o agente em especialista geral. Responda somente com base no que foi efetivamente processado, em linguagem natural, direta e amigavel. Nao repita a pergunta, nao use titulos como 'Resposta Final' e nao mencione trechos, contexto, anexos ou fontes, a menos que o usuario peca isso. Se a informacao nao estiver clara na base processada, diga isso de forma objetiva e natural, sem usar conhecimento externo. Use tabela apenas quando isso realmente ajudar a entender melhor.";
-
 function buildLinkLabel(rawUrl: string) {
   try {
     const parsed = new URL(rawUrl);
@@ -100,7 +99,7 @@ const AgentEditorPage = () => {
   const isEditing = Boolean(agentToEdit);
 
   const [title, setTitle] = useState("");
-  const [instructions, setInstructions] = useState(DEFAULT_AGENT_INSTRUCTIONS);
+  const [instructions, setInstructions] = useState("");
   const [icon, setIcon] = useState("Bot");
   const [backgroundIcon, setBackgroundIcon] = useState("Bot");
   const [selectedCategory, setSelectedCategory] = useState("");
@@ -127,7 +126,7 @@ const AgentEditorPage = () => {
 
     if (agentToEdit) {
       setTitle(agentToEdit.title);
-      setInstructions(agentToEdit.instructions || DEFAULT_AGENT_INSTRUCTIONS);
+      setInstructions(agentToEdit.instructions || "");
       setIcon(agentToEdit.icon || "Bot");
       setBackgroundIcon(agentToEdit.background_icon || agentToEdit.icon || "Bot");
       setLink(agentToEdit.link || "");
@@ -246,8 +245,8 @@ const AgentEditorPage = () => {
 
   const handleSave = async () => {
     if (isSubmitting) return;
-    if (!title.trim() || !instructions.trim() || !selectedCategory) {
-      toast.error("Preencha nome, categoria e instruções do agente.");
+    if (!title.trim() || !selectedCategory) {
+      toast.error("Preencha nome e categoria do agente.");
       return;
     }
 
@@ -260,6 +259,8 @@ const AgentEditorPage = () => {
     const uploadedPaths = [...savedAttachments];
     const processedExtraLinks = collectExtraLinksForSave();
 
+    const resolvedInstructions = instructions.trim() || DEFAULT_AGENT_INSTRUCTIONS;
+
     const agentData = {
       title: title.trim(),
       role: isEditing ? agentToEdit?.role || undefined : undefined,
@@ -270,7 +271,7 @@ const AgentEditorPage = () => {
       link: link.trim() || undefined,
       extra_links: processedExtraLinks,
       shortcuts,
-      instructions: instructions.trim() || undefined,
+      instructions: resolvedInstructions,
       attachments: uploadedPaths,
     } as Omit<Agent, "id" | "userId" | "created_at">;
 
@@ -441,7 +442,7 @@ const AgentEditorPage = () => {
           </div>
 
           <div className="space-y-2 border-t border-slate-100 pt-4">
-            <Label htmlFor="instructions" className="text-sm font-medium text-slate-700">Instrução de Sistema <span className="text-red-500">*</span></Label>
+            <Label htmlFor="instructions" className="text-sm font-medium text-slate-700">Instrução de Sistema <span className="text-slate-400">(opcional)</span></Label>
             <Textarea id="instructions" value={instructions} onChange={(e) => setInstructions(e.target.value)} placeholder={DEFAULT_AGENT_INSTRUCTIONS} className="min-h-[120px] border-slate-200 focus:border-indigo-500 focus:ring-indigo-500/20" />
           </div>
 
