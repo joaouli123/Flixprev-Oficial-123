@@ -2900,6 +2900,177 @@ function chunkText(text, size = 1800, overlap = 250) {
   return chunks;
 }
 
+// 2.5️⃣ Contextual Retrieval (Anthropic) — adiciona ao chunk uma janela de contexto
+//        do documento inteiro usando prompt cache. Reduz embeddings genéricos em ~35%.
+const CONTEXTUAL_RETRIEVAL_MAX_DOC_CHARS = 180000;
+const CONTEXTUAL_RETRIEVAL_CONCURRENCY = 4;
+const CONTEXTUAL_RETRIEVAL_MODEL = process.env.CONTEXTUAL_RETRIEVAL_MODEL
+  || process.env.FAST_CHAT_MODEL
+  || 'claude-haiku-4-5-20251001';
+
+function isContextualRetrievalEnabled() {
+  if (String(process.env.CONTEXTUAL_RETRIEVAL_ENABLED || '').toLowerCase() === 'false') {
+    return false;
+  }
+  return Boolean(getFirstNonEmptyEnv(process.env.ANTHROPIC_API_KEY));
+}
+
+let _contextualClientCache = null;
+function getContextualRetrievalClient() {
+  if (_contextualClientCache !== null) {
+    return _contextualClientCache;
+  }
+  const apiKey = getFirstNonEmptyEnv(process.env.ANTHROPIC_API_KEY);
+  if (!apiKey) {
+    _contextualClientCache = null;
+    return null;
+  }
+  try {
+    _contextualClientCache = new Anthropic({ apiKey });
+  } catch (error) {
+    console.warn('[CONTEXTUAL] Falha ao inicializar cliente Anthropic:', error?.message || error);
+    _contextualClientCache = null;
+  }
+  return _contextualClientCache;
+}
+
+async function contextualizeSingleChunk(client, { documentText, chunkText: chunk, title, position }) {
+  const systemBlocks = [
+    {
+      type: 'text',
+      text: 'Voce adiciona contexto curto a trechos de documentos juridicos/previdenciarios para melhorar busca. Nunca inventa fatos. Responde em portugues, em 1-2 frases, direto ao ponto, sem rotulos como "Resposta:", "Contexto:", sem prefacios.'
+    },
+    {
+      type: 'text',
+      text: `<documento titulo="${String(title || 'documento').replace(/"/g, '\'')}">\n${documentText}\n</documento>`,
+      cache_control: { type: 'ephemeral' }
+    }
+  ];
+
+  const userText = `Trecho a contextualizar (posicao ${position}):\n<trecho>\n${chunk}\n</trecho>\n\n`
+    + 'Em 1-2 frases situe este trecho dentro do documento: secao/topico principal e o assunto central que ele trata. '
+    + 'Use vocabulario que aparece no documento. Sem introducao, sem rotulos, apenas o resumo.';
+
+  const response = await client.messages.create({
+    model: CONTEXTUAL_RETRIEVAL_MODEL,
+    max_tokens: 180,
+    temperature: 0,
+    system: systemBlocks,
+    messages: [{ role: 'user', content: userText }],
+  });
+
+  const blocks = Array.isArray(response?.content) ? response.content : [];
+  const textOut = blocks.map((b) => (typeof b?.text === 'string' ? b.text : '')).join(' ').trim();
+  return textOut;
+}
+
+async function contextualizeChunks(fullText, chunks, { title = '' } = {}) {
+  if (!Array.isArray(chunks) || chunks.length === 0) {
+    return chunks || [];
+  }
+  if (!isContextualRetrievalEnabled()) {
+    return chunks;
+  }
+  const client = getContextualRetrievalClient();
+  if (!client) {
+    return chunks;
+  }
+
+  const truncatedDoc = String(fullText || '').slice(0, CONTEXTUAL_RETRIEVAL_MAX_DOC_CHARS);
+  if (!truncatedDoc) {
+    return chunks;
+  }
+
+  const startedAt = Date.now();
+  console.log(`[CONTEXTUAL] Contextualizando ${chunks.length} chunks de "${title || 'documento'}" via ${CONTEXTUAL_RETRIEVAL_MODEL}...`);
+
+  const results = new Array(chunks.length);
+  let cursor = 0;
+  let failures = 0;
+
+  const worker = async () => {
+    while (true) {
+      const i = cursor;
+      cursor += 1;
+      if (i >= chunks.length) {
+        return;
+      }
+      try {
+        const ctx = await contextualizeSingleChunk(client, {
+          documentText: truncatedDoc,
+          chunkText: chunks[i],
+          title,
+          position: i,
+        });
+        results[i] = ctx ? `${ctx}\n\n${chunks[i]}` : chunks[i];
+      } catch (error) {
+        failures += 1;
+        if (failures <= 3) {
+          console.warn(`[CONTEXTUAL] Falha no chunk ${i}: ${error?.message || error}`);
+        }
+        results[i] = chunks[i];
+      }
+    }
+  };
+
+  const pool = Math.min(CONTEXTUAL_RETRIEVAL_CONCURRENCY, chunks.length);
+  await Promise.all(Array.from({ length: pool }, () => worker()));
+
+  const elapsed = ((Date.now() - startedAt) / 1000).toFixed(1);
+  const enriched = results.filter((c, i) => c && c !== chunks[i]).length;
+  console.log(`[CONTEXTUAL] Concluido em ${elapsed}s — enriquecidos=${enriched}/${chunks.length} falhas=${failures}.`);
+
+  return results;
+}
+
+async function prepareChunksForIndexing(text, { title = '' } = {}) {
+  const baseChunks = chunkText(text);
+  if (baseChunks.length === 0) {
+    return baseChunks;
+  }
+  try {
+    return await contextualizeChunks(text, baseChunks, { title });
+  } catch (error) {
+    console.warn('[CONTEXTUAL] Erro inesperado, mantendo chunks originais:', error?.message || error);
+    return baseChunks;
+  }
+}
+
+// 2.6️⃣ HyDE — gera um paragrafo hipotetico que serve como query adicional para busca
+const HYDE_MODEL = process.env.HYDE_MODEL || process.env.FAST_CHAT_MODEL || 'claude-haiku-4-5-20251001';
+
+function isHydeEnabled() {
+  if (String(process.env.HYDE_ENABLED || '').toLowerCase() === 'false') {
+    return false;
+  }
+  return Boolean(getFirstNonEmptyEnv(process.env.ANTHROPIC_API_KEY));
+}
+
+async function generateHypotheticalAnswer(question) {
+  const text = String(question || '').trim();
+  if (!text || !isHydeEnabled()) {
+    return '';
+  }
+  const client = getContextualRetrievalClient();
+  if (!client) {
+    return '';
+  }
+  try {
+    const response = await client.messages.create({
+      model: HYDE_MODEL,
+      max_tokens: 260,
+      temperature: 0,
+      system: 'Voce escreve um paragrafo hipotetico em portugues, com tom de documento juridico/normativo brasileiro, que poderia ser a resposta a pergunta. Use linguagem formal, vocabulario tecnico previdenciario/juridico quando aplicavel. Apenas o paragrafo, sem introducao nem rotulos.',
+      messages: [{ role: 'user', content: `Pergunta: ${text}\n\nParagrafo hipotetico:` }],
+    });
+    const blocks = Array.isArray(response?.content) ? response.content : [];
+    return blocks.map((b) => (typeof b?.text === 'string' ? b.text : '')).join(' ').trim();
+  } catch (error) {
+    console.warn('[HYDE] Falha ao gerar paragrafo hipotetico:', error?.message || error);
+    return '';
+  }
+}
+
 // 3️⃣ Gerar embeddings (OpenAI/Gemini)
 async function generateQueryEmbedding(input, logContext = {}) {
   const cfg = getAiRuntimeConfig();
@@ -3425,6 +3596,10 @@ async function searchAttachmentChunks(queryText, agentId, attachments = [], limi
   }
 
   const queryTexts = buildDeepRetrievalQueries(queryText, queryText);
+  const hypothetical = await generateHypotheticalAnswer(queryText);
+  if (hypothetical) {
+    queryTexts.push(hypothetical);
+  }
   const seedRows = rerankRetrievedRowsForQueries(rows, queryTexts, Math.max(limit * 8, DEFAULT_RAG_CANDIDATE_LIMIT));
   const rankedRows = expandRetrievedRowsWithNeighbors(rows, seedRows, queryTexts, { finalLimit: limit });
   console.log(`[SEARCH][ATTACHMENTS] ${rankedRows.length} chunks relevantes (de ${rows.length} carregados) para agente ${agentId}.`);
@@ -3758,7 +3933,7 @@ async function reindexAgentAttachments(agentId, attachments = []) {
             );
             const documentId = docResult.rows[0].id;
 
-            const chunks = chunkText(text);
+            const chunks = await prepareChunksForIndexing(text, { title: resolved.fileName });
             if (chunks.length === 0) {
               skippedCount += 1;
               continue;
@@ -7719,6 +7894,10 @@ async function searchDeepAgentChunks({
   }
 
   const queryTexts = buildDeepRetrievalQueries(question, retrievalQuery || question);
+  const hypothetical = await generateHypotheticalAnswer(question || retrievalQuery);
+  if (hypothetical) {
+    queryTexts.push(hypothetical);
+  }
   const databaseRows = Number(chunkCount || 0) > 0
     ? await getAllAgentChunkRows(agentId, chunkCount)
     : [];
@@ -7761,7 +7940,7 @@ async function indexAgentAttachmentContent(agentId, title, text) {
   return withDatabaseFallback(
     'indexAgentAttachmentContent',
     async () => {
-      const chunks = chunkText(normalizedText);
+      const chunks = await prepareChunksForIndexing(normalizedText, { title });
       const client = await pool.connect();
 
       try {
@@ -7786,7 +7965,7 @@ async function indexAgentAttachmentContent(agentId, title, text) {
     },
     async () => {
       const documentId = await insertAgentDocumentViaSupabase(agentId, title);
-      const chunks = chunkText(normalizedText);
+      const chunks = await prepareChunksForIndexing(normalizedText, { title });
       await insertAgentDocumentChunksViaSupabase(agentId, documentId, chunks);
       return { chunksCount: chunks.length };
     }
@@ -7816,7 +7995,7 @@ async function reindexAgentAttachmentsViaSupabase(agentId, attachments = []) {
       }
 
       const documentId = await insertAgentDocumentViaSupabase(agentId, resolved.fileName);
-      const chunks = chunkText(text);
+      const chunks = await prepareChunksForIndexing(text, { title: resolved.fileName });
       if (chunks.length === 0) {
         skippedCount += 1;
         continue;
