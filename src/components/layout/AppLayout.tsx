@@ -235,12 +235,13 @@ const AppLayout = () => {
       const file = pendingFiles[index];
       onProgress?.({
         stage: `Enviando anexo ${index + 1} de ${pendingFiles.length}`,
-        detail: `Fazendo upload de ${file.name} para indexação imediata do agente.`,
+        detail: `Enviando ${file.name} para a base temporária do agente antes da indexação final.`,
       });
 
       const formData = new FormData();
       formData.append("file", file);
       formData.append("agentId", agentId);
+      formData.append("deferIndexing", "1");
 
       const response = await fetch(buildApiUrl("/api/agents/upload"), {
         method: "POST",

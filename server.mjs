@@ -8971,6 +8971,7 @@ app.post('/api/agents/upload', upload.single('file'), async (req, res) => {
 
     let { agentId } = req.body;
     if (agentId === "undefined" || agentId === "null" || !agentId) agentId = null;
+    const deferIndexing = String(req.body?.deferIndexing || '').trim() === '1';
 
     const filePath = `/agent-attachments/${req.file.filename}`;
     const originalname = req.file.originalname;
@@ -8979,10 +8980,15 @@ app.post('/api/agents/upload', upload.single('file'), async (req, res) => {
 
     await persistAgentAttachmentToStorage(filePath, fullPath, req.file.mimetype);
 
-    let text = await extractAttachmentText(fullPath, originalname);
+    const shouldIndexImmediately = Boolean(agentId && !deferIndexing);
+    let text = '';
     let indexingError = null;
 
-    if (agentId && text.trim().length > 50) {
+    if (shouldIndexImmediately) {
+      text = await extractAttachmentText(fullPath, originalname);
+    }
+
+    if (shouldIndexImmediately && text.trim().length > 50) {
       try {
         await indexAgentAttachmentContent(agentId, originalname, text);
         console.log(`[UPLOAD] ✅ RAG NUCLEAR processado para agente ${agentId}`);
@@ -9015,7 +9021,7 @@ app.post('/api/agents/upload', upload.single('file'), async (req, res) => {
     }
 
     let python = null;
-    if (agentId && text.trim().length > 50) {
+    if (shouldIndexImmediately && text.trim().length > 50) {
       const agentData = await getAgentForPythonSync(agentId).catch(() => null);
       python = await syncPythonAgentAttachments({
         agentId,
@@ -9025,7 +9031,7 @@ app.post('/api/agents/upload', upload.single('file'), async (req, res) => {
       });
     }
 
-    res.json({ success: true, path: filePath, filename: originalname, python });
+    res.json({ success: true, path: filePath, filename: originalname, python, deferred: deferIndexing });
   } catch (e) {
     console.error('[UPLOAD] Erro fatal:', e.message);
     res.status(500).json({ error: e.message });
