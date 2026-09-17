@@ -70,7 +70,7 @@ router.get("/referrals/me", async (req: Request, res: Response) => {
       [userId]
     );
 
-    const appUrl = process.env.APP_BASE_URL || "https://www.assertivemind.com.br";
+    const appUrl = process.env.APP_BASE_URL || "https://www.flixprev.com.br";
     const referralUrl = `${appUrl.replace(/\/$/, "")}/?ref=${encodeURIComponent(code)}`;
 
     return res.json({

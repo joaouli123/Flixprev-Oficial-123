@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { supabaseAuth } from "@/lib/supabase-auth";
 import { toast } from 'sonner'; // Importar toast
+import FlixPrevLogo from '@/components/ui/FlixPrevLogo';
 
 const EsqueciSenha: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -16,8 +17,6 @@ const EsqueciSenha: React.FC = () => {
     e.preventDefault();
     setLoading(true);
 
-    const resetPasswordUrl = `${window.location.origin || 'https://flixprev.uxcodedev.com.br'}/reset-password`;
-
     if (!email.trim()) {
       toast.error("Por favor, insira seu e-mail.");
       setLoading(false);
@@ -25,16 +24,16 @@ const EsqueciSenha: React.FC = () => {
     }
 
     try {
-      const { error } = await supabaseAuth.auth.resetPasswordForEmail(email, {
-        redirectTo: resetPasswordUrl,
+      const { error } = await supabaseAuth.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo: `${window.location.origin}/reset-password`,
       });
 
       if (error) {
-        toast.error("Erro ao enviar e-mail: " + error.message);
-      } else {
-        toast.success("E-mail de redefinição enviado! Verifique sua caixa de entrada.");
-        setEmail('');
+        throw new Error(error.message || 'Não foi possível enviar o email de redefinição.');
       }
+
+      toast.success("Se o e-mail existir, enviaremos o link de redefinição em instantes.");
+      setEmail('');
     } catch (err: any) {
       toast.error("Ocorreu um erro inesperado: " + err.message);
     } finally {
@@ -69,8 +68,8 @@ const EsqueciSenha: React.FC = () => {
           <Card className="bg-white/80 backdrop-blur-xl border-0 shadow-2xl shadow-blue-500/10 rounded-2xl overflow-hidden animate-in fade-in-0 slide-in-from-bottom-4 duration-700">
             <CardHeader className="text-center pb-6 sm:pb-8 pt-8 sm:pt-10 px-6 sm:px-8">
               <div className="mb-4">
-                <div className="w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-br from-orange-500 to-red-600 rounded-2xl mx-auto flex items-center justify-center mb-4 shadow-lg">
-                  <Lock className="w-7 h-7 sm:w-8 sm:h-8 text-white" />
+                <div className="mx-auto flex items-center justify-center mb-4">
+                  <FlixPrevLogo className="h-16 w-16 sm:h-20 sm:w-20 drop-shadow-xl transition-transform hover:scale-105" />
                 </div>
               </div>
               
