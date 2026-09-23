@@ -2377,6 +2377,272 @@ function resolvePublicAppBaseUrl(req) {
   return appUrl.replace(/\/$/, '');
 }
 
+// ============================================
+// E-MAIL DE REDEFINIÇÃO DE SENHA (Resend)
+// O resetPasswordForEmail do Supabase usa o SMTP padrão, que estoura o limite por hora
+// ("email rate limit exceeded"). Aqui o link é gerado com a service role e enviado pelo Resend.
+// ============================================
+
+const PASSWORD_RESET_EMAIL_COOLDOWN_MS = 60 * 1000;
+const PASSWORD_RESET_IP_WINDOW_MS = 15 * 60 * 1000;
+const PASSWORD_RESET_IP_MAX_REQUESTS = 10;
+const passwordResetEmailThrottle = new Map();
+const passwordResetIpThrottle = new Map();
+
+function isPasswordResetThrottled(email, requestIp) {
+  const now = Date.now();
+
+  if (passwordResetEmailThrottle.size > 5000 || passwordResetIpThrottle.size > 5000) {
+    for (const [key, sentAt] of passwordResetEmailThrottle) {
+      if (now - sentAt > PASSWORD_RESET_EMAIL_COOLDOWN_MS) passwordResetEmailThrottle.delete(key);
+    }
+    for (const [key, entry] of passwordResetIpThrottle) {
+      if (now - entry.startedAt > PASSWORD_RESET_IP_WINDOW_MS) passwordResetIpThrottle.delete(key);
+    }
+  }
+
+  const lastSentAt = passwordResetEmailThrottle.get(email);
+  if (lastSentAt && now - lastSentAt < PASSWORD_RESET_EMAIL_COOLDOWN_MS) {
+    return true;
+  }
+
+  const ipEntry = passwordResetIpThrottle.get(requestIp);
+  if (!ipEntry || now - ipEntry.startedAt > PASSWORD_RESET_IP_WINDOW_MS) {
+    passwordResetIpThrottle.set(requestIp, { startedAt: now, count: 1 });
+  } else {
+    ipEntry.count += 1;
+    if (ipEntry.count > PASSWORD_RESET_IP_MAX_REQUESTS) {
+      return true;
+    }
+  }
+
+  passwordResetEmailThrottle.set(email, now);
+  return false;
+}
+
+function isManagedUserInvalidEmailErrorMessage(message) {
+  const normalized = String(message || '').trim().toLowerCase();
+  if (!normalized) {
+    return false;
+  }
+
+  return (
+    (normalized.includes('email') && normalized.includes('invalid'))
+    || normalized.includes('email address')
+    || normalized.includes('endereço de email')
+  );
+}
+
+function isManagedUserRateLimitErrorMessage(message) {
+  const normalized = String(message || '').trim().toLowerCase();
+  if (!normalized) {
+    return false;
+  }
+
+  return normalized.includes('rate limit') || normalized.includes('too many requests');
+}
+
+function isManagedUserMissingAccountErrorMessage(message) {
+  const normalized = String(message || '').trim().toLowerCase();
+  if (!normalized) {
+    return false;
+  }
+
+  return (
+    normalized.includes('user not found')
+    || normalized.includes('email not found')
+    || (normalized.includes('not found') && normalized.includes('email'))
+  );
+}
+
+function extractManagedUserEmailAddress(value) {
+  const raw = String(value || '').trim();
+  if (!raw) {
+    return '';
+  }
+
+  const match = raw.match(/<([^>]+)>/);
+  return String(match ? match[1] : raw).trim().toLowerCase();
+}
+
+function escapeManagedUserEmailHtml(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function formatManagedUserEmailDateTime(value = new Date()) {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return 'Nao informado';
+  }
+
+  return new Intl.DateTimeFormat('pt-BR', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+    timeZone: 'America/Sao_Paulo',
+  }).format(date);
+}
+
+function looksLikeManagedUserEmailAddress(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email || '').trim());
+}
+
+function resolveManagedUserEmailConfig() {
+  const resendApiKey = String(process.env.RESEND_API_KEY || '').trim();
+  const fromEmail = String(process.env.RESEND_FROM_EMAIL || '').trim();
+  const brandName = String(process.env.EMAIL_BRAND_NAME || 'FlixPrev').trim() || 'FlixPrev';
+  const supportEmail = String(
+    process.env.EMAIL_SUPPORT_ADDRESS
+    || extractManagedUserEmailAddress(fromEmail)
+    || 'suporte@flixprev.com.br'
+  ).trim();
+
+  return {
+    resendApiKey,
+    fromEmail,
+    brandName,
+    supportEmail,
+  };
+}
+
+function ensureManagedUserEmailConfig() {
+  const config = resolveManagedUserEmailConfig();
+
+  if (!config.resendApiKey || !config.fromEmail) {
+    const error = new Error('Email transacional indisponivel. Defina RESEND_API_KEY e RESEND_FROM_EMAIL no ambiente.');
+    error.statusCode = 503;
+    throw error;
+  }
+
+  return config;
+}
+
+function buildManagedUserAuthActionUrl(appBaseUrl, tokenHash, type = 'recovery') {
+  const normalizedBaseUrl = String(appBaseUrl || process.env.APP_BASE_URL || 'https://flixprev.com.br').trim().replace(/\/$/, '');
+  return `${normalizedBaseUrl}/reset-password?token_hash=${encodeURIComponent(String(tokenHash || '').trim())}&type=${encodeURIComponent(type)}`;
+}
+
+function resolveManagedUserRequestIp(req) {
+  const forwarded = String(req?.headers?.['x-forwarded-for'] || '').split(',')[0].trim();
+  const requestIp = forwarded || String(req?.ip || req?.socket?.remoteAddress || '').trim();
+  return requestIp.replace(/^::ffff:/, '') || 'Nao identificado';
+}
+
+function buildPasswordRecoveryEmailContent(params = {}) {
+  const brandName = String(params.brandName || 'FlixPrev').trim() || 'FlixPrev';
+  const firstName = String(params.fullName || 'Cliente').trim().split(/\s+/)[0] || 'Cliente';
+  const safeFirstName = escapeManagedUserEmailHtml(firstName);
+  const safeFullName = escapeManagedUserEmailHtml(String(params.fullName || 'Cliente').trim() || 'Cliente');
+  const safeEmail = escapeManagedUserEmailHtml(params.email || '');
+  const safeActionUrl = escapeManagedUserEmailHtml(params.actionUrl || '');
+  const safeSupportEmail = escapeManagedUserEmailHtml(params.supportEmail || 'suporte@flixprev.com.br');
+  const safeRequestedAt = escapeManagedUserEmailHtml(formatManagedUserEmailDateTime(params.requestedAt));
+  const safeRequestIp = escapeManagedUserEmailHtml(params.requestIp || 'Nao identificado');
+
+  const subject = `Redefina sua senha | ${brandName}`;
+  const nextSteps = [
+    '1. Clique no botao para abrir a area segura de redefinicao.',
+    '2. Informe sua nova senha.',
+    '3. Volte ao login e acesse a plataforma normalmente.',
+  ];
+
+  const html = `
+    <div style="margin:0;padding:24px;background:#f8fafc;font-family:Arial,Helvetica,sans-serif;color:#0f172a;">
+      <div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #e2e8f0;border-radius:16px;padding:32px 28px;">
+        <div style="font-size:12px;letter-spacing:0.14em;text-transform:uppercase;color:#64748b;margin-bottom:16px;font-weight:700;">Seguranca da conta</div>
+        <h1 style="margin:0 0 12px;font-size:28px;line-height:1.2;font-weight:700;color:#0f172a;">Redefina sua senha, ${safeFirstName}</h1>
+        <p style="margin:0 0 24px;font-size:15px;line-height:1.8;color:#334155;">Recebemos uma solicitacao de redefinicao de senha para o acesso <strong>${safeEmail}</strong>. Use o botao abaixo para criar uma nova senha com seguranca.</p>
+
+        <div style="margin:0 0 24px;">
+          <a href="${safeActionUrl}" style="display:inline-block;background:#1d4ed8;color:#ffffff;text-decoration:none;font-weight:700;font-size:16px;padding:14px 22px;border-radius:10px;">Redefinir senha agora</a>
+        </div>
+
+        <div style="margin:0 0 24px;padding:18px 20px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;">
+          <div style="font-size:14px;font-weight:700;color:#0f172a;margin-bottom:10px;">Resumo do acesso</div>
+          <div style="font-size:14px;line-height:1.8;color:#475569;">
+            <div><strong>Nome:</strong> ${safeFullName}</div>
+            <div><strong>E-mail de acesso:</strong> ${safeEmail}</div>
+            <div><strong>Solicitado em:</strong> ${safeRequestedAt}</div>
+            <div><strong>Origem da solicitacao:</strong> ${safeRequestIp}</div>
+          </div>
+        </div>
+
+        <div style="margin:0 0 24px;padding:18px 20px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;">
+          <div style="font-size:14px;font-weight:700;color:#1e3a8a;margin-bottom:10px;">Proximos passos</div>
+          <div style="font-size:14px;line-height:1.8;color:#1e3a8a;">
+            ${nextSteps.map((step) => `<div>${escapeManagedUserEmailHtml(step)}</div>`).join('')}
+          </div>
+        </div>
+
+        <p style="margin:0 0 12px;font-size:14px;line-height:1.7;color:#475569;">Se o botao nao abrir, copie e cole este link no navegador:</p>
+        <p style="margin:0 0 18px;font-size:14px;line-height:1.7;word-break:break-word;"><a href="${safeActionUrl}" style="color:#1d4ed8;text-decoration:none;">${safeActionUrl}</a></p>
+        <p style="margin:0 0 10px;font-size:14px;line-height:1.7;color:#475569;">Se voce nao solicitou esta redefinicao, ignore este email. Nenhuma alteracao sera aplicada sem a conclusao pelo link acima.</p>
+        <p style="margin:0;font-size:14px;line-height:1.7;color:#64748b;">Suporte: <a href="mailto:${safeSupportEmail}" style="color:#1d4ed8;text-decoration:none;">${safeSupportEmail}</a></p>
+      </div>
+    </div>`;
+
+  const text = [
+    subject,
+    '',
+    'Recebemos uma solicitacao de redefinicao de senha para a sua conta.',
+    `Nome: ${String(params.fullName || 'Cliente').trim() || 'Cliente'}`,
+    `E-mail de acesso: ${String(params.email || '').trim()}`,
+    `Solicitado em: ${formatManagedUserEmailDateTime(params.requestedAt)}`,
+    `Origem da solicitacao: ${String(params.requestIp || 'Nao identificado').trim() || 'Nao identificado'}`,
+    '',
+    'Proximos passos:',
+    ...nextSteps,
+    '',
+    'Link seguro:',
+    String(params.actionUrl || '').trim(),
+    '',
+    `Suporte: ${String(params.supportEmail || 'suporte@flixprev.com.br').trim() || 'suporte@flixprev.com.br'}`,
+    'Se voce nao solicitou esta redefinicao, ignore este email.',
+  ].join('\n');
+
+  return { subject, html, text };
+}
+
+async function sendPasswordRecoveryEmail(params = {}) {
+  const emailConfig = ensureManagedUserEmailConfig();
+  const emailContent = buildPasswordRecoveryEmailContent({
+    ...params,
+    brandName: emailConfig.brandName,
+    supportEmail: emailConfig.supportEmail,
+  });
+
+  const response = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${emailConfig.resendApiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      from: emailConfig.fromEmail,
+      to: [String(params.email || '').trim()],
+      subject: emailContent.subject,
+      html: emailContent.html,
+      text: emailContent.text,
+    }),
+  });
+
+  if (!response.ok) {
+    const payload = await response.text();
+    const error = new Error(`Erro ao enviar email via Resend: ${payload || response.status}`);
+    error.statusCode = response.status === 429 ? 429 : 500;
+    error.publicMessage = response.status === 429
+      ? 'O servico de email limitou temporariamente o envio. Tente novamente em alguns minutos.'
+      : 'Nao foi possivel concluir o envio do email agora. Tente novamente em instantes.';
+    throw error;
+  }
+
+  return response.json().catch(() => null);
+}
+
 async function withDatabaseFallback(label, operation, fallback) {
   try {
     return await operation();
@@ -10582,6 +10848,116 @@ app.post('/api/notifications', async (req, res) => {
     res.status(201).json(created);
   } catch (e) {
     res.status(500).json({ error: e.message });
+  }
+});
+
+// O link vai com um token de recuperação: nunca montar a URL a partir de um Origin arbitrário.
+function resolvePasswordResetAppBaseUrl(req) {
+  let configured = String(process.env.APP_BASE_URL || '').trim() || 'https://flixprev.com.br';
+  if (!/^https?:\/\//i.test(configured)) {
+    configured = `https://${configured}`;
+  }
+  configured = configured.replace(/\/$/, '');
+
+  const origin = String(req?.headers?.origin || '').trim().replace(/\/$/, '');
+  try {
+    const originHost = new URL(origin).hostname.toLowerCase();
+    const configuredHost = new URL(configured).hostname.toLowerCase();
+    const isTrustedHost = originHost === configuredHost
+      || originHost === 'flixprev.com.br'
+      || originHost.endsWith('.flixprev.com.br');
+    if (origin.startsWith('https://') && isTrustedHost) {
+      return origin;
+    }
+  } catch {
+    // Origin ausente ou inválido: usa o domínio configurado.
+  }
+
+  return configured;
+}
+
+app.post('/api/auth/request-password-reset', async (req, res) => {
+  const email = String(req.body?.email || '').trim().toLowerCase();
+
+  if (!email) {
+    return res.status(400).json({ error: 'Email é obrigatório' });
+  }
+
+  if (!looksLikeManagedUserEmailAddress(email)) {
+    return res.status(400).json({ error: 'Informe um email válido.' });
+  }
+
+  const requestIp = resolveManagedUserRequestIp(req);
+  if (isPasswordResetThrottled(email, requestIp)) {
+    return res.status(429).json({ error: 'Aguarde um minuto antes de pedir um novo link.' });
+  }
+
+  const successPayload = {
+    message: 'Se o email existir na base, enviaremos um link para redefinição em instantes.',
+  };
+
+  try {
+    const client = ensureSupabaseAdminAvailable();
+    const appBaseUrl = resolvePasswordResetAppBaseUrl(req);
+
+    const userLookupResponse = await client
+      .from('usuarios')
+      .select('nome_completo')
+      .eq('email', email)
+      .limit(1)
+      .maybeSingle();
+
+    if (userLookupResponse.error) {
+      console.warn('[AUTH][RESET-PASSWORD] Falha ao carregar nome do usuario:', userLookupResponse.error.message);
+    }
+
+    const linkResponse = await client.auth.admin.generateLink({
+      type: 'recovery',
+      email,
+      options: {
+        redirectTo: `${appBaseUrl}/reset-password`,
+      },
+    });
+
+    if (linkResponse.error) {
+      const errorMessage = String(linkResponse.error.message || '').toLowerCase();
+
+      if (isManagedUserMissingAccountErrorMessage(errorMessage)) {
+        return res.status(200).json(successPayload);
+      }
+
+      if (isManagedUserInvalidEmailErrorMessage(errorMessage)) {
+        return res.status(400).json({ error: 'Informe um email válido.' });
+      }
+
+      if (isManagedUserRateLimitErrorMessage(errorMessage)) {
+        return res.status(429).json({ error: 'O provedor limitou temporariamente o envio. Aguarde alguns minutos e tente novamente.' });
+      }
+
+      throw new Error(linkResponse.error.message || 'Falha ao gerar link de redefinição');
+    }
+
+    const tokenHash = String(linkResponse.data?.properties?.hashed_token || '').trim();
+    if (!tokenHash) {
+      throw new Error('Token de redefinicao nao retornado pelo Supabase');
+    }
+
+    await sendPasswordRecoveryEmail({
+      email,
+      fullName: userLookupResponse.data?.nome_completo || null,
+      actionUrl: buildManagedUserAuthActionUrl(appBaseUrl, tokenHash, 'recovery'),
+      requestIp,
+      requestedAt: new Date(),
+    });
+
+    return res.status(200).json(successPayload);
+  } catch (error) {
+    console.error('[AUTH][RESET-PASSWORD] Error:', error);
+    const statusCode = Number(error?.statusCode) || 500;
+    const publicMessage = statusCode >= 500
+      ? String(error?.publicMessage || 'Nao foi possivel enviar o email de redefinicao agora. Tente novamente em instantes.')
+      : String(error?.publicMessage || error?.message || 'Erro ao enviar email de redefinicao');
+    return res.status(statusCode).json({ error: publicMessage });
   }
 });
 

@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { supabaseAuth } from "@/lib/supabase-auth";
+import { buildApiUrl } from "@/lib/api";
 import { toast } from 'sonner'; // Importar toast
 import FlixPrevLogo from '@/components/ui/FlixPrevLogo';
 
@@ -24,18 +24,22 @@ const EsqueciSenha: React.FC = () => {
     }
 
     try {
-      const { error } = await supabaseAuth.auth.resetPasswordForEmail(email.trim(), {
-        redirectTo: `${window.location.origin}/reset-password`,
+      // O servidor gera o link e envia pelo Resend (o SMTP padrão do Supabase estoura o limite por hora).
+      const response = await fetch(buildApiUrl('/api/auth/request-password-reset'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim() }),
       });
+      const payload = await response.json().catch(() => null);
 
-      if (error) {
-        throw new Error(error.message || 'Não foi possível enviar o email de redefinição.');
+      if (!response.ok) {
+        throw new Error(payload?.error || 'Não foi possível enviar o email de redefinição.');
       }
 
       toast.success("Se o e-mail existir, enviaremos o link de redefinição em instantes.");
       setEmail('');
     } catch (err: any) {
-      toast.error("Ocorreu um erro inesperado: " + err.message);
+      toast.error(err?.message || "Não foi possível enviar o email de redefinição.");
     } finally {
       setLoading(false);
     }
