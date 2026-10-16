@@ -1096,6 +1096,7 @@ function getFocusedSearchTerms(queryText = '') {
   const legalNumbers = new Set([
     ...legalSignals.articleNumbers,
     ...legalSignals.lawReferences.map((reference) => reference.number),
+    ...legalSignals.keywordHints.filter((hint) => /^\d+$/.test(hint)),
   ]);
   return buildRetrievalKeywords(queryText, { limit: 24 })
     .sort((left, right) => {
@@ -4323,8 +4324,8 @@ async function searchKeywordChunks(queryText, agentId, limit = DEFAULT_RAG_KEYWO
     return await withDatabaseFallback(
       'searchKeywordChunks',
       async () => {
-        const likeClauses = keywords.map((_, index) => `dc.content ILIKE $${index + 2}`);
-        const scoreTerms = keywords.map((keyword, index) => `(CASE WHEN dc.content ILIKE $${index + 2} THEN ${Math.min(keyword.length, 12)} ELSE 0 END)`);
+        const likeClauses = keywords.map((_, index) => `(dc.content ILIKE $${index + 2} OR COALESCE(d.title, '') ILIKE $${index + 2})`);
+        const scoreTerms = keywords.map((keyword, index) => `((CASE WHEN dc.content ILIKE $${index + 2} THEN ${Math.min(keyword.length, 12) * 2} ELSE 0 END) + (CASE WHEN COALESCE(d.title, '') ILIKE $${index + 2} THEN ${Math.min(keyword.length, 12) * 4} ELSE 0 END))`);
         const candidateLimit = Math.max(limit * 8, Math.min(DEFAULT_RAG_CANDIDATE_LIMIT, 600));
         const result = await pool.query(`
           SELECT
@@ -4948,6 +4949,13 @@ function getGroundedCitationIds(text = '') {
   ));
 }
 
+function normalizeGroundedCitations(value = '') {
+  return String(value || '').replace(/\[(?:Fonte|Fontes)\s+(\d+(?:\s*(?:,|e|&)\s*(?:Fonte\s*)?\d+)*)\]/gi, (_match, values) => (
+    Array.from(new Set(Array.from(String(values).matchAll(/\d+/g)).map((match) => Number(match[0]))))
+      .map((id) => `[Fonte ${id}]`).join(' ')
+  ));
+}
+
 function appendGroundedSourceDetails(answer = '', context = '') {
   const sources = getGroundedSourceMap(context);
   const citedIds = getGroundedCitationIds(answer).filter((id) => sources.has(id));
@@ -4998,7 +5006,8 @@ function buildContextLimitationResponse(question = '', context = '') {
 }
 
 function validateOutput(text, hasContext = true, question = '', questionType = 'general', contextSize = 0, chunksUsed = 0, context = '') {
-  let finalResponse = text;
+  const normalizedText = normalizeGroundedCitations(text);
+  let finalResponse = normalizedText;
 
   // Padrões de alucinação
   const severeAllucinationPatterns = [
@@ -5008,20 +5017,20 @@ function validateOutput(text, hasContext = true, question = '', questionType = '
   ];
 
   for (const pattern of severeAllucinationPatterns) {
-    if (pattern.test(text)) {
+    if (pattern.test(normalizedText)) {
       console.log(`[VALIDATOR] 🚨 Alucinação detectada e bloqueada.`);
       return buildContextLimitationResponse(question, context);
     }
   }
 
   if (hasContext) {
-    const citationIds = getGroundedCitationIds(text);
+    const citationIds = getGroundedCitationIds(normalizedText);
     const sourceMap = getGroundedSourceMap(context);
     const hasSourceMarkers = citationIds.length > 0;
     const invalidCitations = citationIds.filter((id) => !sourceMap.has(id));
-    const coverageStats = getGroundedCoverageStats(text, context);
+    const coverageStats = getGroundedCoverageStats(normalizedText, context);
     const hasCoverage = coverageStats.ratio >= 0.4;
-    const answerReferences = extractLegalReferenceSignals(text);
+    const answerReferences = extractLegalReferenceSignals(normalizedText);
     const contextReferences = extractLegalReferenceSignals(context);
     const unsupportedArticles = answerReferences.articleNumbers.filter((number) => !contextReferences.articleNumbers.includes(number));
     const unsupportedLaws = answerReferences.lawReferences.filter((reference) => !contextReferences.lawReferences.some((sourceReference) => (
@@ -5038,7 +5047,7 @@ function validateOutput(text, hasContext = true, question = '', questionType = '
       invalidCitations,
       unsupportedArticles,
       unsupportedLaws: unsupportedLaws.map((reference) => `${reference.kind} ${reference.number}`),
-      answerPreview: String(text || '').replace(/\s+/g, ' ').trim().slice(0, 180),
+      answerPreview: normalizedText.replace(/\s+/g, ' ').trim().slice(0, 180),
     };
 
     if (!hasCoverage || invalidCitations.length > 0 || unsupportedArticles.length > 0 || unsupportedLaws.length > 0) {
