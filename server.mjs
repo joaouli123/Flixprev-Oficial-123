@@ -3997,6 +3997,11 @@ function dedupeRetrievedRows(rows = []) {
 }
 
 function rerankRetrievedRows(rows = [], queryText = '', limit = DEFAULT_RAG_RETURN_LIMIT) {
+  const legalSignals = extractLegalReferenceSignals(queryText);
+  const primaryDocumentHints = [
+    ...legalSignals.statuteAliases,
+    ...legalSignals.lawReferences.map((reference) => reference.number),
+  ].filter((hint) => hint.length >= 4);
   return dedupeRetrievedRows(rows)
     .map((row) => {
       const similarity = Number(row?.similarity || 0);
@@ -4004,13 +4009,16 @@ function rerankRetrievedRows(rows = [], queryText = '', limit = DEFAULT_RAG_RETU
       const legalScore = computeChunkLegalScore(row?.content || '', queryText);
       const definitionScore = computeChunkDefinitionScore(row?.content || '', queryText);
       const termCoverageScore = computeChunkTermCoverageScore(row?.content || '', queryText);
-      const finalScore = (similarity * 120) + lexicalScore + (legalScore * 1.15) + definitionScore + termCoverageScore + (row?.injected ? 8 : 0);
+      const normalizedTitle = normalizeRetrievalText(row?.documentTitle || '');
+      const primaryDocumentScore = primaryDocumentHints.some((hint) => normalizedTitle.includes(hint)) ? 48 : 0;
+      const finalScore = (similarity * 120) + lexicalScore + (legalScore * 1.15) + definitionScore + termCoverageScore + primaryDocumentScore + (row?.injected ? 8 : 0);
       return {
         ...row,
         lexicalScore,
         legalScore,
         definitionScore,
         termCoverageScore,
+        primaryDocumentScore,
         finalScore,
       };
     })
