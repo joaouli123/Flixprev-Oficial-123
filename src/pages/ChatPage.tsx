@@ -325,6 +325,7 @@ const ChatPage = () => {
       const decoder = new TextDecoder();
       let assistantContent = "";
       let buffer = "";
+      let streamCompleted = false;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -338,19 +339,30 @@ const ChatPage = () => {
           if (part.startsWith("data: ")) {
             const jsonStr = part.slice(6).trim();
             if (jsonStr === "[DONE]") break;
+            let data: any;
             try {
-              const data = JSON.parse(jsonStr);
-              if (data.content) {
-                assistantContent += data.content;
-              }
-              if (data.done) break;
-              if (data.error) throw new Error(data.error);
+              data = JSON.parse(jsonStr);
             } catch (e: any) {
-              if (e.message.includes("AI Error")) throw e;
               console.warn("Parse error in stream chunk:", e);
+              continue;
+            }
+
+            // Erros SSE são respostas da API, não erros de JSON. Mantê-los fora
+            // do try de parsing evita engolir a falha e renderizar um balão vazio.
+            if (data.error) throw new Error(data.error);
+            if (data.content) assistantContent += data.content;
+            if (data.done) {
+              streamCompleted = true;
+              break;
             }
           }
         }
+      }
+
+      if (!assistantContent.trim()) {
+        throw new Error(streamCompleted
+          ? "O agente concluiu sem retornar conteúdo. Tente novamente."
+          : "A conexão com o agente foi interrompida antes da resposta. Tente novamente.");
       }
 
       // Add full message at the end instead of streaming

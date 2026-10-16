@@ -1295,7 +1295,7 @@ function getAiRuntimeConfig() {
     process.env.AI_CHAT_API_KEY,
     defaultChatApiKey
   );
-  const chatModel = getFirstNonEmptyEnv(process.env.CHAT_MODEL) || (anthropicApiKey ? 'claude-sonnet-4-6' : (geminiApiKey ? 'gemini-2.5-flash' : 'gpt-4o'));
+  const chatModel = getFirstNonEmptyEnv(process.env.CHAT_MODEL) || (anthropicApiKey ? 'claude-sonnet-4-6' : (geminiApiKey ? 'gemini-3.8-flash' : 'gpt-4o'));
   const chatBaseURL = normalizeBaseUrl(getFirstNonEmptyEnv(
     process.env.CHAT_BASE_URL,
     process.env.AI_CHAT_BASE_URL,
@@ -1391,7 +1391,7 @@ function getAuxiliaryTextRuntimeConfig({ requestedModel = '' } = {}) {
 
   const model = String(
     explicitModel
-    || ((geminiApiKey || (sharedOpenAiCompatibleApiKey && sharedLooksGoogle)) ? 'gemini-2.5-flash' : '')
+    || ((geminiApiKey || (sharedOpenAiCompatibleApiKey && sharedLooksGoogle)) ? 'gemini-3.1-flash-lite' : '')
     || (anthropicApiKey ? 'claude-haiku-4-5-20251001' : '')
     || (openAiApiKey ? 'gpt-4o-mini' : '')
     || cfg.fastChatModel
@@ -2724,7 +2724,7 @@ async function extractPdfTextViaAiFallback(fileBuffer, filePath) {
 
   try {
     const geminiKey = process.env.GEMINI_API_KEY;
-    const geminiModel = process.env.GEMINI_PDF_MODEL || process.env.GEMINI_DIRECT_MODEL || 'gemini-2.5-flash';
+    const geminiModel = process.env.GEMINI_PDF_MODEL || process.env.GEMINI_DIRECT_MODEL || 'gemini-3.8-flash';
 
     if (!geminiKey) {
       return '';
@@ -3063,7 +3063,7 @@ async function askGeminiDirectlyFromPdf(fullPath, fileName, question, agentInstr
     const geminiKey = process.env.GEMINI_API_KEY;
     if (!geminiKey) return '';
 
-    const model = process.env.GEMINI_DIRECT_MODEL || process.env.GEMINI_PDF_MODEL || 'gemini-2.5-flash';
+    const model = process.env.GEMINI_DIRECT_MODEL || process.env.GEMINI_PDF_MODEL || 'gemini-3.8-flash';
     const pdfBuffer = await fs.promises.readFile(fullPath);
     const maxBytes = 18 * 1024 * 1024;
     if (pdfBuffer.length > maxBytes) {
@@ -3127,7 +3127,7 @@ Responda de forma objetiva em português. Se possível, traga resumo e pontos pr
       userId: logContext.userId,
       conversationId: logContext.conversationId,
       requestType: 'pdf_direct_analysis',
-      model: process.env.GEMINI_DIRECT_MODEL || process.env.GEMINI_PDF_MODEL || 'gemini-2.5-flash',
+      model: process.env.GEMINI_DIRECT_MODEL || process.env.GEMINI_PDF_MODEL || 'gemini-3.8-flash',
       status: 'error',
       promptTokens: 0,
       completionTokens: 0,
