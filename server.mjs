@@ -4945,8 +4945,14 @@ function hasGroundedSourceMarkers(text = '') {
 
 function getGroundedSourceMap(context = '') {
   const sources = new Map();
-  for (const match of String(context || '').matchAll(/^\[Fonte\s+(\d+)\s*\|\s*(.+?)\s*\|\s*trecho\s+([^\]|]+)/gim)) {
-    sources.set(Number(match[1]), { title: match[2].trim(), chunk: match[3].trim() });
+  for (const section of String(context || '').split(/\n\n---\n\n/)) {
+    const match = section.match(/^\[Fonte\s+(\d+)\s*\|\s*(.+?)\s*\|\s*trecho\s+([^\]|]+)[^\n]*\]\n/i);
+    if (!match) continue;
+    sources.set(Number(match[1]), {
+      title: match[2].trim(),
+      chunk: match[3].trim(),
+      content: section.slice(match[0].length),
+    });
   }
   return sources;
 }
@@ -5040,7 +5046,12 @@ function validateOutput(text, hasContext = true, question = '', questionType = '
     const hasCoverage = coverageStats.ratio >= 0.4;
     const answerReferences = extractLegalReferenceSignals(normalizedText);
     const contextReferences = extractLegalReferenceSignals(context);
-    const unsupportedArticles = answerReferences.articleNumbers.filter((number) => !contextReferences.articleNumbers.includes(number));
+    const citedEvidence = citationIds.map((id) => {
+      const source = sourceMap.get(id);
+      return source ? `${source.title}\n${source.content}` : '';
+    }).filter(Boolean).join('\n');
+    const articleEvidence = extractLegalReferenceSignals(citedEvidence || context);
+    const unsupportedArticles = answerReferences.articleNumbers.filter((number) => !articleEvidence.articleNumbers.includes(number));
     const unsupportedLaws = answerReferences.lawReferences.filter((reference) => !contextReferences.lawReferences.some((sourceReference) => (
       sourceReference.number.startsWith(reference.number) || reference.number.startsWith(sourceReference.number)
     )));
@@ -8581,6 +8592,47 @@ async function getAllAgentChunkRows(agentId, chunkCount = 0, limit = DEFAULT_RAG
   );
 }
 
+async function hasIndexedArticle(agentId, articleNumber) {
+  const number = String(articleNumber || '').toLowerCase();
+  if (!agentId || !/^\d+[a-z]?$/.test(number)) return true;
+  const pattern = new RegExp(`\\bart(?:igo)?\\s*[.º°o-]*\\s*${number}(?!\\d)`, 'i');
+  const candidateLimit = 200;
+  return withDatabaseFallback(
+    'hasIndexedArticle',
+    async () => {
+      const result = await pool.query(
+        'SELECT content FROM document_chunks WHERE agent_id = $1 AND content ILIKE $2 LIMIT $3',
+        [agentId, `%${number}%`, candidateLimit]
+      );
+      const rows = result.rows || [];
+      return rows.length >= candidateLimit || rows.some((row) => pattern.test(row.content || ''));
+    },
+    async () => {
+      const client = ensureSupabaseAdminAvailable();
+      const response = await client.from('document_chunks').select('content')
+        .eq('agent_id', agentId).ilike('content', `%${number}%`).limit(candidateLimit);
+      if (response.error) throw createSupabaseFallbackError(response.error, 'Erro ao verificar artigo no acervo');
+      const rows = response.data || [];
+      return rows.length >= candidateLimit || rows.some((row) => pattern.test(row.content || ''));
+    }
+  );
+}
+
+async function shouldRetryDeepSearch(question, agentId) {
+  const articles = extractLegalReferenceSignals(question).articleNumbers;
+  if (articles.length === 0) return true;
+  try {
+    for (const article of articles) {
+      if (await hasIndexedArticle(agentId, article)) return true;
+    }
+    console.log(`[SEARCH][DEEP] Artigo citado não consta no índice do agente ${agentId}; varredura dispensada.`);
+    return false;
+  } catch (error) {
+    console.warn('[SEARCH][DEEP] Verificação do artigo falhou; mantendo busca ampla:', error?.message || error);
+    return true;
+  }
+}
+
 async function searchDeepAgentChunks({
   question = '',
   retrievalQuery = '',
@@ -8594,14 +8646,14 @@ async function searchDeepAgentChunks({
   }
 
   const queryTexts = buildDeepRetrievalQueries(question, retrievalQuery || question);
-  const hypothetical = await generateHypotheticalAnswer(question || retrievalQuery);
+  const hypothetical = RAG_EXTREME_MODE ? await generateHypotheticalAnswer(question || retrievalQuery) : '';
   if (hypothetical) {
     queryTexts.push(hypothetical);
   }
   const databaseRows = Number(chunkCount || 0) > 0
     ? await getAllAgentChunkRows(agentId, chunkCount)
     : [];
-  const attachmentRows = Array.isArray(attachments) && attachments.length > 0
+  const attachmentRows = databaseRows.length === 0 && Array.isArray(attachments) && attachments.length > 0
     ? await getAgentAttachmentChunkRows(agentId, attachments)
     : [];
   const allRows = dedupeRetrievedRows([...databaseRows, ...attachmentRows]);
@@ -8958,7 +9010,8 @@ async function handleSupabaseConversationMessageFallback({ res, userId, cid, con
     );
 
     // Só ampliar a busca quando a primeira resposta não encontrou base suficiente.
-    if (!usedDirectPdfAnswer && effectiveAgentId && agentDetails && totalChunkCount > 0 && isGroundedFallbackResponse(finalAssistantText) && retrievalDebug.deepRetrieved === 0) {
+    if (!usedDirectPdfAnswer && effectiveAgentId && agentDetails && totalChunkCount > 0 && isGroundedFallbackResponse(finalAssistantText) && retrievalDebug.deepRetrieved === 0 && await shouldRetryDeepSearch(userText, effectiveAgentId)) {
+      res.write(`data: ${JSON.stringify({ status: 'Ampliando a busca nos documentos' })}\n\n`);
       retrievalDebug.retryAttempted = true;
       retrievalDebug.deepSearchTriggered = true;
 
@@ -10134,6 +10187,7 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
     res.setHeader("X-Accel-Buffering", "no");
     if (res.flushHeaders) res.flushHeaders();
     res.write(`data: ${JSON.stringify({ status: 'Consultando os documentos' })}\n\n`);
+    const retrievalStartedAt = Date.now();
 
     let prompt = buildGroundedPrompt(attachmentContext || '', '', userText || 'Analise o anexo enviado.', conversationContext);
     let mergedContext = attachmentContext || '';
@@ -10276,6 +10330,7 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
     msgs.push(...history);
 
     res.write(`data: ${JSON.stringify({ status: 'Conferindo a resposta com as fontes' })}\n\n`);
+    const generationStartedAt = Date.now();
 
     const aiCfg = getAiRuntimeConfig();
     const fullResp = effectiveAgentId && !hasContext
@@ -10291,6 +10346,7 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
     });
 
     const cleanedFullResp = fullResp.replace(/\[\s*Trecho\s*ID\s*:\s*\d+\s*\]/gi, '').trim();
+    const initialGenerationFinishedAt = Date.now();
     let validatedResp = validateOutput(
       cleanedFullResp || 'N\u00e3o consegui gerar uma resposta agora.',
       hasContext,
@@ -10301,7 +10357,8 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
       mergedContext,
     );
 
-    if (effectiveAgentId && agentData && totalChunkCount > 0 && isGroundedFallbackResponse(validatedResp) && preAnswerDeepRetrieved === 0) {
+    if (effectiveAgentId && agentData && totalChunkCount > 0 && isGroundedFallbackResponse(validatedResp) && preAnswerDeepRetrieved === 0 && await shouldRetryDeepSearch(userText, effectiveAgentId)) {
+      res.write(`data: ${JSON.stringify({ status: 'Ampliando a busca nos documentos' })}\n\n`);
       try {
         const deepResult = await searchDeepAgentChunks({
           question: userText,
@@ -10376,6 +10433,7 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
       requestType: attachment ? 'chat_completion_with_attachment_refinement' : 'chat_completion_refinement',
     });
     validatedResp = appendGroundedSourceDetails(validatedResp, relevantContext);
+    console.log(`[CHAT][TIMING] ${JSON.stringify({ agentId: effectiveAgentId, retrievalMs: generationStartedAt - retrievalStartedAt, generationMs: initialGenerationFinishedAt - generationStartedAt, postProcessingMs: Date.now() - initialGenerationFinishedAt, totalMs: Date.now() - retrievalStartedAt, chunksUsed, responseChars: validatedResp.length })}`);
 
     const chunkSize = 50;
     for (let i = 0; i < validatedResp.length; i += chunkSize) {
