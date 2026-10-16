@@ -5012,6 +5012,10 @@ function buildExtractiveLegalFallback(question = '', context = '') {
       const articleText = nextArticle
         ? remaining.slice(0, match[0].length + nextArticle.index)
         : remaining;
+      // An indexed copy may contain broken encoding or historical versions of
+      // the same article. Never present such a chunk as the current literal law.
+      if (articleText.includes('\uFFFD')
+        || /\b(redacao dada|revogad[oa])\b/i.test(normalizeRetrievalText(articleText))) continue;
       const paragraphMarkers = Array.from(articleText.matchAll(/(?:§\s*\d+\s*[º°o.]?|par[aá]grafo\s+único)/gi));
       const sections = [
         articleText.slice(0, paragraphMarkers[0]?.index ?? articleText.length),
