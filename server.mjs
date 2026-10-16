@@ -5054,6 +5054,36 @@ function buildExtractiveLegalFallback(question = '', context = '') {
   return '';
 }
 
+async function buildOfficialClt134Fallback(question = '', context = '') {
+  const signals = extractLegalReferenceSignals(question);
+  if (!signals.articleNumbers.includes('134') || !/\bclt\b|\bf[eé]rias\b/i.test(question)
+    || /(?:§\s*|par[aá]grafo\s+)/i.test(question)) return '';
+
+  const sourceEntry = Array.from(getGroundedSourceMap(context).entries())
+    .find(([, source]) => /^https?:\/\/(?:www\.)?planalto\.gov\.br\/ccivil_03\/decreto-lei\/del5452\.htm$/i.test(source.title));
+  if (!sourceEntry) return '';
+
+  try {
+    const [id, source] = sourceEntry;
+    const live = await sharedFetchLinkKnowledgeSource(source.title, { signal: AbortSignal.timeout(5000) });
+    const articleStarts = Array.from(live.text.matchAll(/(?:^|\n)Art\.?\s*134\s*[-.]/gim));
+    // The consolidated CLT contains the superseded wording before the current article.
+    const current = articleStarts.at(-1);
+    if (!current || articleStarts.length < 2) return '';
+    const currentText = live.text.slice(current.index).trimStart();
+    const caput = currentText
+      .split(/\s*\((?:Reda[cç][aã]o dada|Inclu[ií]d[oa]|Revogad[oa])\b/i)[0]
+      .split(/\n\s*(?:§|Art\.)/i)[0]
+      .replace(/\s+/g, ' ').trim();
+    if (caput.length < 80 || caput.length > 450 || caput.includes('\uFFFD')
+      || !/12\s*\(doze\)\s*meses/i.test(caput)) return '';
+    return `O art. 134 da CLT dispõe: “${caput}” [Fonte ${id}]. Portanto, a concessão deve ocorrer nos 12 meses subsequentes à aquisição do direito.`;
+  } catch (error) {
+    console.warn('[CHAT] Falha ao atualizar caput do art. 134 da CLT:', error?.message || error);
+    return '';
+  }
+}
+
 function isNarrowArticleQuestion(question = '') {
   const normalized = normalizeRetrievalText(question);
   return extractLegalReferenceSignals(question).articleNumbers.length === 1
@@ -9083,13 +9113,19 @@ async function handleSupabaseConversationMessageFallback({ res, userId, cid, con
         assistantText = !attachmentContext && isNarrowArticleQuestion(userText)
           ? buildExtractiveLegalFallback(userText, relevantContext)
           : '';
+        if (!assistantText && !attachmentContext && isNarrowArticleQuestion(userText)) {
+          assistantText = await buildOfficialClt134Fallback(userText, relevantContext);
+        }
         if (assistantText) console.log(`[CHAT][DIRECT] Resposta literal do artigo para conversa ${cid}.`);
       }
       if (!assistantText) {
         try {
           assistantText = await generateAssistantText(prompt);
         } catch (error) {
-          assistantText = isRetryableAiError(error) ? buildExtractiveLegalFallback(userText, relevantContext) : '';
+          assistantText = isRetryableAiError(error)
+            ? buildExtractiveLegalFallback(userText, relevantContext)
+              || await buildOfficialClt134Fallback(userText, relevantContext)
+            : '';
           if (!assistantText) throw error;
           console.warn(`[CHAT][SUPABASE-FALLBACK] Provedor indisponível; usando trecho literal do acervo para conversa ${cid}.`);
         }
@@ -10445,6 +10481,9 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
       fullResp = !attachmentContext && isNarrowArticleQuestion(userText)
         ? buildExtractiveLegalFallback(userText, relevantContext)
         : '';
+      if (!fullResp && !attachmentContext && isNarrowArticleQuestion(userText)) {
+        fullResp = await buildOfficialClt134Fallback(userText, relevantContext);
+      }
       if (fullResp) console.log(`[CHAT][DIRECT] Resposta literal do artigo para conversa ${cid}.`);
     }
     if (!fullResp) {
@@ -10459,7 +10498,10 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
           maxTokens: DEFAULT_CHAT_MAX_TOKENS,
         });
       } catch (error) {
-        fullResp = isRetryableAiError(error) ? buildExtractiveLegalFallback(userText, relevantContext) : '';
+        fullResp = isRetryableAiError(error)
+          ? buildExtractiveLegalFallback(userText, relevantContext)
+            || await buildOfficialClt134Fallback(userText, relevantContext)
+          : '';
         if (!fullResp) throw error;
         console.warn(`[CHAT] Provedor indisponível; usando trecho literal do acervo para conversa ${cid}.`);
       }

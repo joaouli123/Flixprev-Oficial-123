@@ -367,6 +367,7 @@ export async function fetchLinkKnowledgeSource(rawUrl, options = {}) {
   const response = await fetch(rawUrl, {
     headers,
     redirect: 'follow',
+    signal: options?.signal,
   });
 
   if (!response.ok) {
