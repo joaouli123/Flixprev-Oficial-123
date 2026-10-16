@@ -3681,6 +3681,15 @@ async function generateHypotheticalAnswer(question) {
 // 3️⃣ Gerar embeddings (OpenAI/Gemini)
 async function generateQueryEmbedding(input, logContext = {}) {
   const cfg = getAiRuntimeConfig();
+  const dedicatedEmbeddingApiKey = getFirstNonEmptyEnv(
+    process.env.EMBEDDING_API_KEY,
+    process.env.AI_EMBEDDING_API_KEY
+  );
+  if (cfg.chatProvider === 'gemini-express' && !dedicatedEmbeddingApiKey) {
+    console.warn('[EMB] Agent Platform Express não oferece embedContent neste endpoint; usando busca lexical sem chamar a chave Gemini antiga.');
+    return null;
+  }
+
   const embeddingClient = createEmbeddingClient();
   if (!embeddingClient) {
     console.warn('[EMB] Nenhum provedor de embeddings configurado para consulta.');
