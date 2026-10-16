@@ -4990,6 +4990,12 @@ function buildExtractiveLegalFallback(question = '', context = '') {
   if (signals.articleNumbers.length === 0) return '';
   const primaryNumber = signals.lawReferences[0]?.number || signals.statuteAliases.find((alias) => /\d{4,}/.test(alias)) || '';
   const titleNumber = String(primaryNumber).match(/\d{4,}/)?.[0]?.slice(0, 4) || '';
+  const requestedParagraph = /(?:§\s*|par[aá]grafo\s+)(\d+)/i.exec(question)?.[1] || '';
+  const requestsUniqueParagraph = /par[aá]grafo\s+único/i.test(question);
+  const requestsCaput = /\bcaput\b/i.test(question);
+  const focusTokens = extractRetrievalTokens(question, { minLength: 4, limit: 20 })
+    .filter((token) => !/^\d+$/.test(token) && !RETRIEVAL_QUERY_META_TOKENS.has(token)
+      && !['lei', 'codigo', 'decreto', 'clt', 'ctn', 'prazo'].includes(token));
   const sources = Array.from(getGroundedSourceMap(context).entries())
     .sort((left, right) => {
       const leftPrimary = titleNumber && normalizeLawNumber(left[1].title).includes(titleNumber) ? 1 : 0;
@@ -5006,7 +5012,32 @@ function buildExtractiveLegalFallback(question = '', context = '') {
       const articleText = nextArticle
         ? remaining.slice(0, match[0].length + nextArticle.index)
         : remaining;
-      const compact = articleText.replace(/\s+/g, ' ').trim();
+      const paragraphMarkers = Array.from(articleText.matchAll(/(?:§\s*\d+\s*[º°o.]?|par[aá]grafo\s+único)/gi));
+      const sections = [
+        articleText.slice(0, paragraphMarkers[0]?.index ?? articleText.length),
+        ...paragraphMarkers.map((marker, index) => articleText.slice(
+          marker.index,
+          paragraphMarkers[index + 1]?.index ?? articleText.length
+        )),
+      ];
+      let selectedText = '';
+      if (requestedParagraph || requestsUniqueParagraph) {
+        const paragraphPattern = requestedParagraph
+          ? new RegExp(`(?:§\\s*${requestedParagraph}\\s*[º°o.]?|par[aá]grafo\\s+${requestedParagraph})`, 'i')
+          : /par[aá]grafo\s+único/i;
+        selectedText = sections.find((section) => paragraphPattern.test(section.slice(0, 35))) || '';
+      } else if (requestsCaput) {
+        selectedText = sections[0] || '';
+      } else {
+        if (focusTokens.length < 2) continue;
+        const rankedSections = sections.filter((section) => section.trim().length >= 50).map((section) => ({
+          section,
+          score: focusTokens.filter((token) => normalizeRetrievalText(section).includes(token.slice(0, 5))).length,
+        })).sort((left, right) => right.score - left.score);
+        if (!rankedSections[0] || rankedSections[0].score < Math.max(2, Math.ceil(focusTokens.length * 0.5))) continue;
+        selectedText = rankedSections[0].section;
+      }
+      const compact = selectedText.replace(/\s+/g, ' ').trim();
       if (compact.length < 50) continue;
       let excerpt = compact.slice(0, 1000);
       if (compact.length > 1000) {
@@ -5017,6 +5048,13 @@ function buildExtractiveLegalFallback(question = '', context = '') {
     }
   }
   return '';
+}
+
+function isNarrowArticleQuestion(question = '') {
+  const normalized = normalizeRetrievalText(question);
+  return extractLegalReferenceSignals(question).articleNumbers.length === 1
+    && String(question).length <= 220
+    && !/\b(compar\w*|analis\w*|explic\w*|interpret\w*|aplic\w*|caso concreto|tod\w*|list\w*|quais artigos|relacion\w*)\b/i.test(normalized);
 }
 
 function getGroundedCoverageStats(text = '', context = '') {
@@ -9038,6 +9076,12 @@ async function handleSupabaseConversationMessageFallback({ res, userId, cid, con
       if (confirmedAbsentArticle || (effectiveAgentId && !hasContext)) {
         assistantText = buildContextLimitationResponse(userText, mergedContext);
       } else {
+        assistantText = !attachmentContext && isNarrowArticleQuestion(userText)
+          ? buildExtractiveLegalFallback(userText, relevantContext)
+          : '';
+        if (assistantText) console.log(`[CHAT][DIRECT] Resposta literal do artigo para conversa ${cid}.`);
+      }
+      if (!assistantText) {
         try {
           assistantText = await generateAssistantText(prompt);
         } catch (error) {
@@ -10394,6 +10438,12 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
     if (confirmedAbsentArticle || (effectiveAgentId && !hasContext)) {
       fullResp = buildContextLimitationResponse(userText, mergedContext);
     } else {
+      fullResp = !attachmentContext && isNarrowArticleQuestion(userText)
+        ? buildExtractiveLegalFallback(userText, relevantContext)
+        : '';
+      if (fullResp) console.log(`[CHAT][DIRECT] Resposta literal do artigo para conversa ${cid}.`);
+    }
+    if (!fullResp) {
       try {
         fullResp = await runChatCompletion({
           messages: msgs,
