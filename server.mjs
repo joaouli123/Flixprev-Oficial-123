@@ -219,6 +219,7 @@ const DEFAULT_RAG_DEEP_SEED_LIMIT = Math.max(10, Number(process.env.RAG_DEEP_SEE
 const DEFAULT_RAG_NEIGHBOR_WINDOW = Math.max(1, Math.min(Number(process.env.RAG_NEIGHBOR_WINDOW || (RAG_EXTREME_MODE ? 3 : 2)) || (RAG_EXTREME_MODE ? 3 : 2), 6));
 const DEFAULT_RAG_CONTEXT_MAX_CHARS = Math.max(12000, Number(process.env.RAG_CONTEXT_MAX_CHARS || (RAG_EXTREME_MODE ? 100000 : 26000)) || (RAG_EXTREME_MODE ? 100000 : 26000));
 const DEFAULT_CHAT_MAX_TOKENS = Number(process.env.CHAT_MAX_TOKENS || (RAG_EXTREME_MODE ? 6400 : 2600));
+const CHAT_PROVIDER_TIMEOUT_MS = Math.max(10000, Math.min(Number(process.env.CHAT_PROVIDER_TIMEOUT_MS || 25000) || 25000, 60000));
 const DEFAULT_FAST_CHAT_MAX_TOKENS = Number(process.env.FAST_CHAT_MAX_TOKENS || (RAG_EXTREME_MODE ? 3600 : 2200));
 const ENABLE_RAG_TYPO_TOLERANCE = !/^(0|false|no)$/i.test(String(process.env.RAG_TYPO_TOLERANCE || 'true').trim());
 const RAG_TYPO_MIN_TOKEN_LENGTH = Math.max(3, Number(process.env.RAG_TYPO_MIN_TOKEN_LENGTH || 4) || 4);
@@ -1365,7 +1366,7 @@ function createOpenAiCompatibleClient({ apiKey, baseURL } = {}) {
     return {
       chat: {
         completions: {
-          create: async ({ model, messages = [], temperature = 0, max_tokens } = {}) => {
+          create: async ({ model, messages = [], temperature = 0, max_tokens, timeout_ms } = {}) => {
             const systemMessages = [];
             const contents = [];
 
@@ -1422,7 +1423,7 @@ function createOpenAiCompatibleClient({ apiKey, baseURL } = {}) {
                   maxOutputTokens: Math.max(512, Number(max_tokens || DEFAULT_CHAT_MAX_TOKENS)),
                 },
               }),
-              signal: AbortSignal.timeout(90000),
+              signal: AbortSignal.timeout(Math.max(10000, Number(timeout_ms || 90000) || 90000)),
             });
 
             const responseText = await response.text();
@@ -1752,7 +1753,7 @@ async function runChatCompletion({
           temperature,
           max_tokens: Math.max(256, Number(maxTokens || getAnthropicMaxTokens(effectiveModel))),
         }),
-        { label: requestType }
+        { label: requestType, maxRetries: 1, baseDelayMs: 500 }
       );
 
       const text = extractTextFromAnthropicMessage(response);
@@ -1779,8 +1780,9 @@ async function runChatCompletion({
         messages,
         temperature,
         max_tokens: Math.max(256, Number(maxTokens || DEFAULT_CHAT_MAX_TOKENS)),
+        ...(cfg.chatProvider === 'gemini-express' ? { timeout_ms: CHAT_PROVIDER_TIMEOUT_MS } : {}),
       }),
-      { label: requestType }
+      { label: requestType, maxRetries: 1, baseDelayMs: 500 }
     );
 
     const text = response.choices?.[0]?.message?.content?.trim() || '';
@@ -9100,6 +9102,9 @@ async function handleSupabaseConversationMessageFallback({ res, userId, cid, con
     return res.end();
   } catch (fallbackError) {
     console.error('[CHAT][SUPABASE-FALLBACK] Erro na geração de resposta:', fallbackError?.message || fallbackError);
+    const publicError = isRetryableAiError(fallbackError)
+      ? 'O provedor de IA demorou a responder. Tente novamente em instantes.'
+      : (fallbackError?.message || 'Erro interno no chat');
     logAiUsageSafe({
       userId,
       conversationId: cid,
@@ -9113,9 +9118,9 @@ async function handleSupabaseConversationMessageFallback({ res, userId, cid, con
       errorMessage: fallbackError?.message || 'Falha no chat fallback',
     });
     if (!res.headersSent) {
-      res.status(500).json({ error: fallbackError?.message || 'Erro interno no chat' });
+      res.status(500).json({ error: publicError });
     } else {
-      res.write(`data: ${JSON.stringify({ error: fallbackError?.message || 'Erro interno' })}\n\n`);
+      res.write(`data: ${JSON.stringify({ error: publicError })}\n\n`);
       res.end();
     }
   }
@@ -10449,6 +10454,9 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
     res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
     res.end();
   } catch (e) {
+    const publicError = isRetryableAiError(e)
+      ? 'O provedor de IA demorou a responder. Tente novamente em instantes.'
+      : (e?.message || 'Erro interno no chat');
     logAiUsageSafe({
       userId,
       conversationId: Number.isFinite(cid) ? cid : null,
@@ -10461,8 +10469,8 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
       costUsd: 0,
       errorMessage: e?.message || 'Falha no chat principal',
     });
-    if (!res.headersSent) res.status(500).json({ error: e.message });
-    else res.write(`data: ${JSON.stringify({ error: e.message })}\n\n`), res.end();
+    if (!res.headersSent) res.status(500).json({ error: publicError });
+    else res.write(`data: ${JSON.stringify({ error: publicError })}\n\n`), res.end();
   }
 });
 
