@@ -97,7 +97,9 @@ const ChatPage = () => {
     }
   }, [urlConvId]);
   const [isSending, setIsSending] = useState(false);
+  const [sendStatus, setSendStatus] = useState("Consultando os documentos");
   const [isLoading, setIsLoading] = useState(true);
+  const sendingConversationRef = useRef<number | "creating" | null>(null);
   const [pendingAttachment, setPendingAttachment] = useState<File | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -140,6 +142,10 @@ const ChatPage = () => {
 
   // Initialize conversation on component mount
   useEffect(() => {
+    if (sendingConversationRef.current === "creating" || sendingConversationRef.current === conversationId) {
+      return;
+    }
+    let active = true;
     const initConversation = async () => {
       if (!userId || !resolvedAgentId) {
         setMessages([]);
@@ -158,12 +164,13 @@ const ChatPage = () => {
           });
           if (res.ok) {
             const msgs = await res.json();
-            const formattedMsgs = msgs.map((m: any) => ({
+            const formattedMsgs = (msgs as Message[]).map((m) => ({
               role: m.role as "user" | "assistant",
               content: m.content,
             }));
-            setMessages(formattedMsgs);
+            if (active && sendingConversationRef.current !== conversationId) setMessages(formattedMsgs);
           } else if (res.status === 403 || res.status === 404) {
+            if (!active || sendingConversationRef.current === conversationId) return;
             setMessages([]);
             setConversationId(null);
             navigate(`/app/agente/${resolvedAgentRouteKey}`, { replace: true });
@@ -200,12 +207,13 @@ const ChatPage = () => {
         console.error("[CHAT] Error:", error);
         // Não limpar mensagens em caso de erro
       } finally {
-        setIsLoading(false);
+        if (active) setIsLoading(false);
       }
     };
     if (agent?.title && userId) {
-      initConversation();
+      void initConversation();
     }
+    return () => { active = false; };
   }, [agent?.title, resolvedAgentId, resolvedAgentRouteKey, conversationId, userId, apiBaseUrl, forceNewConversation, location.search]);
 
   useEffect(() => {
@@ -265,32 +273,37 @@ const ChatPage = () => {
   };
 
   const handleSend = async () => {
-    if (!input.trim() && !pendingAttachment) {
+    if (isSending || isLoading || (!input.trim() && !pendingAttachment)) {
       console.warn("[CHAT] Cannot send: input and attachment are empty");
       return;
     }
 
     let activeConversationId = conversationId;
     if (!activeConversationId) {
+      sendingConversationRef.current = "creating";
       try {
         activeConversationId = await createConversation();
-      } catch (error: any) {
+      } catch (error) {
+        sendingConversationRef.current = null;
         console.error("[CHAT] Failed to create conversation before send:", error);
-        toast.error(error?.message || "Não foi possível iniciar a conversa.");
+        toast.error(error instanceof Error ? error.message : "Não foi possível iniciar a conversa.");
         return;
       }
     }
 
     if (!activeConversationId) {
+      sendingConversationRef.current = null;
       return;
     }
 
+    sendingConversationRef.current = activeConversationId;
     const messageContent = input.trim();
     const attachmentLabel = pendingAttachment ? `\n\n📎 Anexo: ${pendingAttachment.name}` : "";
     const userMsg: Message = { role: "user", content: `${messageContent}${attachmentLabel}`.trim() };
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
     setIsSending(true);
+    setSendStatus("Consultando os documentos");
 
     try {
       const convId = activeConversationId;
@@ -339,10 +352,10 @@ const ChatPage = () => {
           if (part.startsWith("data: ")) {
             const jsonStr = part.slice(6).trim();
             if (jsonStr === "[DONE]") break;
-            let data: any;
+            let data: { error?: string; status?: string; content?: string; done?: boolean };
             try {
               data = JSON.parse(jsonStr);
-            } catch (e: any) {
+            } catch (e) {
               console.warn("Parse error in stream chunk:", e);
               continue;
             }
@@ -350,6 +363,7 @@ const ChatPage = () => {
             // Erros SSE são respostas da API, não erros de JSON. Mantê-los fora
             // do try de parsing evita engolir a falha e renderizar um balão vazio.
             if (data.error) throw new Error(data.error);
+            if (data.status) setSendStatus(String(data.status));
             if (data.content) assistantContent += data.content;
             if (data.done) {
               streamCompleted = true;
@@ -367,15 +381,16 @@ const ChatPage = () => {
 
       // Add full message at the end instead of streaming
       setMessages((prev) => [...prev, { role: "assistant", content: assistantContent }]);
-    } catch (error: any) {
+    } catch (error) {
       console.error("[CHAT] Error:", error);
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", content: `Erro: ${error.message || "Ocorreu um erro ao processar sua solicitação."}` }
+        { role: "assistant", content: `Erro: ${error instanceof Error ? error.message : "Ocorreu um erro ao processar sua solicitação."}` }
       ]);
     } finally {
       setPendingAttachment(null);
       setIsSending(false);
+      sendingConversationRef.current = null;
     }
   };
 
@@ -564,7 +579,7 @@ const ChatPage = () => {
                       <Bot className="h-4 w-4 sm:h-5 sm:w-5" />
                     </div>
                     <div className="px-4 py-3 sm:px-5 sm:py-4 rounded-2xl text-sm sm:text-base leading-relaxed bg-white border border-gray-200 shadow-sm rounded-tl-sm flex items-center">
-                      <TypingIndicator />
+                      <TypingIndicator label={sendStatus} />
                     </div>
                   </div>
                 )}
@@ -622,7 +637,7 @@ const ChatPage = () => {
               />
               <Button 
                 onClick={handleSend} 
-                disabled={isSending || (!input.trim() && !pendingAttachment)}
+                disabled={isSending || isLoading || (!input.trim() && !pendingAttachment)}
                 className="absolute right-2 rounded-xl h-10 w-10 p-0 bg-transparent hover:bg-slate-100 text-slate-400 hover:text-indigo-600 transition-all"
                 data-testid="button-send-message"
               >

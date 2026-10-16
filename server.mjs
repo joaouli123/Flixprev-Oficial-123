@@ -207,9 +207,9 @@ const chatUpload = multer({ storage: chatStorage });
 const hasDatabaseUrl = Boolean(process.env.DATABASE_URL && process.env.DATABASE_URL.trim());
 const GEMINI_OPENAI_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/openai/';
 const ANTHROPIC_BASE_URL = 'https://api.anthropic.com';
-const RAG_EXTREME_MODE = !/^(0|false|no)$/i.test(String(process.env.RAG_EXTREME_MODE || 'true').trim());
+const RAG_EXTREME_MODE = /^(1|true|yes)$/i.test(String(process.env.RAG_EXTREME_MODE || 'false').trim());
 const DEFAULT_RAG_VECTOR_LIMIT = Math.max(8, Math.min(Number(process.env.RAG_VECTOR_LIMIT || (RAG_EXTREME_MODE ? 56 : 28)) || (RAG_EXTREME_MODE ? 56 : 28), 160));
-const DEFAULT_RAG_RETURN_LIMIT = Math.max(6, Math.min(Number(process.env.RAG_RETURN_LIMIT || (RAG_EXTREME_MODE ? 32 : 14)) || (RAG_EXTREME_MODE ? 32 : 14), 120));
+const DEFAULT_RAG_RETURN_LIMIT = Math.max(6, Math.min(Number(process.env.RAG_RETURN_LIMIT || (RAG_EXTREME_MODE ? 32 : 12)) || (RAG_EXTREME_MODE ? 32 : 12), 120));
 const DEFAULT_RAG_MIN_SIMILARITY = Number(process.env.RAG_MIN_SIMILARITY || 0.08) || 0.08;
 const DEFAULT_RAG_KEYWORD_LIMIT = Math.max(8, Math.min(Number(process.env.RAG_KEYWORD_LIMIT || (RAG_EXTREME_MODE ? 44 : 18)) || (RAG_EXTREME_MODE ? 44 : 18), 160));
 const DEFAULT_RAG_CANDIDATE_LIMIT = Math.max(300, Number(process.env.RAG_CANDIDATE_LIMIT || (RAG_EXTREME_MODE ? 3000 : 900)) || (RAG_EXTREME_MODE ? 3000 : 900));
@@ -217,8 +217,8 @@ const DEFAULT_RAG_DEEP_RETURN_LIMIT = Math.max(DEFAULT_RAG_RETURN_LIMIT, Math.mi
 const DEFAULT_RAG_DEEP_SCAN_LIMIT = Math.max(DEFAULT_RAG_CANDIDATE_LIMIT, Number(process.env.RAG_DEEP_SCAN_LIMIT || (RAG_EXTREME_MODE ? 90000 : 20000)) || (RAG_EXTREME_MODE ? 90000 : 20000));
 const DEFAULT_RAG_DEEP_SEED_LIMIT = Math.max(10, Number(process.env.RAG_DEEP_SEED_LIMIT || (RAG_EXTREME_MODE ? 56 : 24)) || (RAG_EXTREME_MODE ? 56 : 24));
 const DEFAULT_RAG_NEIGHBOR_WINDOW = Math.max(1, Math.min(Number(process.env.RAG_NEIGHBOR_WINDOW || (RAG_EXTREME_MODE ? 3 : 2)) || (RAG_EXTREME_MODE ? 3 : 2), 6));
-const DEFAULT_RAG_CONTEXT_MAX_CHARS = Math.max(16000, Number(process.env.RAG_CONTEXT_MAX_CHARS || (RAG_EXTREME_MODE ? 100000 : 42000)) || (RAG_EXTREME_MODE ? 100000 : 42000));
-const DEFAULT_CHAT_MAX_TOKENS = Number(process.env.CHAT_MAX_TOKENS || (RAG_EXTREME_MODE ? 6400 : 3200));
+const DEFAULT_RAG_CONTEXT_MAX_CHARS = Math.max(12000, Number(process.env.RAG_CONTEXT_MAX_CHARS || (RAG_EXTREME_MODE ? 100000 : 26000)) || (RAG_EXTREME_MODE ? 100000 : 26000));
+const DEFAULT_CHAT_MAX_TOKENS = Number(process.env.CHAT_MAX_TOKENS || (RAG_EXTREME_MODE ? 6400 : 2600));
 const DEFAULT_FAST_CHAT_MAX_TOKENS = Number(process.env.FAST_CHAT_MAX_TOKENS || (RAG_EXTREME_MODE ? 3600 : 2200));
 const ENABLE_RAG_TYPO_TOLERANCE = !/^(0|false|no)$/i.test(String(process.env.RAG_TYPO_TOLERANCE || 'true').trim());
 const RAG_TYPO_MIN_TOKEN_LENGTH = Math.max(3, Number(process.env.RAG_TYPO_MIN_TOKEN_LENGTH || 4) || 4);
@@ -1089,6 +1089,25 @@ function buildRetrievalKeywords(value = '', { minLength = 3, limit = 24 } = {}) 
   }
 
   return Array.from(keywords).slice(0, limit);
+}
+
+function getFocusedSearchTerms(queryText = '') {
+  const legalSignals = extractLegalReferenceSignals(queryText);
+  const legalNumbers = new Set([
+    ...legalSignals.articleNumbers,
+    ...legalSignals.lawReferences.map((reference) => reference.number),
+  ]);
+  return buildRetrievalKeywords(queryText, { limit: 24 })
+    .sort((left, right) => {
+      const leftPriority = (legalNumbers.has(left) ? 20 : 0) + Math.min(left.length, 12);
+      const rightPriority = (legalNumbers.has(right) ? 20 : 0) + Math.min(right.length, 12);
+      return rightPriority - leftPriority;
+    })
+    .slice(0, 6);
+}
+
+function isLookingForDocumentBeginning(question = '') {
+  return /\b(primeira frase|primeiro paragrafo|inicio do documento|inicio do arquivo|comeco do documento|titulo do documento|titulo do arquivo|autor do documento)\b/i.test(normalizeRetrievalText(question));
 }
 
 function hasSingleAdjacentTransposition(source = '', target = '') {
@@ -4295,7 +4314,7 @@ async function searchSimilarChunks(queryEmbedding, agentId, limit = DEFAULT_RAG_
 
 // 4B️⃣ Busca por palavra-chave (fallback)
 async function searchKeywordChunks(queryText, agentId, limit = DEFAULT_RAG_KEYWORD_LIMIT) {
-  const keywords = buildRetrievalKeywords(queryText, { limit: Math.max(DEFAULT_RAG_KEYWORD_LIMIT, 18) });
+  const keywords = getFocusedSearchTerms(queryText);
   if (keywords.length === 0) {
     return [];
   }
@@ -4305,19 +4324,22 @@ async function searchKeywordChunks(queryText, agentId, limit = DEFAULT_RAG_KEYWO
       'searchKeywordChunks',
       async () => {
         const likeClauses = keywords.map((_, index) => `dc.content ILIKE $${index + 2}`);
+        const scoreTerms = keywords.map((keyword, index) => `(CASE WHEN dc.content ILIKE $${index + 2} THEN ${Math.min(keyword.length, 12)} ELSE 0 END)`);
+        const candidateLimit = Math.max(limit * 8, Math.min(DEFAULT_RAG_CANDIDATE_LIMIT, 600));
         const result = await pool.query(`
           SELECT
             dc.document_id,
             dc.content,
             dc.chunk_index,
-            COALESCE(d.title, 'Documento sem título') AS document_title
+            COALESCE(d.title, 'Documento sem título') AS document_title,
+            (${scoreTerms.join(' + ')}) AS search_score
           FROM document_chunks dc
           LEFT JOIN documents d ON d.id = dc.document_id
           WHERE dc.agent_id = $1
             AND (${likeClauses.join(' OR ')})
-          ORDER BY dc.chunk_index ASC
+          ORDER BY search_score DESC, dc.chunk_index ASC
           LIMIT $${keywords.length + 2}
-        `, [agentId, ...keywords.map((keyword) => `%${keyword}%`), Math.max(limit * 12, DEFAULT_RAG_CANDIDATE_LIMIT)]);
+        `, [agentId, ...keywords.map((keyword) => `%${keyword}%`), candidateLimit]);
 
         let candidateRows = Array.isArray(result.rows) ? [...result.rows] : [];
         const lowStrictRecall = candidateRows.length < Math.max(10, Math.floor(limit * 0.75));
@@ -4627,7 +4649,7 @@ function orchestrateResponse(rawResponse, questionType, hasContext = true) {
 
   // Remover IDs internos de chunk
   formattedResponse = formattedResponse.replace(/\[\s*Trecho\s*ID\s*:\s*\d+\s*\]/gi, '').trim();
-  formattedResponse = formattedResponse.replace(/\s*\[(?:Fonte:[^\]]+|Fonte\s+\d+)\]/gi, '').trim();
+  formattedResponse = formattedResponse.replace(/\s*\[Fonte:[^\]]+\]/gi, '').trim();
 
   const responseLines = formattedResponse.replace(/\r\n/g, '\n').split('\n');
   const cleanedLines = [];
@@ -4882,7 +4904,7 @@ REGRAS CRITICAS:
 3. Se a pergunta mencionar artigo, paragrafo, lei, decreto, codigo ou sigla normativa, procure primeiro esses identificadores no contexto antes de concluir que a informacao nao esta disponivel.
 4. Se a resposta depender de mais de um trecho, una os trechos sem extrapolar.
 5. Responda de forma natural, como em um chat, sem repetir a pergunta e sem usar titulos como "Resposta Final" ou "Pergunta identificada".
-6. Nao exponha [Fonte N], nomes de trechos, notas de revisao ou detalhes do processo, a menos que o usuario peca isso.
+6. Ao afirmar um fato ou regra, cite o trecho que o sustenta com [Fonte N]. Use somente os numeros de fonte presentes no contexto. Nao exponha IDs internos nem notas de revisao.
 7. Se a informacao nao estiver expressamente nos trechos, explique isso de forma breve, natural e objetiva, sem usar conhecimento externo.
 8. Nao use conhecimento externo, memoria do modelo ou suposicoes.
 9. Quando o contexto trouxer texto legal ou normativo, prefira reproduzir a redacao essencial em vez de parafrasear demais.
@@ -4897,6 +4919,7 @@ REGRAS CRITICAS:
 18. As instrucoes do agente delimitam o escopo do assunto; use os anexos para sustentar esse escopo, sem transformar documentos de apoio em autorizacao para responder sobre outro tema.
 19. Quando a colecao tiver varios documentos relevantes (portarias, PDFs, planilhas ou links), sintetize os pontos complementares em uma unica resposta.
 20. Numeros, nomes e datas de portarias, leis ou atos citados nas instrucoes do agente sao apenas pistas de escopo; so afirme esses dados quando tambem aparecerem no contexto documental.
+21. Para cada conclusao juridica, indique [Fonte N] ao fim da frase. Se o trecho nao sustentar integralmente a conclusao, diga qual ponto nao foi confirmado. Seja breve e responda exatamente ao que foi perguntado.
 
 ${conversationBlock}CONTEXTO DOCUMENTAL:
 ${context}
@@ -4911,8 +4934,35 @@ function hasGroundedSourceMarkers(text = '') {
   return /\[Fonte\s+\d+\]/i.test(String(text || ''));
 }
 
+function getGroundedSourceMap(context = '') {
+  const sources = new Map();
+  for (const match of String(context || '').matchAll(/^\[Fonte\s+(\d+)\s*\|\s*(.+?)\s*\|\s*trecho\s+([^\]|]+)/gim)) {
+    sources.set(Number(match[1]), { title: match[2].trim(), chunk: match[3].trim() });
+  }
+  return sources;
+}
+
+function getGroundedCitationIds(text = '') {
+  return Array.from(new Set(
+    Array.from(String(text || '').matchAll(/\[Fonte\s+(\d+)\]/gi)).map((match) => Number(match[1]))
+  ));
+}
+
+function appendGroundedSourceDetails(answer = '', context = '') {
+  const sources = getGroundedSourceMap(context);
+  const citedIds = getGroundedCitationIds(answer).filter((id) => sources.has(id));
+  if (citedIds.length === 0 || isGroundedFallbackResponse(answer)) {
+    return answer;
+  }
+  const details = citedIds.map((id) => {
+    const source = sources.get(id);
+    return `- Fonte ${id}: ${source.title}, trecho ${source.chunk}`;
+  });
+  return `${String(answer || '').trim()}\n\nFontes consultadas:\n${details.join('\n')}`;
+}
+
 function getGroundedCoverageStats(text = '', context = '') {
-  const answerTokens = extractRetrievalTokens(text, { limit: 32 });
+  const answerTokens = extractRetrievalTokens(String(text || '').replace(/\[Fonte\s+\d+\]/gi, ''), { limit: 32 });
   const normalizedContext = normalizeRetrievalText(context);
   if (!normalizedContext || answerTokens.length === 0) {
     return {
@@ -4934,7 +4984,7 @@ function getGroundedCoverageStats(text = '', context = '') {
 
 function hasGroundedCoverage(text = '', context = '') {
   const stats = getGroundedCoverageStats(text, context);
-  return stats.ratio >= 0.18;
+  return stats.ratio >= 0.4;
 }
 
 function buildContextLimitationResponse(question = '', context = '') {
@@ -4965,9 +5015,18 @@ function validateOutput(text, hasContext = true, question = '', questionType = '
   }
 
   if (hasContext) {
-    const hasSourceMarkers = hasGroundedSourceMarkers(text);
+    const citationIds = getGroundedCitationIds(text);
+    const sourceMap = getGroundedSourceMap(context);
+    const hasSourceMarkers = citationIds.length > 0;
+    const invalidCitations = citationIds.filter((id) => !sourceMap.has(id));
     const coverageStats = getGroundedCoverageStats(text, context);
-    const hasCoverage = coverageStats.ratio >= 0.18;
+    const hasCoverage = coverageStats.ratio >= 0.4;
+    const answerReferences = extractLegalReferenceSignals(text);
+    const contextReferences = extractLegalReferenceSignals(context);
+    const unsupportedArticles = answerReferences.articleNumbers.filter((number) => !contextReferences.articleNumbers.includes(number));
+    const unsupportedLaws = answerReferences.lawReferences.filter((reference) => !contextReferences.lawReferences.some((sourceReference) => (
+      sourceReference.number.startsWith(reference.number) || reference.number.startsWith(sourceReference.number)
+    )));
     const validatorSummary = {
       questionType,
       contextSize,
@@ -4976,18 +5035,19 @@ function validateOutput(text, hasContext = true, question = '', questionType = '
       coverageRatio: Number(coverageStats.ratio.toFixed(3)),
       matchedTokens: coverageStats.matches,
       answerTokens: coverageStats.answerTokens.length,
+      invalidCitations,
+      unsupportedArticles,
+      unsupportedLaws: unsupportedLaws.map((reference) => `${reference.kind} ${reference.number}`),
       answerPreview: String(text || '').replace(/\s+/g, ' ').trim().slice(0, 180),
     };
 
-    if (!hasSourceMarkers && !hasCoverage) {
-      console.log(`[VALIDATOR] Bloqueando resposta sem fonte e com baixa cobertura: ${JSON.stringify(validatorSummary)}`);
+    if (!hasCoverage || invalidCitations.length > 0 || unsupportedArticles.length > 0 || unsupportedLaws.length > 0) {
+      console.log(`[VALIDATOR] Bloqueando resposta sem sustentacao suficiente: ${JSON.stringify(validatorSummary)}`);
       return buildContextLimitationResponse(question, context);
     }
 
     if (!hasSourceMarkers && hasCoverage) {
       console.log(`[VALIDATOR] Permitindo resposta sem [Fonte N] por cobertura suficiente: ${JSON.stringify(validatorSummary)}`);
-    } else if (hasSourceMarkers && !hasCoverage) {
-      console.log(`[VALIDATOR] Permitindo resposta com [Fonte N] apesar de baixa cobertura lexical: ${JSON.stringify(validatorSummary)}`);
     } else {
       console.log(`[VALIDATOR] Resposta validada: ${JSON.stringify(validatorSummary)}`);
     }
@@ -5004,20 +5064,15 @@ function isGroundedFallbackResponse(text = '') {
     || normalized.includes('o documento nao aborda esse ponto')
     || normalized.startsWith('com os trechos disponiveis')
     || normalized.startsWith('com o material disponivel')
+    || normalized.startsWith('nao consegui confirmar esse ponto')
     || normalized.includes('nao foi possivel confirmar com precisao');
 }
 
-function shouldRunStrictGroundedRefinement(question = '', hasContext = false) {
-  if (!hasContext) {
+function shouldRunStrictGroundedRefinement(_question = '', hasContext = false, answer = '') {
+  if (!hasContext || isGroundedFallbackResponse(answer)) {
     return false;
   }
-
-  if (RAG_EXTREME_MODE) {
-    return true;
-  }
-
-  const normalized = normalizeRetrievalText(question);
-  return /\b(quais|qual|quando|como|situac|hipotese|document|requisito|inciso|alinea|caput|art|decreto|lei|norma|prazo)\b/i.test(normalized);
+  return !hasGroundedSourceMarkers(answer);
 }
 
 async function refineGroundedAnswerIfNeeded({
@@ -5033,7 +5088,7 @@ async function refineGroundedAnswerIfNeeded({
   requestType = 'chat_completion_grounded_refinement',
 } = {}) {
   const baseAnswer = String(answer || '').trim();
-  if (!baseAnswer || !shouldRunStrictGroundedRefinement(question, hasContext)) {
+  if (!baseAnswer || !shouldRunStrictGroundedRefinement(question, hasContext, baseAnswer)) {
     return baseAnswer || answer;
   }
 
@@ -5052,7 +5107,7 @@ REGRAS OBRIGATORIAS:
 3. Se a pergunta pedir lista/situacoes/documentos/requisitos, entregue a lista completa e literal dos itens do trecho principal.
 4. Nao misture regras de artigos diferentes quando o enunciado apontar uma situacao especifica.
 5. Nao repita a pergunta e nao use titulos como "Resposta Final", "Pergunta identificada" ou avisos de auditoria.
-6. Nao exponha [Fonte N], IDs, nomes de trechos ou notas do processo, a menos que o usuario peca isso.
+6. Cite cada afirmacao relevante com [Fonte N] do trecho que a sustenta. Nao cite fonte que nao exista no contexto.
 7. Se faltar informacao no contexto, explique de forma breve e natural qual ponto nao deu para confirmar.
 8. Nao use conhecimento externo.
 9. Em materia normativa, privilegie a redacao mais recente indicada no proprio contexto ("Atualizada em", "Redacao dada", "alterado pela", "revogado").
@@ -8373,7 +8428,7 @@ async function getFirstChunksViaSupabase(agentId, limit = 3) {
 
 async function searchKeywordChunksViaSupabase(queryText, agentId, limit = 3) {
   const client = ensureSupabaseAdminAvailable();
-  const keywords = buildRetrievalKeywords(queryText, { limit: Math.max(DEFAULT_RAG_KEYWORD_LIMIT, 18) });
+  const keywords = getFocusedSearchTerms(queryText);
   if (keywords.length === 0) {
     return [];
   }
@@ -8382,8 +8437,9 @@ async function searchKeywordChunksViaSupabase(queryText, agentId, limit = 3) {
     .from('document_chunks')
     .select('document_id, content, chunk_index')
     .eq('agent_id', agentId)
+    .or(keywords.map((keyword) => `content.ilike.%${keyword}%`).join(','))
     .order('chunk_index', { ascending: true })
-    .limit(Math.max(limit * 12, DEFAULT_RAG_CANDIDATE_LIMIT));
+    .limit(Math.max(limit * 8, Math.min(DEFAULT_RAG_CANDIDATE_LIMIT, 600)));
 
   if (response.error) {
     throw createSupabaseFallbackError(response.error, 'Erro ao buscar chunks por palavra-chave');
@@ -8707,6 +8763,13 @@ async function handleSupabaseConversationMessageFallback({ res, userId, cid, con
     }
   }
 
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no');
+  if (res.flushHeaders) res.flushHeaders();
+  res.write(`data: ${JSON.stringify({ status: 'Consultando os documentos' })}\n\n`);
+
   if (effectiveAgentId) {
     try {
       agentDetails = await getAgentViaSupabase(effectiveAgentId);
@@ -8726,7 +8789,7 @@ async function handleSupabaseConversationMessageFallback({ res, userId, cid, con
         };
 
         if (hasChunks) {
-          const isLookingForBeginning = userText.match(/primeira frase|título|inicio|começo|autor/i);
+          const isLookingForBeginning = isLookingForDocumentBeginning(userText);
 
           if (isLookingForBeginning) {
             relevantChunks = await getFirstChunks(effectiveAgentId, 5);
@@ -8841,6 +8904,7 @@ async function handleSupabaseConversationMessageFallback({ res, userId, cid, con
   }
 
   console.log(`[CHAT][SUPABASE-FALLBACK] Retrieval summary: ${JSON.stringify(retrievalDebug)}`);
+  res.write(`data: ${JSON.stringify({ status: 'Conferindo a resposta com as fontes' })}\n\n`);
 
   let assistantText = directPdfAnswer && directPdfAnswer.trim().length > 0 ? directPdfAnswer : '';
 
@@ -8861,7 +8925,9 @@ async function handleSupabaseConversationMessageFallback({ res, userId, cid, con
     };
 
     if (!assistantText) {
-      assistantText = await generateAssistantText(prompt);
+      assistantText = effectiveAgentId && !hasContext
+        ? buildContextLimitationResponse(userText, '')
+        : await generateAssistantText(prompt);
     }
 
     let finalAssistantText = validateOutput(
@@ -8871,11 +8937,11 @@ async function handleSupabaseConversationMessageFallback({ res, userId, cid, con
       questionType,
       contextSize,
       chunksUsed,
-      relevantContext,
+      mergedContext,
     );
 
-    // Se a primeira passada cair em fallback (ou em modo extremo), varremos o indice inteiro antes de desistir.
-    if (!usedDirectPdfAnswer && effectiveAgentId && agentDetails && (RAG_EXTREME_MODE || isGroundedFallbackResponse(finalAssistantText)) && (RAG_EXTREME_MODE || retrievalDebug.deepRetrieved === 0)) {
+    // Só ampliar a busca quando a primeira resposta não encontrou base suficiente.
+    if (!usedDirectPdfAnswer && effectiveAgentId && agentDetails && totalChunkCount > 0 && isGroundedFallbackResponse(finalAssistantText) && retrievalDebug.deepRetrieved === 0) {
       retrievalDebug.retryAttempted = true;
       retrievalDebug.deepSearchTriggered = true;
 
@@ -8919,7 +8985,7 @@ async function handleSupabaseConversationMessageFallback({ res, userId, cid, con
             questionType,
             deepContextSize,
             deepChunksUsed,
-            deepRelevantContext,
+            deepMergedContext,
           );
 
           mergedContext = deepMergedContext;
@@ -8949,14 +9015,10 @@ async function handleSupabaseConversationMessageFallback({ res, userId, cid, con
       conversationId: cid,
       requestType: 'chat_completion_supabase_fallback_refinement',
     });
+    finalAssistantText = appendGroundedSourceDetails(finalAssistantText, relevantContext);
 
     console.log(`[CHAT][SUPABASE-FALLBACK] Retrieval summary: ${JSON.stringify(retrievalDebug)}`);
     await insertConversationMessageViaSupabase(cid, 'assistant', finalAssistantText);
-
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
-    if (res.flushHeaders) res.flushHeaders();
 
     const chunkSize = 50;
     for (let index = 0; index < finalAssistantText.length; index += chunkSize) {
@@ -10049,6 +10111,13 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
       return;
     }
 
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+    res.setHeader("X-Accel-Buffering", "no");
+    if (res.flushHeaders) res.flushHeaders();
+    res.write(`data: ${JSON.stringify({ status: 'Consultando os documentos' })}\n\n`);
+
     let prompt = buildGroundedPrompt(attachmentContext || '', '', userText || 'Analise o anexo enviado.', conversationContext);
     let mergedContext = attachmentContext || '';
     let hasContext = Boolean(attachmentContext && attachmentContext.trim().length > 0);
@@ -10083,7 +10152,7 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
 
           if (hasChunks) {
             try {
-              const isLookingForBeginning = userText.match(/primeira frase|t(?:itulo|\u00edtulo)|inicio|com(?:eco|e\u00e7o)|autor/i);
+              const isLookingForBeginning = isLookingForDocumentBeginning(userText);
 
               if (isLookingForBeginning) {
                 relevantChunks = await getFirstChunks(effectiveAgentId, 5);
@@ -10189,13 +10258,12 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
     const history = hist.rows.slice(-10).map(m => ({ role: m.role, content: m.content }));
     msgs.push(...history);
 
-    res.setHeader("Content-Type", "text/event-stream");
-    res.setHeader("Cache-Control", "no-cache");
-    res.setHeader("Connection", "keep-alive");
-    if (res.flushHeaders) res.flushHeaders();
+    res.write(`data: ${JSON.stringify({ status: 'Conferindo a resposta com as fontes' })}\n\n`);
 
     const aiCfg = getAiRuntimeConfig();
-    const fullResp = await runChatCompletion({
+    const fullResp = effectiveAgentId && !hasContext
+      ? buildContextLimitationResponse(userText, '')
+      : await runChatCompletion({
       messages: msgs,
       model: aiCfg.chatModel,
       userId,
@@ -10213,10 +10281,10 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
       questionType,
       contextSize,
       chunksUsed,
-      relevantContext,
+      mergedContext,
     );
 
-    if (effectiveAgentId && agentData && (RAG_EXTREME_MODE || isGroundedFallbackResponse(validatedResp)) && (RAG_EXTREME_MODE || preAnswerDeepRetrieved === 0)) {
+    if (effectiveAgentId && agentData && totalChunkCount > 0 && isGroundedFallbackResponse(validatedResp) && preAnswerDeepRetrieved === 0) {
       try {
         const deepResult = await searchDeepAgentChunks({
           question: userText,
@@ -10259,7 +10327,7 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
               questionType,
               deepMergedContext.length,
               deepMergedContext.split('\n\n---\n\n').filter(Boolean).length,
-              deepRelevantContext,
+              deepMergedContext,
             );
 
             if (!isGroundedFallbackResponse(deepValidatedResp)) {
@@ -10290,6 +10358,7 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
       conversationId: cid,
       requestType: attachment ? 'chat_completion_with_attachment_refinement' : 'chat_completion_refinement',
     });
+    validatedResp = appendGroundedSourceDetails(validatedResp, relevantContext);
 
     const chunkSize = 50;
     for (let i = 0; i < validatedResp.length; i += chunkSize) {
