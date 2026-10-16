@@ -8723,12 +8723,17 @@ async function handleSupabaseConversationMessageFallback({ res, userId, cid, con
             relevantChunks = await getFirstChunks(effectiveAgentId, 5);
           } else {
             retrievalDebug.embeddingAttempted = true;
-            const queryEmbedding = await generateQueryEmbedding(retrievalQuery || userText, {
-              userId,
-              conversationId: cid,
-              requestType: 'chat_embedding_query_supabase_fallback',
-              label: 'embedding_supabase_fallback',
-            });
+            let queryEmbedding = null;
+            try {
+              queryEmbedding = await generateQueryEmbedding(retrievalQuery || userText, {
+                userId,
+                conversationId: cid,
+                requestType: 'chat_embedding_query_supabase_fallback',
+                label: 'embedding_supabase_fallback',
+              });
+            } catch (embeddingError) {
+              console.warn('[CHAT][RAG] Embedding indisponível no fallback Supabase; continuando com busca lexical:', embeddingError.message);
+            }
 
             if (queryEmbedding) {
               retrievalDebug.embeddingAvailable = true;
@@ -10073,12 +10078,17 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
               if (isLookingForBeginning) {
                 relevantChunks = await getFirstChunks(effectiveAgentId, 5);
               } else {
-                const queryEmbedding = await generateQueryEmbedding(retrievalQuery || userText, {
-                  userId,
-                  conversationId: cid,
-                  requestType: 'chat_embedding_query',
-                  label: 'chat_embedding_query',
-                });
+                let queryEmbedding = null;
+                try {
+                  queryEmbedding = await generateQueryEmbedding(retrievalQuery || userText, {
+                    userId,
+                    conversationId: cid,
+                    requestType: 'chat_embedding_query',
+                    label: 'chat_embedding_query',
+                  });
+                } catch (embeddingError) {
+                  console.warn('[CHAT][RAG] Embedding indisponível; continuando com busca lexical:', embeddingError.message);
+                }
 
                 if (queryEmbedding) {
                   relevantChunks = await searchSimilarChunks(
