@@ -8763,7 +8763,7 @@ async function handleSupabaseConversationMessageFallback({ res, userId, cid, con
             );
           }
 
-          const shouldDeepSearchEarly = shouldTriggerProactiveDeepSearch({
+          const shouldDeepSearchEarly = retrievalDebug.embeddingAvailable && shouldTriggerProactiveDeepSearch({
             userText,
             retrievalQuery: rankingQueryText || retrievalQuery,
             relevantChunks,
@@ -10052,6 +10052,7 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
     let agentInstructions = '';
     let totalChunkCount = 0;
     let preAnswerDeepRetrieved = 0;
+    let queryEmbeddingAvailable = false;
 
     if (effectiveAgentId) {
       try {
@@ -10091,6 +10092,7 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
                 }
 
                 if (queryEmbedding) {
+                  queryEmbeddingAvailable = true;
                   relevantChunks = await searchSimilarChunks(
                     queryEmbedding,
                     effectiveAgentId,
@@ -10112,7 +10114,7 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
                 );
               }
 
-              const shouldDeepSearchEarly = shouldTriggerProactiveDeepSearch({
+              const shouldDeepSearchEarly = queryEmbeddingAvailable && shouldTriggerProactiveDeepSearch({
                 userText,
                 retrievalQuery: rankingQueryText || retrievalQuery,
                 relevantChunks,
