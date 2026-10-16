@@ -142,7 +142,8 @@ const ChatPage = () => {
 
   // Initialize conversation on component mount
   useEffect(() => {
-    if (sendingConversationRef.current === "creating" || sendingConversationRef.current === conversationId) {
+    if (sendingConversationRef.current !== null &&
+      (sendingConversationRef.current === "creating" || sendingConversationRef.current === conversationId)) {
       return;
     }
     let active = true;
@@ -210,9 +211,7 @@ const ChatPage = () => {
         if (active) setIsLoading(false);
       }
     };
-    if (agent?.title && userId) {
-      void initConversation();
-    }
+    void initConversation();
     return () => { active = false; };
   }, [agent?.title, resolvedAgentId, resolvedAgentRouteKey, conversationId, userId, apiBaseUrl, forceNewConversation, location.search]);
 
