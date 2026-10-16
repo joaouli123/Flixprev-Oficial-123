@@ -1265,6 +1265,10 @@ function detectChatProvider({ model = '', baseURL = '' } = {}) {
     return 'anthropic';
   }
 
+  if (normalizedBaseURL.includes('aiplatform.googleapis.com')) {
+    return 'gemini-express';
+  }
+
   return 'openai-compatible';
 }
 
@@ -1336,6 +1340,106 @@ function getAiRuntimeConfig() {
 }
 
 function createOpenAiCompatibleClient({ apiKey, baseURL } = {}) {
+  if (String(baseURL || '').toLowerCase().includes('aiplatform.googleapis.com')) {
+    const normalizedBaseURL = String(baseURL).replace(/\/+$/, '');
+    return {
+      chat: {
+        completions: {
+          create: async ({ model, messages = [], temperature = 0, max_tokens } = {}) => {
+            const systemMessages = [];
+            const contents = [];
+
+            for (const message of messages) {
+              const role = String(message?.role || 'user').toLowerCase();
+              const rawContent = message?.content;
+              const blocks = Array.isArray(rawContent) ? rawContent : [{ type: 'text', text: String(rawContent ?? '') }];
+              const parts = [];
+
+              for (const block of blocks) {
+                if (typeof block === 'string') {
+                  if (block.trim()) parts.push({ text: block });
+                  continue;
+                }
+
+                if (block?.type === 'text' || typeof block?.text === 'string') {
+                  if (block.text) parts.push({ text: block.text });
+                  continue;
+                }
+
+                const imageUrl = block?.image_url?.url || block?.image_url;
+                const dataUrl = typeof imageUrl === 'string' ? imageUrl.match(/^data:([^;,]+);base64,([\s\S]+)$/) : null;
+                if (dataUrl) {
+                  parts.push({ inlineData: { mimeType: dataUrl[1], data: dataUrl[2] } });
+                }
+              }
+
+              if (role === 'system' || role === 'developer') {
+                const systemText = parts.map((part) => part.text || '').filter(Boolean).join('\n');
+                if (systemText) systemMessages.push(systemText);
+                continue;
+              }
+
+              if (parts.length) {
+                contents.push({ role: role === 'assistant' ? 'model' : 'user', parts });
+              }
+            }
+
+            if (!contents.some((item) => item.role === 'user')) {
+              contents.push({ role: 'user', parts: [{ text: 'Siga as instruções e responda à solicitação.' }] });
+            }
+
+            const response = await fetch(`${normalizedBaseURL}/publishers/google/models/${encodeURIComponent(model)}:generateContent`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'x-goog-api-key': apiKey,
+              },
+              body: JSON.stringify({
+                systemInstruction: systemMessages.length ? { parts: [{ text: systemMessages.join('\n\n') }] } : undefined,
+                contents,
+                generationConfig: {
+                  temperature,
+                  maxOutputTokens: Math.max(512, Number(max_tokens || DEFAULT_CHAT_MAX_TOKENS)),
+                },
+              }),
+              signal: AbortSignal.timeout(90000),
+            });
+
+            const responseText = await response.text();
+            let payload = {};
+            try {
+              payload = responseText ? JSON.parse(responseText) : {};
+            } catch {
+              payload = {};
+            }
+
+            if (!response.ok) {
+              const error = new Error(payload?.error?.message || `Gemini Agent Platform retornou HTTP ${response.status}`);
+              error.status = response.status;
+              throw error;
+            }
+
+            const candidate = payload?.candidates?.[0];
+            const text = (candidate?.content?.parts || []).map((part) => part.text || '').join('').trim();
+            if (!text) {
+              throw new Error(`Gemini Agent Platform não retornou texto (finishReason: ${candidate?.finishReason || 'desconhecido'}).`);
+            }
+
+            return {
+              choices: [{ message: { content: text }, finish_reason: candidate?.finishReason || null }],
+              usage: {
+                prompt_tokens: Number(payload?.usageMetadata?.promptTokenCount || 0),
+                completion_tokens: Number(payload?.usageMetadata?.candidatesTokenCount || 0),
+                total_tokens: Number(payload?.usageMetadata?.totalTokenCount || 0),
+              },
+              model: payload?.modelVersion || model,
+            };
+          },
+        },
+      },
+    };
+  }
+
   return new OpenAI({
     apiKey,
     baseURL,
@@ -1415,11 +1519,12 @@ function getAuxiliaryTextRuntimeConfig({ requestedModel = '' } = {}) {
   }
 
   if (looksGemini(model)) {
-    const apiKey = explicitApiKey || geminiApiKey || sharedOpenAiCompatibleApiKey;
-    const baseURL = explicitBaseURL || (sharedLooksGoogle ? sharedOpenAiCompatibleBaseURL : GEMINI_OPENAI_BASE_URL);
+    const useGeminiExpress = cfg.chatProvider === 'gemini-express';
+    const apiKey = explicitApiKey || (useGeminiExpress ? cfg.chatApiKey : '') || geminiApiKey || sharedOpenAiCompatibleApiKey;
+    const baseURL = explicitBaseURL || (useGeminiExpress ? cfg.chatBaseURL : '') || (sharedLooksGoogle ? sharedOpenAiCompatibleBaseURL : GEMINI_OPENAI_BASE_URL);
     return {
       enabled: Boolean(apiKey && baseURL),
-      provider: 'openai-compatible',
+      provider: detectChatProvider({ model, baseURL }),
       apiKey,
       baseURL,
       model,
