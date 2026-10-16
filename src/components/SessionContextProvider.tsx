@@ -215,6 +215,9 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
   // Redirecionar baseado na autenticação
   useEffect(() => {
     const publicRoutesAllowed = ['/login', '/', '/obrigado', '/privacy', '/terms', '/cookie-policy', '/lgpd', '/esqueci-senha', '/reset-password'];
+
+    // Do not redirect a deep link before the saved session has been restored.
+    if (loading) return;
     
     if (user) {
       // Usuário autenticado
@@ -227,7 +230,7 @@ export const SessionContextProvider: React.FC<{ children: React.ReactNode }> = (
         navigate('/login');
       }
     }
-  }, [user, navigate, location.pathname]);
+  }, [loading, user, navigate, location.pathname]);
 
   useEffect(() => {
     const publicRoutesAllowed = ['/login', '/', '/obrigado', '/privacy', '/terms', '/cookie-policy', '/lgpd', '/esqueci-senha', '/reset-password'];
