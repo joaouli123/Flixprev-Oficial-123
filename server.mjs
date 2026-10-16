@@ -219,7 +219,7 @@ const DEFAULT_RAG_DEEP_SEED_LIMIT = Math.max(10, Number(process.env.RAG_DEEP_SEE
 const DEFAULT_RAG_NEIGHBOR_WINDOW = Math.max(1, Math.min(Number(process.env.RAG_NEIGHBOR_WINDOW || (RAG_EXTREME_MODE ? 3 : 2)) || (RAG_EXTREME_MODE ? 3 : 2), 6));
 const DEFAULT_RAG_CONTEXT_MAX_CHARS = Math.max(12000, Number(process.env.RAG_CONTEXT_MAX_CHARS || (RAG_EXTREME_MODE ? 100000 : 26000)) || (RAG_EXTREME_MODE ? 100000 : 26000));
 const DEFAULT_CHAT_MAX_TOKENS = Number(process.env.CHAT_MAX_TOKENS || (RAG_EXTREME_MODE ? 6400 : 2600));
-const CHAT_PROVIDER_TIMEOUT_MS = Math.max(10000, Math.min(Number(process.env.CHAT_PROVIDER_TIMEOUT_MS || 25000) || 25000, 60000));
+const CHAT_PROVIDER_TIMEOUT_MS = Math.max(10000, Math.min(Number(process.env.CHAT_PROVIDER_TIMEOUT_MS || 15000) || 15000, 60000));
 const DEFAULT_FAST_CHAT_MAX_TOKENS = Number(process.env.FAST_CHAT_MAX_TOKENS || (RAG_EXTREME_MODE ? 3600 : 2200));
 const ENABLE_RAG_TYPO_TOLERANCE = !/^(0|false|no)$/i.test(String(process.env.RAG_TYPO_TOLERANCE || 'true').trim());
 const RAG_TYPO_MIN_TOKEN_LENGTH = Math.max(3, Number(process.env.RAG_TYPO_MIN_TOKEN_LENGTH || 4) || 4);
@@ -4985,6 +4985,40 @@ function appendGroundedSourceDetails(answer = '', context = '') {
   return `${String(answer || '').trim()}\n\nFontes consultadas:\n${details.join('\n')}`;
 }
 
+function buildExtractiveLegalFallback(question = '', context = '') {
+  const signals = extractLegalReferenceSignals(question);
+  if (signals.articleNumbers.length === 0) return '';
+  const primaryNumber = signals.lawReferences[0]?.number || signals.statuteAliases.find((alias) => /\d{4,}/.test(alias)) || '';
+  const titleNumber = String(primaryNumber).match(/\d{4,}/)?.[0]?.slice(0, 4) || '';
+  const sources = Array.from(getGroundedSourceMap(context).entries())
+    .sort((left, right) => {
+      const leftPrimary = titleNumber && normalizeLawNumber(left[1].title).includes(titleNumber) ? 1 : 0;
+      const rightPrimary = titleNumber && normalizeLawNumber(right[1].title).includes(titleNumber) ? 1 : 0;
+      return rightPrimary - leftPrimary || left[0] - right[0];
+    });
+
+  for (const [id, source] of sources) {
+    for (const article of signals.articleNumbers) {
+      const match = new RegExp(`\\bart(?:igo)?\\s*[.º°o-]*\\s*${article}(?!\\d)`, 'i').exec(source.content || '');
+      if (!match) continue;
+      const remaining = source.content.slice(match.index);
+      const nextArticle = /\bart(?:igo)?\s*[.º°o-]*\s*\d+/i.exec(remaining.slice(match[0].length));
+      const articleText = nextArticle
+        ? remaining.slice(0, match[0].length + nextArticle.index)
+        : remaining;
+      const compact = articleText.replace(/\s+/g, ' ').trim();
+      if (compact.length < 50) continue;
+      let excerpt = compact.slice(0, 1000);
+      if (compact.length > 1000) {
+        const sentenceEnd = Math.max(excerpt.lastIndexOf('. '), excerpt.lastIndexOf('; '));
+        if (sentenceEnd > 250) excerpt = excerpt.slice(0, sentenceEnd + 1);
+      }
+      return `O trecho do art. ${article} no documento ${source.title} diz: “${excerpt}” [Fonte ${id}].`;
+    }
+  }
+  return '';
+}
+
 function getGroundedCoverageStats(text = '', context = '') {
   const answerTokens = extractRetrievalTokens(String(text || '').replace(/\[Fonte\s+\d+\]/gi, ''), { limit: 32 });
   const normalizedContext = normalizeRetrievalText(context);
@@ -8976,6 +9010,11 @@ async function handleSupabaseConversationMessageFallback({ res, userId, cid, con
 
   console.log(`[CHAT][SUPABASE-FALLBACK] Retrieval summary: ${JSON.stringify(retrievalDebug)}`);
   res.write(`data: ${JSON.stringify({ status: 'Conferindo a resposta com as fontes' })}\n\n`);
+  const questionArticles = extractLegalReferenceSignals(userText).articleNumbers;
+  const retrievedArticles = extractLegalReferenceSignals(mergedContext).articleNumbers;
+  const confirmedAbsentArticle = !usedDirectPdfAnswer && effectiveAgentId && totalChunkCount > 0
+    && questionArticles.length > 0 && questionArticles.every((article) => !retrievedArticles.includes(article))
+    && !(await shouldRetryDeepSearch(userText, effectiveAgentId));
 
   let assistantText = directPdfAnswer && directPdfAnswer.trim().length > 0 ? directPdfAnswer : '';
 
@@ -8996,9 +9035,17 @@ async function handleSupabaseConversationMessageFallback({ res, userId, cid, con
     };
 
     if (!assistantText) {
-      assistantText = effectiveAgentId && !hasContext
-        ? buildContextLimitationResponse(userText, '')
-        : await generateAssistantText(prompt);
+      if (confirmedAbsentArticle || (effectiveAgentId && !hasContext)) {
+        assistantText = buildContextLimitationResponse(userText, mergedContext);
+      } else {
+        try {
+          assistantText = await generateAssistantText(prompt);
+        } catch (error) {
+          assistantText = isRetryableAiError(error) ? buildExtractiveLegalFallback(userText, relevantContext) : '';
+          if (!assistantText) throw error;
+          console.warn(`[CHAT][SUPABASE-FALLBACK] Provedor indisponível; usando trecho literal do acervo para conversa ${cid}.`);
+        }
+      }
     }
 
     let finalAssistantText = validateOutput(
@@ -9012,7 +9059,7 @@ async function handleSupabaseConversationMessageFallback({ res, userId, cid, con
     );
 
     // Só ampliar a busca quando a primeira resposta não encontrou base suficiente.
-    if (!usedDirectPdfAnswer && effectiveAgentId && agentDetails && totalChunkCount > 0 && isGroundedFallbackResponse(finalAssistantText) && retrievalDebug.deepRetrieved === 0 && await shouldRetryDeepSearch(userText, effectiveAgentId)) {
+    if (!confirmedAbsentArticle && !usedDirectPdfAnswer && effectiveAgentId && agentDetails && totalChunkCount > 0 && isGroundedFallbackResponse(finalAssistantText) && retrievalDebug.deepRetrieved === 0 && await shouldRetryDeepSearch(userText, effectiveAgentId)) {
       res.write(`data: ${JSON.stringify({ status: 'Ampliando a busca nos documentos' })}\n\n`);
       retrievalDebug.retryAttempted = true;
       retrievalDebug.deepSearchTriggered = true;
@@ -10336,19 +10383,33 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
 
     res.write(`data: ${JSON.stringify({ status: 'Conferindo a resposta com as fontes' })}\n\n`);
     const generationStartedAt = Date.now();
+    const questionArticles = extractLegalReferenceSignals(userText).articleNumbers;
+    const retrievedArticles = extractLegalReferenceSignals(mergedContext).articleNumbers;
+    const confirmedAbsentArticle = effectiveAgentId && totalChunkCount > 0
+      && questionArticles.length > 0 && questionArticles.every((article) => !retrievedArticles.includes(article))
+      && !(await shouldRetryDeepSearch(userText, effectiveAgentId));
 
     const aiCfg = getAiRuntimeConfig();
-    const fullResp = effectiveAgentId && !hasContext
-      ? buildContextLimitationResponse(userText, '')
-      : await runChatCompletion({
-      messages: msgs,
-      model: aiCfg.chatModel,
-      userId,
-      conversationId: cid,
-      requestType: attachment ? 'chat_completion_with_attachment' : 'chat_completion',
-      temperature: 0,
-      maxTokens: DEFAULT_CHAT_MAX_TOKENS,
-    });
+    let fullResp;
+    if (confirmedAbsentArticle || (effectiveAgentId && !hasContext)) {
+      fullResp = buildContextLimitationResponse(userText, mergedContext);
+    } else {
+      try {
+        fullResp = await runChatCompletion({
+          messages: msgs,
+          model: aiCfg.chatModel,
+          userId,
+          conversationId: cid,
+          requestType: attachment ? 'chat_completion_with_attachment' : 'chat_completion',
+          temperature: 0,
+          maxTokens: DEFAULT_CHAT_MAX_TOKENS,
+        });
+      } catch (error) {
+        fullResp = isRetryableAiError(error) ? buildExtractiveLegalFallback(userText, relevantContext) : '';
+        if (!fullResp) throw error;
+        console.warn(`[CHAT] Provedor indisponível; usando trecho literal do acervo para conversa ${cid}.`);
+      }
+    }
 
     const cleanedFullResp = fullResp.replace(/\[\s*Trecho\s*ID\s*:\s*\d+\s*\]/gi, '').trim();
     const initialGenerationFinishedAt = Date.now();
@@ -10362,7 +10423,7 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
       mergedContext,
     );
 
-    if (effectiveAgentId && agentData && totalChunkCount > 0 && isGroundedFallbackResponse(validatedResp) && preAnswerDeepRetrieved === 0 && await shouldRetryDeepSearch(userText, effectiveAgentId)) {
+    if (!confirmedAbsentArticle && effectiveAgentId && agentData && totalChunkCount > 0 && isGroundedFallbackResponse(validatedResp) && preAnswerDeepRetrieved === 0 && await shouldRetryDeepSearch(userText, effectiveAgentId)) {
       res.write(`data: ${JSON.stringify({ status: 'Ampliando a busca nos documentos' })}\n\n`);
       try {
         const deepResult = await searchDeepAgentChunks({
