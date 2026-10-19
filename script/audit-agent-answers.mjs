@@ -13,6 +13,11 @@ const numberWords = { '1': ['um', 'uma'], '5': ['cinco'], '8': ['oito'], '10': [
 const normalize = (value) => String(value).normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 function hasRequired(answer, term) {
   const normalizedTerm = normalize(term);
+  const regionalCourt = /^trf([1-6])$/.exec(normalizedTerm);
+  if (regionalCourt) {
+    return answer.includes(normalizedTerm)
+      || new RegExp(`\\btrf\\s+(?:da\\s+)?${regionalCourt[1]}[ao]?\\s+regiao\\b`).test(answer);
+  }
   if (/^\d+$/.test(normalizedTerm)) {
     return new RegExp(`\\b${normalizedTerm}\\b`).test(answer)
       || (numberWords[normalizedTerm] || []).some((word) => new RegExp(`\\b${word}\\b`).test(answer));
