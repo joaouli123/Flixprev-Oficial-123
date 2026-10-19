@@ -252,6 +252,8 @@ const RETRIEVAL_TOKEN_EXPANSIONS = new Map([
   ['incap', ['incapacidade']],
   ['cnis', ['cadastro', 'nacional', 'informacoes', 'sociais']],
   ['rgps', ['regime', 'geral', 'previdencia', 'social']],
+  ['pedagio', ['periodo', 'adicional', 'contribuicao', 'tempo', 'faltaria']],
+  ['duracao', ['periodo', 'prazo', 'dias']],
 ]);
 
 function getFirstNonEmptyEnv(...values) {
@@ -973,6 +975,13 @@ function escapeRegExp(value = '') {
   return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+function getArticleHeadingRegex(article) {
+  const match = /^(\d+)(?:[-–]([a-z]))?$/i.exec(String(article || ''));
+  if (!match) return /(?!)a/;
+  const suffix = match[2] ? `[-–][${match[2].toLowerCase()}${match[2].toUpperCase()}]` : '';
+  return new RegExp(`\\b(?:Art|ART)\\.?\\s*${match[1]}${suffix}\\s*(?:\\.|[-\u2013](?=\\s))`);
+}
+
 function normalizeLawNumber(value = '') {
   const digitsOnly = String(value || '').replace(/\D/g, '');
   return digitsOnly.replace(/^0+/, '') || digitsOnly;
@@ -981,7 +990,7 @@ function normalizeLawNumber(value = '') {
 function extractLegalReferenceSignals(value = '') {
   const normalizedText = normalizeRetrievalText(value);
   const articleNumbers = Array.from(new Set(
-    Array.from(normalizedText.matchAll(/\bart(?:igo)?\s*\.?\s*(\d+[a-z]?)/g)).map((match) => match[1])
+    Array.from(normalizedText.matchAll(/\bart(?:igo)?\s*\.?\s*(\d+(?:[-–][a-z])?)/g)).map((match) => match[1])
   ));
   const statuteAliases = new Set();
   const keywordHints = new Set();
@@ -1014,6 +1023,11 @@ function extractLegalReferenceSignals(value = '') {
       aliases: ['imposto sobre produtos industrializados', 'produtos industrializados'],
       keywords: ['produtos', 'industrializados'],
     },
+    {
+      pattern: /\bloas\b/,
+      aliases: ['lei organica da assistencia social', '8742'],
+      keywords: ['assistencia', 'social', '8742'],
+    },
   ];
 
   for (const rule of aliasRules) {
@@ -1033,7 +1047,9 @@ function extractLegalReferenceSignals(value = '') {
   const lawMatches = Array.from(normalizedText.matchAll(/\b(lei complementar|lei|decreto-lei|decreto|emenda constitucional|constituicao)\s*n?[oº.]?\s*([\d./-]+)/g));
   for (const match of lawMatches) {
     const kind = String(match[1] || '').replace(/\s+/g, ' ').trim();
-    const number = normalizeLawNumber(match[2]);
+    // The year after a slash identifies the citation date, not the statute
+    // number. "Lei 8.213/1991" must match document l8213cons.htm.
+    const number = normalizeLawNumber(String(match[2]).split('/')[0]);
     if (!kind || !number) {
       continue;
     }
@@ -1042,6 +1058,13 @@ function extractLegalReferenceSignals(value = '') {
     if (number.length >= 3) {
       keywordHints.add(number);
     }
+  }
+
+  for (const match of normalizedText.matchAll(/\b(?:ec|emc)\s*(\d{1,3})(?:\s*\/\s*\d{4})?\b/g)) {
+    const number = match[1];
+    lawReferences.push({ kind: 'emenda constitucional', number });
+    statuteAliases.add(`emc${number}`);
+    keywordHints.add(number);
   }
 
   if (requiresParagraphUnique) {
@@ -1096,6 +1119,8 @@ function buildRetrievalKeywords(value = '', { minLength = 3, limit = 24 } = {}) 
 
 function getFocusedSearchTerms(queryText = '') {
   const legalSignals = extractLegalReferenceSignals(queryText);
+  const acronyms = new Set((String(queryText).match(/\b[A-ZÁÉÍÓÚÇ]{2,8}\b/g) || [])
+    .map((token) => normalizeRetrievalText(token)));
   const legalNumbers = new Set([
     ...legalSignals.articleNumbers,
     ...legalSignals.lawReferences.map((reference) => reference.number),
@@ -1103,8 +1128,8 @@ function getFocusedSearchTerms(queryText = '') {
   ]);
   return buildRetrievalKeywords(queryText, { limit: 24 })
     .sort((left, right) => {
-      const leftPriority = (legalNumbers.has(left) ? 20 : 0) + Math.min(left.length, 12);
-      const rightPriority = (legalNumbers.has(right) ? 20 : 0) + Math.min(right.length, 12);
+      const leftPriority = (legalNumbers.has(left) ? 20 : 0) + (acronyms.has(left) ? 30 : 0) + Math.min(left.length, 12);
+      const rightPriority = (legalNumbers.has(right) ? 20 : 0) + (acronyms.has(right) ? 30 : 0) + Math.min(right.length, 12);
       return rightPriority - leftPriority;
     })
     .slice(0, 6);
@@ -1322,7 +1347,7 @@ function getAiRuntimeConfig() {
     process.env.AI_CHAT_API_KEY,
     defaultChatApiKey
   );
-  const chatModel = getFirstNonEmptyEnv(process.env.CHAT_MODEL) || (anthropicApiKey ? 'claude-sonnet-4-6' : (geminiApiKey ? 'gemini-3.8-flash' : 'gpt-4o'));
+  const chatModel = getFirstNonEmptyEnv(process.env.CHAT_MODEL) || (anthropicApiKey ? 'claude-sonnet-4-6' : (geminiApiKey ? 'gemini-3.1-flash-lite' : 'gpt-4o'));
   const chatBaseURL = normalizeBaseUrl(getFirstNonEmptyEnv(
     process.env.CHAT_BASE_URL,
     process.env.AI_CHAT_BASE_URL,
@@ -1784,7 +1809,15 @@ async function runChatCompletion({
         max_tokens: Math.max(256, Number(maxTokens || DEFAULT_CHAT_MAX_TOKENS)),
         ...(cfg.chatProvider === 'gemini-express' ? { timeout_ms: CHAT_PROVIDER_TIMEOUT_MS } : {}),
       }),
-      { label: requestType, maxRetries: 1, baseDelayMs: 500 }
+      {
+        label: requestType,
+        // The caller immediately retries transient Gemini failures on the
+        // faster model; repeating the same timed-out model only adds latency.
+        maxRetries: cfg.chatProvider === 'gemini-express'
+          && cfg.fastChatModel !== effectiveModel
+          && !requestType.endsWith('_fast_fallback') ? 0 : 1,
+        baseDelayMs: 500,
+      }
     );
 
     const text = response.choices?.[0]?.message?.content?.trim() || '';
@@ -4005,7 +4038,8 @@ function rerankRetrievedRows(rows = [], queryText = '', limit = DEFAULT_RAG_RETU
   const primaryDocumentHints = [
     ...legalSignals.statuteAliases,
     ...legalSignals.lawReferences.map((reference) => reference.number),
-  ].filter((hint) => hint.length >= 4);
+  ].filter((hint) => hint.length >= 3);
+  const asksDuration = /\b(duracao|quanto tempo|prazo)\b/.test(normalizeRetrievalText(queryText));
   return dedupeRetrievedRows(rows)
     .map((row) => {
       const similarity = Number(row?.similarity || 0);
@@ -4015,7 +4049,9 @@ function rerankRetrievedRows(rows = [], queryText = '', limit = DEFAULT_RAG_RETU
       const termCoverageScore = computeChunkTermCoverageScore(row?.content || '', queryText);
       const normalizedTitle = normalizeRetrievalText(row?.documentTitle || '');
       const primaryDocumentScore = primaryDocumentHints.some((hint) => normalizedTitle.includes(hint)) ? 48 : 0;
-      const finalScore = (similarity * 120) + lexicalScore + (legalScore * 1.15) + definitionScore + termCoverageScore + primaryDocumentScore + (row?.injected ? 8 : 0);
+      const currentLawScore = /\bcompilad[oa]\b/.test(normalizedTitle) ? 65 : 0;
+      const durationAnswerScore = asksDuration && /\b\d{1,3}\s*(?:\([^)]*\)\s*)?(?:dias?|meses?|anos?)\b/i.test(row?.content || '') ? 70 : 0;
+      const finalScore = (similarity * 120) + lexicalScore + (legalScore * 1.15) + definitionScore + termCoverageScore + primaryDocumentScore + currentLawScore + durationAnswerScore + (row?.injected ? 8 : 0) + (row?.exactArticleMatch ? 110 : 0) + (row?.articleHeadingMatch ? 220 : 0) + (row?.lawScopedMatch ? 45 : 0) + (row?.acronymDefinitionMatch ? 240 : 0);
       return {
         ...row,
         lexicalScore,
@@ -4926,7 +4962,7 @@ REGRAS CRITICAS:
 12. Priorize o trecho cujo texto tenha maior sobreposicao lexical com o nucleo da pergunta; nao substitua esse trecho por regra parecida de outro artigo.
 13. Se houver mais de uma regra sobre o mesmo beneficio, identifique qual frase responde exatamente ao enunciado e use essa frase como base da resposta.
 14. Antes de finalizar, confira se todos os elementos centrais perguntados estao cobertos (sujeito, condicoes, excecoes e marcos normativos citados no enunciado).
-15. Em contexto normativo, priorize sempre a redacao mais recente indicada no proprio texto (ex.: "Atualizada em", "Redacao dada", "alterado pela", "revogado por"). Trate redacoes anteriores apenas como historico, sem apresenta-las como regra vigente.
+15. Em contexto normativo, priorize sempre a redacao vigente mais recente indicada no proprio texto (ex.: "Atualizada em", "Redacao dada", "alterado pela", "revogado por"). Trate redacoes anteriores apenas como historico e nao as mencione se o usuario nao pedir a evolucao da norma.
 16. Se a pergunta envolver atualizacao/alteracao/revogacao, responda com norma-base alterada, norma alteradora e data associada quando isso estiver no contexto.
 17. Se o usuario pedir lista de normas do documento, apresente inventario por tipo+numero+data apenas do que estiver expresso nos trechos; nao complete com normas externas.
 18. As instrucoes do agente delimitam o escopo do assunto; use os anexos para sustentar esse escopo, sem transformar documentos de apoio em autorizacao para responder sobre outro tema.
@@ -4978,8 +5014,9 @@ function buildExtractiveLegalFallback(question = '', context = '') {
   const signals = extractLegalReferenceSignals(question);
   if (signals.articleNumbers.length === 0) return '';
   const primaryNumber = signals.lawReferences[0]?.number || signals.statuteAliases.find((alias) => /\d{4,}/.test(alias)) || '';
-  const titleNumber = String(primaryNumber).match(/\d{4,}/)?.[0]?.slice(0, 4) || '';
+  const titleNumber = String(primaryNumber).match(/\d{3,}/)?.[0] || '';
   const requestedParagraph = /(?:§\s*|par[aá]grafo\s+)(\d+)/i.exec(question)?.[1] || '';
+  const requestedInciso = /(?:inciso|inc\.)\s*([ivxlcdm]+)\b/i.exec(question)?.[1]?.toUpperCase() || '';
   const requestsUniqueParagraph = /par[aá]grafo\s+único/i.test(question);
   const requestsCaput = /\bcaput\b/i.test(question);
   const focusTokens = extractRetrievalTokens(question, { minLength: 4, limit: 20 })
@@ -4993,18 +5030,23 @@ function buildExtractiveLegalFallback(question = '', context = '') {
     });
 
   for (const [id, source] of sources) {
+    if (titleNumber && !normalizeLawNumber(source.title).includes(titleNumber)) continue;
     for (const article of signals.articleNumbers) {
-      const match = new RegExp(`\\bart(?:igo)?\\s*[.º°o-]*\\s*${article}(?!\\d)`, 'i').exec(source.content || '');
+      // Require a statutory heading ("Art. 173."), not a cross-reference such
+      // as "inciso I do art. 173" inside another provision.
+      // Consolidated statutes retain earlier wording before the currently
+      // amended wording. Use the last heading for the same article in a chunk.
+      const heading = getArticleHeadingRegex(article);
+      const match = Array.from((source.content || '').matchAll(new RegExp(heading.source, 'g'))).at(-1);
       if (!match) continue;
       const remaining = source.content.slice(match.index);
-      const nextArticle = /\bart(?:igo)?\s*[.º°o-]*\s*\d+/i.exec(remaining.slice(match[0].length));
+      const nextArticle = /\b(?:Art|ART)\.?\s*\d+(?:[-–][A-Za-z])?\s*(?:\.|[-\u2013](?=\s))/.exec(remaining.slice(match[0].length));
       const articleText = nextArticle
         ? remaining.slice(0, match[0].length + nextArticle.index)
         : remaining;
-      // An indexed copy may contain broken encoding or historical versions of
-      // the same article. Never present such a chunk as the current literal law.
-      if (articleText.includes('\uFFFD')
-        || /\b(redacao dada|revogad[oa])\b/i.test(normalizeRetrievalText(articleText))) continue;
+      // Never quote corrupted text. Repeated headings above select the latest
+      // wording retained within this chunk of a consolidated statute.
+      if (articleText.includes('\uFFFD')) continue;
       const paragraphMarkers = Array.from(articleText.matchAll(/(?:§\s*\d+\s*[º°o.]?|par[aá]grafo\s+único)/gi));
       const sections = [
         articleText.slice(0, paragraphMarkers[0]?.index ?? articleText.length),
@@ -5014,7 +5056,20 @@ function buildExtractiveLegalFallback(question = '', context = '') {
         )),
       ];
       let selectedText = '';
-      if (requestedParagraph || requestsUniqueParagraph) {
+      if (requestedInciso && !requestedParagraph && !requestsUniqueParagraph) {
+        const caputAndIncisos = articleText.split(/(?:§\s*\d+\s*[º°o.]?|par[aá]grafo\s+único)/i)[0];
+        const incisoMarkers = Array.from(caputAndIncisos.matchAll(/\b([IVXLCDM]{1,8})\s*[-–—]\s*/g));
+        const matchingIndexes = incisoMarkers
+          .map((marker, index) => marker[1] === requestedInciso ? index : -1)
+          .filter((index) => index >= 0);
+        const selectedIndex = matchingIndexes.at(-1);
+        if (selectedIndex !== undefined) {
+          selectedText = caputAndIncisos.slice(
+            incisoMarkers[selectedIndex].index,
+            incisoMarkers[selectedIndex + 1]?.index ?? caputAndIncisos.length,
+          );
+        }
+      } else if (requestedParagraph || requestsUniqueParagraph) {
         const paragraphPattern = requestedParagraph
           ? new RegExp(`(?:§\\s*${requestedParagraph}\\s*[º°o.]?|par[aá]grafo\\s+${requestedParagraph})`, 'i')
           : /par[aá]grafo\s+único/i;
@@ -5023,20 +5078,47 @@ function buildExtractiveLegalFallback(question = '', context = '') {
         selectedText = sections[0] || '';
       } else {
         if (focusTokens.length < 2) continue;
-        const rankedSections = sections.filter((section) => section.trim().length >= 50).map((section) => ({
-          section,
-          score: focusTokens.filter((token) => normalizeRetrievalText(section).includes(token.slice(0, 5))).length,
-        })).sort((left, right) => right.score - left.score);
-        if (!rankedSections[0] || rankedSections[0].score < Math.max(2, Math.ceil(focusTokens.length * 0.5))) continue;
-        selectedText = rankedSections[0].section;
+        const caputAndIncisos = sections[0] || '';
+        const incisoMarkers = Array.from(caputAndIncisos.matchAll(/\b([IVXLCDM]{1,8})\s*[-–—]\s*/g));
+        const caputOnly = caputAndIncisos.slice(0, incisoMarkers[0]?.index ?? caputAndIncisos.length);
+        const cleanCaput = caputOnly
+          .split(/\s*\((?:Redação dada|Incluído|Incluída|Revogado|Revogada|Vigência)\b/i)[0]
+          .replace(/\s+/g, ' ').trim();
+        const incisoSections = incisoMarkers.map((marker, index) => caputAndIncisos.slice(
+          marker.index,
+          incisoMarkers[index + 1]?.index ?? caputAndIncisos.length,
+        ));
+        const rankedSections = [
+          ...sections.map((section) => ({ section, isInciso: false })),
+          ...incisoSections.map((section) => ({ section, isInciso: true })),
+        ].filter((item) => item.section.trim().length >= 50).map((item) => ({
+          ...item,
+          score: focusTokens.filter((token) => normalizeRetrievalText(item.section).includes(token.slice(0, 5))).length
+            + (item.isInciso ? 2 : 0),
+        })).sort((left, right) => right.score - left.score || left.section.length - right.section.length);
+        const minimumScore = Math.max(2, Math.ceil(focusTokens.length * 0.5));
+        const preferredInciso = rankedSections.find((item) => item.isInciso && item.score >= minimumScore);
+        const bestSection = preferredInciso || rankedSections[0];
+        if (cleanCaput.length >= 60 && !cleanCaput.endsWith(':')) {
+          selectedText = caputOnly;
+        } else {
+          if (!bestSection || bestSection.score < minimumScore) continue;
+          selectedText = bestSection.section;
+        }
       }
-      const compact = selectedText.replace(/\s+/g, ' ').trim();
-      if (compact.length < 50) continue;
+      if (/^\s*\(?revogad[oa]/i.test(selectedText)) continue;
+      const compact = selectedText
+        .split(/\s*\((?:Redação dada|Incluído|Incluída|Revogado|Revogada|Vigência)\b/i)[0]
+        .split(/\b(?:CAP[IÍ]TULO|SE[CÇ][AÃ]O|SUBSE[CÇ][AÃ]O)\s+[IVX0-9-]/i)[0]
+        .replace(/\s+/g, ' ').replace(/^[\s.;:-]+/, '')
+        .replace(/\s+\b(?:CAP[IÍ]TULO|SE[CÇ][AÃ]O|SUBSE[CÇ][AÃ]O)\s*$/i, '').trim();
+      if (compact.length < 50 || compact.endsWith(':')) continue;
       let excerpt = compact.slice(0, 1000);
       if (compact.length > 1000) {
         const sentenceEnd = Math.max(excerpt.lastIndexOf('. '), excerpt.lastIndexOf('; '));
         if (sentenceEnd > 250) excerpt = excerpt.slice(0, sentenceEnd + 1);
       }
+      console.log(`[CHAT][DIRECT] article=${article} source=${source.title} requestedInciso=${requestedInciso || '-'} requestedParagraph=${requestedParagraph || '-'}`);
       return `${excerpt} [Fonte ${id}]`;
     }
   }
@@ -5119,7 +5201,7 @@ function buildContextLimitationResponse(question = '', context = '') {
   return 'Nao consegui confirmar esse ponto com seguranca no material que o agente tem agora. Se quiser, eu posso refinar a busca no acervo por artigo, paragrafo ou termo exato.';
 }
 
-function validateOutput(text, hasContext = true, question = '', questionType = 'general', contextSize = 0, chunksUsed = 0, context = '') {
+function validateOutput(text, hasContext = true, question = '', questionType = 'general', contextSize = 0, chunksUsed = 0, context = '', allowSalvage = true) {
   const normalizedText = normalizeGroundedCitations(text);
   let finalResponse = normalizedText;
 
@@ -5152,9 +5234,14 @@ function validateOutput(text, hasContext = true, question = '', questionType = '
     }).filter(Boolean).join('\n');
     const articleEvidence = extractLegalReferenceSignals(citedEvidence || context);
     const unsupportedArticles = answerReferences.articleNumbers.filter((number) => !articleEvidence.articleNumbers.includes(number));
-    const unsupportedLaws = answerReferences.lawReferences.filter((reference) => !contextReferences.lawReferences.some((sourceReference) => (
-      sourceReference.number.startsWith(reference.number) || reference.number.startsWith(sourceReference.number)
-    )));
+    const evidenceSources = citationIds.length > 0
+      ? citationIds.map((id) => sourceMap.get(id)).filter(Boolean)
+      : Array.from(sourceMap.values());
+    const unsupportedLaws = answerReferences.lawReferences.filter((reference) => !(
+      contextReferences.lawReferences.some((sourceReference) => (
+        sourceReference.number.startsWith(reference.number) || reference.number.startsWith(sourceReference.number)
+      )) || evidenceSources.some((source) => normalizeLawNumber(source.title).includes(reference.number))
+    ));
     const validatorSummary = {
       questionType,
       contextSize,
@@ -5171,6 +5258,18 @@ function validateOutput(text, hasContext = true, question = '', questionType = '
 
     if (!hasCoverage || invalidCitations.length > 0 || unsupportedArticles.length > 0 || unsupportedLaws.length > 0) {
       console.log(`[VALIDATOR] Bloqueando resposta sem sustentacao suficiente: ${JSON.stringify(validatorSummary)}`);
+      // A correct, cited first sentence should not be discarded merely because
+      // the model appended an unrelated, unsupported legal aside afterwards.
+      if (allowSalvage && hasCoverage && invalidCitations.length === 0
+        && (unsupportedArticles.length > 0 || unsupportedLaws.length > 0)) {
+        const firstSentence = normalizedText.split(/(?<=[.!?])\s+(?=[A-ZÁÉÍÓÚÇ])/u)[0].trim();
+        if (firstSentence.length >= 60 && firstSentence.length < normalizedText.length
+          && !firstSentence.endsWith(':')) {
+          const salvaged = validateOutput(firstSentence, hasContext, question, questionType,
+            contextSize, chunksUsed, context, false);
+          if (!isGroundedFallbackResponse(salvaged)) return salvaged;
+        }
+      }
       return buildContextLimitationResponse(question, context);
     }
 
@@ -5196,11 +5295,13 @@ function isGroundedFallbackResponse(text = '') {
     || normalized.includes('nao foi possivel confirmar com precisao');
 }
 
-function shouldRunStrictGroundedRefinement(_question = '', hasContext = false, answer = '') {
+function shouldRunStrictGroundedRefinement(_question = '', hasContext = false, answer = '', context = '') {
   if (!hasContext || isGroundedFallbackResponse(answer)) {
     return false;
   }
-  return !hasGroundedSourceMarkers(answer);
+  // A second provider call on every citation-free but well-grounded answer
+  // doubled latency and often timed out. Refine only genuinely weak coverage.
+  return !hasGroundedSourceMarkers(answer) && getGroundedCoverageStats(answer, context).ratio < 0.75;
 }
 
 async function refineGroundedAnswerIfNeeded({
@@ -5216,7 +5317,7 @@ async function refineGroundedAnswerIfNeeded({
   requestType = 'chat_completion_grounded_refinement',
 } = {}) {
   const baseAnswer = String(answer || '').trim();
-  if (!baseAnswer || !shouldRunStrictGroundedRefinement(question, hasContext, baseAnswer)) {
+  if (!baseAnswer || !shouldRunStrictGroundedRefinement(question, hasContext, baseAnswer, context)) {
     return baseAnswer || answer;
   }
 
@@ -8554,6 +8655,179 @@ async function getFirstChunksViaSupabase(agentId, limit = 3) {
   }));
 }
 
+async function hydrateDocumentTitlesViaSupabase(rows = []) {
+  const documentIds = Array.from(new Set(rows.map((row) => row.document_id).filter(Boolean)));
+  if (documentIds.length === 0) return rows;
+  const response = await ensureSupabaseAdminAvailable()
+    .from('documents').select('id,title').in('id', documentIds);
+  if (response.error) {
+    console.warn('[SEARCH][SUPABASE] Titulos indisponiveis:', response.error.message);
+    return rows;
+  }
+  const titles = new Map((response.data || []).map((document) => [document.id, document.title]));
+  return rows.map((row) => ({ ...row, document_title: titles.get(row.document_id) || 'Documento sem título' }));
+}
+
+async function getAgentDocumentInventoryContext(agentId, question) {
+  const normalized = normalizeRetrievalText(question);
+  if (!agentId || !/\b(acervo|documentos|arquivos)\b/.test(normalized)
+    || !/\b(quais|quantos|lista|contem)\b/.test(normalized)) return '';
+  try {
+    const result = await ensureSupabaseAdminAvailable().from('documents')
+      .select('title').eq('agent_id', agentId).limit(200);
+    if (result.error) throw result.error;
+    const titles = (result.data || []).map((document) => String(document.title || '').trim()).filter(Boolean);
+    return titles.length > 0
+      ? `[Fonte 99 | Índice completo dos documentos do agente | trecho 0]\n${titles.join('\n')}`
+      : '';
+  } catch (error) {
+    console.warn('[SEARCH][INVENTORY] Indice indisponivel:', error?.message || error);
+    return '';
+  }
+}
+
+async function searchExactArticleChunksViaSupabase(question, agentId, limit = 24) {
+  const signals = extractLegalReferenceSignals(question);
+  const articleNumbers = signals.articleNumbers.slice(0, 3);
+  if (articleNumbers.length === 0) return [];
+  const client = ensureSupabaseAdminAvailable();
+  const lawHint = signals.lawReferences[0]?.number
+    || signals.statuteAliases.map((alias) => alias.match(/\d{3,}/)?.[0]).find(Boolean)
+    || '';
+  let preferredDocumentIds = [];
+  if (lawHint) {
+    const documents = await client.from('documents').select('id,title')
+      .eq('agent_id', agentId).ilike('title', `%${lawHint}%`).limit(100);
+    if (documents.error) throw createSupabaseFallbackError(documents.error, 'Erro ao identificar documento legal');
+    const compiled = (documents.data || []).filter((document) => /compilad[oa]/i.test(document.title || ''));
+    preferredDocumentIds = (compiled.length > 0 ? compiled : (documents.data || [])).map((document) => document.id);
+  }
+  const articleQuery = (number, style) => {
+    let query = client.from('document_chunks').select('document_id,content,chunk_index')
+      .eq('agent_id', agentId).ilike('content', `%${style} ${number}%`);
+    if (preferredDocumentIds.length > 0) query = query.in('document_id', preferredDocumentIds);
+    return query.limit(120);
+  };
+  const queries = articleNumbers.flatMap((number) => [
+    articleQuery(number, 'Art.'),
+    articleQuery(number, 'Art'),
+  ]);
+  const results = await Promise.all(queries);
+  const rows = [];
+  for (const result of results) {
+    if (result.error) throw createSupabaseFallbackError(result.error, 'Erro ao buscar artigo exato');
+    rows.push(...(result.data || []));
+  }
+  const titled = await hydrateDocumentTitlesViaSupabase(rows);
+  const articlePatterns = articleNumbers.map((number) => new RegExp(`\\bart(?:igo)?\\s*[.º°o-]*\\s*${escapeRegExp(number)}(?!\\d)`, 'i'));
+  const headingPatterns = articleNumbers.map(getArticleHeadingRegex);
+  return rerankRetrievedRows(titled
+    .filter((row) => articlePatterns.some((pattern) => pattern.test(row.content || '')))
+    .map((row) => ({
+      documentId: row.document_id,
+      documentTitle: row.document_title,
+      content: row.content,
+      chunkIndex: row.chunk_index,
+      similarity: 0,
+      exactArticleMatch: true,
+      articleHeadingMatch: headingPatterns.some((pattern) => pattern.test(row.content || '')),
+    })), question, limit);
+}
+
+async function searchLawScopedChunksViaSupabase(question, agentId, limit = 24) {
+  const signals = extractLegalReferenceSignals(question);
+  const reference = signals.lawReferences[0];
+  if (!reference) return [];
+  const client = ensureSupabaseAdminAvailable();
+  const specificHint = reference.kind === 'emenda constitucional'
+    ? `emc${reference.number}` : reference.number;
+  let documents = await client.from('documents').select('id,title')
+    .eq('agent_id', agentId).ilike('title', `%${specificHint}%`).limit(20);
+  if (documents.error) throw createSupabaseFallbackError(documents.error, 'Erro ao localizar norma citada');
+  if ((!documents.data || documents.data.length === 0) && specificHint !== reference.number) {
+    documents = await client.from('documents').select('id,title')
+      .eq('agent_id', agentId).ilike('title', `%${reference.number}%`).limit(20);
+    if (documents.error) throw createSupabaseFallbackError(documents.error, 'Erro ao localizar norma citada');
+  }
+  const documentIds = (documents.data || []).map((document) => document.id);
+  if (documentIds.length === 0) return [];
+  const chunks = await client.from('document_chunks').select('document_id,content,chunk_index')
+    .eq('agent_id', agentId).in('document_id', documentIds).limit(600);
+  if (chunks.error) throw createSupabaseFallbackError(chunks.error, 'Erro ao buscar trechos da norma citada');
+  const titles = new Map((documents.data || []).map((document) => [document.id, document.title]));
+  return rerankRetrievedRows((chunks.data || []).map((row) => ({
+    documentId: row.document_id,
+    documentTitle: titles.get(row.document_id) || 'Documento sem título',
+    content: row.content,
+    chunkIndex: row.chunk_index,
+    similarity: 0,
+    lawScopedMatch: true,
+  })), question, limit);
+}
+
+async function searchAcronymDefinitionChunksViaSupabase(question, agentId, limit = 12) {
+  const acronym = /(?:o que significa|significado|sigla de)\s+(?:a|o|as|os)?\s*([A-Z]{2,8})\b/i.exec(String(question || ''))?.[1]?.toUpperCase();
+  if (!acronym) return [];
+  const client = ensureSupabaseAdminAvailable();
+  const response = await client.from('document_chunks').select('document_id,content,chunk_index')
+    .eq('agent_id', agentId).ilike('content', `%${acronym}%`).limit(120);
+  if (response.error) throw createSupabaseFallbackError(response.error, 'Erro ao buscar definição da sigla');
+  const rows = await hydrateDocumentTitlesViaSupabase(response.data || []);
+  const definition = new RegExp(`.{8,100}\\s*[-–—(]\\s*${escapeRegExp(acronym)}\\b`, 'i');
+  return rerankRetrievedRows(rows.map((row) => ({
+    documentId: row.document_id,
+    documentTitle: row.document_title,
+    content: row.content,
+    chunkIndex: row.chunk_index,
+    similarity: 0,
+    acronymDefinitionMatch: definition.test(row.content || ''),
+  })), question, limit);
+}
+
+async function searchExactArticleChunks(question, agentId, limit = 24) {
+  const articleNumbers = extractLegalReferenceSignals(question).articleNumbers.slice(0, 3);
+  if (articleNumbers.length === 0) {
+    try {
+      const [lawRows, acronymRows] = await Promise.all([
+        searchLawScopedChunksViaSupabase(question, agentId, limit),
+        searchAcronymDefinitionChunksViaSupabase(question, agentId, limit),
+      ]);
+      return rerankRetrievedRows([...acronymRows, ...lawRows], question, limit);
+    } catch (error) {
+      console.warn('[SEARCH][LAW] Busca por norma indisponivel:', error?.message || error);
+      return [];
+    }
+  }
+  try {
+    return await withDatabaseFallback(
+      'searchExactArticleChunks',
+      async () => {
+        const patterns = articleNumbers.map((number) => `%Art. ${number}%`);
+        const result = await pool.query(`
+          SELECT dc.document_id, dc.content, dc.chunk_index,
+            COALESCE(d.title, 'Documento sem título') AS document_title
+          FROM document_chunks dc LEFT JOIN documents d ON d.id = dc.document_id
+          WHERE dc.agent_id = $1 AND dc.content ILIKE ANY($2::text[])
+          LIMIT $3
+        `, [agentId, patterns, Math.max(120, limit * 8)]);
+        return rerankRetrievedRows(result.rows.map((row) => ({
+          documentId: row.document_id,
+          documentTitle: row.document_title,
+          content: row.content,
+          chunkIndex: row.chunk_index,
+          similarity: 0,
+          exactArticleMatch: true,
+          articleHeadingMatch: articleNumbers.some((number) => getArticleHeadingRegex(number).test(row.content || '')),
+        })), question, limit);
+      },
+      () => searchExactArticleChunksViaSupabase(question, agentId, limit)
+    );
+  } catch (error) {
+    console.warn('[SEARCH][ARTICLE] Busca exata indisponivel:', error?.message || error);
+    return [];
+  }
+}
+
 async function searchKeywordChunksViaSupabase(queryText, agentId, limit = 3) {
   const client = ensureSupabaseAdminAvailable();
   const keywords = getFocusedSearchTerms(queryText);
@@ -8561,23 +8835,45 @@ async function searchKeywordChunksViaSupabase(queryText, agentId, limit = 3) {
     return [];
   }
 
-  const response = await client
-    .from('document_chunks')
+  // PostgreSQL ILIKE is not accent-insensitive. Search the spelling used in
+  // the question as well as the normalized token ("pensão" and "pensao").
+  const originalTokens = String(queryText || '').match(/[\p{L}\p{N}]{3,}/gu) || [];
+  const variants = (keyword) => [...new Set([
+    keyword,
+    ...originalTokens.filter((token) => normalizeRetrievalText(token) === keyword),
+  ])].slice(0, 3);
+  const preferred = (keyword) => variants(keyword).find((variant) => variant !== keyword) || keyword;
+  const selected = keywords.slice(0, 6);
+  const singleQueries = selected.map((keyword) => {
+    const spellings = variants(keyword);
+    const query = client.from('document_chunks').select('document_id, content, chunk_index')
+      .eq('agent_id', agentId);
+    return (spellings.length > 1
+      ? query.or(spellings.map((term) => `content.ilike.%${term}%`).join(','))
+      : query.ilike('content', `%${keyword}%`))
+      .limit(Math.max(100, Math.min(limit * 7, 180)));
+  });
+  // Intersections surface a specific provision buried in a very large corpus,
+  // even when each individual word has hundreds of earlier matches.
+  const pairs = selected.slice(1, 5).map((keyword) => [selected[0], keyword]);
+  if (selected.length > 3) pairs.push([selected[1], selected[2]]);
+  const pairQueries = pairs.map(([left, right]) => client.from('document_chunks')
     .select('document_id, content, chunk_index')
     .eq('agent_id', agentId)
-    .or(keywords.map((keyword) => `content.ilike.%${keyword}%`).join(','))
-    .order('chunk_index', { ascending: true })
-    .limit(Math.max(limit * 8, Math.min(DEFAULT_RAG_CANDIDATE_LIMIT, 600)));
-
-  if (response.error) {
-    throw createSupabaseFallbackError(response.error, 'Erro ao buscar chunks por palavra-chave');
+    .ilike('content', `%${preferred(left)}%`)
+    .ilike('content', `%${preferred(right)}%`)
+    .limit(100));
+  const results = await Promise.all([...singleQueries, ...pairQueries]);
+  for (const result of results) {
+    if (result.error) throw createSupabaseFallbackError(result.error, 'Erro ao buscar chunks por palavra-chave');
   }
+  const candidates = await hydrateDocumentTitlesViaSupabase(results.flatMap((result) => result.data || []));
 
   return rerankRetrievedRows(
-    (response.data || [])
+    candidates
       .map((row) => ({
         documentId: row.document_id,
-        documentTitle: 'Documento sem título',
+        documentTitle: row.document_title,
         content: row.content,
         chunkIndex: row.chunk_index,
         similarity: 0,
@@ -8589,37 +8885,9 @@ async function searchKeywordChunksViaSupabase(queryText, agentId, limit = 3) {
 }
 
 async function searchSimilarChunksViaSupabase(queryText, agentId, limit = DEFAULT_RAG_RETURN_LIMIT) {
-  const client = ensureSupabaseAdminAvailable();
-  const response = await client
-    .from('document_chunks')
-    .select('document_id, content, chunk_index')
-    .eq('agent_id', agentId)
-    .order('chunk_index', { ascending: true })
-    .limit(Math.max(limit * 12, DEFAULT_RAG_CANDIDATE_LIMIT));
-
-  if (response.error) {
-    throw createSupabaseFallbackError(response.error, 'Erro ao recuperar chunks do agente');
-  }
-
-  const rankedRows = rerankRetrievedRows(
-    (response.data || []).map((row) => ({
-      documentId: row.document_id,
-      documentTitle: 'Documento sem título',
-      content: row.content,
-      chunkIndex: row.chunk_index,
-      similarity: 0,
-    })),
-    queryText,
-    limit
-  );
-
-  if (rankedRows.length === 0) {
-    console.log(`[SEARCH][SUPABASE] Nenhum chunk lexicalmente relevante para o agente ${agentId}.`);
-    return [];
-  }
-
-  console.log(`[SEARCH][SUPABASE] ${rankedRows.length} chunks relevantes (de ${response.data.length} total) para agente ${agentId}.`);
-  return rankedRows;
+  // REST cannot rank pgvector. Never pretend that the first N chunks are the
+  // vector nearest neighbours; use distributed lexical candidates instead.
+  return searchKeywordChunksViaSupabase(queryText, agentId, limit);
 }
 
 async function countAgentChunks(agentId) {
@@ -8964,7 +9232,7 @@ async function handleSupabaseConversationMessageFallback({ res, userId, cid, con
             relevantChunks = await getFirstChunks(effectiveAgentId, 5);
           } else {
             retrievalDebug.embeddingAttempted = true;
-            const [vectorChunks, keywordChunks] = await Promise.all([
+            const [vectorChunks, keywordChunks, articleChunks] = await Promise.all([
               (async () => {
                 let queryEmbedding = null;
                 try {
@@ -8987,17 +9255,18 @@ async function handleSupabaseConversationMessageFallback({ res, userId, cid, con
                 );
               })(),
               searchKeywordChunks(rankingQueryText, effectiveAgentId, DEFAULT_RAG_KEYWORD_LIMIT),
+              searchExactArticleChunks(userText, effectiveAgentId, DEFAULT_RAG_RETURN_LIMIT),
             ]);
             retrievalDebug.vectorRetrieved = vectorChunks.length;
             retrievalDebug.keywordRetrieved = keywordChunks.length;
             relevantChunks = rerankRetrievedRows(
-              [...vectorChunks, ...keywordChunks],
+              [...articleChunks, ...vectorChunks, ...keywordChunks],
               rankingQueryText,
               DEFAULT_RAG_RETURN_LIMIT
             );
           }
 
-          const shouldDeepSearchEarly = retrievalDebug.embeddingAvailable && shouldTriggerProactiveDeepSearch({
+          const shouldDeepSearchEarly = totalChunkCount <= 1200 && shouldTriggerProactiveDeepSearch({
             userText,
             retrievalQuery: rankingQueryText || retrievalQuery,
             relevantChunks,
@@ -9051,7 +9320,8 @@ async function handleSupabaseConversationMessageFallback({ res, userId, cid, con
           });
         }
 
-        mergedContext = [attachmentContext, relevantContext].filter(Boolean).join('\n\n---\n\n');
+        const inventoryContext = await getAgentDocumentInventoryContext(effectiveAgentId, userText);
+        mergedContext = [attachmentContext, relevantContext, inventoryContext].filter(Boolean).join('\n\n---\n\n');
         prompt = buildGroundedPrompt(mergedContext || '', agentInstructions, userText || 'Analise o anexo enviado.', conversationContext);
         hasContext = Boolean(mergedContext && mergedContext.trim().length > 0);
         contextSize = mergedContext ? mergedContext.length : 0;
@@ -9078,7 +9348,7 @@ async function handleSupabaseConversationMessageFallback({ res, userId, cid, con
   try {
     const generateAssistantText = async (systemPrompt, requestType = 'chat_completion_supabase_fallback') => {
       const aiCfg = getAiRuntimeConfig();
-      return runChatCompletion({
+      const completion = {
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userText || 'Analise o anexo enviado.' },
@@ -9088,7 +9358,14 @@ async function handleSupabaseConversationMessageFallback({ res, userId, cid, con
         conversationId: cid,
         requestType,
         temperature: 0,
-      });
+      };
+      try {
+        return await runChatCompletion(completion);
+      } catch (error) {
+        if (!isRetryableAiError(error) || !aiCfg.fastChatModel || aiCfg.fastChatModel === aiCfg.chatModel) throw error;
+        console.warn(`[CHAT] Modelo principal indisponivel; tentando ${aiCfg.fastChatModel}.`);
+        return runChatCompletion({ ...completion, model: aiCfg.fastChatModel, requestType: `${requestType}_fast_fallback` });
+      }
     };
 
     if (!assistantText) {
@@ -10350,7 +10627,7 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
               if (isLookingForBeginning) {
                 relevantChunks = await getFirstChunks(effectiveAgentId, 5);
               } else {
-                const [vectorChunks, keywordChunks] = await Promise.all([
+                const [vectorChunks, keywordChunks, articleChunks] = await Promise.all([
                   (async () => {
                     let queryEmbedding = null;
                     try {
@@ -10377,16 +10654,17 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
                     effectiveAgentId,
                     DEFAULT_RAG_KEYWORD_LIMIT
                   ),
+                  searchExactArticleChunks(userText, effectiveAgentId, DEFAULT_RAG_RETURN_LIMIT),
                 ]);
 
                 relevantChunks = rerankRetrievedRows(
-                  [...vectorChunks, ...keywordChunks],
+                  [...articleChunks, ...vectorChunks, ...keywordChunks],
                   rankingQueryText,
                   DEFAULT_RAG_RETURN_LIMIT
                 );
               }
 
-              const shouldDeepSearchEarly = queryEmbeddingAvailable && shouldTriggerProactiveDeepSearch({
+              const shouldDeepSearchEarly = totalChunkCount <= 1200 && shouldTriggerProactiveDeepSearch({
                 userText,
                 retrievalQuery: rankingQueryText || retrievalQuery,
                 relevantChunks,
@@ -10423,7 +10701,8 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
                 minRows: RAG_EXTREME_MODE ? Math.min(DEFAULT_RAG_RETURN_LIMIT, 12) : Math.min(DEFAULT_RAG_RETURN_LIMIT, 6),
               });
 
-              mergedContext = [attachmentContext, relevantContext].filter(Boolean).join('\n\n---\n\n');
+              const inventoryContext = await getAgentDocumentInventoryContext(effectiveAgentId, userText);
+              mergedContext = [attachmentContext, relevantContext, inventoryContext].filter(Boolean).join('\n\n---\n\n');
               prompt = buildGroundedPrompt(mergedContext || '', agentInstructions, userText || 'Analise o anexo enviado.', conversationContext);
               hasContext = Boolean(mergedContext && mergedContext.trim().length > 0);
               contextSize = mergedContext ? mergedContext.length : 0;
@@ -10475,7 +10754,7 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
     }
     if (!fullResp) {
       try {
-        fullResp = await runChatCompletion({
+        const completion = {
           messages: msgs,
           model: aiCfg.chatModel,
           userId,
@@ -10483,7 +10762,14 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
           requestType: attachment ? 'chat_completion_with_attachment' : 'chat_completion',
           temperature: 0,
           maxTokens: DEFAULT_CHAT_MAX_TOKENS,
-        });
+        };
+        try {
+          fullResp = await runChatCompletion(completion);
+        } catch (error) {
+          if (!isRetryableAiError(error) || !aiCfg.fastChatModel || aiCfg.fastChatModel === aiCfg.chatModel) throw error;
+          console.warn(`[CHAT] Modelo principal indisponivel; tentando ${aiCfg.fastChatModel}.`);
+          fullResp = await runChatCompletion({ ...completion, model: aiCfg.fastChatModel, requestType: `${completion.requestType}_fast_fallback` });
+        }
       } catch (error) {
         fullResp = isRetryableAiError(error)
           ? buildExtractiveLegalFallback(userText, relevantContext)

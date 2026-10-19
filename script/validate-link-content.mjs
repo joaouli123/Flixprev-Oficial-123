@@ -84,7 +84,6 @@ function htmlToPlainText(html = '') {
     .replace(/portalvisitorscounterweb/gi, ' ')
     .replace(/voltar ao topo da pagina/gi, ' ')
     .replace(/reportar erro/gi, ' ')
-    .replace(/redes sociais[\s\S]*$/i, ' ')
     .replace(/facebook|instagram|youtube|twitter|linkedin/gi, ' ')
     .replace(/termo de uso e politica de privacidade/gi, ' ')
     .replace(/\s+/g, ' ')

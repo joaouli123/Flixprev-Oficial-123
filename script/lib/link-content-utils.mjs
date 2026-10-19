@@ -269,12 +269,13 @@ function cleanDomainSpecificText(value = '', sourceUrl = '') {
     host = '';
   }
 
+  // A law can contain "redes sociais" in its operative text; do not mistake
+  // that phrase for a portal footer and truncate the rest of the document.
   cleaned = cleaned
     .replace(/PortalVisitorsCounterWeb/gi, ' ')
     .replace(/Voltar ao topo da p[aá]gina/gi, ' ')
     .replace(/Reportar Erro/gi, ' ')
     .replace(/Todo o conte[úu]do deste site est[aá] publicado[\s\S]*$/i, ' ')
-    .replace(/REDES SOCIAIS[\s\S]*$/i, ' ')
     .replace(/Facebook|Instagram|YouTube|Twitter|LinkedIn/gi, ' ')
     .replace(/Termo de Uso e Pol[ií]tica de Privacidade/gi, ' ')
     .replace(/Texto ou tabela desconfigurados|Omiss[aã]o de anexo ou figura|Mat[eé]ria n[aã]o localizada|Problema de acesso ao conte[uú]do/gi, ' ');

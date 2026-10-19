@@ -19,6 +19,10 @@ dist-ssr
 .env.test.local
 .env.production.local
 
+# Recoverable knowledge-base snapshots created before live document repair
+attached_assets/rag-backups-*/
+attached_assets/rag-audit-*.json
+
 # Kiro settings with credentials
 .kiro/settings/mcp.json
 

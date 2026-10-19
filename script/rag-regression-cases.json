@@ -1,0 +1,23 @@
+[
+  {"id":"01","agent":"P.A.P","agentId":"fffcec6e-d842-45fd-afea-d8b553820c8a","question":"Segundo o art. 59 da Lei 9.784/1999, qual é o prazo para interpor recurso administrativo e de quando ele é contado?","required":["10","dias"]},
+  {"id":"02","agent":"P.A.P","agentId":"fffcec6e-d842-45fd-afea-d8b553820c8a","question":"Segundo o art. 49 da Lei 9.784/1999, qual o prazo para decidir após concluir a instrução e como pode ser prorrogado?","required":["30","dias"]},
+  {"id":"03","agent":"Direito Trabalhista","agentId":"b34b8851-1d36-47b3-baba-ed6375b2ab1d","question":"Qual o prazo de concessão das férias no art. 134 da CLT?","required":["12","meses"]},
+  {"id":"04","agent":"Direito Trabalhista","agentId":"b34b8851-1d36-47b3-baba-ed6375b2ab1d","question":"No art. 71 da CLT, qual o intervalo mínimo quando a jornada passa de seis horas?","required":["1","hora"]},
+  {"id":"05","agent":"Direito Trabalhista","agentId":"b34b8851-1d36-47b3-baba-ed6375b2ab1d","question":"Segundo o caput do art. 58 da CLT, qual é a duração normal máxima diária do trabalho?","required":["8","horas"]},
+  {"id":"06","agent":"Direito Tributário","agentId":"ea4cdf64-dc0f-4a47-beac-98c254a987be","question":"Qual é o prazo de homologação previsto no art. 150, § 4º, do CTN?","required":["5","anos"]},
+  {"id":"07","agent":"Direito Tributário","agentId":"ea4cdf64-dc0f-4a47-beac-98c254a987be","question":"No art. 173, inciso I, do CTN, de quando se conta o prazo decadencial de cinco anos?","required":["primeiro dia","exercício seguinte"],"forbidden":["notificação ao sujeito passivo"]},
+  {"id":"08","agent":"Súmulas STJ","agentId":"6607f2ff-7b5f-4cd9-a053-2b74fe40e7fd","question":"O que dispõe a Súmula 7 do STJ sobre o simples reexame de prova em recurso especial?","required":["reexame","prova","recurso especial"]},
+  {"id":"09","agent":"Súmulas Trabalhistas","agentId":"38d4def8-6cdc-41e7-b69a-9437bd795170","question":"Segundo o item I da Súmula 338 do TST, qual o efeito da não apresentação injustificada dos controles de frequência?","required":["presunção","relativa"]},
+  {"id":"10","agent":"Súmulas Trabalhistas","agentId":"38d4def8-6cdc-41e7-b69a-9437bd795170","question":"De quem é o ônus de provar o término do contrato de trabalho segundo a Súmula 212 do TST?","required":["empregador"]},
+  {"id":"11","agent":"Normas Regulamentadoras","agentId":"9eb63148-902b-4091-8c38-8545b13d80c1","question":"Segundo a NR-6, o empregador deve fornecer EPI gratuitamente?","required":["gratuit"]},
+  {"id":"12","agent":"Normas Regulamentadoras","agentId":"9eb63148-902b-4091-8c38-8545b13d80c1","question":"Segundo a NR-6, um EPI pode ser vendido ou utilizado sem Certificado de Aprovação?","required":["certificado de aprovação"]},
+  {"id":"13","agent":"Normas Regulamentadoras","agentId":"9eb63148-902b-4091-8c38-8545b13d80c1","question":"Qual é o objetivo da CIPA no item 5.1.1 da NR-5?","required":["acidentes","trabalho"]},
+  {"id":"14","agent":"Reforma Tributária","agentId":"1cf18856-8ee8-44e1-903d-9ee1ddef7635","question":"Segundo o art. 1º da LC 214/2025, a quem competem IBS e CBS?","required":["IBS","CBS","União"]},
+  {"id":"15","agent":"Reforma Tributária","agentId":"1cf18856-8ee8-44e1-903d-9ee1ddef7635","question":"Segundo o art. 4º da LC 214/2025, sobre quais operações incidem IBS e CBS?","required":["operações","onerosas"]},
+  {"id":"16","agent":"Pensão por Morte","agentId":"24498c00-3480-48cb-98fd-1795a7c25ef3","question":"No art. 74 da Lei 8.213/1991, quais são os prazos para a pensão por morte contar desde o óbito para filhos menores de 16 anos e para os demais dependentes?","required":["180","90","dias"]},
+  {"id":"17","agent":"Aposentadoria Rural","agentId":"5242c66f-bf3b-4e47-b054-fd9d3e82617b","question":"No art. 48, § 1º, da Lei 8.213/1991, quais são as idades do trabalhador rural homem e mulher?","required":["60","55","anos"]},
+  {"id":"18","agent":"Aposentadoria Especial","agentId":"2ffea96d-2b99-4fea-bd11-b6852cf671e5","question":"Quais os três períodos de trabalho especial do art. 57 da Lei 8.213/1991?","required":["15","20","25","anos"]},
+  {"id":"19","agent":"BPC","agentId":"19a0af4a-1787-43c3-af98-86ad26625058","question":"No art. 20 da LOAS, qual é a idade mínima do idoso para o BPC?","required":["65","anos"]},
+  {"id":"20","agent":"CRPS","agentId":"7c8ee299-e51d-4574-81af-f4b6282fb61a","question":"Qual é o prazo para apresentar recurso ao CRPS depois da ciência da decisão?","required":["30","dias"]},
+  {"id":"21","agent":"Direito Trabalhista","agentId":"b34b8851-1d36-47b3-baba-ed6375b2ab1d","question":"Segundo o art. 58-A da CLT, qual é o limite semanal do trabalho em regime de tempo parcial sem horas suplementares?","required":["30","horas"]}
+]
