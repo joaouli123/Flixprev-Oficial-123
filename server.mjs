@@ -979,7 +979,10 @@ function getArticleHeadingRegex(article) {
   const match = /^(\d+)(?:[-–]([a-z]))?$/i.exec(String(article || ''));
   if (!match) return /(?!)a/;
   const suffix = match[2] ? `[-–][${match[2].toLowerCase()}${match[2].toUpperCase()}]` : '';
-  return new RegExp(`\\b(?:Art|ART)\\.?\\s*${match[1]}${suffix}\\s*(?:\\.|[-\u2013](?=\\s))`);
+  const ending = suffix
+    ? '(?:\\.|[-\u2013](?=\\s))'
+    : '(?:\\.|[-\u2013](?=\\s)(?!\\s*[A-Za-z]\\s*\\.))';
+  return new RegExp(`\\b(?:Art|ART)\\.?\\s*${match[1]}${suffix}\\s*${ending}`);
 }
 
 function normalizeLawNumber(value = '') {
@@ -4967,7 +4970,7 @@ REGRAS CRITICAS:
 17. Se o usuario pedir lista de normas do documento, apresente inventario por tipo+numero+data apenas do que estiver expresso nos trechos; nao complete com normas externas.
 18. As instrucoes do agente delimitam o escopo do assunto; use os anexos para sustentar esse escopo, sem transformar documentos de apoio em autorizacao para responder sobre outro tema.
 19. Quando a colecao tiver varios documentos relevantes (portarias, PDFs, planilhas ou links), sintetize os pontos complementares em uma unica resposta.
-20. Numeros, nomes e datas de portarias, leis ou atos citados nas instrucoes do agente sao apenas pistas de escopo; so afirme esses dados quando tambem aparecerem no contexto documental.
+20. Numeros, nomes e datas de portarias, leis ou atos citados nas instrucoes do agente sao apenas pistas de escopo; so afirme esses dados quando tambem aparecerem literalmente no texto documental. Uma URL de pagina de busca pode comprovar a categoria de documento, mas nao a existencia de um ato especifico nem seu conteudo. Se pedir exemplos do acervo, omita exemplos cujo numero e tipo nao constem no contexto.
 21. Para cada conclusao juridica, indique [Fonte N] para a verificacao interna. Se o trecho nao sustentar integralmente a conclusao, diga qual ponto nao foi confirmado. Seja breve e responda exatamente ao que foi perguntado.
 
 ${conversationBlock}CONTEXTO DOCUMENTAL:
@@ -5026,7 +5029,12 @@ function buildExtractiveLegalFallback(question = '', context = '') {
     .sort((left, right) => {
       const leftPrimary = titleNumber && normalizeLawNumber(left[1].title).includes(titleNumber) ? 1 : 0;
       const rightPrimary = titleNumber && normalizeLawNumber(right[1].title).includes(titleNumber) ? 1 : 0;
-      return rightPrimary - leftPrimary || left[0] - right[0];
+      const sameDocument = left[1].title === right[1].title;
+      // A consolidated statute keeps superseded wording immediately before
+      // the amendment; later chunks of the same law take precedence.
+      const newerChunk = sameDocument
+        ? Number(right[1].chunk) - Number(left[1].chunk) : 0;
+      return rightPrimary - leftPrimary || (Number.isFinite(newerChunk) ? newerChunk : 0) || left[0] - right[0];
     });
 
   for (const [id, source] of sources) {
@@ -5084,17 +5092,22 @@ function buildExtractiveLegalFallback(question = '', context = '') {
         const cleanCaput = caputOnly
           .split(/\s*\((?:Redação dada|Incluído|Incluída|Revogado|Revogada|Vigência)\b/i)[0]
           .replace(/\s+/g, ' ').trim();
-        const incisoSections = incisoMarkers.map((marker, index) => caputAndIncisos.slice(
-          marker.index,
-          incisoMarkers[index + 1]?.index ?? caputAndIncisos.length,
-        ));
+        const incisoSections = incisoMarkers.map((marker, index) => ({
+          number: marker[1],
+          text: caputAndIncisos.slice(marker.index,
+            incisoMarkers[index + 1]?.index ?? caputAndIncisos.length),
+          index,
+        })).filter((item) => !incisoMarkers.slice(item.index + 1)
+          .some((later) => later[1] === item.number)).map((item) => item.text);
         const rankedSections = [
           ...sections.map((section) => ({ section, isInciso: false })),
           ...incisoSections.map((section) => ({ section, isInciso: true })),
         ].filter((item) => item.section.trim().length >= 50).map((item) => ({
           ...item,
           score: focusTokens.filter((token) => normalizeRetrievalText(item.section).includes(token.slice(0, 5))).length
-            + (item.isInciso ? 2 : 0),
+            + (item.isInciso ? 2 : 0)
+            + (item.isInciso && /\bprazos?\b/i.test(normalizeRetrievalText(question))
+              && /\b(?:\d{1,3}|cento|noventa|trinta)\b.{0,40}\b(?:dias?|meses?|anos?)\b/i.test(item.section) ? 6 : 0),
         })).sort((left, right) => right.score - left.score || left.section.length - right.section.length);
         const minimumScore = Math.max(2, Math.ceil(focusTokens.length * 0.5));
         const preferredInciso = rankedSections.find((item) => item.isInciso && item.score >= minimumScore);
@@ -5201,8 +5214,40 @@ function buildContextLimitationResponse(question = '', context = '') {
   return 'Nao consegui confirmar esse ponto com seguranca no material que o agente tem agora. Se quiser, eu posso refinar a busca no acervo por artigo, paragrafo ou termo exato.';
 }
 
+function removeUnsupportedInventoryExamples(text = '', question = '', context = '') {
+  if (!/\b(acervo|documentos|tipos de atos|exemplos documentados)\b/i.test(normalizeRetrievalText(question))) {
+    return String(text || '');
+  }
+  const evidence = Array.from(getGroundedSourceMap(context).values())
+    .map((source) => source.content.toLowerCase().replace(/\s+/g, ' ')).join('\n');
+  let removed = 0;
+  const isSupported = (identifier) => {
+    if (evidence.includes(identifier)) return true;
+    const yearSeparator = identifier.lastIndexOf('/');
+    const prefix = identifier.slice(0, yearSeparator);
+    const year = identifier.slice(yearSeparator + 1);
+    if (!/[a-zà-ÿ]/i.test(prefix)) return false;
+    let offset = evidence.indexOf(prefix);
+    while (offset >= 0) {
+      if (evidence.slice(offset, offset + 240).includes(year)) return true;
+      offset = evidence.indexOf(prefix, offset + prefix.length);
+    }
+    return false;
+  };
+  const cleaned = String(text || '').split('\n').filter((line) => {
+    if (!/^\s*[*-]\s/.test(line)) return true;
+    const identifiers = Array.from(line.matchAll(/\b\d{1,4}(?:\/[A-Za-zÀ-ÿ.]+)*\/\d{4}\b/g))
+      .map((match) => match[0].toLowerCase());
+    const supported = identifiers.every(isSupported);
+    if (!supported) removed += 1;
+    return supported;
+  }).join('\n');
+  if (removed > 0) console.warn(`[VALIDATOR] ${removed} exemplo(s) de ato sem identificador literal na base removido(s).`);
+  return cleaned;
+}
+
 function validateOutput(text, hasContext = true, question = '', questionType = 'general', contextSize = 0, chunksUsed = 0, context = '', allowSalvage = true) {
-  const normalizedText = normalizeGroundedCitations(text);
+  const normalizedText = normalizeGroundedCitations(removeUnsupportedInventoryExamples(text, question, context));
   let finalResponse = normalizedText;
 
   // Padrões de alucinação

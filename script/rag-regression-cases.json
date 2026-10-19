@@ -19,5 +19,6 @@
   {"id":"18","agent":"Aposentadoria Especial","agentId":"2ffea96d-2b99-4fea-bd11-b6852cf671e5","question":"Quais os três períodos de trabalho especial do art. 57 da Lei 8.213/1991?","required":["15","20","25","anos"]},
   {"id":"19","agent":"BPC","agentId":"19a0af4a-1787-43c3-af98-86ad26625058","question":"No art. 20 da LOAS, qual é a idade mínima do idoso para o BPC?","required":["65","anos"]},
   {"id":"20","agent":"CRPS","agentId":"7c8ee299-e51d-4574-81af-f4b6282fb61a","question":"Qual é o prazo para apresentar recurso ao CRPS depois da ciência da decisão?","required":["30","dias"]},
-  {"id":"21","agent":"Direito Trabalhista","agentId":"b34b8851-1d36-47b3-baba-ed6375b2ab1d","question":"Segundo o art. 58-A da CLT, qual é o limite semanal do trabalho em regime de tempo parcial sem horas suplementares?","required":["30","horas"]}
+  {"id":"21","agent":"Direito Trabalhista","agentId":"b34b8851-1d36-47b3-baba-ed6375b2ab1d","question":"Segundo o art. 58-A da CLT, qual é o limite semanal do trabalho em regime de tempo parcial sem horas suplementares?","required":["30","horas"]},
+  {"id":"22","agent":"Pensão por Morte","agentId":"24498c00-3480-48cb-98fd-1795a7c25ef3","question":"No art. 74 da Lei 8.213/1991, quais são os prazos para requerer pensão por morte a contar do óbito?","required":["180","90","dias"],"forbidden":["trinta dias depois deste"]}
 ]
