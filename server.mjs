@@ -23,6 +23,7 @@ import {
   htmlToPlainText as sharedHtmlToPlainText,
   fetchLinkKnowledgeSource as sharedFetchLinkKnowledgeSource,
 } from './script/lib/link-content-utils.mjs';
+import { formatChatAnswerForUser } from './script/lib/chat-answer-format.mjs';
 const require = createRequire(import.meta.url);
 const { Pool } = pkg;
 dotenv.config();
@@ -4888,7 +4889,7 @@ REGRAS:
 2. Se o contexto estiver vazio ou insuficiente, responda com transparencia: diga o que nao foi possivel confirmar no material disponivel e quais pontos faltaram.
 3. Nunca complete com conhecimento externo.
 4. Nunca invente artigos, nomes, datas, prazos, procedimentos ou conclusoes.
-5. Se houver contexto suficiente, responda em portugues claro, direto e com tom de conversa.
+5. Se houver contexto suficiente, comece pela resposta exata, em portugues claro e com tom de conversa. Para perguntas pontuais, use uma ou duas frases; detalhe apenas o necessario para responder todas as partes da pergunta.
 6. Nao repita a pergunta e nao use titulos como "Resposta Final".
 7. As instrucoes do agente definem o assunto e os limites da resposta; anexos de outro tema nao transformam o agente em especialista geral.
 8. Quando houver varios anexos relevantes, combine-os como uma unica base do agente antes de responder.
@@ -4914,11 +4915,11 @@ REGRAS CRITICAS:
 2. Responda exclusivamente com base no contexto documental abaixo.
 3. Se a pergunta mencionar artigo, paragrafo, lei, decreto, codigo ou sigla normativa, procure primeiro esses identificadores no contexto antes de concluir que a informacao nao esta disponivel.
 4. Se a resposta depender de mais de um trecho, una os trechos sem extrapolar.
-5. Responda de forma natural, como em um chat, sem repetir a pergunta e sem usar titulos como "Resposta Final" ou "Pergunta identificada".
-6. Ao afirmar um fato ou regra, cite o trecho que o sustenta com [Fonte N]. Use somente os numeros de fonte presentes no contexto. Nao exponha IDs internos nem notas de revisao.
+5. Comece pela resposta exata, sem repetir a pergunta, preambulo, titulos ou informacoes que nao foram solicitadas. Para perguntas pontuais, prefira uma ou duas frases; detalhe condicoes e excecoes apenas quando mudarem a resposta. Use bullets somente se a pergunta pedir lista.
+6. Para verificacao interna, associe cada fato ou regra ao trecho que o sustenta com [Fonte N]. Use somente os numeros de fonte presentes no contexto. Nao escreva lista de fontes, IDs internos ou notas de revisao; as marcas serao removidas antes de mostrar a resposta ao usuario.
 7. Se a informacao nao estiver expressamente nos trechos, explique isso de forma breve, natural e objetiva, sem usar conhecimento externo.
 8. Nao use conhecimento externo, memoria do modelo ou suposicoes.
-9. Quando o contexto trouxer texto legal ou normativo, prefira reproduzir a redacao essencial em vez de parafrasear demais.
+9. Quando o contexto trouxer texto legal ou normativo, preserve o sentido exato, mas prefira uma sintese curta; cite a redacao literal somente quando isso for necessario para responder com precisao.
 10. Se houver divergencia entre trechos, aponte a divergencia de forma natural e objetiva.
 11. Em perguntas que pedem lista (ex.: "quais", "em quais situacoes", "documentos"), entregue os itens em bullets com redacao o mais literal possivel dos trechos.
 12. Priorize o trecho cujo texto tenha maior sobreposicao lexical com o nucleo da pergunta; nao substitua esse trecho por regra parecida de outro artigo.
@@ -4930,7 +4931,7 @@ REGRAS CRITICAS:
 18. As instrucoes do agente delimitam o escopo do assunto; use os anexos para sustentar esse escopo, sem transformar documentos de apoio em autorizacao para responder sobre outro tema.
 19. Quando a colecao tiver varios documentos relevantes (portarias, PDFs, planilhas ou links), sintetize os pontos complementares em uma unica resposta.
 20. Numeros, nomes e datas de portarias, leis ou atos citados nas instrucoes do agente sao apenas pistas de escopo; so afirme esses dados quando tambem aparecerem no contexto documental.
-21. Para cada conclusao juridica, indique [Fonte N] ao fim da frase. Se o trecho nao sustentar integralmente a conclusao, diga qual ponto nao foi confirmado. Seja breve e responda exatamente ao que foi perguntado.
+21. Para cada conclusao juridica, indique [Fonte N] para a verificacao interna. Se o trecho nao sustentar integralmente a conclusao, diga qual ponto nao foi confirmado. Seja breve e responda exatamente ao que foi perguntado.
 
 ${conversationBlock}CONTEXTO DOCUMENTAL:
 ${context}
@@ -4970,19 +4971,6 @@ function normalizeGroundedCitations(value = '') {
     Array.from(new Set(Array.from(String(values).matchAll(/\d+/g)).map((match) => Number(match[0]))))
       .map((id) => `[Fonte ${id}]`).join(' ')
   ));
-}
-
-function appendGroundedSourceDetails(answer = '', context = '') {
-  const sources = getGroundedSourceMap(context);
-  const citedIds = getGroundedCitationIds(answer).filter((id) => sources.has(id));
-  if (citedIds.length === 0 || isGroundedFallbackResponse(answer)) {
-    return answer;
-  }
-  const details = citedIds.map((id) => {
-    const source = sources.get(id);
-    return `- Fonte ${id}: ${source.title}, trecho ${source.chunk}`;
-  });
-  return `${String(answer || '').trim()}\n\nFontes consultadas:\n${details.join('\n')}`;
 }
 
 function buildExtractiveLegalFallback(question = '', context = '') {
@@ -9218,7 +9206,7 @@ async function handleSupabaseConversationMessageFallback({ res, userId, cid, con
       conversationId: cid,
       requestType: 'chat_completion_supabase_fallback_refinement',
     });
-    finalAssistantText = appendGroundedSourceDetails(finalAssistantText, relevantContext);
+    finalAssistantText = formatChatAnswerForUser(finalAssistantText);
 
     console.log(`[CHAT][SUPABASE-FALLBACK] Retrieval summary: ${JSON.stringify(retrievalDebug)}`);
     await insertConversationMessageViaSupabase(cid, 'assistant', finalAssistantText);
@@ -10198,6 +10186,7 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
         attachmentContext ? 1 : 0,
         attachmentContext,
       );
+      localResponse = formatChatAnswerForUser(localResponse);
 
       memoryChatStore.messages.push({
         id: memoryChatStore.nextMessageId++,
@@ -10594,7 +10583,7 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
       conversationId: cid,
       requestType: attachment ? 'chat_completion_with_attachment_refinement' : 'chat_completion_refinement',
     });
-    validatedResp = appendGroundedSourceDetails(validatedResp, relevantContext);
+    validatedResp = formatChatAnswerForUser(validatedResp);
     console.log(`[CHAT][TIMING] ${JSON.stringify({ agentId: effectiveAgentId, retrievalMs: generationStartedAt - retrievalStartedAt, generationMs: initialGenerationFinishedAt - generationStartedAt, postProcessingMs: Date.now() - initialGenerationFinishedAt, totalMs: Date.now() - retrievalStartedAt, chunksUsed, responseChars: validatedResp.length })}`);
 
     const chunkSize = 50;
