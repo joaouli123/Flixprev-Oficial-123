@@ -921,16 +921,17 @@ async function tryHandlePythonAgentCoreMessage({
 
   try {
     const result = await callPythonAgentCoreQuery({ collectionId, question, agentInstructions });
-    const answer = String(result?.answer || '').trim();
-    if (!answer) {
+    const rawAnswer = String(result?.answer || '').trim();
+    if (!rawAnswer) {
       return { handled: false, reason: 'empty_answer' };
     }
 
     const citations = Array.isArray(result?.citations) ? result.citations : [];
-    if (citations.length === 0 && isGroundedFallbackResponse(answer)) {
+    if (citations.length === 0 && isGroundedFallbackResponse(rawAnswer)) {
       console.info('[PYTHON_AGENT_CORE] Core Python nao encontrou evidencias; usando RAG Node atual.');
       return { handled: false, reason: 'python_no_evidence' };
     }
+    const answer = formatChatAnswerForUser(rawAnswer);
 
     if (typeof saveAssistantMessage === 'function') {
       await saveAssistantMessage(answer);
