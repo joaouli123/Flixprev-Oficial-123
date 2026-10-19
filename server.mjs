@@ -8960,41 +8960,34 @@ async function handleSupabaseConversationMessageFallback({ res, userId, cid, con
             relevantChunks = await getFirstChunks(effectiveAgentId, 5);
           } else {
             retrievalDebug.embeddingAttempted = true;
-            let queryEmbedding = null;
-            try {
-              queryEmbedding = await generateQueryEmbedding(retrievalQuery || userText, {
-                userId,
-                conversationId: cid,
-                requestType: 'chat_embedding_query_supabase_fallback',
-                label: 'embedding_supabase_fallback',
-              });
-            } catch (embeddingError) {
-              console.warn('[CHAT][RAG] Embedding indisponível no fallback Supabase; continuando com busca lexical:', embeddingError.message);
-            }
-
-            if (queryEmbedding) {
-              retrievalDebug.embeddingAvailable = true;
-              relevantChunks = await searchSimilarChunks(
-                queryEmbedding,
-                effectiveAgentId,
-                DEFAULT_RAG_VECTOR_LIMIT,
-                rankingQueryText
-              );
-              retrievalDebug.vectorRetrieved = relevantChunks.length;
-            }
-
-            const keywords = userText.match(/[A-ZÁÉÍÓÚ][a-zàéíóúç]+/g) || [];
-            if (keywords.length > 0) {
-              const keywordContext = '';
-              if (keywordContext) {
-                relevantContext = [keywordContext, relevantContext].filter(Boolean).join('\n\n---\n\n');
-              }
-            }
-
-            const keywordChunks = await searchKeywordChunks(rankingQueryText, effectiveAgentId, DEFAULT_RAG_KEYWORD_LIMIT);
+            const [vectorChunks, keywordChunks] = await Promise.all([
+              (async () => {
+                let queryEmbedding = null;
+                try {
+                  queryEmbedding = await generateQueryEmbedding(retrievalQuery || userText, {
+                    userId,
+                    conversationId: cid,
+                    requestType: 'chat_embedding_query_supabase_fallback',
+                    label: 'embedding_supabase_fallback',
+                  });
+                } catch (embeddingError) {
+                  console.warn('[CHAT][RAG] Embedding indisponível no fallback Supabase; continuando com busca lexical:', embeddingError.message);
+                }
+                if (!queryEmbedding) return [];
+                retrievalDebug.embeddingAvailable = true;
+                return searchSimilarChunks(
+                  queryEmbedding,
+                  effectiveAgentId,
+                  DEFAULT_RAG_VECTOR_LIMIT,
+                  rankingQueryText
+                );
+              })(),
+              searchKeywordChunks(rankingQueryText, effectiveAgentId, DEFAULT_RAG_KEYWORD_LIMIT),
+            ]);
+            retrievalDebug.vectorRetrieved = vectorChunks.length;
             retrievalDebug.keywordRetrieved = keywordChunks.length;
             relevantChunks = rerankRetrievedRows(
-              [...relevantChunks, ...keywordChunks],
+              [...vectorChunks, ...keywordChunks],
               rankingQueryText,
               DEFAULT_RAG_RETURN_LIMIT
             );
@@ -10353,36 +10346,37 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
               if (isLookingForBeginning) {
                 relevantChunks = await getFirstChunks(effectiveAgentId, 5);
               } else {
-                let queryEmbedding = null;
-                try {
-                  queryEmbedding = await generateQueryEmbedding(retrievalQuery || userText, {
-                    userId,
-                    conversationId: cid,
-                    requestType: 'chat_embedding_query',
-                    label: 'chat_embedding_query',
-                  });
-                } catch (embeddingError) {
-                  console.warn('[CHAT][RAG] Embedding indisponível; continuando com busca lexical:', embeddingError.message);
-                }
-
-                if (queryEmbedding) {
-                  queryEmbeddingAvailable = true;
-                  relevantChunks = await searchSimilarChunks(
-                    queryEmbedding,
+                const [vectorChunks, keywordChunks] = await Promise.all([
+                  (async () => {
+                    let queryEmbedding = null;
+                    try {
+                      queryEmbedding = await generateQueryEmbedding(retrievalQuery || userText, {
+                        userId,
+                        conversationId: cid,
+                        requestType: 'chat_embedding_query',
+                        label: 'chat_embedding_query',
+                      });
+                    } catch (embeddingError) {
+                      console.warn('[CHAT][RAG] Embedding indisponível; continuando com busca lexical:', embeddingError.message);
+                    }
+                    if (!queryEmbedding) return [];
+                    queryEmbeddingAvailable = true;
+                    return searchSimilarChunks(
+                      queryEmbedding,
+                      effectiveAgentId,
+                      DEFAULT_RAG_VECTOR_LIMIT,
+                      rankingQueryText
+                    );
+                  })(),
+                  searchKeywordChunks(
+                    rankingQueryText,
                     effectiveAgentId,
-                    DEFAULT_RAG_VECTOR_LIMIT,
-                    rankingQueryText
-                  );
-                }
-
-                const keywordChunks = await searchKeywordChunks(
-                  rankingQueryText,
-                  effectiveAgentId,
-                  DEFAULT_RAG_KEYWORD_LIMIT
-                );
+                    DEFAULT_RAG_KEYWORD_LIMIT
+                  ),
+                ]);
 
                 relevantChunks = rerankRetrievedRows(
-                  [...relevantChunks, ...keywordChunks],
+                  [...vectorChunks, ...keywordChunks],
                   rankingQueryText,
                   DEFAULT_RAG_RETURN_LIMIT
                 );
