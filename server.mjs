@@ -5037,7 +5037,7 @@ function buildExtractiveLegalFallback(question = '', context = '') {
         const sentenceEnd = Math.max(excerpt.lastIndexOf('. '), excerpt.lastIndexOf('; '));
         if (sentenceEnd > 250) excerpt = excerpt.slice(0, sentenceEnd + 1);
       }
-      return `O trecho do art. ${article} no documento ${source.title} diz: “${excerpt}” [Fonte ${id}].`;
+      return `${excerpt} [Fonte ${id}]`;
     }
   }
   return '';
@@ -5066,7 +5066,10 @@ async function buildOfficialClt134Fallback(question = '', context = '') {
       .replace(/\s+/g, ' ').trim();
     if (caput.length < 80 || caput.length > 450 || caput.includes('\uFFFD')
       || !/12\s*\(doze\)\s*meses/i.test(caput)) return '';
-    return `O art. 134 da CLT dispõe: “${caput}” [Fonte ${id}]. Portanto, a concessão deve ocorrer nos 12 meses subsequentes à aquisição do direito.`;
+    if (/\bprazo\b|\bquando\b/i.test(question)) {
+      return `As férias devem ser concedidas nos 12 meses subsequentes à aquisição do direito. [Fonte ${id}]`;
+    }
+    return `${caput} [Fonte ${id}]`;
   } catch (error) {
     console.warn('[CHAT] Falha ao atualizar caput do art. 134 da CLT:', error?.message || error);
     return '';
