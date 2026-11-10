@@ -23,11 +23,21 @@ const MISSING_PATTERNS = [
   /\bnao (e|foi) possivel (responder|informar|confirmar|te ajudar)/,
 ];
 
+const foldText = (text = '') => String(text || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+
 export function looksLikeMissingAnswer(text = '') {
   const raw = String(text || '').trim();
   if (!raw || raw.length > MISSING_ANSWER_MAX_CHARS) return false;
-  const norm = raw.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
-  return MISSING_PATTERNS.some((re) => re.test(norm));
+  return MISSING_PATTERNS.some((re) => re.test(foldText(raw)));
+}
+
+// Resposta longa que ressalva uma lacuna ("os documentos não especificam o prazo"). Devolve as frases
+// com a lacuna para a busca oficial completar só aquilo; lista vazia = resposta sem lacuna.
+export function findMissingStatements(text = '') {
+  const raw = String(text || '').trim();
+  if (!raw) return [];
+  const sentences = raw.split(/(?<=[.!?])\s+|\n+/).map((x) => x.trim()).filter((x) => x.length >= 15);
+  return sentences.filter((sentence) => MISSING_PATTERNS.some((re) => re.test(foldText(sentence)))).slice(0, 4);
 }
 
 const BASE_RULES = [
@@ -48,9 +58,12 @@ function buildSystemPrompts(agentTitle = '') {
   ];
 }
 
-function buildUserText(question = '', conversationContext = '') {
+function buildUserText(question = '', conversationContext = '', gaps = []) {
   const ctx = String(conversationContext || '').trim().slice(-1500);
-  return ctx ? `Contexto recente da conversa:\n${ctx}\n\nPergunta atual: ${question}` : question;
+  const base = ctx ? `Contexto recente da conversa:\n${ctx}\n\nPergunta atual: ${question}` : question;
+  const list = (Array.isArray(gaps) ? gaps : []).map((g) => String(g || '').trim()).filter(Boolean);
+  if (!list.length) return base;
+  return `${base}\n\nA base de documentos já respondeu parte da pergunta, mas ficou sem estes pontos:\n${list.map((g) => `- ${g}`).join('\n')}\n\nResponda SOMENTE o que falta nesses pontos (sem repetir o resto), com o número exato do artigo/lei.`;
 }
 
 // Avalia uma resposta do Gemini: quanto do texto se apoia em fonte oficial. Recortar os trechos
@@ -108,9 +121,14 @@ export function evaluateGroundedCandidate(payload = {}) {
     .trim();
   const ratio = keptSupported > 0 ? keptOfficial / keptSupported : 0;
   const sources = [...usedOfficial].map((i) => chunks[i]);
+  // Linhas que só citam a base legal ou a fonte não respondem nada; precisa sobrar uma frase de conteúdo.
+  const substantiveChars = keptLines
+    .filter((line) => line.trim() && !/^\s*#/.test(line))
+    .filter((line) => !/^\s*([-*•]\s*)?\**\s*(base legal|fundamenta[çc][ãa]o( legal)?|fontes?( oficiais| consultadas)?|refer[êe]ncias?( legais)?|legisla[çc][ãa]o)\s*\**\s*:/i.test(line))
+    .join(' ').replace(/[*_#>`-]/g, ' ').replace(/\s+/g, ' ').trim().length;
   // Precisa sobrar conteúdo de verdade apoiado em fonte oficial, não só a frase de abertura.
   const accepted = !noSource && !firstAnswerDropped && sources.length > 0 && ratio >= MIN_OFFICIAL_SUPPORT_RATIO
-    && keptOfficial >= 60 && cleaned.length >= 40;
+    && keptOfficial >= 60 && cleaned.length >= 40 && substantiveChars >= 40;
   return { accepted, text: cleaned, ratio, sources, noSource };
 }
 
@@ -145,13 +163,15 @@ export async function searchOfficialWeb({
   baseURL,
   apiKey,
   model = 'gemini-3-flash-preview',
-  timeoutMs = 12000,
+  timeoutMs = 40000,
+  thinkingLevel = 'high',
+  gaps = [],
   fetchImpl = fetch,
 } = {}) {
   if (!apiKey || !String(question || '').trim()) return null;
   const startedAt = Date.now();
   const url = generateContentUrl(baseURL, model);
-  const userText = buildUserText(question, conversationContext);
+  const userText = buildUserText(question, conversationContext, gaps);
   // Todas as variantes correm em paralelo; a primeira aceita encerra a busca e cancela as outras.
   const controller = new AbortController();
   const signal = AbortSignal.any ? AbortSignal.any([controller.signal, AbortSignal.timeout(timeoutMs)]) : AbortSignal.timeout(timeoutMs);
@@ -166,7 +186,7 @@ export async function searchOfficialWeb({
         generationConfig: {
           temperature: 0,
           maxOutputTokens: 2048,
-          ...(/^gemini-3/i.test(model) ? { thinkingConfig: { thinkingLevel: 'minimal' } } : {}),
+          ...(/^gemini-3/i.test(model) ? { thinkingConfig: { thinkingLevel } } : {}),
         },
       }),
       signal,
@@ -213,5 +233,19 @@ export function buildOfficialWebAnswer(result, now = new Date()) {
     result.text,
     `**Fontes oficiais:**\n${links}`,
     `_Pesquisa feita em ${date}. Por vir da internet e não da base do agente, confira no link oficial antes de usar._`,
+  ].join('\n\n');
+}
+
+// Acrescenta ao fim de uma resposta da base o que a fonte oficial confirmou sobre os pontos que faltaram.
+export function buildOfficialWebComplement(baseAnswer = '', result, now = new Date()) {
+  const date = now.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+  const links = result.sources.map((s) => `- [${s.title}](${s.url})`).join('\n');
+  return [
+    String(baseAnswer || '').trim(),
+    '---',
+    '**Complemento em fontes oficiais** (o que os documentos do agente não traziam):',
+    result.text,
+    `**Fontes oficiais:**\n${links}`,
+    `_Complemento pesquisado na internet em ${date}. Confira no link oficial antes de usar._`,
   ].join('\n\n');
 }

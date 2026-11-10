@@ -32,7 +32,7 @@ import {
 import { resolveEmbeddingRoute } from './script/lib/embedding-availability.mjs';
 import { getGeminiThinkingOptions } from './script/lib/gemini-thinking.mjs';
 import { sqlAccentFold, extractNumberedPrecedentPhrases } from './script/lib/keyword-search.mjs';
-import { searchOfficialWeb, buildOfficialWebAnswer, looksLikeMissingAnswer } from './script/lib/official-web-search.mjs';
+import { searchOfficialWeb, buildOfficialWebAnswer, buildOfficialWebComplement, findMissingStatements, looksLikeMissingAnswer } from './script/lib/official-web-search.mjs';
 
 const OFFICIAL_WEB_FALLBACK_ENABLED = !/^(0|false|off|no)$/i.test(String(process.env.OFFICIAL_WEB_FALLBACK || '').trim());
 const require = createRequire(import.meta.url);
@@ -4088,7 +4088,9 @@ function computeChunkTermCoverageScore(content = '', queryText = '') {
 }
 
 function getRetrievedRowKey(row = {}) {
-  return `${row?.documentId || 'sem-doc'}:${row?.chunkIndex}:${String(row?.content || '').slice(0, 80)}`;
+  // Chave pelo texto: a mesma lei enviada duas vezes vira um trecho so (antes ocupava metade das vagas da busca).
+  const text = String(row?.content || '').replace(/s+/g, ' ').trim();
+  return text ? `txt:${text}` : `${row?.documentId || 'sem-doc'}:${row?.chunkIndex}`;
 }
 
 function dedupeRetrievedRows(rows = []) {
@@ -4385,7 +4387,9 @@ async function searchSimilarChunks(queryEmbedding, agentId, limit = DEFAULT_RAG_
             AND dc.embedding IS NOT NULL
           ORDER BY dc.embedding <=> $2::halfvec
           LIMIT $3
-        `, [agentId, embeddingString, limit]);
+        `, [agentId, embeddingString, Math.min(Math.max(1, Number(limit) || DEFAULT_RAG_VECTOR_LIMIT) * 3, 240)]);
+        // Busca 3x mais e tira trechos repetidos (documentos enviados em duplicidade) antes do reranking.
+        result.rows = dedupeRetrievedRows(result.rows.map((row) => ({ ...row, documentId: row.document_id, chunkIndex: row.chunk_index }))).slice(0, Math.max(1, Number(limit) || DEFAULT_RAG_VECTOR_LIMIT) * 2);
 
         console.log('--- RAG PROFUNDO ---');
         console.log(`Agente: ${agentId}`);
@@ -11053,7 +11057,10 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
 
     // Último recurso: a base do agente não respondeu. Pesquisa só em sites oficiais (gov.br, jus.br, leg.br)
     // e só entrega se a resposta estiver apoiada nessas fontes; senão mantém o "não encontrei".
-    if (OFFICIAL_WEB_FALLBACK_ENABLED && effectiveAgentId && !attachmentContext && (isGroundedFallbackResponse(validatedResp) || looksLikeMissingAnswer(validatedResp))) {
+    // Resposta boa com uma lacuna ("os documentos não especificam o prazo"): pesquisa só a lacuna e acrescenta no fim.
+    const officialWebFullMissing = isGroundedFallbackResponse(validatedResp) || looksLikeMissingAnswer(validatedResp);
+    const officialWebGaps = officialWebFullMissing ? [] : findMissingStatements(validatedResp);
+    if (OFFICIAL_WEB_FALLBACK_ENABLED && effectiveAgentId && !attachmentContext && (officialWebFullMissing || officialWebGaps.length > 0)) {
       const officialWebStartedAt = Date.now();
       try {
         res.write(`data: ${JSON.stringify({ status: 'Pesquisando em fontes oficiais na internet' })}\n\n`);
@@ -11066,6 +11073,8 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
           baseURL: aiCfgWeb.chatBaseURL,
           apiKey: aiCfgWeb.chatApiKey,
           model: webModel,
+          gaps: officialWebGaps,
+          thinkingLevel: process.env.OFFICIAL_WEB_THINKING || 'high',
         });
         if (web) {
           logAiUsageSafe({
@@ -11080,7 +11089,9 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
             costUsd: 0,
           });
           console.log(`[CHAT][OFFICIAL_WEB] ${JSON.stringify({ agentId: effectiveAgentId, found: web.found, ratio: web.ratio, sources: web.sources?.length || 0, ms: web.ms, errors: web.errors })}`);
-          if (web.found) validatedResp = buildOfficialWebAnswer(web);
+          if (web.found) {
+            validatedResp = officialWebFullMissing ? buildOfficialWebAnswer(web) : buildOfficialWebComplement(validatedResp, web);
+          }
         }
       } catch (webError) {
         console.warn('[CHAT][OFFICIAL_WEB] Falha na pesquisa oficial:', webError?.message || webError, `${Date.now() - officialWebStartedAt}ms`);

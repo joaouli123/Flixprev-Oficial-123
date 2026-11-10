@@ -6,6 +6,8 @@ import {
   searchOfficialWeb,
   buildOfficialWebAnswer,
   looksLikeMissingAnswer,
+  findMissingStatements,
+  buildOfficialWebComplement,
 } from '../lib/official-web-search.mjs';
 
 test('looksLikeMissingAnswer reconhece "não tem na base" escrito de vários jeitos', () => {
@@ -141,4 +143,39 @@ test('buildOfficialWebAnswer deixa claro que veio da internet e lista os links o
   assert.match(text, /\[Gov\.br\]\(https:\/\/www\.gov\.br\/x\)/);
   assert.match(text, /09\/11\/2026/);
   assert.ok(text.includes(OFFICIAL_TEXT));
+});
+
+test('findMissingStatements acha a lacuna dentro de resposta longa', () => {
+  const longa = `${'A pensão por morte é devida aos dependentes do segurado. '.repeat(15)}Os documentos não especificam se a pensão exige carência. A renda é de 50% mais 10% por dependente.`;
+  assert.deepEqual(findMissingStatements(longa), ['Os documentos não especificam se a pensão exige carência.']);
+  assert.deepEqual(findMissingStatements('A carência é de 12 contribuições mensais, dispensada em caso de acidente.'), []);
+  assert.deepEqual(findMissingStatements(''), []);
+});
+
+test('rejeita resposta da web que só traz linhas de "Base legal"', () => {
+  const t1 = 'Base legal: Lei nº 11.196/2005, art. 70, I, d.';
+  const t2 = '**Fundamentação legal:** Lei nº 8.212/1991.';
+  const r = evaluateGroundedCandidate(payload(`${t1}
+${t2}`, [['www.planalto.gov.br', 'Planalto']], [[t1, [0]], [t2, [0]]]));
+  assert.equal(r.accepted, false);
+});
+
+test('searchOfficialWeb manda as lacunas para a pesquisa', async () => {
+  let body = null;
+  const fetchImpl = async (_url, opts) => { body = body || JSON.parse(opts.body); return { ok: true, json: async () => payload(OFFICIAL_TEXT, [['www.gov.br', 'Gov.br']], [[OFFICIAL_TEXT, [0]]]) }; };
+  const r = await searchOfficialWeb({ question: 'Pensão exige carência?', apiKey: 'k', baseURL: 'https://aiplatform.googleapis.com/v1', gaps: ['Os documentos não especificam a carência.'], fetchImpl });
+  assert.equal(r.found, true);
+  const userText = body.contents[0].parts[0].text;
+  assert.match(userText, /ficou sem estes pontos/);
+  assert.match(userText, /não especificam a carência/);
+  assert.equal(body.generationConfig.thinkingConfig.thinkingLevel, 'high');
+});
+
+test('buildOfficialWebComplement mantém a resposta da base e acrescenta o complemento com links', () => {
+  const out = buildOfficialWebComplement('Resposta da base.', { text: 'A pensão independe de carência (art. 26, I, Lei 8.213/91).', sources: [{ title: 'Planalto', url: 'https://www.planalto.gov.br/x' }] }, new Date('2026-11-10T12:00:00Z'));
+  assert.ok(out.startsWith('Resposta da base.'));
+  assert.match(out, /Complemento em fontes oficiais/);
+  assert.match(out, /independe de carência/);
+  assert.ok(out.includes('[Planalto](https://www.planalto.gov.br/x)'));
+  assert.ok(out.includes('10/11/2026'));
 });
