@@ -32,6 +32,9 @@ import {
 import { resolveEmbeddingRoute } from './script/lib/embedding-availability.mjs';
 import { getGeminiThinkingOptions } from './script/lib/gemini-thinking.mjs';
 import { sqlAccentFold, extractNumberedPrecedentPhrases } from './script/lib/keyword-search.mjs';
+import { searchOfficialWeb, buildOfficialWebAnswer } from './script/lib/official-web-search.mjs';
+
+const OFFICIAL_WEB_FALLBACK_ENABLED = !/^(0|false|off|no)$/i.test(String(process.env.OFFICIAL_WEB_FALLBACK || '').trim());
 const require = createRequire(import.meta.url);
 const { Pool } = pkg;
 dotenv.config();
@@ -11048,6 +11051,43 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
       conversationId: cid,
       requestType: attachment ? 'chat_completion_with_attachment_refinement' : 'chat_completion_refinement',
     });
+
+    // Último recurso: a base do agente não respondeu. Pesquisa só em sites oficiais (gov.br, jus.br, leg.br)
+    // e só entrega se a resposta estiver apoiada nessas fontes; senão mantém o "não encontrei".
+    if (OFFICIAL_WEB_FALLBACK_ENABLED && effectiveAgentId && !attachmentContext && isGroundedFallbackResponse(validatedResp)) {
+      const officialWebStartedAt = Date.now();
+      try {
+        res.write(`data: ${JSON.stringify({ status: 'Pesquisando em fontes oficiais na internet' })}\n\n`);
+        const aiCfgWeb = getAiRuntimeConfig();
+        const webModel = process.env.OFFICIAL_WEB_MODEL || 'gemini-3-flash-preview';
+        const web = await searchOfficialWeb({
+          question: userText,
+          conversationContext,
+          agentTitle: agentData?.title || agentData?.name || '',
+          baseURL: aiCfgWeb.chatBaseURL,
+          apiKey: aiCfgWeb.chatApiKey,
+          model: webModel,
+        });
+        if (web) {
+          logAiUsageSafe({
+            userId,
+            conversationId: cid,
+            requestType: 'chat_official_web_search',
+            model: webModel,
+            status: 'success',
+            promptTokens: web.usage?.prompt || 0,
+            completionTokens: web.usage?.completion || 0,
+            totalTokens: (web.usage?.prompt || 0) + (web.usage?.completion || 0),
+            costUsd: 0,
+          });
+          console.log(`[CHAT][OFFICIAL_WEB] ${JSON.stringify({ agentId: effectiveAgentId, found: web.found, ratio: web.ratio, sources: web.sources?.length || 0, ms: web.ms, errors: web.errors })}`);
+          if (web.found) validatedResp = buildOfficialWebAnswer(web);
+        }
+      } catch (webError) {
+        console.warn('[CHAT][OFFICIAL_WEB] Falha na pesquisa oficial:', webError?.message || webError, `${Date.now() - officialWebStartedAt}ms`);
+      }
+    }
+
     validatedResp = formatChatAnswerForUser(validatedResp);
     console.log(`[CHAT][TIMING] ${JSON.stringify({ agentId: effectiveAgentId, retrievalMs: generationStartedAt - retrievalStartedAt, generationMs: initialGenerationFinishedAt - generationStartedAt, postProcessingMs: Date.now() - initialGenerationFinishedAt, totalMs: Date.now() - retrievalStartedAt, chunksUsed, responseChars: validatedResp.length })}`);
 
