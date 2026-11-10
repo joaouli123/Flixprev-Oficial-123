@@ -231,6 +231,10 @@ const DEFAULT_RAG_DEEP_SEED_LIMIT = Math.max(10, Number(process.env.RAG_DEEP_SEE
 const DEFAULT_RAG_NEIGHBOR_WINDOW = Math.max(1, Math.min(Number(process.env.RAG_NEIGHBOR_WINDOW || (RAG_EXTREME_MODE ? 3 : 2)) || (RAG_EXTREME_MODE ? 3 : 2), 6));
 const DEFAULT_RAG_CONTEXT_MAX_CHARS = Math.max(12000, Number(process.env.RAG_CONTEXT_MAX_CHARS || (RAG_EXTREME_MODE ? 100000 : 26000)) || (RAG_EXTREME_MODE ? 100000 : 26000));
 const DEFAULT_CHAT_MAX_TOKENS = Number(process.env.CHAT_MAX_TOKENS || (RAG_EXTREME_MODE ? 6400 : 2600));
+// Depois da 1a resposta: varredura profunda e revisao so rodam ate este tempo total, cada uma com timeout curto.
+const POST_STEPS_BUDGET_MS = Math.max(30000, Number(process.env.CHAT_POST_STEPS_BUDGET_MS || 75000) || 75000);
+const POST_STEP_TIMEOUT_MS = Math.max(15000, Number(process.env.CHAT_POST_STEP_TIMEOUT_MS || 35000) || 35000);
+const OFFICIAL_WEB_DEADLINE_MS = Math.max(60000, Number(process.env.OFFICIAL_WEB_DEADLINE_MS || 120000) || 120000);
 const CHAT_PROVIDER_TIMEOUT_MS = Math.max(10000, Math.min(Number(process.env.CHAT_PROVIDER_TIMEOUT_MS || 15000) || 15000, 60000));
 const DEFAULT_FAST_CHAT_MAX_TOKENS = Number(process.env.FAST_CHAT_MAX_TOKENS || (RAG_EXTREME_MODE ? 3600 : 2200));
 const ENABLE_RAG_TYPO_TOLERANCE = !/^(0|false|no)$/i.test(String(process.env.RAG_TYPO_TOLERANCE || 'true').trim());
@@ -1882,6 +1886,7 @@ async function runChatCompletion({
   requestType = 'chat_completion',
   temperature = 0,
   maxTokens,
+  timeoutMs = 0,
 }) {
   const cfg = getAiRuntimeConfig();
   const effectiveModel = String(model || '').trim() || cfg.chatModel;
@@ -1926,15 +1931,14 @@ async function runChatCompletion({
         messages,
         temperature,
         max_tokens: Math.max(256, Number(maxTokens || DEFAULT_CHAT_MAX_TOKENS)),
-        ...(cfg.chatProvider === 'gemini-express' ? { timeout_ms: CHAT_PROVIDER_TIMEOUT_MS } : {}),
+        ...(cfg.chatProvider === 'gemini-express' ? { timeout_ms: Math.min(CHAT_PROVIDER_TIMEOUT_MS, Number(timeoutMs) > 0 ? Number(timeoutMs) : CHAT_PROVIDER_TIMEOUT_MS) } : {}),
       }),
       {
         label: requestType,
         // The caller immediately retries transient Gemini failures on the
         // faster model; repeating the same timed-out model only adds latency.
         maxRetries: cfg.chatProvider === 'gemini-express'
-          && cfg.fastChatModel !== effectiveModel
-          && !requestType.endsWith('_fast_fallback') ? 0 : 1,
+          && (cfg.fastChatModel !== effectiveModel || requestType.endsWith('_fast_fallback')) ? 0 : 1,
         baseDelayMs: 500,
       }
     );
@@ -5637,6 +5641,7 @@ async function refineGroundedAnswerIfNeeded({
   userId = null,
   conversationId = null,
   requestType = 'chat_completion_grounded_refinement',
+  timeoutMs = POST_STEP_TIMEOUT_MS,
 } = {}) {
   const baseAnswer = String(answer || '').trim();
   if (!baseAnswer || !shouldRunStrictGroundedRefinement(question, hasContext, baseAnswer, context)) {
@@ -5686,6 +5691,7 @@ Reescreva agora a resposta corrigida em tom natural, direto e amigavel.`;
       requestType,
       temperature: 0,
       maxTokens: Math.max(1600, DEFAULT_CHAT_MAX_TOKENS),
+      timeoutMs,
     });
 
     const refinedText = String(refinedAnswer || '').trim();
@@ -11109,7 +11115,7 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
         } catch (error) {
           if (!isRetryableAiError(error) || !aiCfg.fastChatModel || aiCfg.fastChatModel === aiCfg.chatModel) throw error;
           console.warn(`[CHAT] Modelo principal indisponivel (${String(error?.status || error?.message || '').slice(0, 80)}); tentando ${aiCfg.fastChatModel}.`);
-          fullResp = await runChatCompletion({ ...completion, model: aiCfg.fastChatModel, requestType: `${completion.requestType}_fast_fallback` });
+          fullResp = await runChatCompletion({ ...completion, model: aiCfg.fastChatModel, requestType: `${completion.requestType}_fast_fallback`, timeoutMs: POST_STEP_TIMEOUT_MS + 10000 });
         }
       } catch (error) {
         fullResp = isRetryableAiError(error)
@@ -11133,7 +11139,7 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
       mergedContext,
     );
 
-    if (!confirmedAbsentArticle && effectiveAgentId && agentData && totalChunkCount > 0 && isGroundedFallbackResponse(validatedResp) && preAnswerDeepRetrieved === 0 && await shouldRetryDeepSearch(userText, effectiveAgentId)) {
+    if (!confirmedAbsentArticle && effectiveAgentId && agentData && totalChunkCount > 0 && isGroundedFallbackResponse(validatedResp) && preAnswerDeepRetrieved === 0 && (Date.now() - retrievalStartedAt) < POST_STEPS_BUDGET_MS && await shouldRetryDeepSearch(userText, effectiveAgentId)) {
       res.write(`data: ${JSON.stringify({ status: 'Ampliando a busca nos documentos' })}\n\n`);
       try {
         const deepResult = await searchDeepAgentChunks({
@@ -11168,6 +11174,7 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
               requestType: attachment ? 'chat_completion_with_attachment_deep_retry' : 'chat_completion_deep_retry',
               temperature: 0,
               maxTokens: DEFAULT_CHAT_MAX_TOKENS,
+              timeoutMs: POST_STEP_TIMEOUT_MS,
             });
 
             const cleanedDeepResp = deepResp.replace(/\[\s*Trecho\s*ID\s*:\s*\d+\s*\]/gi, '').trim();
@@ -11197,7 +11204,8 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
       }
     }
 
-    validatedResp = await refineGroundedAnswerIfNeeded({
+    if ((Date.now() - retrievalStartedAt) >= POST_STEPS_BUDGET_MS) console.warn('[CHAT][BUDGET] resposta ja passou do orcamento; pulando revisao');
+    else validatedResp = await refineGroundedAnswerIfNeeded({
       answer: validatedResp,
       question: userText,
       context: mergedContext || relevantContext,
@@ -11230,6 +11238,7 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
           model: webModel,
           gaps: officialWebGaps,
           thinkingLevel: process.env.OFFICIAL_WEB_THINKING || 'high',
+          timeoutMs: Math.max(20000, Math.min(40000, OFFICIAL_WEB_DEADLINE_MS - (Date.now() - retrievalStartedAt))),
         });
         if (web) {
           logAiUsageSafe({
