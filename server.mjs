@@ -1836,7 +1836,7 @@ function getImageMediaType(ext = '') {
 // Se a 1a chamada nao responder em CHAT_HEDGE_MS, ou falhar com erro transitorio, dispara
 // uma 2a identica (mesmo modelo, mesma qualidade) e fica com a que chegar primeiro.
 const CHAT_HEDGE_MS = Math.max(0, Number(process.env.CHAT_HEDGE_MS ?? 25000) || 0);
-function runChatCompletionHedged(completion, hedgeMs = CHAT_HEDGE_MS) {
+function runChatCompletionHedged(completion, hedgeMs = CHAT_HEDGE_MS, hedgeModel = '') {
   if (!hedgeMs) return runChatCompletion(completion);
   return new Promise((resolve, reject) => {
     let settled = false;
@@ -1845,7 +1845,7 @@ function runChatCompletionHedged(completion, hedgeMs = CHAT_HEDGE_MS) {
     let timer = null;
     const launch = (isHedge) => {
       started += 1;
-      const req = isHedge ? { ...completion, requestType: completion.requestType + '_hedge' } : completion;
+      const req = isHedge ? { ...completion, ...(hedgeModel ? { model: hedgeModel } : {}), requestType: completion.requestType + '_hedge' } : completion;
       runChatCompletion(req).then((text) => {
         if (settled) return;
         settled = true;
@@ -1938,7 +1938,7 @@ async function runChatCompletion({
         // The caller immediately retries transient Gemini failures on the
         // faster model; repeating the same timed-out model only adds latency.
         maxRetries: cfg.chatProvider === 'gemini-express'
-          && (cfg.fastChatModel !== effectiveModel || requestType.endsWith('_fast_fallback')) ? 0 : 1,
+          && (cfg.fastChatModel !== effectiveModel || requestType.endsWith('_fast_fallback') || requestType.endsWith('_hedge')) ? 0 : 1,
         baseDelayMs: 500,
       }
     );
@@ -9692,7 +9692,7 @@ async function handleSupabaseConversationMessageFallback({ res, userId, cid, con
         temperature: 0,
       };
       try {
-        return await runChatCompletionHedged(completion);
+        return await runChatCompletionHedged(completion, CHAT_HEDGE_MS, aiCfg.fastChatModel !== aiCfg.chatModel ? aiCfg.fastChatModel : '');
       } catch (error) {
         if (!isRetryableAiError(error) || !aiCfg.fastChatModel || aiCfg.fastChatModel === aiCfg.chatModel) throw error;
         console.warn(`[CHAT] Modelo principal indisponivel (${String(error?.status || error?.message || '').slice(0, 80)}); tentando ${aiCfg.fastChatModel}.`);
@@ -11111,7 +11111,7 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
           maxTokens: DEFAULT_CHAT_MAX_TOKENS,
         };
         try {
-          fullResp = await runChatCompletionHedged(completion);
+          fullResp = await runChatCompletionHedged(completion, CHAT_HEDGE_MS, aiCfg.fastChatModel !== aiCfg.chatModel ? aiCfg.fastChatModel : '');
         } catch (error) {
           if (!isRetryableAiError(error) || !aiCfg.fastChatModel || aiCfg.fastChatModel === aiCfg.chatModel) throw error;
           console.warn(`[CHAT] Modelo principal indisponivel (${String(error?.status || error?.message || '').slice(0, 80)}); tentando ${aiCfg.fastChatModel}.`);
