@@ -179,3 +179,30 @@ test('buildOfficialWebComplement mantém a resposta da base e acrescenta o compl
   assert.ok(out.includes('[Planalto](https://www.planalto.gov.br/x)'));
   assert.ok(out.includes('10/11/2026'));
 });
+
+test('findMissingStatements pega lacuna escrita como "não está expressa nos trechos"', () => {
+  const resp = 'Sim. O artigo 477 da CLT determina o pagamento das verbas rescisórias dentro do prazo do § 6º. No entanto, a quantidade exata de dias desse prazo não está expressa nos trechos disponíveis na base normativa consultada.\n* Paga multa? Sim, conforme o § 8º.';
+  assert.equal(findMissingStatements(resp).length, 1);
+  assert.match(findMissingStatements(resp)[0], /não está expressa/);
+  assert.equal(findMissingStatements('Os trechos não detalham os critérios da proporcionalidade do aviso prévio.').length, 1);
+  assert.equal(findMissingStatements('O texto integral do § 6º não foi reproduzido na base consultada.').length, 1);
+  // respostas completas não podem disparar a busca
+  assert.equal(findMissingStatements('Não é permitido acumular duas aposentadorias no RGPS, conforme o art. 124 da Lei 8.213/91.').length, 0);
+  assert.equal(findMissingStatements('A carência não é exigida em caso de acidente de qualquer natureza.').length, 0);
+  assert.equal(findMissingStatements('O BPC não exige contribuição ao INSS; a idade mínima é 65 anos.').length, 0);
+});
+
+test('evaluateGroundedCandidate mantém a conta aplicada ao caso e derruba número inventado', () => {
+  const rule = 'A Lei 12.506/2011 garante 30 dias de aviso mais 3 dias por ano completo de serviço.';
+  const calc = 'Para quem tem 3 anos de empresa, o aviso prévio é de 39 dias.';
+  const fake = 'Para quem tem 3 anos de empresa, o aviso prévio é de 47 dias.';
+  const noCase = 'O prazo de pagamento é de 15 dias corridos.';
+  const p = (t) => payload(t, [['planalto.gov.br', 'Lei 12.506']], [[rule, [0]]]);
+  const q = { question: 'aviso previo e sempre 30 dias né? o cara tinha 3 anos de firma' };
+  const ok = evaluateGroundedCandidate(p(`${rule}\n${calc}`), q);
+  assert.match(ok.text, /39 dias/);
+  assert.doesNotMatch(evaluateGroundedCandidate(p(`${rule}\n${fake}`), q).text, /47 dias/);
+  assert.doesNotMatch(evaluateGroundedCandidate(p(`${rule}\n${noCase}`), q).text, /15 dias/);
+  // sem dado do caso na pergunta, linha numérica sem apoio continua saindo
+  assert.doesNotMatch(evaluateGroundedCandidate(p(`${rule}\n${calc}`), { question: 'como funciona o aviso prévio?' }).text, /39 dias/);
+});

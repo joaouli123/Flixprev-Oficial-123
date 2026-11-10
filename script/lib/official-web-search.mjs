@@ -18,7 +18,9 @@ export function isOfficialDomain(domain = '') {
 const MISSING_ANSWER_MAX_CHARS = 700;
 const MISSING_PATTERNS = [
   /\bn(ao|enhum)\b[^.\n]{0,40}\b(encontrei|localizei|identifiquei|consta[m]?|ha (informac|dados|men[cç]))/,
-  /\b(documentos?|contexto|material|trechos?|base|fontes?)\b[^.\n]{0,60}\bnao (informa[m]?|traze?m?|menciona[m]?|conte[mn]|contem|trata[m]?|aborda[m]?|cita[m]?|especifica[m]?|apresenta[m]?|preve[m]?)\b/,
+  /\b(documentos?|contexto|material|trechos?|base|fontes?)\b[^.\n]{0,60}\bnao (informa[m]?|traze?m?|menciona[m]?|conte[mn]|contem|trata[m]?|aborda[m]?|cita[m]?|especifica[m]?|apresenta[m]?|preve[m]?|detalha[m]?|fornece[m]?|explicita[m]?|indica[m]?|estabelece[m]?|define[m]?|reproduz(em)?|transcreve[m]?)\b/,
+  // "a quantidade de dias não está expressa nos trechos", "o texto do § 6º não foi reproduzido"
+  /\bnao (esta|estao|e|sao|foi|foram|aparece[m]?|figura[m]?|vem|vieram)\b[^.\n]{0,30}\b(express|explicit|detalhad|especificad|indicad|informad|mencionad|presente|disponive|transcrit|reproduzid|incluid)/,
   /\bnao (ha|existe[m]?) (informac|dados|referenc|men[cç])/,
   /\bnao (e|foi) possivel (responder|informar|confirmar|te ajudar)/,
 ];
@@ -43,6 +45,7 @@ export function findMissingStatements(text = '') {
 const BASE_RULES = [
   'Você é um assistente jurídico brasileiro (previdenciário e trabalhista) consultado em último caso, porque a base de documentos do agente não tinha a resposta.',
   'Responda em português do Brasil, direto e objetivo (no máximo 10 linhas), com números, datas e nº de lei/portaria/súmula/tema exatos.',
+  'Se a pergunta trouxer dados do caso (anos de empresa, idade, datas, valores), aplique a regra a esses dados e diga o resultado final em número (ex.: 3 anos de empresa = 39 dias de aviso prévio). Se a pergunta tiver uma premissa errada, corrija já na primeira frase.',
   'Use SOMENTE o que fontes oficiais confirmam: planalto.gov.br, gov.br (INSS, Previdência, Receita, MTE), in.gov.br (Diário Oficial), stf.jus.br, stj.jus.br, tst.jus.br, jt.jus.br, cjf.jus.br, trf/trt (.jus.br), camara.leg.br, senado.leg.br.',
   'Não use nem cite blogs, escritórios, portais de notícia ou vídeos. Não invente. Não escreva lista de fontes no final.',
   'OBRIGATÓRIO: pesquise no Google antes de responder, mesmo que já saiba a resposta. Nunca responda de memória. Faça buscas que achem a página oficial (inclua "planalto.gov.br" e o número da lei, "gov.br/inss" ou "in.gov.br" para portarias) e escreva cada informação em uma linha própria.',
@@ -69,7 +72,26 @@ function buildUserText(question = '', conversationContext = '', gaps = []) {
 // Avalia uma resposta do Gemini: quanto do texto se apoia em fonte oficial. Recortar os trechos
 // apoiados só em fonte não oficial quebrava frases no meio, então a resposta inteira é aceita ou
 // descartada pela proporção de apoio oficial.
-export function evaluateGroundedCandidate(payload = {}) {
+// "12.506" -> 12506, "1.621,00" -> 1621, "4,5" -> 4.5; ignora ordinais colados (6º -> 6).
+function extractNumbers(text = '') {
+  return (String(text || '').match(/\d+(?:[.,]\d+)*/g) || []).map((raw) => {
+    const n = /^\d{1,3}(\.\d{3})+(,\d+)?$/.test(raw) ? raw.replace(/\./g, '').replace(',', '.') : raw.replace(',', '.');
+    return Number(n);
+  }).filter((n) => Number.isFinite(n));
+}
+
+function isDerivable(n, base = []) {
+  const set = [...new Set(base)].slice(0, 40);
+  const eq = (a) => Math.abs(a - n) < 1e-6;
+  if (set.some(eq)) return true;
+  for (const a of set) for (const b of set) {
+    if (eq(a + b) || eq(a - b) || eq(a * b)) return true;
+    for (const c of set) if (eq(a + b * c)) return true;
+  }
+  return false;
+}
+
+export function evaluateGroundedCandidate(payload = {}, { question = '' } = {}) {
   const candidate = payload?.candidates?.[0];
   const text = (candidate?.content?.parts || []).filter((p) => !p.thought).map((p) => p.text || '').join('').trim();
   const gm = candidate?.groundingMetadata || {};
@@ -95,10 +117,24 @@ export function evaluateGroundedCandidate(payload = {}) {
   let keptOfficial = 0;
   let firstAnswerDropped = null;
   const usedOfficial = new Set();
-  for (const line of withoutSourceList.split('\n')) {
+  const lines = withoutSourceList.split('\n').map((line) => {
     const segs = segments.filter((s) => line.includes(s.text) || (s.text.length > 20 && s.text.includes(line.trim()) && line.trim().length > 20));
-    const offSegs = segs.filter((s) => s.off.length);
-    const drop = (segs.length && !offSegs.length) || (!segs.length && /\d/.test(line) && !/^\s*#/.test(line));
+    return { line, segs, offSegs: segs.filter((s) => s.off.length) };
+  });
+  // Conta aplicada ao caso do usuário ("3 anos de empresa = 39 dias") não tem página que a confirme.
+  // Fica se a linha usa um dado da pergunta e todo número dela vem da pergunta, da parte confirmada
+  // pela fonte oficial ou de uma soma/produto simples desses números.
+  const questionNums = extractNumbers(question);
+  const confirmedNums = [...questionNums, ...lines.filter((l) => l.offSegs.length).flatMap((l) => extractNumbers(l.line))];
+  const isDerivedCaseLine = (line) => {
+    if (!questionNums.length) return false;
+    const nums = extractNumbers(line);
+    if (!nums.length || !nums.some((n) => questionNums.includes(n))) return false;
+    return nums.every((n) => isDerivable(n, confirmedNums));
+  };
+  for (const { line, segs, offSegs } of lines) {
+    const drop = (segs.length && !offSegs.length)
+      || (!segs.length && /\d/.test(line) && !/^\s*#/.test(line) && !isDerivedCaseLine(line));
     // A primeira frase de verdade costuma ser a resposta direta; se ela cai, o resto fica sem sentido.
     if (firstAnswerDropped === null && line.trim().length >= 20 && !/^\s*#/.test(line)) firstAnswerDropped = Boolean(drop);
     if (drop) continue;
@@ -193,7 +229,7 @@ export async function searchOfficialWeb({
     });
     const payload = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(payload?.error?.message || `HTTP ${r.status}`);
-    return { ...evaluateGroundedCandidate(payload), usage: payload?.usageMetadata || {} };
+    return { ...evaluateGroundedCandidate(payload, { question }), usage: payload?.usageMetadata || {} };
   });
   const ok = [];
   const errors = [];
