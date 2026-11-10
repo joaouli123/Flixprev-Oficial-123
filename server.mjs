@@ -15,6 +15,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import multer from 'multer';
 import pdfParse from 'pdf-parse';
 import { repairSplitPortugueseWords } from './script/lib/pdf-text-repair.mjs';
+import { decodeUploadFileName } from './script/lib/upload-filename.mjs';
 import mammoth from 'mammoth';
 import dotenv from 'dotenv';
 import { createClient } from '@supabase/supabase-js';
@@ -10437,7 +10438,7 @@ app.post('/api/chat/upload', chatUpload.single('file'), async (req, res) => {
     res.json({
       success: true,
       path: filePath,
-      filename: req.file.originalname,
+      filename: decodeUploadFileName(req.file.originalname),
       mimeType: req.file.mimetype,
     });
   } catch (e) {
@@ -10456,7 +10457,7 @@ app.post('/api/agents/upload', upload.single('file'), async (req, res) => {
     const deferIndexing = String(req.body?.deferIndexing || '').trim() === '1';
 
     const filePath = `/agent-attachments/${req.file.filename}`;
-    const originalname = req.file.originalname;
+    const originalname = decodeUploadFileName(req.file.originalname);
     const resolvedUpload = resolvePublicAttachmentPath(filePath);
     const fullPath = resolvedUpload?.fullPath || path.join(process.cwd(), 'public', filePath.replace(/^\/+/, ''));
 
