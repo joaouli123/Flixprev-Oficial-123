@@ -31,6 +31,7 @@ import {
 } from './script/lib/aposentadoria-idade-knowledge.mjs';
 import { resolveEmbeddingRoute } from './script/lib/embedding-availability.mjs';
 import { getGeminiThinkingOptions } from './script/lib/gemini-thinking.mjs';
+import { sqlAccentFold, extractNumberedPrecedentPhrases } from './script/lib/keyword-search.mjs';
 const require = createRequire(import.meta.url);
 const { Pool } = pkg;
 dotenv.config();
@@ -4424,7 +4425,7 @@ async function searchSimilarChunks(queryEmbedding, agentId, limit = DEFAULT_RAG_
 
 // 4B️⃣ Busca por palavra-chave (fallback)
 async function searchKeywordChunks(queryText, agentId, limit = DEFAULT_RAG_KEYWORD_LIMIT) {
-  const keywords = getFocusedSearchTerms(queryText);
+  const keywords = [...new Set([...extractNumberedPrecedentPhrases(queryText), ...getFocusedSearchTerms(queryText)])];
   if (keywords.length === 0) {
     return [];
   }
@@ -4433,21 +4434,33 @@ async function searchKeywordChunks(queryText, agentId, limit = DEFAULT_RAG_KEYWO
     return await withDatabaseFallback(
       'searchKeywordChunks',
       async () => {
-        const likeClauses = keywords.map((_, index) => `(dc.content ILIKE $${index + 2} OR COALESCE(d.title, '') ILIKE $${index + 2})`);
-        const scoreTerms = keywords.map((keyword, index) => `((CASE WHEN dc.content ILIKE $${index + 2} THEN ${Math.min(keyword.length, 12) * 2} ELSE 0 END) + (CASE WHEN COALESCE(d.title, '') ILIKE $${index + 2} THEN ${Math.min(keyword.length, 12) * 4} ELSE 0 END))`);
+        // Postgres ILIKE diferencia acento ("transicao" nao acha "transição") e os termos chegam sem acento.
+        // A dobra e calculada uma vez por trecho (CTE materializada): inline custava ~5x mais.
+        const likeClauses = keywords.map((_, index) => `(x.folded_content ILIKE $${index + 2} OR x.folded_title ILIKE $${index + 2})`);
+        const scoreTerms = keywords.map((keyword, index) => `((CASE WHEN x.folded_content ILIKE $${index + 2} THEN ${Math.min(keyword.length, 12) * 2} ELSE 0 END) + (CASE WHEN x.folded_title ILIKE $${index + 2} THEN ${Math.min(keyword.length, 12) * 4} ELSE 0 END))`);
         const candidateLimit = Math.max(limit * 8, Math.min(DEFAULT_RAG_CANDIDATE_LIMIT, 600));
         const result = await pool.query(`
+          WITH x AS MATERIALIZED (
+            SELECT
+              dc.document_id,
+              dc.content,
+              dc.chunk_index,
+              COALESCE(d.title, 'Documento sem título') AS document_title,
+              ${sqlAccentFold('dc.content')} AS folded_content,
+              ${sqlAccentFold("COALESCE(d.title, '')")} AS folded_title
+            FROM document_chunks dc
+            LEFT JOIN documents d ON d.id = dc.document_id
+            WHERE dc.agent_id = $1
+          )
           SELECT
-            dc.document_id,
-            dc.content,
-            dc.chunk_index,
-            COALESCE(d.title, 'Documento sem título') AS document_title,
+            x.document_id,
+            x.content,
+            x.chunk_index,
+            x.document_title,
             (${scoreTerms.join(' + ')}) AS search_score
-          FROM document_chunks dc
-          LEFT JOIN documents d ON d.id = dc.document_id
-          WHERE dc.agent_id = $1
-            AND (${likeClauses.join(' OR ')})
-          ORDER BY search_score DESC, dc.chunk_index ASC
+          FROM x
+          WHERE (${likeClauses.join(' OR ')})
+          ORDER BY search_score DESC, x.chunk_index ASC
           LIMIT $${keywords.length + 2}
         `, [agentId, ...keywords.map((keyword) => `%${keyword}%`), candidateLimit]);
 
