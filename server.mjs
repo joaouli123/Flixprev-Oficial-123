@@ -3809,6 +3809,11 @@ async function generateHypotheticalAnswer(question) {
 }
 
 // 3️⃣ Gerar embeddings (OpenAI/Gemini)
+// O banco guarda halfvec(512): os primeiros 512 valores do gemini-embedding-001 (truncagem MRL).
+// A distancia de cosseno nao depende da escala, entao nao precisa renormalizar.
+const EMBEDDING_DIMS = 512; // 3072 dims estouravam o banco de 500 MB do plano gratis
+const truncateEmbedding = (values) => (Array.isArray(values) && values.length ? values.slice(0, EMBEDDING_DIMS) : null);
+
 async function generateQueryEmbedding(input, logContext = {}) {
   const cfg = getAiRuntimeConfig();
   const embeddingClient = createEmbeddingClient();
@@ -3844,7 +3849,7 @@ async function generateQueryEmbedding(input, logContext = {}) {
     costUsd: estimateEmbeddingCostUsd(embeddingTokens),
   });
 
-  return response?.data?.[0]?.embedding || null;
+  return truncateEmbedding(response?.data?.[0]?.embedding);
 }
 
 async function generateEmbeddings(chunks, logContext = {}) {
@@ -3866,13 +3871,14 @@ async function generateEmbeddings(chunks, logContext = {}) {
         }),
         { label: `embedding_chunk_${i}` }
       );
-      embeddings.push(res.data[0].embedding);
+      embeddings.push(truncateEmbedding(res.data[0].embedding));
       if ((i + 1) % 5 === 0 || i === chunks.length - 1) {
         console.log(`[EMB] Progresso: ${i + 1}/${chunks.length}`);
       }
     } catch (e) {
       console.error(`[EMB] Erro no chunk ${i}:`, e.message);
-      embeddings.push(Array(3072).fill(0));
+      // Sem embedding o chunk fica NULL e e achado pela busca por texto (vetor zerado quebraria o cosseno).
+      embeddings.push(null);
     }
   }
 
@@ -3922,7 +3928,7 @@ async function insertDocumentChunksWithOptionalEmbeddings(agentId, documentId, c
       const paramIndex = params.length + 1;
 
       if (embedding) {
-        values.push(`($${paramIndex}, $${paramIndex + 1}, $${paramIndex + 2}, $${paramIndex + 3}::vector, $${paramIndex + 4})`);
+        values.push(`($${paramIndex}, $${paramIndex + 1}, $${paramIndex + 2}, $${paramIndex + 3}::halfvec, $${paramIndex + 4})`);
         params.push(agentId, documentId, batch[offset], embedding, chunkIndex);
         continue;
       }
@@ -4372,12 +4378,12 @@ async function searchSimilarChunks(queryEmbedding, agentId, limit = DEFAULT_RAG_
             dc.content,
             dc.chunk_index,
             COALESCE(d.title, 'Documento sem título') AS document_title,
-            1 - (dc.embedding <=> $2::vector) as similarity
+            1 - (dc.embedding <=> $2::halfvec) as similarity
           FROM document_chunks dc
           LEFT JOIN documents d ON d.id = dc.document_id
           WHERE dc.agent_id = $1
             AND dc.embedding IS NOT NULL
-          ORDER BY dc.embedding <=> $2::vector
+          ORDER BY dc.embedding <=> $2::halfvec
           LIMIT $3
         `, [agentId, embeddingString, limit]);
 
@@ -5612,7 +5618,7 @@ async function initializeRagTables() {
         agent_id UUID NOT NULL,
         document_id UUID REFERENCES documents(id) ON DELETE CASCADE,
         content TEXT NOT NULL,
-        embedding vector(3072),
+        embedding halfvec(512),
         chunk_index INTEGER DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
@@ -5635,14 +5641,7 @@ async function initializeRagTables() {
       )
     `);
 
-    try {
-      await pool.query(`
-        CREATE INDEX IF NOT EXISTS idx_document_chunks_embedding 
-        ON document_chunks USING hnsw (embedding vector_cosine_ops)
-      `);
-    } catch (indexError) {
-      console.warn('[RAG] hnsw não disponível, usando busca sem índice');
-    }
+    // Sem indice vetorial de proposito: o HNSW ocuparia ~200 MB e o plano gratis do Supabase tem 500 MB.
 
     console.log('[RAG] ✅ Tabelas RAG inicializadas');
   } catch (e) {

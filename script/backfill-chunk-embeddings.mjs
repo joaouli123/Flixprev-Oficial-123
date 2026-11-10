@@ -1,5 +1,5 @@
 // Preenche embeddings que faltam em document_chunks usando o Gemini Agent
-// Platform (mesma CHAT_API_KEY do chat, modelo gemini-embedding-001, 3072 dims).
+// Platform (mesma CHAT_API_KEY do chat, modelo gemini-embedding-001; grava os 512 primeiros valores como halfvec(512)).
 //
 // Por padrao so SIMULA (nao grava). Para gravar: --apply
 //
@@ -26,7 +26,8 @@ const concurrency = Math.max(1, Math.min(16, Number(option('concurrency', '4')) 
 const model = String(process.env.EMBEDDING_MODEL || 'gemini-embedding-001').trim();
 const apiKey = String(process.env.CHAT_API_KEY || '').trim();
 const baseURL = String(process.env.CHAT_BASE_URL || 'https://aiplatform.googleapis.com/v1').trim().replace(/\/+$/, '');
-const EXPECTED_DIMS = 3072;
+const API_DIMS = 3072;
+const STORED_DIMS = 512; // document_chunks.embedding e halfvec(512) (truncagem MRL)
 const MAX_CHARS = 8000; // gemini-embedding-001 aceita ~2048 tokens por entrada
 
 if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL nao configurada.');
@@ -45,8 +46,8 @@ async function embed(text) {
     }).catch((error) => ({ ok: false, status: 0, text: async () => error.message }));
     if (response.ok) {
       const values = (await response.json())?.predictions?.[0]?.embeddings?.values || [];
-      if (values.length !== EXPECTED_DIMS) throw new Error(`embedding com ${values.length} dimensoes`);
-      return values;
+      if (values.length !== API_DIMS) throw new Error(`embedding com ${values.length} dimensoes`);
+      return values.slice(0, STORED_DIMS);
     }
     const body = await response.text();
     if (![0, 429, 500, 502, 503, 504].includes(response.status)) throw new Error(`HTTP ${response.status}: ${body.slice(0, 200)}`);
@@ -96,7 +97,7 @@ while (remaining > 0) {
       const row = rows[cursor++];
       try {
         const vector = await embed(String(row.content));
-        await pool.query('UPDATE document_chunks SET embedding = $1::vector WHERE id = $2 AND embedding IS NULL', [`[${vector.join(',')}]`, row.id]);
+        await pool.query('UPDATE document_chunks SET embedding = $1::halfvec WHERE id = $2 AND embedding IS NULL', [`[${vector.join(',')}]`, row.id]);
         done++;
         progressInBatch++;
       } catch (error) {
