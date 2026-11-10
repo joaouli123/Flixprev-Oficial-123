@@ -1726,6 +1726,18 @@ function createEmbeddingClient() {
   });
 }
 
+function isAiAccountError(error) {
+  const status = Number(error?.status || error?.statusCode || error?.response?.status || 0);
+  const msg = String(error?.message || error || "");
+  return [401, 402, 403].includes(status) || /billing|prepayment|credits? (are )?depleted|outstanding balance|quota|RESOURCE_EXHAUSTED|API key not valid|PERMISSION_DENIED/i.test(msg);
+}
+
+function publicChatErrorMessage(error) {
+  if (isAiAccountError(error)) return "O serviço de IA está temporariamente indisponível. Tente novamente mais tarde.";
+  if (isRetryableAiError(error)) return "O provedor de IA demorou a responder. Tente novamente em instantes.";
+  return error?.message || "Erro interno no chat";
+}
+
 function isRetryableAiError(error) {
   const status = Number(error?.status || error?.statusCode || error?.response?.status || 0);
   if ([408, 409, 425, 429, 500, 502, 503, 504].includes(status)) {
@@ -9828,9 +9840,7 @@ async function handleSupabaseConversationMessageFallback({ res, userId, cid, con
     return res.end();
   } catch (fallbackError) {
     console.error('[CHAT][SUPABASE-FALLBACK] Erro na geraÃ§Ã£o de resposta:', fallbackError?.message || fallbackError);
-    const publicError = isRetryableAiError(fallbackError)
-      ? 'O provedor de IA demorou a responder. Tente novamente em instantes.'
-      : (fallbackError?.message || 'Erro interno no chat');
+    const publicError = publicChatErrorMessage(fallbackError);
     logAiUsageSafe({
       userId,
       conversationId: cid,
@@ -11279,9 +11289,7 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
     res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
     res.end();
   } catch (e) {
-    const publicError = isRetryableAiError(e)
-      ? 'O provedor de IA demorou a responder. Tente novamente em instantes.'
-      : (e?.message || 'Erro interno no chat');
+    const publicError = publicChatErrorMessage(e);
     logAiUsageSafe({
       userId,
       conversationId: Number.isFinite(cid) ? cid : null,
