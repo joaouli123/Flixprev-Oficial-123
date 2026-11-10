@@ -1828,6 +1828,52 @@ function getImageMediaType(ext = '') {
   }
 }
 
+// O provedor tem cauda longa de latencia (mediana ~18s, p90 50-70s) e 429 esporadico.
+// Se a 1a chamada nao responder em CHAT_HEDGE_MS, ou falhar com erro transitorio, dispara
+// uma 2a identica (mesmo modelo, mesma qualidade) e fica com a que chegar primeiro.
+const CHAT_HEDGE_MS = Math.max(0, Number(process.env.CHAT_HEDGE_MS ?? 25000) || 0);
+function runChatCompletionHedged(completion, hedgeMs = CHAT_HEDGE_MS) {
+  if (!hedgeMs) return runChatCompletion(completion);
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    let started = 0;
+    let failed = 0;
+    let timer = null;
+    const launch = (isHedge) => {
+      started += 1;
+      const req = isHedge ? { ...completion, requestType: completion.requestType + '_hedge' } : completion;
+      runChatCompletion(req).then((text) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        if (isHedge) console.log('[CHAT][HEDGE] segunda chamada respondeu primeiro');
+        resolve(text);
+      }, (error) => {
+        if (settled) return;
+        failed += 1;
+        if (started === 1 && isRetryableAiError(error)) {
+          clearTimeout(timer);
+          console.warn('[CHAT][HEDGE] 1a chamada falhou (' + String(error?.status || error?.message || error).slice(0, 80) + '); repetindo');
+          launch(true);
+          return;
+        }
+        if (failed >= started) {
+          settled = true;
+          clearTimeout(timer);
+          reject(error);
+        }
+      });
+    };
+    launch(false);
+    timer = setTimeout(() => {
+      if (!settled && started === 1) {
+        console.log('[CHAT][HEDGE] 1a chamada passou de ' + hedgeMs + 'ms; disparando segunda');
+        launch(true);
+      }
+    }, hedgeMs);
+  });
+}
+
 async function runChatCompletion({
   messages = [],
   model,
@@ -9477,6 +9523,9 @@ async function handleSupabaseConversationMessageFallback({ res, userId, cid, con
   res.setHeader('X-Accel-Buffering', 'no');
   if (res.flushHeaders) res.flushHeaders();
   res.write(`data: ${JSON.stringify({ status: 'Consultando os documentos' })}\n\n`);
+  // Cloudflare corta a conexao apos ~100s sem bytes; o ping (comentario SSE) mantem viva enquanto a resposta e montada.
+  const sseHeartbeat = setInterval(() => { if (!res.writableEnded) res.write(': ping\n\n'); }, 15000);
+  res.on('close', () => clearInterval(sseHeartbeat));
 
   if (effectiveAgentId) {
     try {
@@ -9637,10 +9686,10 @@ async function handleSupabaseConversationMessageFallback({ res, userId, cid, con
         temperature: 0,
       };
       try {
-        return await runChatCompletion(completion);
+        return await runChatCompletionHedged(completion);
       } catch (error) {
         if (!isRetryableAiError(error) || !aiCfg.fastChatModel || aiCfg.fastChatModel === aiCfg.chatModel) throw error;
-        console.warn(`[CHAT] Modelo principal indisponivel; tentando ${aiCfg.fastChatModel}.`);
+        console.warn(`[CHAT] Modelo principal indisponivel (${String(error?.status || error?.message || '').slice(0, 80)}); tentando ${aiCfg.fastChatModel}.`);
         return runChatCompletion({ ...completion, model: aiCfg.fastChatModel, requestType: `${requestType}_fast_fallback` });
       }
     };
@@ -10865,6 +10914,9 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
     res.setHeader("X-Accel-Buffering", "no");
     if (res.flushHeaders) res.flushHeaders();
     res.write(`data: ${JSON.stringify({ status: 'Consultando os documentos' })}\n\n`);
+    // Cloudflare corta a conexao apos ~100s sem bytes; o ping (comentario SSE) mantem viva enquanto a resposta e montada.
+    const sseHeartbeat = setInterval(() => { if (!res.writableEnded) res.write(': ping\n\n'); }, 15000);
+    res.on('close', () => clearInterval(sseHeartbeat));
     const retrievalStartedAt = Date.now();
 
     let prompt = buildGroundedPrompt(attachmentContext || '', '', userText || 'Analise o anexo enviado.', conversationContext);
@@ -11053,10 +11105,10 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
           maxTokens: DEFAULT_CHAT_MAX_TOKENS,
         };
         try {
-          fullResp = await runChatCompletion(completion);
+          fullResp = await runChatCompletionHedged(completion);
         } catch (error) {
           if (!isRetryableAiError(error) || !aiCfg.fastChatModel || aiCfg.fastChatModel === aiCfg.chatModel) throw error;
-          console.warn(`[CHAT] Modelo principal indisponivel; tentando ${aiCfg.fastChatModel}.`);
+          console.warn(`[CHAT] Modelo principal indisponivel (${String(error?.status || error?.message || '').slice(0, 80)}); tentando ${aiCfg.fastChatModel}.`);
           fullResp = await runChatCompletion({ ...completion, model: aiCfg.fastChatModel, requestType: `${completion.requestType}_fast_fallback` });
         }
       } catch (error) {
