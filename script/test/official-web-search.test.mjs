@@ -5,7 +5,18 @@ import {
   evaluateGroundedCandidate,
   searchOfficialWeb,
   buildOfficialWebAnswer,
+  looksLikeMissingAnswer,
 } from '../lib/official-web-search.mjs';
+
+test('looksLikeMissingAnswer reconhece "não tem na base" escrito de vários jeitos', () => {
+  assert.equal(looksLikeMissingAnswer('Os documentos consultados não informam o valor do salário mínimo para o ano de 2026.'), true);
+  assert.equal(looksLikeMissingAnswer('Infelizmente, não há informações no contexto fornecido sobre receitas culinárias.'), true);
+  assert.equal(looksLikeMissingAnswer('Não encontrei essa informação nos documentos.'), true);
+  assert.equal(looksLikeMissingAnswer('O material disponível não trata da revisão da vida toda.'), true);
+  assert.equal(looksLikeMissingAnswer('A carência é de 12 contribuições mensais, dispensada em caso de acidente.'), false);
+  assert.equal(looksLikeMissingAnswer(`${'Resposta completa com regras e valores. '.repeat(20)} Os documentos não informam o índice de 2027.`), false);
+  assert.equal(looksLikeMissingAnswer(''), false);
+});
 
 function payload(text, chunks, supports) {
   return {

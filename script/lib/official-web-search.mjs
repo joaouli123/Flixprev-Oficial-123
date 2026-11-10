@@ -12,6 +12,24 @@ export function isOfficialDomain(domain = '') {
   return Boolean(host) && OFFICIAL_DOMAIN_RE.test(host);
 }
 
+// Resposta curta dizendo que a base não tem a informação, escrita com outras palavras além do
+// "não encontrei" padrão (ex.: "Os documentos consultados não informam o valor..."). Respostas
+// longas ficam de fora para não trocar uma resposta boa que só ressalva um detalhe.
+const MISSING_ANSWER_MAX_CHARS = 700;
+const MISSING_PATTERNS = [
+  /\bn(ao|enhum)\b[^.\n]{0,40}\b(encontrei|localizei|identifiquei|consta[m]?|ha (informac|dados|men[cç]))/,
+  /\b(documentos?|contexto|material|trechos?|base|fontes?)\b[^.\n]{0,60}\bnao (informa[m]?|traze?m?|menciona[m]?|conte[mn]|contem|trata[m]?|aborda[m]?|cita[m]?|especifica[m]?|apresenta[m]?|preve[m]?)\b/,
+  /\bnao (ha|existe[m]?) (informac|dados|referenc|men[cç])/,
+  /\bnao (e|foi) possivel (responder|informar|confirmar|te ajudar)/,
+];
+
+export function looksLikeMissingAnswer(text = '') {
+  const raw = String(text || '').trim();
+  if (!raw || raw.length > MISSING_ANSWER_MAX_CHARS) return false;
+  const norm = raw.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  return MISSING_PATTERNS.some((re) => re.test(norm));
+}
+
 const BASE_RULES = [
   'Você é um assistente jurídico brasileiro (previdenciário e trabalhista) consultado em último caso, porque a base de documentos do agente não tinha a resposta.',
   'Responda em português do Brasil, direto e objetivo (no máximo 10 linhas), com números, datas e nº de lei/portaria/súmula/tema exatos.',

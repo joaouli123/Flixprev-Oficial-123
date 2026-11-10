@@ -32,7 +32,7 @@ import {
 import { resolveEmbeddingRoute } from './script/lib/embedding-availability.mjs';
 import { getGeminiThinkingOptions } from './script/lib/gemini-thinking.mjs';
 import { sqlAccentFold, extractNumberedPrecedentPhrases } from './script/lib/keyword-search.mjs';
-import { searchOfficialWeb, buildOfficialWebAnswer } from './script/lib/official-web-search.mjs';
+import { searchOfficialWeb, buildOfficialWebAnswer, looksLikeMissingAnswer } from './script/lib/official-web-search.mjs';
 
 const OFFICIAL_WEB_FALLBACK_ENABLED = !/^(0|false|off|no)$/i.test(String(process.env.OFFICIAL_WEB_FALLBACK || '').trim());
 const require = createRequire(import.meta.url);
@@ -11054,7 +11054,7 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
 
     // Último recurso: a base do agente não respondeu. Pesquisa só em sites oficiais (gov.br, jus.br, leg.br)
     // e só entrega se a resposta estiver apoiada nessas fontes; senão mantém o "não encontrei".
-    if (OFFICIAL_WEB_FALLBACK_ENABLED && effectiveAgentId && !attachmentContext && isGroundedFallbackResponse(validatedResp)) {
+    if (OFFICIAL_WEB_FALLBACK_ENABLED && effectiveAgentId && !attachmentContext && (isGroundedFallbackResponse(validatedResp) || looksLikeMissingAnswer(validatedResp))) {
       const officialWebStartedAt = Date.now();
       try {
         res.write(`data: ${JSON.stringify({ status: 'Pesquisando em fontes oficiais na internet' })}\n\n`);
