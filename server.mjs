@@ -11238,7 +11238,7 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
           model: webModel,
           gaps: officialWebGaps,
           thinkingLevel: process.env.OFFICIAL_WEB_THINKING || 'high',
-          timeoutMs: Math.max(20000, Math.min(40000, OFFICIAL_WEB_DEADLINE_MS - (Date.now() - retrievalStartedAt))),
+          timeoutMs: Math.max(officialWebFullMissing ? 35000 : 20000, Math.min(40000, OFFICIAL_WEB_DEADLINE_MS - (Date.now() - retrievalStartedAt))),
         });
         if (web) {
           logAiUsageSafe({
