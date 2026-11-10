@@ -24,6 +24,13 @@ import {
   fetchLinkKnowledgeSource as sharedFetchLinkKnowledgeSource,
 } from './script/lib/link-content-utils.mjs';
 import { formatChatAnswerForUser } from './script/lib/chat-answer-format.mjs';
+import {
+  isAposentadoriaIdadeQuestion,
+  withAposentadoriaIdadeGuidance,
+  withAposentadoriaIdadeSource,
+} from './script/lib/aposentadoria-idade-knowledge.mjs';
+import { resolveEmbeddingRoute } from './script/lib/embedding-availability.mjs';
+import { getGeminiThinkingOptions } from './script/lib/gemini-thinking.mjs';
 const require = createRequire(import.meta.url);
 const { Pool } = pkg;
 dotenv.config();
@@ -878,6 +885,7 @@ async function tryHandlePythonAgentCoreMessage({
   effectiveAgentId,
   agentData = null,
   attachmentContext = '',
+  conversationContext = '',
   loadAgentData,
   saveAssistantMessage,
 } = {}) {
@@ -897,6 +905,12 @@ async function tryHandlePythonAgentCoreMessage({
     } catch (error) {
       console.warn('[PYTHON_AGENT_CORE] Nao foi possivel carregar dados do agente para mapear collection:', error?.message || error);
     }
+  }
+
+  // Aposentadoria por idade usa a base conferida do RAG Node (regras pos EC 103/2019);
+  // o core Python nao recebe essa fonte e respondia so com trechos laterais.
+  if (isAposentadoriaIdadeQuestion(question, { agentData: resolvedAgentData, conversationContext })) {
+    return { handled: false, reason: 'curated_aposentadoria_idade' };
   }
 
   let collectionId = resolvePythonAgentCollectionId({ effectiveAgentId, agentData: resolvedAgentData });
@@ -1439,6 +1453,7 @@ function createOpenAiCompatibleClient({ apiKey, baseURL } = {}) {
               contents.push({ role: 'user', parts: [{ text: 'Siga as instruções e responda à solicitação.' }] });
             }
 
+            const thinking = getGeminiThinkingOptions(model);
             const response = await fetch(`${normalizedBaseURL}/publishers/google/models/${encodeURIComponent(model)}:generateContent`, {
               method: 'POST',
               headers: {
@@ -1450,7 +1465,8 @@ function createOpenAiCompatibleClient({ apiKey, baseURL } = {}) {
                 contents,
                 generationConfig: {
                   temperature,
-                  maxOutputTokens: Math.max(512, Number(max_tokens || DEFAULT_CHAT_MAX_TOKENS)),
+                  maxOutputTokens: Math.max(512, Number(max_tokens || DEFAULT_CHAT_MAX_TOKENS)) + thinking.extraOutputTokens,
+                  ...(thinking.thinkingConfig ? { thinkingConfig: thinking.thinkingConfig } : {}),
                 },
               }),
               signal: AbortSignal.timeout(Math.max(10000, Number(timeout_ms || 90000) || 90000)),
@@ -1471,7 +1487,7 @@ function createOpenAiCompatibleClient({ apiKey, baseURL } = {}) {
             }
 
             const candidate = payload?.candidates?.[0];
-            const text = (candidate?.content?.parts || []).map((part) => part.text || '').join('').trim();
+            const text = (candidate?.content?.parts || []).filter((part) => !part.thought).map((part) => part.text || '').join('').trim();
             if (!text) {
               throw new Error(`Gemini Agent Platform não retornou texto (finishReason: ${candidate?.finishReason || 'desconhecido'}).`);
             }
@@ -1486,6 +1502,44 @@ function createOpenAiCompatibleClient({ apiKey, baseURL } = {}) {
               model: payload?.modelVersion || model,
             };
           },
+        },
+      },
+      embeddings: {
+        // Formato OpenAI ({ data: [{ embedding }] }) sobre o :predict do Agent Platform.
+        create: async ({ model, input } = {}) => {
+          const inputs = (Array.isArray(input) ? input : [input]).map((item) => String(item ?? ''));
+          const response = await fetch(`${normalizedBaseURL}/publishers/google/models/${encodeURIComponent(model)}:predict`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-goog-api-key': apiKey,
+            },
+            body: JSON.stringify({ instances: inputs.map((content) => ({ content })) }),
+            signal: AbortSignal.timeout(20000),
+          });
+
+          const responseText = await response.text();
+          let payload = {};
+          try {
+            payload = responseText ? JSON.parse(responseText) : {};
+          } catch {
+            payload = {};
+          }
+
+          if (!response.ok) {
+            const error = new Error(payload?.error?.message || `Gemini Agent Platform (embeddings) retornou HTTP ${response.status}`);
+            error.status = response.status;
+            throw error;
+          }
+
+          const data = (payload?.predictions || []).map((prediction, index) => ({
+            index,
+            embedding: prediction?.embeddings?.values || [],
+          }));
+          if (data.length !== inputs.length || data.some((item) => !item.embedding.length)) {
+            throw new Error('Gemini Agent Platform não retornou embeddings válidos.');
+          }
+          return { data, model };
         },
       },
     };
@@ -1642,6 +1696,18 @@ function createAuxiliaryTextClient(runtime) {
 
 function createEmbeddingClient() {
   const cfg = getAiRuntimeConfig();
+  const route = resolveEmbeddingRoute({
+    chatProvider: cfg.chatProvider,
+    chatApiKey: cfg.chatApiKey,
+    embeddingModel: cfg.embeddingModel,
+  });
+  if (route === 'none') {
+    return null;
+  }
+  if (route === 'express') {
+    // Mesma chave e endpoint do chat; gemini-embedding-001 via :predict.
+    return createOpenAiCompatibleClient({ apiKey: cfg.chatApiKey, baseURL: cfg.chatBaseURL });
+  }
   if (!cfg.embeddingApiKey || cfg.embeddingProvider !== 'openai-compatible') {
     return null;
   }
@@ -3741,15 +3807,6 @@ async function generateHypotheticalAnswer(question) {
 // 3️⃣ Gerar embeddings (OpenAI/Gemini)
 async function generateQueryEmbedding(input, logContext = {}) {
   const cfg = getAiRuntimeConfig();
-  const dedicatedEmbeddingApiKey = getFirstNonEmptyEnv(
-    process.env.EMBEDDING_API_KEY,
-    process.env.AI_EMBEDDING_API_KEY
-  );
-  if (cfg.chatProvider === 'gemini-express' && !dedicatedEmbeddingApiKey) {
-    console.warn('[EMB] Agent Platform Express não oferece embedContent neste endpoint; usando busca lexical sem chamar a chave Gemini antiga.');
-    return null;
-  }
-
   const embeddingClient = createEmbeddingClient();
   if (!embeddingClient) {
     console.warn('[EMB] Nenhum provedor de embeddings configurado para consulta.');
@@ -3766,7 +3823,8 @@ async function generateQueryEmbedding(input, logContext = {}) {
       model: cfg.embeddingModel,
       input: normalizedInput,
     }),
-    { label: logContext.label || 'embedding_query' }
+    // Busca do usuario espera a resposta: uma tentativa extra no maximo.
+    { label: logContext.label || 'embedding_query', maxRetries: 1, baseDelayMs: 500 }
   );
 
   const embeddingTokens = estimateTokens(normalizedInput);
@@ -4955,7 +5013,8 @@ REGRAS CRITICAS:
 2. Responda exclusivamente com base no contexto documental abaixo.
 3. Se a pergunta mencionar artigo, paragrafo, lei, decreto, codigo ou sigla normativa, procure primeiro esses identificadores no contexto antes de concluir que a informacao nao esta disponivel.
 4. Se a resposta depender de mais de um trecho, una os trechos sem extrapolar.
-5. Comece pela resposta exata, sem repetir a pergunta, preambulo, titulos ou informacoes que nao foram solicitadas. Para perguntas pontuais, prefira uma ou duas frases; detalhe condicoes e excecoes apenas quando mudarem a resposta. Use bullets somente se a pergunta pedir lista.
+5. Comece pela resposta exata, sem repetir a pergunta nem fazer preambulo. Ajuste a profundidade ao que foi pedido: pergunta pontual (sim/nao, um prazo, um valor) pede resposta curta e direta; pergunta ampla ("quais as regras", "como funciona", "requisitos", "o que diz") pede resposta completa e organizada, cobrindo regra geral, regras de transicao, requisitos de idade, tempo de contribuicao e carencia, forma de calculo, excecoes e casos especiais que estiverem nos trechos. Para pergunta ampla sobre um beneficio, priorize a regra geral comum; regras de categorias especificas (rural, pessoa com deficiencia, professor etc.) entram depois, como secao separada e breve, e nunca no lugar da regra geral.
+5a. Quando o usuario descrever um caso concreto (idade, sexo, tempo de contribuicao, datas, valores), aplique as regras dos trechos aos dados dele: confira cada requisito, faca as contas passo a passo (idade, tempo que falta, percentual, datas) e conclua claramente se ele tem ou nao direito, quando e com qual regra. Fazer contas e raciocinio logico sobre regras documentadas nao e conhecimento externo; e obrigatorio. Se faltar algum dado do caso para concluir, diga qual e responda o que for possivel com os dados informados. Nunca responda que "os documentos nao especificam" quando a regra estiver nos trechos e so faltar aplica-la ao caso.
 6. Para verificacao interna, associe cada fato ou regra ao trecho que o sustenta com [Fonte N]. Use somente os numeros de fonte presentes no contexto. Nao escreva lista de fontes, IDs internos ou notas de revisao; as marcas serao removidas antes de mostrar a resposta ao usuario.
 7. Se a informacao nao estiver expressamente nos trechos, explique isso de forma breve, natural e objetiva, sem usar conhecimento externo.
 8. Nao use conhecimento externo, memoria do modelo ou suposicoes.
@@ -4971,7 +5030,7 @@ REGRAS CRITICAS:
 18. As instrucoes do agente delimitam o escopo do assunto; use os anexos para sustentar esse escopo, sem transformar documentos de apoio em autorizacao para responder sobre outro tema.
 19. Quando a colecao tiver varios documentos relevantes (portarias, PDFs, planilhas ou links), sintetize os pontos complementares em uma unica resposta.
 20. Numeros, nomes e datas de portarias, leis ou atos citados nas instrucoes do agente sao apenas pistas de escopo; so afirme esses dados quando tambem aparecerem literalmente no texto documental. Uma URL de pagina de busca pode comprovar a categoria de documento, mas nao a existencia de um ato especifico nem seu conteudo. Se pedir exemplos do acervo, omita exemplos cujo numero e tipo nao constem no contexto.
-21. Para cada conclusao juridica, indique [Fonte N] para a verificacao interna. Se o trecho nao sustentar integralmente a conclusao, diga qual ponto nao foi confirmado. Seja breve e responda exatamente ao que foi perguntado.
+21. Para cada conclusao juridica, indique [Fonte N] para a verificacao interna. Se o trecho nao sustentar integralmente a conclusao, diga qual ponto nao foi confirmado. Responda exatamente ao que foi perguntado, sem omitir requisito, excecao ou regra relevante que esteja nos trechos.
 
 ${conversationBlock}CONTEXTO DOCUMENTAL:
 ${context}
@@ -5246,6 +5305,42 @@ function removeUnsupportedInventoryExamples(text = '', question = '', context = 
   return cleaned;
 }
 
+// Remove apenas os trechos que citam artigo/lei sem suporte no material:
+// primeiro parenteses, depois a frase, e no caso de tabela a linha inteira.
+function stripUnsupportedLegalReferences(text = '', unsupportedArticles = [], unsupportedLaws = []) {
+  const badArticles = new Set(unsupportedArticles);
+  const badLaws = unsupportedLaws.map((reference) => reference.number);
+  const hasBadReference = (fragment = '') => {
+    const signals = extractLegalReferenceSignals(fragment);
+    return signals.articleNumbers.some((number) => badArticles.has(number))
+      || signals.lawReferences.some((reference) => badLaws.includes(reference.number));
+  };
+  const cleanSentence = (sentence) => {
+    if (!hasBadReference(sentence)) return sentence;
+    const withoutParens = sentence.replace(/\s*\([^()]*\)/g, (group) => (hasBadReference(group) ? '' : group));
+    return hasBadReference(withoutParens) ? '' : withoutParens;
+  };
+  const lines = String(text || '').split('\n').map((line) => {
+    if (!hasBadReference(line)) return line;
+    if (/^\s*\|/.test(line)) return null;
+    const prefix = (line.match(/^\s*(?:[-*•]|\d+[.)])\s+|^\s*#+\s+/) || [''])[0];
+    const body = line.slice(prefix.length);
+    // So quebra frase antes de maiuscula: "art. 114" nao e fim de frase.
+    const kept = body.split(/(?<=[.!?;])\s+(?=[*"(\[]?[A-ZÁÉÍÓÚÂÊÔÃÕÇ])/u).map(cleanSentence).filter((part) => part.trim()).join(' ').trim();
+    if (!kept || /^[\s*_:.-]*$/.test(kept)) return null;
+    return `${prefix}${kept}`;
+  }).filter((line) => line !== null);
+  // Tabela que perdeu todas as linhas de dados: remove cabecalho e separador.
+  const isTableLine = (line = '') => /^\s*\|/.test(line);
+  const isSeparator = (line = '') => /^\s*\|[\s|:-]+\|?\s*$/.test(line);
+  const result = lines.filter((line, index) => {
+    if (isSeparator(line)) return isTableLine(lines[index + 1]);
+    if (isTableLine(line) && isSeparator(lines[index + 1])) return isTableLine(lines[index + 2]);
+    return true;
+  });
+  return result.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+
 function validateOutput(text, hasContext = true, question = '', questionType = 'general', contextSize = 0, chunksUsed = 0, context = '', allowSalvage = true) {
   const normalizedText = normalizeGroundedCitations(removeUnsupportedInventoryExamples(text, question, context));
   let finalResponse = normalizedText;
@@ -5277,7 +5372,10 @@ function validateOutput(text, hasContext = true, question = '', questionType = '
       const source = sourceMap.get(id);
       return source ? `${source.title}\n${source.content}` : '';
     }).filter(Boolean).join('\n');
-    const articleEvidence = extractLegalReferenceSignals(citedEvidence || context);
+    // Artigos sao conferidos contra todo o material recuperado: modelos mais
+    // fortes citam o artigo certo de um trecho diferente do [Fonte N] marcado,
+    // e exigir o artigo so no trecho citado descartava respostas corretas.
+    const articleEvidence = extractLegalReferenceSignals(`${citedEvidence}\n${context}`);
     const unsupportedArticles = answerReferences.articleNumbers.filter((number) => !articleEvidence.articleNumbers.includes(number));
     const evidenceSources = citationIds.length > 0
       ? citationIds.map((id) => sourceMap.get(id)).filter(Boolean)
@@ -5303,10 +5401,20 @@ function validateOutput(text, hasContext = true, question = '', questionType = '
 
     if (!hasCoverage || invalidCitations.length > 0 || unsupportedArticles.length > 0 || unsupportedLaws.length > 0) {
       console.log(`[VALIDATOR] Bloqueando resposta sem sustentacao suficiente: ${JSON.stringify(validatorSummary)}`);
-      // A correct, cited first sentence should not be discarded merely because
-      // the model appended an unrelated, unsupported legal aside afterwards.
+      // A correct, cited answer should not be discarded merely because the model
+      // added an unsupported legal reference. Remove only the offending
+      // parentheticals/sentences/table rows and validate what remains.
       if (allowSalvage && hasCoverage && invalidCitations.length === 0
         && (unsupportedArticles.length > 0 || unsupportedLaws.length > 0)) {
+        const stripped = stripUnsupportedLegalReferences(normalizedText, unsupportedArticles, unsupportedLaws);
+        if (stripped && stripped.length >= Math.min(160, normalizedText.length * 0.5)) {
+          const salvagedFull = validateOutput(stripped, hasContext, question, questionType,
+            contextSize, chunksUsed, context, false);
+          if (!isGroundedFallbackResponse(salvagedFull)) {
+            console.log(`[VALIDATOR] Referencias sem suporte removidas; resposta preservada (${stripped.length}/${normalizedText.length} chars).`);
+            return salvagedFull;
+          }
+        }
         const firstSentence = normalizedText.split(/(?<=[.!?])\s+(?=[A-ZÁÉÍÓÚÇ])/u)[0].trim();
         if (firstSentence.length >= 60 && firstSentence.length < normalizedText.length
           && !firstSentence.endsWith(':')) {
@@ -9203,6 +9311,7 @@ async function handleSupabaseConversationMessageFallback({ res, userId, cid, con
   let relevantChunks = [];
   let agentDetails = null;
   let agentInstructions = '';
+  let useAposentadoriaIdadeSource = false;
   let totalChunkCount = 0;
   const usedDirectPdfAnswer = Boolean(directPdfAnswer && directPdfAnswer.trim().length > 0);
   const retrievalDebug = {
@@ -9236,6 +9345,7 @@ async function handleSupabaseConversationMessageFallback({ res, userId, cid, con
       userText,
       effectiveAgentId,
       attachmentContext,
+      conversationContext,
       loadAgentData: async () => effectiveAgentId ? getAgentViaSupabase(effectiveAgentId) : null,
       saveAssistantMessage: async (answer) => insertConversationMessageViaSupabase(cid, 'assistant', answer),
     });
@@ -9257,6 +9367,8 @@ async function handleSupabaseConversationMessageFallback({ res, userId, cid, con
       agentDetails = await getAgentViaSupabase(effectiveAgentId);
       if (agentDetails) {
         agentInstructions = agentDetails.instructions || agentDetails.description || '';
+        useAposentadoriaIdadeSource = isAposentadoriaIdadeQuestion(userText, { agentData: agentDetails, conversationContext });
+        if (useAposentadoriaIdadeSource) agentInstructions = withAposentadoriaIdadeGuidance(agentInstructions);
         questionType = detectQuestionType(userText);
         totalChunkCount = await countAgentChunks(effectiveAgentId);
         const hasChunks = totalChunkCount > 0;
@@ -9367,6 +9479,7 @@ async function handleSupabaseConversationMessageFallback({ res, userId, cid, con
 
         const inventoryContext = await getAgentDocumentInventoryContext(effectiveAgentId, userText);
         mergedContext = [attachmentContext, relevantContext, inventoryContext].filter(Boolean).join('\n\n---\n\n');
+        if (useAposentadoriaIdadeSource) mergedContext = withAposentadoriaIdadeSource(mergedContext);
         prompt = buildGroundedPrompt(mergedContext || '', agentInstructions, userText || 'Analise o anexo enviado.', conversationContext);
         hasContext = Boolean(mergedContext && mergedContext.trim().length > 0);
         contextSize = mergedContext ? mergedContext.length : 0;
@@ -9473,7 +9586,8 @@ async function handleSupabaseConversationMessageFallback({ res, userId, cid, con
           maxChars: getEffectiveContextBudgetChars(totalChunkCount),
           minRows: RAG_EXTREME_MODE ? Math.min(DEFAULT_RAG_DEEP_RETURN_LIMIT, 18) : Math.min(DEFAULT_RAG_RETURN_LIMIT, 8),
         });
-        const deepMergedContext = [attachmentContext, deepRelevantContext].filter(Boolean).join('\n\n---\n\n');
+        const deepJoinedContext = [attachmentContext, deepRelevantContext].filter(Boolean).join('\n\n---\n\n');
+        const deepMergedContext = useAposentadoriaIdadeSource ? withAposentadoriaIdadeSource(deepJoinedContext) : deepJoinedContext;
 
         if (deepMergedContext && deepMergedContext !== mergedContext) {
           const deepPrompt = buildGroundedPrompt(
@@ -10599,6 +10713,7 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
       userText,
       effectiveAgentId,
       attachmentContext,
+      conversationContext,
       loadAgentData: async () => {
         if (!effectiveAgentId) {
           return null;
@@ -10643,6 +10758,7 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
     let relevantChunks = [];
     let agentData = null;
     let agentInstructions = '';
+    let useAposentadoriaIdadeSource = false;
     let totalChunkCount = 0;
     let preAnswerDeepRetrieved = 0;
     let queryEmbeddingAvailable = false;
@@ -10659,6 +10775,8 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
         );
         if (agentData) {
           agentInstructions = agentData.instructions || agentData.description || '';
+          useAposentadoriaIdadeSource = isAposentadoriaIdadeQuestion(userText, { agentData, conversationContext });
+          if (useAposentadoriaIdadeSource) agentInstructions = withAposentadoriaIdadeGuidance(agentInstructions);
           questionType = detectQuestionType(userText);
 
           totalChunkCount = await countAgentChunks(effectiveAgentId);
@@ -10748,6 +10866,7 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
 
               const inventoryContext = await getAgentDocumentInventoryContext(effectiveAgentId, userText);
               mergedContext = [attachmentContext, relevantContext, inventoryContext].filter(Boolean).join('\n\n---\n\n');
+              if (useAposentadoriaIdadeSource) mergedContext = withAposentadoriaIdadeSource(mergedContext);
               prompt = buildGroundedPrompt(mergedContext || '', agentInstructions, userText || 'Analise o anexo enviado.', conversationContext);
               hasContext = Boolean(mergedContext && mergedContext.trim().length > 0);
               contextSize = mergedContext ? mergedContext.length : 0;
@@ -10757,10 +10876,13 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
               console.error('[CHAT] Erro ao buscar contexto:', e.message);
             }
           } else {
-            prompt = buildGroundedPrompt(attachmentContext || '', agentInstructions, userText || 'Analise o anexo enviado.', conversationContext);
-            hasContext = Boolean(attachmentContext);
-            contextSize = attachmentContext ? attachmentContext.length : 0;
-            chunksUsed = attachmentContext ? 1 : 0;
+            mergedContext = useAposentadoriaIdadeSource
+              ? withAposentadoriaIdadeSource(attachmentContext || '')
+              : (attachmentContext || '');
+            prompt = buildGroundedPrompt(mergedContext, agentInstructions, userText || 'Analise o anexo enviado.', conversationContext);
+            hasContext = Boolean(mergedContext.trim());
+            contextSize = mergedContext.length;
+            chunksUsed = mergedContext ? mergedContext.split('\n\n---\n\n').filter(Boolean).length : 0;
           }
         }
       } catch (e) {
@@ -10854,7 +10976,8 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
             maxChars: getEffectiveContextBudgetChars(totalChunkCount),
             minRows: RAG_EXTREME_MODE ? Math.min(DEFAULT_RAG_DEEP_RETURN_LIMIT, 18) : Math.min(DEFAULT_RAG_RETURN_LIMIT, 8),
           });
-          const deepMergedContext = [attachmentContext, deepRelevantContext].filter(Boolean).join('\n\n---\n\n');
+          const deepJoinedContext = [attachmentContext, deepRelevantContext].filter(Boolean).join('\n\n---\n\n');
+        const deepMergedContext = useAposentadoriaIdadeSource ? withAposentadoriaIdadeSource(deepJoinedContext) : deepJoinedContext;
 
           if (deepMergedContext && deepMergedContext !== mergedContext) {
             const deepPrompt = buildGroundedPrompt(
