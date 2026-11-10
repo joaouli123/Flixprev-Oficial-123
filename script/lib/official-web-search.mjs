@@ -35,6 +35,7 @@ const BASE_RULES = [
   'Responda em português do Brasil, direto e objetivo (no máximo 10 linhas), com números, datas e nº de lei/portaria/súmula/tema exatos.',
   'Use SOMENTE o que fontes oficiais confirmam: planalto.gov.br, gov.br (INSS, Previdência, Receita, MTE), in.gov.br (Diário Oficial), stf.jus.br, stj.jus.br, tst.jus.br, jt.jus.br, cjf.jus.br, trf/trt (.jus.br), camara.leg.br, senado.leg.br.',
   'Não use nem cite blogs, escritórios, portais de notícia ou vídeos. Não invente. Não escreva lista de fontes no final.',
+  'OBRIGATÓRIO: pesquise no Google antes de responder, mesmo que já saiba a resposta. Nunca responda de memória. Faça buscas que achem a página oficial (inclua "planalto.gov.br" e o número da lei, "gov.br/inss" ou "in.gov.br" para portarias) e escreva cada informação em uma linha própria.',
   `Se nenhuma fonte oficial confirmar, responda exatamente: ${NO_SOURCE_TOKEN}`,
 ];
 
@@ -65,29 +66,51 @@ export function evaluateGroundedCandidate(payload = {}) {
     uri: String(c?.web?.uri || ''),
   }));
   const official = new Set(chunks.map((c, i) => (isOfficialDomain(c.domain) ? i : -1)).filter((i) => i >= 0));
-  let supported = 0;
-  let officialSupported = 0;
+  const segments = (gm.groundingSupports || []).map((s) => {
+    const segText = String(s?.segment?.text || '').trim();
+    const off = (s?.groundingChunkIndices || []).filter((i) => official.has(i));
+    return { text: segText, off };
+  }).filter((s) => s.text);
+  const noSource = !text || text.includes(NO_SOURCE_TOKEN);
+  const withoutSourceList = text
+    .replace(/(^|\n)[ \t]*\**Fontes?( consultadas| oficiais)?:?\**:?[^\n]*(\n[ \t]*[-*][^\n]*)*\s*$/i, '');
+  // O Google traz muitos blogs junto com o gov.br. Em vez de descartar a resposta inteira, cada
+  // linha precisa se sustentar sozinha: sai a linha apoiada só em site não oficial e a linha com
+  // número/data sem apoio nenhum (pode ser memória do modelo). Fica o que a fonte oficial confirma.
+  let keptLines = [];
+  let keptSupported = 0;
+  let keptOfficial = 0;
+  let firstAnswerDropped = null;
   const usedOfficial = new Set();
-  for (const s of gm.groundingSupports || []) {
-    const segText = String(s?.segment?.text || '');
-    const len = segText.length || Math.max(0, (s?.segment?.endIndex || 0) - (s?.segment?.startIndex || 0));
-    const idx = s?.groundingChunkIndices || [];
-    supported += len;
-    const off = idx.filter((i) => official.has(i));
-    if (off.length) {
-      officialSupported += len;
-      off.forEach((i) => usedOfficial.add(i));
+  for (const line of withoutSourceList.split('\n')) {
+    const segs = segments.filter((s) => line.includes(s.text) || (s.text.length > 20 && s.text.includes(line.trim()) && line.trim().length > 20));
+    const offSegs = segs.filter((s) => s.off.length);
+    const drop = (segs.length && !offSegs.length) || (!segs.length && /\d/.test(line) && !/^\s*#/.test(line));
+    // A primeira frase de verdade costuma ser a resposta direta; se ela cai, o resto fica sem sentido.
+    if (firstAnswerDropped === null && line.trim().length >= 20 && !/^\s*#/.test(line)) firstAnswerDropped = Boolean(drop);
+    if (drop) continue;
+    for (const s of segs) {
+      keptSupported += s.text.length;
+      if (s.off.length) { keptOfficial += s.text.length; s.off.forEach((i) => usedOfficial.add(i)); }
     }
+    keptLines.push(line);
   }
-  const cleaned = text
-    .replace(/(^|\n)[ \t]*\**Fontes?( consultadas| oficiais)?:?\**:?[^\n]*(\n[ \t]*[-*][^\n]*)*\s*$/i, '')
+  // Tira introduções de lista ("nos seguintes casos:") que ficaram sem os itens.
+  const isItem = (l) => /^\s*([-*•]|\d+[.)])\s/.test(l);
+  keptLines = keptLines.filter((line, i) => {
+    if (!/:\**\s*$/.test(line)) return true;
+    const next = keptLines.slice(i + 1).find((l) => l.trim());
+    return Boolean(next && isItem(next));
+  });
+  const cleaned = keptLines.join('\n')
     .replace(/[ \t]+\n/g, '\n')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
-  const ratio = supported > 0 ? officialSupported / supported : 0;
-  const noSource = !text || text.includes(NO_SOURCE_TOKEN);
+  const ratio = keptSupported > 0 ? keptOfficial / keptSupported : 0;
   const sources = [...usedOfficial].map((i) => chunks[i]);
-  const accepted = !noSource && sources.length > 0 && ratio >= MIN_OFFICIAL_SUPPORT_RATIO && cleaned.length >= 40;
+  // Precisa sobrar conteúdo de verdade apoiado em fonte oficial, não só a frase de abertura.
+  const accepted = !noSource && !firstAnswerDropped && sources.length > 0 && ratio >= MIN_OFFICIAL_SUPPORT_RATIO
+    && keptOfficial >= 60 && cleaned.length >= 40;
   return { accepted, text: cleaned, ratio, sources, noSource };
 }
 

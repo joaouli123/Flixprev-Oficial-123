@@ -66,6 +66,38 @@ test('rejeita resposta apoiada principalmente em sites não oficiais', () => {
   assert.ok(r.ratio < 0.7);
 });
 
+test('tira a linha apoiada só em blog, mas mantém o resto apoiado em fonte oficial', () => {
+  const blogLine = 'Segundo especialistas, o valor deve subir para R$ 1.700 em 2027.';
+  const r = evaluateGroundedCandidate(payload(
+    `${OFFICIAL_TEXT}\n${blogLine}`,
+    [['www.gov.br', 'Gov.br'], ['blog.com.br', 'Blog']],
+    [[OFFICIAL_TEXT, [0]], [blogLine, [1]]],
+  ));
+  assert.equal(r.accepted, true);
+  assert.equal(r.text, OFFICIAL_TEXT);
+});
+
+test('rejeita quando a resposta direta (primeira frase) só tem apoio em blog', () => {
+  const answer = 'A idade mínima da mulher é de 62 anos após a Reforma da Previdência.';
+  const rest = 'Além da idade, exige-se o tempo mínimo de 15 anos de contribuição, conforme a EC 103/2019.';
+  const r = evaluateGroundedCandidate(payload(
+    `${answer}\n${rest}`,
+    [['www.gov.br', 'Gov.br'], ['blog.com.br', 'Blog']],
+    [[answer, [1]], [rest, [0]]],
+  ));
+  assert.equal(r.accepted, false);
+});
+
+test('remove introdução de lista que ficou sem itens', () => {
+  const r = evaluateGroundedCandidate(payload(
+    `${OFFICIAL_TEXT}\nA carência é dispensada nos seguintes casos:\n- acidente de 2 tipos`,
+    [['www.gov.br', 'Gov.br'], ['blog.com.br', 'Blog']],
+    [[OFFICIAL_TEXT, [0]], ['acidente de 2 tipos', [1]]],
+  ));
+  assert.equal(r.accepted, true);
+  assert.equal(r.text, OFFICIAL_TEXT);
+});
+
 test('rejeita SEM_FONTE_OFICIAL e resposta sem grounding', () => {
   assert.equal(evaluateGroundedCandidate(payload('SEM_FONTE_OFICIAL', [['www.gov.br', 'Gov']], [['SEM_FONTE_OFICIAL', [0]]])).accepted, false);
   assert.equal(evaluateGroundedCandidate(payload(OFFICIAL_TEXT, [], [])).accepted, false);
