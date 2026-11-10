@@ -206,3 +206,49 @@ test('evaluateGroundedCandidate mantém a conta aplicada ao caso e derruba núme
   // sem dado do caso na pergunta, linha numérica sem apoio continua saindo
   assert.doesNotMatch(evaluateGroundedCandidate(p(`${rule}\n${calc}`), { question: 'como funciona o aviso prévio?' }).text, /39 dias/);
 });
+
+test('searchOfficialWeb roda cada prompt 2x (cópia com temperatura maior) e pede o resultado do caso nas lacunas', async () => {
+  const bodies = [];
+  const fetchImpl = async (_u, o) => {
+    bodies.push(JSON.parse(o.body));
+    return { ok: true, json: async () => ({ candidates: [{ content: { parts: [{ text: 'x' }] } }] }) };
+  };
+  await searchOfficialWeb({ question: 'aviso 3 anos de firma?', apiKey: 'k', gaps: ['a lei 12.506 não consta na base'], fetchImpl });
+  const temps = bodies.map((b) => b.generationConfig.temperature).sort();
+  assert.equal(bodies.length % 2, 0);
+  assert.ok(temps.includes(0) && temps.includes(0.5));
+  assert.match(bodies[0].contents[0].parts[0].text, /resultado final em número/);
+  bodies.length = 0;
+  await searchOfficialWeb({ question: 'x?', apiKey: 'k', copies: 1, fetchImpl });
+  assert.ok(bodies.every((b) => b.generationConfig.temperature === 0));
+});
+
+test('evaluateGroundedCandidate mantém "Resultado final" e a conta ligada a blog, mas não o eco do número da pergunta', () => {
+  const rule = 'A Lei 12.506/2011 garante 30 dias de aviso mais 3 dias por ano completo de serviço.';
+  const calc = 'Para 3 anos de empresa, o cálculo é: 30 dias (base) + 9 dias (3 anos x 3 dias).';
+  const result = 'Resultado final: 39 dias de aviso prévio.';
+  const q = { question: 'aviso previo e sempre 30 dias né? o cara tinha 3 anos de firma' };
+  const pr = payload(`${rule}\n${calc} = 39 dias.\n${result}`, [['planalto.gov.br', 'Lei 12.506'], ['blog.com.br', 'blog']], [[rule, [0]], [calc, [1]]]);
+  const r = evaluateGroundedCandidate(pr, q);
+  assert.match(r.text, /Resultado final: 39 dias/);
+  assert.match(r.text, /\+ 9 dias/);
+  // eco do número da pergunta sem fonte nenhuma: sai (e derruba a resposta por ser a 1a frase)
+  const echo = 'Sim, a mulher se aposenta por idade com 60 anos.';
+  const pe = payload(`${echo}\nA Lei garante aposentadoria por idade conforme o art. 201 da Constituição.`, [['planalto.gov.br', 'CF']], [['A Lei garante aposentadoria por idade conforme o art. 201 da Constituição.', [0]]]);
+  const re = evaluateGroundedCandidate(pe, { question: 'mulher se aposenta por idade com 60 anos ne?' });
+  assert.doesNotMatch(re.text, /60 anos/);
+  assert.equal(re.accepted, false);
+});
+
+test('evaluateGroundedCandidate mantém a 1a frase ligada a blog quando seus números estão na linha oficial', () => {
+  const first = 'O prazo para pagar a rescisão é de 10 dias corridos (Art. 477, § 6º, da CLT).';
+  const off = 'Art. 477, § 6º: a entrega dos documentos e o pagamento devem ocorrer em até 10 dias contados do término do contrato.';
+  const wrong = 'O prazo para pagar a rescisão é de 30 dias corridos (Art. 477, § 6º, da CLT).';
+  const p = (t, l) => payload(`${t}\n${off}`, [['planalto.gov.br', 'CLT'], ['blog.com.br', 'blog']], [[l, [1]], [off, [0]]]);
+  const ok = evaluateGroundedCandidate(p(first, first), { question: 'prazo rescisao?' });
+  assert.equal(ok.accepted, true);
+  assert.match(ok.text, /^O prazo para pagar a rescisão é de 10 dias/);
+  const bad = evaluateGroundedCandidate(p(wrong, wrong), { question: 'prazo rescisao?' });
+  assert.equal(bad.accepted, false);
+  assert.equal(bad.reason, '1a_frase_caiu');
+});

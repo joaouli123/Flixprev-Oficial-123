@@ -56,7 +56,7 @@ function buildSystemPrompts(agentTitle = '') {
   const scope = agentTitle ? `O usuário está no agente "${agentTitle}".` : '';
   return [
     [...BASE_RULES, scope].filter(Boolean).join('\n'),
-    [...BASE_RULES, scope, 'Ao pesquisar, inclua nas buscas termos como "gov.br", "planalto", "DOU", "STF", "TST" ou "portaria" para achar a página oficial.'].filter(Boolean).join('\n'),
+    [...BASE_RULES, scope, 'Faça as buscas com o operador site: para cair direto na fonte oficial, ex.: "site:planalto.gov.br art. 477 CLT prazo", "site:planalto.gov.br lei 12.506", "site:gov.br/inss pensão por morte", "site:tst.jus.br súmula 331".'].filter(Boolean).join('\n'),
     [...BASE_RULES, scope, 'Pesquise primeiro o ato ou a decisão original (lei ou decreto no planalto.gov.br, portaria no Diário Oficial, súmula ou tema no site do tribunal) e depois a página do órgão (gov.br/inss, gov.br/previdencia).'].filter(Boolean).join('\n'),
   ];
 }
@@ -66,7 +66,7 @@ function buildUserText(question = '', conversationContext = '', gaps = []) {
   const base = ctx ? `Contexto recente da conversa:\n${ctx}\n\nPergunta atual: ${question}` : question;
   const list = (Array.isArray(gaps) ? gaps : []).map((g) => String(g || '').trim()).filter(Boolean);
   if (!list.length) return base;
-  return `${base}\n\nA base de documentos já respondeu parte da pergunta, mas ficou sem estes pontos:\n${list.map((g) => `- ${g}`).join('\n')}\n\nResponda SOMENTE o que falta nesses pontos (sem repetir o resto), com o número exato do artigo/lei.`;
+  return `${base}\n\nA base de documentos já respondeu parte da pergunta, mas ficou sem estes pontos:\n${list.map((g) => `- ${g}`).join('\n')}\n\nResponda SOMENTE o que falta nesses pontos (sem repetir o resto), com o número exato do artigo/lei. Se a pergunta trouxer dados do caso (anos de empresa, idade, datas, valores), aplique a regra a esses dados e diga o resultado final em número.`;
 }
 
 // Avalia uma resposta do Gemini: quanto do texto se apoia em fonte oficial. Recortar os trechos
@@ -126,19 +126,37 @@ export function evaluateGroundedCandidate(payload = {}, { question = '' } = {}) 
   // pela fonte oficial ou de uma soma/produto simples desses números.
   const questionNums = extractNumbers(question);
   const confirmedNums = [...questionNums, ...lines.filter((l) => l.offSegs.length).flatMap((l) => extractNumbers(l.line))];
+  // A linha seguinte que só repete o resultado ("Resultado final: 39 dias") também fica. Linha que
+  // só ecoa o número da pergunta ("sim, 60 anos") não é conta: continua precisando de fonte oficial.
+  const derivedNums = new Set();
   const isDerivedCaseLine = (line) => {
     if (!questionNums.length) return false;
     const nums = extractNumbers(line);
-    if (!nums.length || !nums.some((n) => questionNums.includes(n))) return false;
-    return nums.every((n) => isDerivable(n, confirmedNums));
+    if (!nums.length) return false;
+    if (nums.some((n) => derivedNums.has(n)) && nums.every((n) => derivedNums.has(n) || questionNums.includes(n))) return true;
+    if (!nums.some((n) => questionNums.includes(n)) || !nums.some((n) => !questionNums.includes(n))) return false;
+    if (!nums.every((n) => isDerivable(n, confirmedNums))) return false;
+    nums.filter((n) => !questionNums.includes(n)).forEach((n) => derivedNums.add(n));
+    return true;
+  };
+  // A frase de abertura costuma resumir o que as linhas seguintes provam ("o prazo é de 10 dias
+  // (art. 477, § 6º)"), mas o Google às vezes a liga só a um blog ou a nada. Se todo número dela
+  // aparece numa linha confirmada por fonte oficial, ela fica.
+  const officialNums = new Set(lines.filter((l) => l.offSegs.length).flatMap((l) => extractNumbers(l.line)));
+  const numbersOfficiallyConfirmed = (line) => {
+    const nums = extractNumbers(line);
+    return nums.length > 0 && nums.every((n) => officialNums.has(n));
   };
   for (const { line, segs, offSegs } of lines) {
-    const drop = (segs.length && !offSegs.length)
-      || (!segs.length && /\d/.test(line) && !/^\s*#/.test(line) && !isDerivedCaseLine(line));
+    const hasNum = /\d/.test(line) && !/^\s*#/.test(line);
+    // A conta conferida fica mesmo se o Google a ligou só a um blog: os números dela já foram checados.
+    const rescued = !offSegs.length && hasNum && (numbersOfficiallyConfirmed(line) || isDerivedCaseLine(line));
+    const drop = !offSegs.length && (segs.length > 0 || hasNum) && !rescued;
     // A primeira frase de verdade costuma ser a resposta direta; se ela cai, o resto fica sem sentido.
     if (firstAnswerDropped === null && line.trim().length >= 20 && !/^\s*#/.test(line)) firstAnswerDropped = Boolean(drop);
     if (drop) continue;
-    for (const s of segs) {
+    // Linha resgatada pelos números não entra na proporção: o apoio dela é de blog, mas o conteúdo já foi conferido.
+    if (!rescued) for (const s of segs) {
       keptSupported += s.text.length;
       if (s.off.length) { keptOfficial += s.text.length; s.off.forEach((i) => usedOfficial.add(i)); }
     }
@@ -165,7 +183,9 @@ export function evaluateGroundedCandidate(payload = {}, { question = '' } = {}) 
   // Precisa sobrar conteúdo de verdade apoiado em fonte oficial, não só a frase de abertura.
   const accepted = !noSource && !firstAnswerDropped && sources.length > 0 && ratio >= MIN_OFFICIAL_SUPPORT_RATIO
     && keptOfficial >= 60 && cleaned.length >= 40 && substantiveChars >= 40;
-  return { accepted, text: cleaned, ratio, sources, noSource };
+  const reason = accepted ? '' : noSource ? 'sem_fonte' : firstAnswerDropped ? '1a_frase_caiu' : !sources.length ? 'nada_oficial'
+    : ratio < MIN_OFFICIAL_SUPPORT_RATIO ? 'ratio' : keptOfficial < 60 ? 'pouco_oficial' : 'curto';
+  return { accepted, text: cleaned, ratio, sources, noSource, reason };
 }
 
 async function resolveSourceUrl(source, timeoutMs = 2500) {
@@ -202,6 +222,7 @@ export async function searchOfficialWeb({
   timeoutMs = 40000,
   thinkingLevel = 'high',
   gaps = [],
+  copies = 2,
   fetchImpl = fetch,
 } = {}) {
   if (!apiKey || !String(question || '').trim()) return null;
@@ -209,9 +230,15 @@ export async function searchOfficialWeb({
   const url = generateContentUrl(baseURL, model);
   const userText = buildUserText(question, conversationContext, gaps);
   // Todas as variantes correm em paralelo; a primeira aceita encerra a busca e cancela as outras.
+  // A busca do Google varia a cada chamada e às vezes só traz sites não oficiais (aí a resposta é
+  // descartada). Cada prompt roda `copies` vezes, a cópia extra com temperatura maior, para que pelo
+  // menos uma volte com fonte oficial sem precisar de uma segunda rodada (que dobraria o tempo).
   const controller = new AbortController();
   const signal = AbortSignal.any ? AbortSignal.any([controller.signal, AbortSignal.timeout(timeoutMs)]) : AbortSignal.timeout(timeoutMs);
-  const calls = buildSystemPrompts(agentTitle).map(async (sys) => {
+  const prompts = buildSystemPrompts(agentTitle);
+  const jobs = [];
+  for (let c = 0; c < Math.max(1, copies); c += 1) for (const sys of prompts) jobs.push({ sys, temperature: c === 0 ? 0 : 0.5 });
+  const calls = jobs.map(async ({ sys, temperature }) => {
     const r = await fetchImpl(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
@@ -220,7 +247,7 @@ export async function searchOfficialWeb({
         contents: [{ role: 'user', parts: [{ text: userText }] }],
         tools: [{ googleSearch: {} }],
         generationConfig: {
-          temperature: 0,
+          temperature,
           maxOutputTokens: 2048,
           ...(/^gemini-3/i.test(model) ? { thinkingConfig: { thinkingLevel } } : {}),
         },
