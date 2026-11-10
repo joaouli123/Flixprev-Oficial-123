@@ -14,6 +14,7 @@ import OpenAI from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
 import multer from 'multer';
 import pdfParse from 'pdf-parse';
+import { repairSplitPortugueseWords } from './script/lib/pdf-text-repair.mjs';
 import mammoth from 'mammoth';
 import dotenv from 'dotenv';
 import { createClient } from '@supabase/supabase-js';
@@ -3439,7 +3440,7 @@ Responda de forma objetiva em português. Se possível, traga resumo e pontos pr
 function normalizeStructuredText(value = '') {
   const lines = [];
   for (const rawLine of String(value || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n')) {
-    const line = rawLine.replace(/[ \t]+/g, ' ').trim();
+    const line = repairSplitPortugueseWords(rawLine.replace(/[ \t]+/g, ' ')).trim();
     if (line) {
       lines.push(line);
     } else if (lines.length > 0 && lines[lines.length - 1] !== '') {
