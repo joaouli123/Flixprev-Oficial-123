@@ -231,14 +231,13 @@ export async function searchOfficialWeb({
   const userText = buildUserText(question, conversationContext, gaps);
   // Todas as variantes correm em paralelo; a primeira aceita encerra a busca e cancela as outras.
   // A busca do Google varia a cada chamada e às vezes só traz sites não oficiais (aí a resposta é
-  // descartada). Cada prompt roda `copies` vezes, a cópia extra com temperatura maior, para que pelo
-  // menos uma volte com fonte oficial sem precisar de uma segunda rodada (que dobraria o tempo).
+  // descartada). Por isso há até `copies` rodadas, a extra com temperatura maior.
   const controller = new AbortController();
   const signal = AbortSignal.any ? AbortSignal.any([controller.signal, AbortSignal.timeout(timeoutMs)]) : AbortSignal.timeout(timeoutMs);
   const prompts = buildSystemPrompts(agentTitle);
-  const jobs = [];
-  for (let c = 0; c < Math.max(1, copies); c += 1) for (const sys of prompts) jobs.push({ sys, temperature: c === 0 ? 0 : 0.5 });
-  const calls = jobs.map(async ({ sys, temperature }) => {
+  const ok = [];
+  const errors = [];
+  const runCall = async ({ sys, temperature }) => {
     const r = await fetchImpl(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
@@ -257,20 +256,27 @@ export async function searchOfficialWeb({
     const payload = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(payload?.error?.message || `HTTP ${r.status}`);
     return { ...evaluateGroundedCandidate(payload, { question }), usage: payload?.usageMetadata || {} };
-  });
-  const ok = [];
-  const errors = [];
-  await new Promise((resolve) => {
+  };
+  // Rodada = todas as variantes em paralelo; termina na primeira aceita.
+  const runRound = (temperature) => new Promise((resolve) => {
+    const calls = prompts.map((sys) => runCall({ sys, temperature }));
     let pending = calls.length;
+    let done = false;
     for (const p of calls) {
       p.then((c) => {
         ok.push(c);
-        if (c.accepted) resolve();
+        if (c.accepted && !done) { done = true; resolve(true); }
       }, (e) => {
         if (e?.name !== 'AbortError') errors.push(e?.message || String(e));
-      }).finally(() => { if (--pending === 0) resolve(); });
+      }).finally(() => { if (--pending === 0 && !done) { done = true; resolve(false); } });
     }
   });
+  // As cópias extras (temperatura maior) só saem se a rodada anterior não achou nada oficial:
+  // disparar tudo de uma vez esgotava a cota do Vertex (429) e atrasava o chat principal.
+  for (let c = 0; c < Math.max(1, copies); c += 1) {
+    if (await runRound(c === 0 ? 0 : 0.5)) break;
+    if (signal.aborted) break;
+  }
   controller.abort();
   const best = ok.filter((c) => c.accepted).sort((a, b) => b.ratio - a.ratio || b.sources.length - a.sources.length)[0];
   const usage = ok.reduce((acc, c) => ({

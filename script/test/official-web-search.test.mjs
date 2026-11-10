@@ -207,16 +207,25 @@ test('evaluateGroundedCandidate mantém a conta aplicada ao caso e derruba núme
   assert.doesNotMatch(evaluateGroundedCandidate(p(`${rule}\n${calc}`), { question: 'como funciona o aviso prévio?' }).text, /39 dias/);
 });
 
-test('searchOfficialWeb roda cada prompt 2x (cópia com temperatura maior) e pede o resultado do caso nas lacunas', async () => {
+test('searchOfficialWeb só faz a 2a rodada (temperatura maior) depois que a 1a não achou nada, e pede o resultado do caso nas lacunas', async () => {
   const bodies = [];
+  let inFlight = 0;
   const fetchImpl = async (_u, o) => {
-    bodies.push(JSON.parse(o.body));
+    const b = JSON.parse(o.body);
+    b.concurrentAtStart = inFlight;
+    bodies.push(b);
+    inFlight += 1;
+    await new Promise((r) => setTimeout(r, 5));
+    inFlight -= 1;
     return { ok: true, json: async () => ({ candidates: [{ content: { parts: [{ text: 'x' }] } }] }) };
   };
   await searchOfficialWeb({ question: 'aviso 3 anos de firma?', apiKey: 'k', gaps: ['a lei 12.506 não consta na base'], fetchImpl });
-  const temps = bodies.map((b) => b.generationConfig.temperature).sort();
+  const temps = bodies.map((b) => b.generationConfig.temperature);
   assert.equal(bodies.length % 2, 0);
-  assert.ok(temps.includes(0) && temps.includes(0.5));
+  const half = bodies.length / 2;
+  assert.ok(temps.slice(0, half).every((t) => t === 0) && temps.slice(half).every((t) => t === 0.5));
+  // a 2a rodada só começa com a 1a toda terminada
+  assert.equal(bodies[half].concurrentAtStart, 0);
   assert.match(bodies[0].contents[0].parts[0].text, /resultado final em número/);
   bodies.length = 0;
   await searchOfficialWeb({ question: 'x?', apiKey: 'k', copies: 1, fetchImpl });
