@@ -4089,8 +4089,25 @@ function computeChunkTermCoverageScore(content = '', queryText = '') {
 
 function getRetrievedRowKey(row = {}) {
   // Chave pelo texto: a mesma lei enviada duas vezes vira um trecho so (antes ocupava metade das vagas da busca).
-  const text = String(row?.content || '').replace(/s+/g, ' ').trim();
+  const text = String(row?.content || '').replace(/\s+/g, ' ').trim();
   return text ? `txt:${text}` : `${row?.documentId || 'sem-doc'}:${row?.chunkIndex}`;
+}
+
+// A reordenacao por palavras-chave as vezes derruba o trecho mais parecido com a pergunta
+// (as similaridades ficam todas entre 0,60 e 0,65). Os mais parecidos que ficaram de fora entram no fim.
+const DEFAULT_RAG_SEMANTIC_EXTRAS = Math.max(0, Math.min(Number(process.env.RAG_SEMANTIC_EXTRAS ?? 8) || 0, 24));
+function appendSemanticExtras(pickedRows = [], vectorRows = [], limit = DEFAULT_RAG_SEMANTIC_EXTRAS) {
+  if (!limit || !Array.isArray(vectorRows) || !vectorRows.length) return pickedRows;
+  const pickedKeys = new Set(pickedRows.map(getRetrievedRowKey));
+  const extras = [];
+  for (const row of [...vectorRows].sort((a, b) => Number(b?.similarity || 0) - Number(a?.similarity || 0))) {
+    if (extras.length >= limit) break;
+    const key = getRetrievedRowKey(row);
+    if (pickedKeys.has(key)) continue;
+    pickedKeys.add(key);
+    extras.push(row);
+  }
+  return [...pickedRows, ...extras];
 }
 
 function dedupeRetrievedRows(rows = []) {
@@ -4580,6 +4597,86 @@ function buildConversationContext(messages = [], maxMessages = 8, maxChars = 350
   }
 
   return joined.slice(joined.length - maxChars);
+}
+
+// Jargao de advogado -> como a lei escreve. Usado so na busca (a pergunta enviada ao modelo nao muda).
+const LEGAL_JARGON_EXPANSIONS = [
+  [/idade\s+m[ií]nima\s+progressiva/i, 'idade acrescida de 6 (seis) meses a cada ano a partir de 1º de janeiro de 2020', ['%6 (seis) meses a cada ano%']],
+  [/regra\s+dos\s+pontos|\bpontua[cç][aã]o\b|\b\d{2,3}\s+pontos\b/i, 'somatório da idade e do tempo de contribuição, pontuação acrescida de 1 (um) ponto a cada ano', ['%1 (um) ponto a cada ano%', '%a cada ano de 1 (um) ponto%']],
+  [/ped[aá]gio\s+(de\s+)?50/i, 'período adicional de contribuição correspondente a 50% (cinquenta por cento) do tempo que faltaria', ['%50% (cinquenta por cento) do tempo que%']],
+  [/ped[aá]gio\s+(de\s+)?100/i, 'período adicional de contribuição correspondente ao tempo que, na data de entrada em vigor da Emenda Constitucional, faltaria', ['%100% (cem por cento) do tempo que%', '%correspondente ao tempo que%faltaria%']],
+  // "pedágio" sem dizer qual: traz os dois.
+  [/ped[aá]gio/i, '', ['%50% (cinquenta por cento) do tempo que%', '%100% (cem por cento) do tempo que%', '%correspondente ao tempo que%faltaria%']],
+  [/decad[eê]ncia|prazo\s+(\w+\s+){0,4}revis|revis\w*\s+(\w+\s+){0,4}prazo/i, 'prazo de decadência de dez anos do direito ou da ação do segurado para a revisão do ato de concessão de benefício', ['%decadencia de todo e qualquer direito%']],
+  [/vida\s+toda/i, 'regra definitiva do art. 29, I e II, da Lei 8.213, salários de contribuição anteriores a julho de 1994'],
+  [/\bloas\b/i, 'benefício de prestação continuada da assistência social'],
+  [/aux[ií]lio[\s-]+doen[cç]a/i, 'auxílio por incapacidade temporária'],
+  [/aposentadoria\s+por\s+invalidez/i, 'aposentadoria por incapacidade permanente'],
+  [/per[ií]odo\s+de\s+gra[cç]a/i, 'mantém a qualidade de segurado, independentemente de contribuições', ['%independentemente de contribuic%']],
+  [/\bDIB\b/, 'data de início do benefício'],
+  [/\bDER\b/, 'data de entrada do requerimento'],
+  [/\bPBC\b/, 'período básico de cálculo'],
+];
+
+function expandLegalJargon(text = '') {
+  const base = String(text || '').trim();
+  if (!base) return base;
+  const additions = LEGAL_JARGON_EXPANSIONS
+    .filter(([pattern, expansion]) => expansion && pattern.test(base) && !base.toLowerCase().includes(expansion.toLowerCase()))
+    .map(([, expansion]) => expansion);
+  return additions.length ? `${base}\n(${additions.join('; ')})` : base;
+}
+
+// A lei nao usa o jargao ("ped�gio" nao aparece no art. 20 da EC 103) e a busca por vetor deixa esse trecho em
+// ultimo. Frases que a lei usa (ja sem acento, ILIKE): os trechos que batem entram garantidos no contexto.
+function getLegalAnchorPatterns(text = '') {
+  const base = String(text || '');
+  if (!base.trim()) return [];
+  return [...new Set(LEGAL_JARGON_EXPANSIONS
+    .filter(([pattern, , anchors]) => Array.isArray(anchors) && anchors.length && pattern.test(base))
+    .flatMap(([, , anchors]) => anchors))];
+}
+
+const DEFAULT_RAG_ANCHOR_LIMIT = Math.max(0, Math.min(Number(process.env.RAG_ANCHOR_LIMIT ?? 8) || 0, 24));
+async function searchAnchorPhraseChunks(queryText, agentId, limit = DEFAULT_RAG_ANCHOR_LIMIT) {
+  const patterns = getLegalAnchorPatterns(queryText);
+  if (!limit || !patterns.length || !agentId) return [];
+  try {
+    return await withDatabaseFallback(
+      'searchAnchorPhraseChunks',
+      async () => {
+        const hits = patterns.map((_, index) => `(CASE WHEN x.folded_content ILIKE $${index + 2} THEN 1 ELSE 0 END)`).join(' + ');
+        const result = await pool.query(`
+          WITH x AS MATERIALIZED (
+            SELECT dc.document_id, dc.content, dc.chunk_index,
+              COALESCE(d.title, 'Documento sem t�tulo') AS document_title,
+              ${sqlAccentFold('dc.content')} AS folded_content
+            FROM document_chunks dc
+            LEFT JOIN documents d ON d.id = dc.document_id
+            WHERE dc.agent_id = $1
+          )
+          SELECT x.document_id, x.content, x.chunk_index, x.document_title, (${hits}) AS hits
+          FROM x
+          WHERE (${hits}) > 0
+          ORDER BY hits DESC, x.chunk_index ASC
+          LIMIT $${patterns.length + 2}
+        `, [agentId, ...patterns, limit]);
+        const rows = (result.rows || []).map((row) => ({
+          documentId: row.document_id,
+          documentTitle: row.document_title,
+          content: row.content,
+          chunkIndex: row.chunk_index,
+          similarity: 0,
+        }));
+        console.log(`[ANCHOR_SEARCH] ${rows.length} trechos para ${patterns.length} frases da lei.`);
+        return rows;
+      },
+      async () => []
+    );
+  } catch (error) {
+    console.warn('[ANCHOR_SEARCH] falhou, seguindo sem:', error.message);
+    return [];
+  }
 }
 
 function buildRetrievalQuery(question = '', conversationContext = '') {
@@ -9408,11 +9505,11 @@ async function handleSupabaseConversationMessageFallback({ res, userId, cid, con
             relevantChunks = await getFirstChunks(effectiveAgentId, 5);
           } else {
             retrievalDebug.embeddingAttempted = true;
-            const [vectorChunks, keywordChunks, articleChunks] = await Promise.all([
+            const [vectorChunks, keywordChunks, articleChunks, anchorChunks] = await Promise.all([
               (async () => {
                 let queryEmbedding = null;
                 try {
-                  queryEmbedding = await generateQueryEmbedding(retrievalQuery || userText, {
+                  queryEmbedding = await generateQueryEmbedding(expandLegalJargon(retrievalQuery || userText), {
                     userId,
                     conversationId: cid,
                     requestType: 'chat_embedding_query_supabase_fallback',
@@ -9427,19 +9524,22 @@ async function handleSupabaseConversationMessageFallback({ res, userId, cid, con
                   queryEmbedding,
                   effectiveAgentId,
                   DEFAULT_RAG_VECTOR_LIMIT,
-                  rankingQueryText
+                  expandLegalJargon(rankingQueryText)
                 );
               })(),
-              searchKeywordChunks(rankingQueryText, effectiveAgentId, DEFAULT_RAG_KEYWORD_LIMIT),
+              searchKeywordChunks(expandLegalJargon(rankingQueryText), effectiveAgentId, DEFAULT_RAG_KEYWORD_LIMIT),
               searchExactArticleChunks(userText, effectiveAgentId, DEFAULT_RAG_RETURN_LIMIT),
+              searchAnchorPhraseChunks(rankingQueryText || userText, effectiveAgentId),
             ]);
             retrievalDebug.vectorRetrieved = vectorChunks.length;
             retrievalDebug.keywordRetrieved = keywordChunks.length;
             relevantChunks = rerankRetrievedRows(
               [...articleChunks, ...vectorChunks, ...keywordChunks],
-              rankingQueryText,
+              expandLegalJargon(rankingQueryText),
               DEFAULT_RAG_RETURN_LIMIT
             );
+            relevantChunks = appendSemanticExtras(relevantChunks, vectorChunks);
+            relevantChunks = appendSemanticExtras(relevantChunks, anchorChunks, DEFAULT_RAG_ANCHOR_LIMIT);
           }
 
           const shouldDeepSearchEarly = totalChunkCount <= 1200 && shouldTriggerProactiveDeepSearch({
@@ -10809,11 +10909,11 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
               if (isLookingForBeginning) {
                 relevantChunks = await getFirstChunks(effectiveAgentId, 5);
               } else {
-                const [vectorChunks, keywordChunks, articleChunks] = await Promise.all([
+                const [vectorChunks, keywordChunks, articleChunks, anchorChunks] = await Promise.all([
                   (async () => {
                     let queryEmbedding = null;
                     try {
-                      queryEmbedding = await generateQueryEmbedding(retrievalQuery || userText, {
+                      queryEmbedding = await generateQueryEmbedding(expandLegalJargon(retrievalQuery || userText), {
                         userId,
                         conversationId: cid,
                         requestType: 'chat_embedding_query',
@@ -10828,22 +10928,25 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
                       queryEmbedding,
                       effectiveAgentId,
                       DEFAULT_RAG_VECTOR_LIMIT,
-                      rankingQueryText
+                      expandLegalJargon(rankingQueryText)
                     );
                   })(),
                   searchKeywordChunks(
-                    rankingQueryText,
+                    expandLegalJargon(rankingQueryText),
                     effectiveAgentId,
                     DEFAULT_RAG_KEYWORD_LIMIT
                   ),
                   searchExactArticleChunks(userText, effectiveAgentId, DEFAULT_RAG_RETURN_LIMIT),
+                  searchAnchorPhraseChunks(rankingQueryText || userText, effectiveAgentId),
                 ]);
 
                 relevantChunks = rerankRetrievedRows(
                   [...articleChunks, ...vectorChunks, ...keywordChunks],
-                  rankingQueryText,
+                  expandLegalJargon(rankingQueryText),
                   DEFAULT_RAG_RETURN_LIMIT
                 );
+                relevantChunks = appendSemanticExtras(relevantChunks, vectorChunks);
+                relevantChunks = appendSemanticExtras(relevantChunks, anchorChunks, DEFAULT_RAG_ANCHOR_LIMIT);
               }
 
               const shouldDeepSearchEarly = totalChunkCount <= 1200 && shouldTriggerProactiveDeepSearch({
