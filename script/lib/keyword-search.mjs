@@ -10,6 +10,31 @@ export function sqlAccentFold(expression) {
   return `translate(${expression}, '${SQL_ACCENT_FROM}', '${SQL_ACCENT_TO}')`;
 }
 
+// translate() roda em todos os trechos do agente a cada pergunta: 5 a 14 s nos
+// agentes grandes. A regex com classes de acento (~*) acha os mesmos trechos sem
+// reescrever o texto, em ~0,4 s. Converte um padrao ILIKE (% e _ sao curingas)
+// numa regex do Postgres que ignora acento e caixa.
+const ACCENT_CLASSES = {
+  a: '[aáàâãäAÁÀÂÃÄ]', e: '[eéèêëEÉÈÊË]', i: '[iíìîïIÍÌÎÏ]', o: '[oóòôõöOÓÒÔÕÖ]',
+  u: '[uúùûüUÚÙÛÜ]', c: '[cçCÇ]', n: '[nñNÑ]',
+};
+export function likeToAccentRegex(likePattern = '') {
+  let chars = [...String(likePattern)];
+  const anchoredStart = chars[0] !== '%';
+  const anchoredEnd = chars[chars.length - 1] !== '%';
+  while (chars[0] === '%') chars.shift();
+  while (chars.length && chars[chars.length - 1] === '%') chars.pop();
+  const body = chars.map((ch) => {
+    if (ch === '%') return '.*';
+    if (ch === '_') return '.';
+    // NFD, nao NFKD: com NFKD o "º" de "nº" vira "o" e deixa de achar o texto.
+    const base = ch.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+    if (ACCENT_CLASSES[base]) return ACCENT_CLASSES[base];
+    return ch.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }).join('');
+  return `${anchoredStart ? '^' : ''}${body}${anchoredEnd ? '$' : ''}`;
+}
+
 function foldText(value = '') {
   return String(value || '').normalize('NFKD').replace(/[̀-ͯ]/g, '').toLowerCase();
 }

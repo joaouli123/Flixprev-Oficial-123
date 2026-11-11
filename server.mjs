@@ -33,7 +33,7 @@ import {
 } from './script/lib/aposentadoria-idade-knowledge.mjs';
 import { resolveEmbeddingRoute } from './script/lib/embedding-availability.mjs';
 import { getGeminiThinkingOptions } from './script/lib/gemini-thinking.mjs';
-import { sqlAccentFold, extractNumberedPrecedentPhrases } from './script/lib/keyword-search.mjs';
+import { likeToAccentRegex, extractNumberedPrecedentPhrases } from './script/lib/keyword-search.mjs';
 import { searchOfficialWeb, buildOfficialWebAnswer, buildOfficialWebComplement, findMissingStatements, looksLikeMissingAnswer } from './script/lib/official-web-search.mjs';
 
 const OFFICIAL_WEB_FALLBACK_ENABLED = !/^(0|false|off|no)$/i.test(String(process.env.OFFICIAL_WEB_FALLBACK || '').trim());
@@ -4529,19 +4529,18 @@ async function searchKeywordChunks(queryText, agentId, limit = DEFAULT_RAG_KEYWO
       'searchKeywordChunks',
       async () => {
         // Postgres ILIKE diferencia acento ("transicao" nao acha "transiÃ§Ã£o") e os termos chegam sem acento.
-        // A dobra e calculada uma vez por trecho (CTE materializada): inline custava ~5x mais.
-        const likeClauses = keywords.map((_, index) => `(x.folded_content ILIKE $${index + 2} OR x.folded_title ILIKE $${index + 2})`);
-        const scoreTerms = keywords.map((keyword, index) => `((CASE WHEN x.folded_content ILIKE $${index + 2} THEN ${Math.min(keyword.length, 12) * 2} ELSE 0 END) + (CASE WHEN x.folded_title ILIKE $${index + 2} THEN ${Math.min(keyword.length, 12) * 4} ELSE 0 END))`);
+        // translate() em todo trecho custava 5 a 14 s nos agentes grandes; a regex com classes de acento (~*) acha os mesmos trechos em ~0,4 s.
+        const likeClauses = keywords.map((_, index) => `(x.content ~* $${index + 2} OR x.raw_title ~* $${index + 2})`);
+        const scoreTerms = keywords.map((keyword, index) => `((CASE WHEN x.content ~* $${index + 2} THEN ${Math.min(keyword.length, 12) * 2} ELSE 0 END) + (CASE WHEN x.raw_title ~* $${index + 2} THEN ${Math.min(keyword.length, 12) * 4} ELSE 0 END))`);
         const candidateLimit = Math.max(limit * 8, Math.min(DEFAULT_RAG_CANDIDATE_LIMIT, 600));
         const result = await pool.query(`
-          WITH x AS MATERIALIZED (
+          WITH x AS (
             SELECT
               dc.document_id,
               dc.content,
               dc.chunk_index,
               COALESCE(d.title, 'Documento sem tÃ­tulo') AS document_title,
-              ${sqlAccentFold('dc.content')} AS folded_content,
-              ${sqlAccentFold("COALESCE(d.title, '')")} AS folded_title
+              COALESCE(d.title, '') AS raw_title
             FROM document_chunks dc
             LEFT JOIN documents d ON d.id = dc.document_id
             WHERE dc.agent_id = $1
@@ -4556,7 +4555,7 @@ async function searchKeywordChunks(queryText, agentId, limit = DEFAULT_RAG_KEYWO
           WHERE (${likeClauses.join(' OR ')})
           ORDER BY search_score DESC, x.chunk_index ASC
           LIMIT $${keywords.length + 2}
-        `, [agentId, ...keywords.map((keyword) => `%${keyword}%`), candidateLimit]);
+        `, [agentId, ...keywords.map((keyword) => likeToAccentRegex(`%${keyword}%`)), candidateLimit]);
 
         let candidateRows = Array.isArray(result.rows) ? [...result.rows] : [];
         const lowStrictRecall = candidateRows.length < Math.max(10, Math.floor(limit * 0.75));
@@ -4709,12 +4708,11 @@ async function searchAnchorPhraseChunks(queryText, agentId, limit = DEFAULT_RAG_
     return await withDatabaseFallback(
       'searchAnchorPhraseChunks',
       async () => {
-        const hits = patterns.map((_, index) => `(CASE WHEN x.folded_content ILIKE $${index + 2} THEN 1 ELSE 0 END)`).join(' + ');
+        const hits = patterns.map((_, index) => `(CASE WHEN x.content ~* $${index + 2} THEN 1 ELSE 0 END)`).join(' + ');
         const result = await pool.query(`
-          WITH x AS MATERIALIZED (
+          WITH x AS (
             SELECT dc.document_id, dc.content, dc.chunk_index,
-              COALESCE(d.title, 'Documento sem título') AS document_title,
-              ${sqlAccentFold('dc.content')} AS folded_content
+              COALESCE(d.title, 'Documento sem título') AS document_title
             FROM document_chunks dc
             LEFT JOIN documents d ON d.id = dc.document_id
             WHERE dc.agent_id = $1
@@ -4724,7 +4722,7 @@ async function searchAnchorPhraseChunks(queryText, agentId, limit = DEFAULT_RAG_
           WHERE (${hits}) > 0
           ORDER BY hits DESC, x.chunk_index ASC
           LIMIT $${patterns.length + 2}
-        `, [agentId, ...patterns, limit]);
+        `, [agentId, ...patterns.map(likeToAccentRegex), limit]);
         const rows = (result.rows || []).map((row) => ({
           documentId: row.document_id,
           documentTitle: row.document_title,
