@@ -1735,7 +1735,7 @@ function isAiAccountError(error) {
 }
 
 function publicChatErrorMessage(error) {
-  if (isAiAccountError(error)) return "O serviÁo de IA est· temporariamente indisponÌvel. Tente novamente mais tarde.";
+  if (isAiAccountError(error)) return "O servi√ßo de IA est√° temporariamente indispon√≠vel. Tente novamente mais tarde.";
   if (isRetryableAiError(error)) return "O provedor de IA demorou a responder. Tente novamente em instantes.";
   return error?.message || "Erro interno no chat";
 }
@@ -4690,7 +4690,7 @@ function expandLegalJargon(text = '') {
   return additions.length ? `${base}\n(${additions.join('; ')})` : base;
 }
 
-// A lei nao usa o jargao ("ped·gio" nao aparece no art. 20 da EC 103) e a busca por vetor deixa esse trecho em
+// A lei nao usa o jargao ("ped√°gio" nao aparece no art. 20 da EC 103) e a busca por vetor deixa esse trecho em
 // ultimo. Frases que a lei usa (ja sem acento, ILIKE): os trechos que batem entram garantidos no contexto.
 function getLegalAnchorPatterns(text = '') {
   const base = String(text || '');
@@ -4712,7 +4712,7 @@ async function searchAnchorPhraseChunks(queryText, agentId, limit = DEFAULT_RAG_
         const result = await pool.query(`
           WITH x AS (
             SELECT dc.document_id, dc.content, dc.chunk_index,
-              COALESCE(d.title, 'Documento sem tÌtulo') AS document_title
+              COALESCE(d.title, 'Documento sem t√≠tulo') AS document_title
             FROM document_chunks dc
             LEFT JOIN documents d ON d.id = dc.document_id
             WHERE dc.agent_id = $1
