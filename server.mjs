@@ -4654,6 +4654,61 @@ function normalizeConversationMessage(content = '') {
     .trim();
 }
 
+// Conversa curta (cumprimento, agradecimento, "quem e voce"): nao precisa abrir os documentos.
+// So entra aqui se, tirando as expressoes de cortesia, nao sobrar nenhuma palavra de conteudo.
+const SMALL_TALK_PHRASES = [
+  'bom dia', 'boa tarde', 'boa noite', 'boa madrugada', 'tudo bem', 'tudo bom', 'tudo certo', 'tudo joia',
+  'como vai', 'como voce esta', 'como vc esta', 'como esta', 'e ai', 'e voce', 'e vc', 'muito obrigado', 'muito obrigada',
+  'ate mais', 'ate logo', 'ate amanha', 'quem e voce', 'quem e vc', 'quem voce e', 'o que voce faz', 'o que vc faz',
+  'em que voce pode ajudar', 'em que pode ajudar', 'como voce pode ajudar', 'como pode me ajudar', 'pode me ajudar',
+  'prazer', 'fala', 'salve',
+];
+const SMALL_TALK_WORDS = new Set([
+  'ola', 'oi', 'oie', 'opa', 'eai', 'hey', 'hello', 'hi', 'obrigado', 'obrigada', 'obg', 'brigado', 'brigada', 'valeu', 'vlw',
+  'ok', 'okay', 'certo', 'beleza', 'blz', 'show', 'perfeito', 'otimo', 'legal', 'entendi', 'entendido', 'combinado',
+  'tchau', 'flw', 'bom', 'boa', 'tudo', 'bem', 'ta', 'joia', 'top', 'massa', 'doutor', 'doutora',
+  'dr', 'dra', 'amigo', 'amiga', 'assistente', 'agente', 'pessoal', 'gente', 'ai', 'ae', 'por', 'favor', 'me', 'ajuda',
+  'que', 'muito', 'mesmo', 'demais', 'kk', 'kkk', 'rs', 'haha', 'hehe', 'em', 'ajudou', 'ajudar', 'voce', 'vc', 'pode',
+  'foi', 'isso', 'tambem', 'pra', 'para',
+]);
+
+const SMALL_TALK_PHRASES_LONGEST_FIRST = [...SMALL_TALK_PHRASES].sort((a, b) => b.length - a.length);
+const SMALL_TALK_MARKER = /(^| )(ola|oi|oie|opa|eai|e ai|hey|hello|hi|bom dia|boa tarde|boa noite|boa madrugada|tudo bem|tudo bom|como vai|obrigad[oa]|obg|brigad[oa]|valeu|vlw|tchau|flw|ate mais|ate logo|ate amanha|quem e (voce|vc)|quem voce e|o que (voce|vc) faz|pode ajudar|pode me ajudar|prazer|salve)( |$)/;
+
+function isSmallTalkMessage(text) {
+  const raw = String(text || '').trim();
+  if (!raw || raw.length > 80) return false;
+  let normalized = raw
+    .toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!normalized || /\d/.test(normalized)) return false;
+  // Precisa ter cortesia de verdade: "sim"/"ok" sozinhos respondem a uma pergunta do agente e seguem o fluxo normal.
+  if (!SMALL_TALK_MARKER.test(normalized)) return false;
+  normalized = ` ${normalized} `;
+  for (const phrase of SMALL_TALK_PHRASES_LONGEST_FIRST) {
+    normalized = normalized.split(` ${phrase} `).join('  ');
+  }
+  const leftover = normalized.split(' ').filter((word) => word && !SMALL_TALK_WORDS.has(word) && !/^(k+|a?ha(ha)*|he(he)*|rs+)$/.test(word));
+  return leftover.length === 0;
+}
+
+function buildSmallTalkSystemPrompt(agentData) {
+  const title = String(agentData?.title || agentData?.name || 'assistente').trim();
+  const persona = String(agentData?.instructions || agentData?.description || '').trim().slice(0, 4000);
+  return [
+    `Voce e ${title}, um assistente especializado da plataforma Flixprev.`,
+    persona ? `Seu papel e suas instrucoes:\n${persona}` : '',
+    'A mensagem do usuario agora e so uma conversa curta (cumprimento, agradecimento, despedida ou pergunta sobre quem voce e).',
+    'Responda em portugues do Brasil, de forma natural, cordial e breve (no maximo 3 frases), levando em conta o historico da conversa.',
+    'Em um cumprimento, apresente-se pelo nome e diga em uma frase em que voce pode ajudar, convidando a pessoa a mandar a duvida.',
+    'Em um agradecimento ou despedida, responda de forma simples e se coloque a disposicao.',
+    'Nao cite leis, artigos, prazos ou valores e nao invente informacao juridica nesta resposta.',
+  ].filter(Boolean).join('\n\n');
+}
+
 function buildConversationContext(messages = [], maxMessages = 8, maxChars = 3500) {
   const recentMessages = Array.isArray(messages) ? messages.slice(-maxMessages) : [];
   const normalized = recentMessages
@@ -10897,6 +10952,66 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
       for (let i = 0; i < directPdfAnswer.length; i += chunkSize) {
         const chunk = directPdfAnswer.substring(i, i + chunkSize);
         res.write(`data: ${JSON.stringify({ content: chunk })}\n\n`);
+      }
+      res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+      return res.end();
+    }
+
+    // Cumprimento/agradecimento: responde com a persona do agente e o historico, sem abrir os documentos nem revisar.
+    if (!attachment && !(attachmentContext && attachmentContext.trim()) && isSmallTalkMessage(userText)) {
+      const smallTalkStartedAt = Date.now();
+      let smallTalkAgent = null;
+      if (effectiveAgentId) {
+        try {
+          smallTalkAgent = await withDatabaseFallback(
+            'chat:getAgent:smallTalk',
+            async () => {
+              const agent = await pool.query('SELECT * FROM "agents" WHERE "id" = $1', [effectiveAgentId]);
+              return agent.rows?.[0] || null;
+            },
+            () => getAgentViaSupabase(effectiveAgentId)
+          );
+        } catch (agentError) {
+          console.warn('[CHAT][SMALL_TALK] Agente indisponivel:', agentError?.message || agentError);
+        }
+      }
+
+      let smallTalkResp = '';
+      try {
+        const smallTalkCfg = getAiRuntimeConfig();
+        smallTalkResp = await runChatCompletion({
+          messages: [
+            { role: 'system', content: buildSmallTalkSystemPrompt(smallTalkAgent) },
+            ...hist.rows.slice(-6).map((m) => ({ role: m.role, content: String(m.content || '').slice(0, 1500) })),
+          ],
+          model: smallTalkCfg.fastChatModel || smallTalkCfg.chatModel,
+          userId,
+          conversationId: cid,
+          requestType: 'chat_small_talk',
+          temperature: 0.4,
+          maxTokens: 400,
+          timeoutMs: 20000,
+        });
+      } catch (smallTalkError) {
+        console.warn('[CHAT][SMALL_TALK] Falha na geracao; usando resposta padrao:', smallTalkError?.message || smallTalkError);
+      }
+      smallTalkResp = String(smallTalkResp || '').trim()
+        || `Olá! Sou ${smallTalkAgent?.title || 'o assistente'} e estou aqui para ajudar. Pode mandar sua dúvida.`;
+      smallTalkResp = formatChatAnswerForUser(smallTalkResp);
+
+      await pool.query(
+        'INSERT INTO messages (conversation_id, role, content) VALUES ($1, $2, $3) RETURNING *',
+        [cid, 'assistant', smallTalkResp]
+      );
+      console.log(`[CHAT][TIMING] ${JSON.stringify({ agentId: effectiveAgentId, smallTalk: true, totalMs: Date.now() - smallTalkStartedAt, responseChars: smallTalkResp.length })}`);
+
+      res.setHeader("Content-Type", "text/event-stream");
+      res.setHeader("Cache-Control", "no-cache");
+      res.setHeader("Connection", "keep-alive");
+      res.setHeader("X-Accel-Buffering", "no");
+      if (res.flushHeaders) res.flushHeaders();
+      for (let i = 0; i < smallTalkResp.length; i += 50) {
+        res.write(`data: ${JSON.stringify({ content: smallTalkResp.substring(i, i + 50) })}\n\n`);
       }
       res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
       return res.end();
