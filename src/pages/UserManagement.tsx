@@ -490,17 +490,18 @@ const UserManagement: React.FC = () => {
               <TableHead>USUÁRIO</TableHead>
               <TableHead>CONTATO</TableHead>
               <TableHead>RAMOS / REGIÃO</TableHead>
-              <TableHead>PERFIL</TableHead>
-              <TableHead>ORIGEM / CADASTRO</TableHead>
+              {/* Em telas menores que 2xl, PERFIL e ORIGEM entram nas colunas USUÁRIO e CONTATO para a tabela caber sem rolar para o lado. */}
+              <TableHead className="hidden 2xl:table-cell">PERFIL</TableHead>
+              <TableHead className="hidden 2xl:table-cell">ORIGEM / CADASTRO</TableHead>
               <TableHead>STATUS</TableHead>
               <TableHead>PLANO</TableHead>
-              <TableHead className="text-right">AÇÕES</TableHead>
+              <TableHead className="sticky right-0 z-10 bg-slate-50 text-right shadow-[-8px_0_8px_-8px_rgba(15,23,42,0.15)]">AÇÕES</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredUsers.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-slate-500 py-12">
+                <TableCell colSpan={8} className="text-center text-slate-500 py-12">
                   Nenhum usuário encontrado com os filtros aplicados.
                 </TableCell>
               </TableRow>
@@ -518,10 +519,16 @@ const UserManagement: React.FC = () => {
                     <TableCell>
                       <div className="font-semibold text-slate-900">{nome}</div>
                       <div className="text-sm text-slate-500">{user.email || "-"}</div>
+                      <div className="mt-1 text-xs text-slate-500 2xl:hidden">
+                        {[user.sexo, user.profissao, user.idade != null ? `${user.idade} anos` : null].filter(Boolean).join(" · ") || "Perfil não informado"}
+                      </div>
+                      {user.data_nascimento && <div className="text-xs text-slate-400 2xl:hidden">Nascimento: {nascimento}</div>}
                     </TableCell>
                     <TableCell>
                       <div className="text-sm font-medium text-slate-900">CPF: {user.documento || "-"}</div>
                       <div className="text-sm text-slate-500">WhatsApp: {user.telefone || "-"}</div>
+                      <div className="mt-1 text-xs text-slate-500 2xl:hidden">Origem: {formatOriginLabel(user.origem_cadastro)}</div>
+                      <div className="text-xs text-slate-400 2xl:hidden">Cadastro: {cadastro}</div>
                     </TableCell>
                     <TableCell>
                       <div className="text-sm text-slate-900">{formatPracticeAreas(user.ramos_atuacao) || "-"}</div>
@@ -531,13 +538,13 @@ const UserManagement: React.FC = () => {
                       </div>
                       {user.cep && <div className="text-xs text-slate-400">CEP: {user.cep}</div>}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="hidden 2xl:table-cell">
                       <div className="text-sm text-slate-900">Sexo: {user.sexo || "-"}</div>
                       <div className="text-sm text-slate-500">Profissão: {user.profissao || "-"}</div>
                       <div className="text-sm text-slate-500">Idade: {user.idade ?? "-"}</div>
                       <div className="text-xs text-slate-400">Nascimento: {nascimento}</div>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="hidden 2xl:table-cell">
                       <div className="text-sm font-medium text-slate-900">{formatOriginLabel(user.origem_cadastro)}</div>
                       <div className="text-sm text-slate-500">Cadastro: {cadastro}</div>
                     </TableCell>
@@ -571,7 +578,7 @@ const UserManagement: React.FC = () => {
                           : "Vitalício / sem expiração"}
                       </div>
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="sticky right-0 z-10 bg-white text-right shadow-[-8px_0_8px_-8px_rgba(15,23,42,0.15)]">
                       <div className="flex items-center justify-end gap-1">
                         <Button variant="ghost" size="sm" onClick={() => handleEditUserRole(user)} className="text-indigo-600 hover:bg-indigo-50">
                           <Edit className="h-4 w-4" />
