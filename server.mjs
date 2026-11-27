@@ -10977,23 +10977,32 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
       }
 
       let smallTalkResp = '';
-      try {
-        const smallTalkCfg = getAiRuntimeConfig();
-        smallTalkResp = await runChatCompletion({
-          messages: [
-            { role: 'system', content: buildSmallTalkSystemPrompt(smallTalkAgent) },
-            ...hist.rows.slice(-6).map((m) => ({ role: m.role, content: String(m.content || '').slice(0, 1500) })),
-          ],
-          model: smallTalkCfg.fastChatModel || smallTalkCfg.chatModel,
-          userId,
-          conversationId: cid,
-          requestType: 'chat_small_talk',
-          temperature: 0.4,
-          maxTokens: 400,
-          timeoutMs: 20000,
-        });
-      } catch (smallTalkError) {
-        console.warn('[CHAT][SMALL_TALK] Falha na geracao; usando resposta padrao:', smallTalkError?.message || smallTalkError);
+      const smallTalkCfg = getAiRuntimeConfig();
+      const smallTalkMessages = [
+        { role: 'system', content: buildSmallTalkSystemPrompt(smallTalkAgent) },
+        ...hist.rows.slice(-6).map((m) => ({ role: m.role, content: String(m.content || '').slice(0, 1500) })),
+      ];
+      // flash-lite nao "pensa": responde o cumprimento em ~1s (o flash leva 3-5s e o pro ~7s so raciocinando).
+      const smallTalkModels = [...new Set([
+        process.env.SMALL_TALK_MODEL || (smallTalkCfg.chatProvider === 'gemini-express' ? 'gemini-3.1-flash-lite' : ''),
+        smallTalkCfg.chatModel,
+      ].filter(Boolean))];
+      for (const smallTalkModel of smallTalkModels) {
+        try {
+          smallTalkResp = await runChatCompletion({
+            messages: smallTalkMessages,
+            model: smallTalkModel,
+            userId,
+            conversationId: cid,
+            requestType: 'chat_small_talk',
+            temperature: 0.4,
+            maxTokens: 400,
+            timeoutMs: 15000,
+          });
+          if (String(smallTalkResp || '').trim()) break;
+        } catch (smallTalkError) {
+          console.warn(`[CHAT][SMALL_TALK] Falha com ${smallTalkModel}:`, smallTalkError?.message || smallTalkError);
+        }
       }
       smallTalkResp = String(smallTalkResp || '').trim()
         || `Olá! Sou ${smallTalkAgent?.title || 'o assistente'} e estou aqui para ajudar. Pode mandar sua dúvida.`;
