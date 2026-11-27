@@ -3022,15 +3022,15 @@ async function extractPdfTextViaAiFallback(fileBuffer, filePath) {
   }
 
   try {
-    const geminiKey = process.env.GEMINI_API_KEY;
     const geminiModel = process.env.GEMINI_PDF_MODEL || process.env.GEMINI_DIRECT_MODEL || 'gemini-3.8-flash';
+    const geminiPdfUrl = getGeminiPdfGenerateUrl(geminiModel);
 
-    if (!geminiKey) {
+    if (!geminiPdfUrl) {
       return '';
     }
 
     const geminiResp = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(geminiModel)}:generateContent?key=${encodeURIComponent(geminiKey)}`,
+      geminiPdfUrl,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -3357,12 +3357,23 @@ async function fetchLinkKnowledgeSource(rawUrl) {
   return sharedFetchLinkKnowledgeSource(rawUrl);
 }
 
+// Leitura de PDF: usa a mesma chave do chat (Agent Platform Express, que tem credito)
+// quando o chat esta nela; so cai na GEMINI_API_KEY (AI Studio pre-pago) fora disso.
+function getGeminiPdfGenerateUrl(model) {
+  const cfg = getAiRuntimeConfig();
+  if (cfg.chatProvider === 'gemini-express' && cfg.chatApiKey && cfg.chatBaseURL) {
+    return `${String(cfg.chatBaseURL).replace(/\/+$/, '')}/publishers/google/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(cfg.chatApiKey)}`;
+  }
+  const geminiKey = process.env.GEMINI_API_KEY;
+  if (!geminiKey) return '';
+  return `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(geminiKey)}`;
+}
+
 async function askGeminiDirectlyFromPdf(fullPath, fileName, question, agentInstructions = '', logContext = {}) {
   try {
-    const geminiKey = process.env.GEMINI_API_KEY;
-    if (!geminiKey) return '';
-
     const model = process.env.GEMINI_DIRECT_MODEL || process.env.GEMINI_PDF_MODEL || 'gemini-3.8-flash';
+    const geminiPdfUrl = getGeminiPdfGenerateUrl(model);
+    if (!geminiPdfUrl) return '';
     const pdfBuffer = await fs.promises.readFile(fullPath);
     const maxBytes = 18 * 1024 * 1024;
     if (pdfBuffer.length > maxBytes) {
@@ -3378,7 +3389,7 @@ Pergunta do usuário: ${question || 'Resuma o documento anexado.'}
 Responda de forma objetiva em português. Se possível, traga resumo e pontos principais.`;
 
     const resp = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(geminiKey)}`,
+      geminiPdfUrl,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
