@@ -1,4 +1,4 @@
-export const TypingIndicator = ({ label = "Consultando os documentos" }: { label?: string }) => {
+export const TypingIndicator = ({ label = "Pensando" }: { label?: string }) => {
   return (
     <div className="flex items-center gap-2 py-1">
       <div className="flex gap-1 items-center h-full">

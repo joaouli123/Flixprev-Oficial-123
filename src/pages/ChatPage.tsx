@@ -97,7 +97,7 @@ const ChatPage = () => {
     }
   }, [urlConvId]);
   const [isSending, setIsSending] = useState(false);
-  const [sendStatus, setSendStatus] = useState("Consultando os documentos");
+  const [sendStatus, setSendStatus] = useState("Pensando");
   const [isLoading, setIsLoading] = useState(true);
   const sendingConversationRef = useRef<number | "creating" | null>(null);
   const [pendingAttachment, setPendingAttachment] = useState<File | null>(null);
@@ -302,7 +302,7 @@ const ChatPage = () => {
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
     setIsSending(true);
-    setSendStatus("Consultando os documentos");
+    setSendStatus("Pensando");
 
     try {
       const convId = activeConversationId;

@@ -9606,7 +9606,7 @@ async function handleSupabaseConversationMessageFallback({ res, userId, cid, con
   res.setHeader('Connection', 'keep-alive');
   res.setHeader('X-Accel-Buffering', 'no');
   if (res.flushHeaders) res.flushHeaders();
-  res.write(`data: ${JSON.stringify({ status: 'Consultando os documentos' })}\n\n`);
+  res.write(`data: ${JSON.stringify({ status: 'Pensando' })}\n\n`);
   // Cloudflare corta a conexao apos ~100s sem bytes; o ping (comentario SSE) mantem viva enquanto a resposta e montada.
   const sseHeartbeat = setInterval(() => { if (!res.writableEnded) res.write(': ping\n\n'); }, 15000);
   res.on('close', () => clearInterval(sseHeartbeat));
@@ -9746,7 +9746,7 @@ async function handleSupabaseConversationMessageFallback({ res, userId, cid, con
   }
 
   console.log(`[CHAT][SUPABASE-FALLBACK] Retrieval summary: ${JSON.stringify(retrievalDebug)}`);
-  res.write(`data: ${JSON.stringify({ status: 'Conferindo a resposta com as fontes' })}\n\n`);
+  res.write(`data: ${JSON.stringify({ status: 'Escrevendo' })}\n\n`);
   const questionArticles = extractLegalReferenceSignals(userText).articleNumbers;
   const retrievedArticles = extractLegalReferenceSignals(mergedContext).articleNumbers;
   const confirmedAbsentArticle = !usedDirectPdfAnswer && effectiveAgentId && totalChunkCount > 0
@@ -9816,7 +9816,7 @@ async function handleSupabaseConversationMessageFallback({ res, userId, cid, con
 
     // Só ampliar a busca quando a primeira resposta não encontrou base suficiente.
     if (!confirmedAbsentArticle && !usedDirectPdfAnswer && effectiveAgentId && agentDetails && totalChunkCount > 0 && isGroundedFallbackResponse(finalAssistantText) && retrievalDebug.deepRetrieved === 0 && await shouldRetryDeepSearch(userText, effectiveAgentId)) {
-      res.write(`data: ${JSON.stringify({ status: 'Ampliando a busca nos documentos' })}\n\n`);
+      res.write(`data: ${JSON.stringify({ status: 'Pensando mais um pouco' })}\n\n`);
       retrievalDebug.retryAttempted = true;
       retrievalDebug.deepSearchTriggered = true;
 
@@ -11064,7 +11064,7 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
     res.setHeader("Connection", "keep-alive");
     res.setHeader("X-Accel-Buffering", "no");
     if (res.flushHeaders) res.flushHeaders();
-    res.write(`data: ${JSON.stringify({ status: 'Consultando os documentos' })}\n\n`);
+    res.write(`data: ${JSON.stringify({ status: 'Pensando' })}\n\n`);
     // Cloudflare corta a conexao apos ~100s sem bytes; o ping (comentario SSE) mantem viva enquanto a resposta e montada.
     const sseHeartbeat = setInterval(() => { if (!res.writableEnded) res.write(': ping\n\n'); }, 15000);
     res.on('close', () => clearInterval(sseHeartbeat));
@@ -11223,7 +11223,7 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
     const history = hist.rows.slice(-10).map(m => ({ role: m.role, content: m.content }));
     msgs.push(...history);
 
-    res.write(`data: ${JSON.stringify({ status: 'Conferindo a resposta com as fontes' })}\n\n`);
+    res.write(`data: ${JSON.stringify({ status: 'Escrevendo' })}\n\n`);
     const generationStartedAt = Date.now();
     const questionArticles = extractLegalReferenceSignals(userText).articleNumbers;
     const retrievedArticles = extractLegalReferenceSignals(mergedContext).articleNumbers;
@@ -11285,7 +11285,7 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
     );
 
     if (!confirmedAbsentArticle && effectiveAgentId && agentData && totalChunkCount > 0 && isGroundedFallbackResponse(validatedResp) && preAnswerDeepRetrieved === 0 && (Date.now() - retrievalStartedAt) < POST_STEPS_BUDGET_MS && await shouldRetryDeepSearch(userText, effectiveAgentId)) {
-      res.write(`data: ${JSON.stringify({ status: 'Ampliando a busca nos documentos' })}\n\n`);
+      res.write(`data: ${JSON.stringify({ status: 'Pensando mais um pouco' })}\n\n`);
       try {
         const deepResult = await searchDeepAgentChunks({
           question: userText,
@@ -11371,7 +11371,7 @@ app.post("/api/conversations/:id/messages", async (req, res) => {
     if (OFFICIAL_WEB_FALLBACK_ENABLED && effectiveAgentId && !attachmentContext && (officialWebFullMissing || officialWebGaps.length > 0)) {
       const officialWebStartedAt = Date.now();
       try {
-        res.write(`data: ${JSON.stringify({ status: 'Pesquisando em fontes oficiais na internet' })}\n\n`);
+        res.write(`data: ${JSON.stringify({ status: 'Pesquisando' })}\n\n`);
         const aiCfgWeb = getAiRuntimeConfig();
         const webModel = process.env.OFFICIAL_WEB_MODEL || 'gemini-3-flash-preview';
         const web = await searchOfficialWeb({
